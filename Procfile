@@ -1,1 +1,1 @@
-web: gunicorn CISAHUAYO.wsgi
+web: python manage.py collectstatic --noinput && gunicorn CISAHUAYO.wsgi

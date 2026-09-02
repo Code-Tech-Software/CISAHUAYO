@@ -18,7 +18,6 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
@@ -33,7 +32,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://cisahuayo.up.railway.app",
 ]
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -44,6 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'whitenoise.runserver_nostatic',
+    'cloudinary',
+    'cloudinary_storage',
+    'Alumnos',
 ]
 
 MIDDLEWARE = [
@@ -58,10 +59,18 @@ MIDDLEWARE = [
 ]
 
 STORAGES = {
-    # ...
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
+}
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
 
 ROOT_URLCONF = 'CISAHUAYO.urls'
@@ -83,22 +92,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'CISAHUAYO.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 
 DATABASES = {
-   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
+    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
 }
 
-
-#DATABASES = {
+# DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.sqlite3',
 #        'NAME': BASE_DIR / 'db.sqlite3',
 #    }
-#}
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
@@ -118,10 +125,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-
-
-
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
@@ -133,12 +136,10 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
-
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # recolecta todo lo estatic
 # Email
@@ -149,5 +150,3 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
-
-

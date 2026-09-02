@@ -1,1 +1,1 @@
-web:  python manage.py collectstatic && gunicorn CISAHUAYO.wsgi
+web: python manage.py collectstatic && gunicorn CISAHUAYO.wsgi

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>
+        {% block title %}
+            Colegio
+        {% endblock %}
+    </title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            border: 1px solid #ccc;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        .mensaje {
+            padding: 10px;
+            background: #dff0d8;
+            margin-bottom: 15px;
+        }
+
+        .boton {
+            display: inline-block;
+            padding: 7px 12px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border: 0;
+            cursor: pointer;
+        }
+
+        .boton-secundario {
+            display: inline-block;
+            padding: 6px 10px;
+            background: #777;
+            color: white;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sistema escolar</h1>
+    <hr>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="mensaje">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    {% block content %}
+    {% endblock %}
+</body>
+</html>

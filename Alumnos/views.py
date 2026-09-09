@@ -16,7 +16,6 @@ from .models import (
     AsistenciaMateria,
 )
 
-@login_required
 def asistencia_rapida(request):
 
     fecha = timezone.localdate()

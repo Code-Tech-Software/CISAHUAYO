@@ -1,0 +1,1298 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Dashboard | CISAHUAYO
+{% endblock %}
+
+{% block breadcrumb %}
+    Dashboard
+{% endblock %}
+
+{% block page_title %}
+    Dashboard
+{% endblock %}
+
+{% block page_heading %}
+    {% if request.user.is_authenticated %}
+        Hola,
+        {{ request.user.first_name|default:request.user.username }}
+    {% else %}
+        Bienvenido a CISAHUAYO
+    {% endif %}
+{% endblock %}
+
+{% block page_description %}
+    Aquí tienes un resumen de lo que está ocurriendo en el colegio.
+{% endblock %}
+
+
+{% block page_actions %}
+
+    <button class="btn btn-ghost bg-base-100 shadow-sm">
+
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="size-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7V3m8 4V3M5 11h14M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+            />
+        </svg>
+
+        {% now "d/m/Y" %}
+
+    </button>
+
+    <button class="btn btn-primary">
+
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="size-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 5v14m-7-7h14"
+            />
+        </svg>
+
+        Nueva inscripción
+
+    </button>
+
+{% endblock %}
+
+
+
+{% block content %}
+
+
+
+
+<!-- ============================================================
+     ESTADÍSTICAS PRINCIPALES
+============================================================= -->
+<section
+    class="
+        grid gap-4
+        sm:grid-cols-2
+        xl:grid-cols-4
+    "
+>
+
+    <!-- alumnos -->
+    <div
+        class="
+            group
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            p-5
+            shadow-sm
+            transition
+            duration-300
+            hover:-translate-y-1
+            hover:shadow-lg
+        "
+    >
+
+        <div class="flex items-start justify-between">
+
+            <div
+                class="
+                    flex size-12
+                    items-center justify-center
+                    rounded-2xl
+                    bg-primary/10
+                    text-primary
+                "
+            >
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="size-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87m-2-12a4 4 0 0 1 0 7.75"
+                    />
+                </svg>
+
+            </div>
+
+            <span class="badge badge-success badge-soft">
+                +8.4%
+            </span>
+
+        </div>
+
+
+        <div class="mt-5">
+
+            <p class="text-sm text-base-content/55">
+                Alumnos activos
+            </p>
+
+            <p class="mt-1 text-3xl font-black tracking-tight">
+                {{ total_alumnos|default:"248" }}
+            </p>
+
+            <p class="mt-2 text-xs text-base-content/45">
+                18 alumnos nuevos este ciclo
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- tutores -->
+    <div
+        class="
+            group
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            p-5
+            shadow-sm
+            transition
+            duration-300
+            hover:-translate-y-1
+            hover:shadow-lg
+        "
+    >
+
+        <div class="flex items-start justify-between">
+
+            <div
+                class="
+                    flex size-12
+                    items-center justify-center
+                    rounded-2xl
+                    bg-secondary/10
+                    text-secondary
+                "
+            >
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="size-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm11 0v6m3-3h-6"
+                    />
+                </svg>
+
+            </div>
+
+            <span class="badge badge-ghost">
+                Actualizado
+            </span>
+
+        </div>
+
+
+        <div class="mt-5">
+
+            <p class="text-sm text-base-content/55">
+                Tutores registrados
+            </p>
+
+            <p class="mt-1 text-3xl font-black tracking-tight">
+                {{ total_tutores|default:"184" }}
+            </p>
+
+            <p class="mt-2 text-xs text-base-content/45">
+                Expedientes vinculados
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- inscripciones -->
+    <div
+        class="
+            group
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            p-5
+            shadow-sm
+            transition
+            duration-300
+            hover:-translate-y-1
+            hover:shadow-lg
+        "
+    >
+
+        <div class="flex items-start justify-between">
+
+            <div
+                class="
+                    flex size-12
+                    items-center justify-center
+                    rounded-2xl
+                    bg-success/10
+                    text-success
+                "
+            >
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="size-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12h6m-6 4h6M7 3h7l5 5v13H7V3Zm7 0v5h5"
+                    />
+                </svg>
+
+            </div>
+
+            <span class="badge badge-success badge-soft">
+                +12
+            </span>
+
+        </div>
+
+
+        <div class="mt-5">
+
+            <p class="text-sm text-base-content/55">
+                Inscripciones
+            </p>
+
+            <p class="mt-1 text-3xl font-black tracking-tight">
+                {{ total_inscripciones|default:"236" }}
+            </p>
+
+            <p class="mt-2 text-xs text-base-content/45">
+                Registradas en el ciclo actual
+            </p>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- asistencia -->
+    <div
+        class="
+            group
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            p-5
+            shadow-sm
+            transition
+            duration-300
+            hover:-translate-y-1
+            hover:shadow-lg
+        "
+    >
+
+        <div class="flex items-start justify-between">
+
+            <div
+                class="
+                    flex size-12
+                    items-center justify-center
+                    rounded-2xl
+                    bg-warning/10
+                    text-warning
+                "
+            >
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="size-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                    />
+                </svg>
+
+            </div>
+
+            <span class="badge badge-warning badge-soft">
+                Hoy
+            </span>
+
+        </div>
+
+
+        <div class="mt-5">
+
+            <p class="text-sm text-base-content/55">
+                Asistencia general
+            </p>
+
+            <p class="mt-1 text-3xl font-black tracking-tight">
+                {{ porcentaje_asistencia|default:"94" }}%
+            </p>
+
+            <p class="mt-2 text-xs text-base-content/45">
+                Promedio del día
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- ============================================================
+     BLOQUE CENTRAL
+============================================================= -->
+<section
+    class="
+        mt-6
+        grid gap-6
+        xl:grid-cols-[1.6fr_1fr]
+    "
+>
+
+    <!-- ========================================================
+         ASISTENCIA
+    ========================================================= -->
+    <div
+        class="
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            shadow-sm
+        "
+    >
+
+        <div
+            class="
+                flex flex-col gap-3
+                border-b border-base-300
+                p-5
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+            "
+        >
+
+            <div>
+
+                <h3 class="text-lg font-bold">
+                    Resumen de asistencia
+                </h3>
+
+                <p class="text-sm text-base-content/50">
+                    Asistencia registrada por nivel escolar
+                </p>
+
+            </div>
+
+
+            <button class="btn btn-sm btn-ghost">
+                Ver reporte
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="size-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="m9 18 6-6-6-6"
+                    />
+                </svg>
+            </button>
+
+        </div>
+
+
+        <div class="p-5">
+
+            <!-- general -->
+            <div
+                class="
+                    mb-6
+                    flex flex-col gap-5
+                    rounded-2xl
+                    bg-base-200
+                    p-5
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between
+                "
+            >
+
+                <div>
+
+                    <p class="text-sm text-base-content/55">
+                        Asistencia promedio
+                    </p>
+
+                    <div class="mt-1 flex items-end gap-2">
+
+                        <span class="text-4xl font-black">
+                            94%
+                        </span>
+
+                        <span class="mb-1 text-sm text-success">
+                            ↑ 2.4%
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div class="w-full max-w-sm">
+
+                    <div class="mb-2 flex justify-between text-xs">
+                        <span>Meta mensual</span>
+                        <span class="font-bold">94 / 100</span>
+                    </div>
+
+                    <progress
+                        class="progress progress-success w-full"
+                        value="94"
+                        max="100"
+                    ></progress>
+
+                </div>
+
+            </div>
+
+
+            <div class="space-y-5">
+
+                <!-- preescolar -->
+                <div>
+
+                    <div class="mb-2 flex items-center justify-between">
+
+                        <div class="flex items-center gap-2">
+
+                            <span
+                                class="
+                                    size-2.5
+                                    rounded-full
+                                    bg-primary
+                                "
+                            ></span>
+
+                            <span class="text-sm font-medium">
+                                Preescolar
+                            </span>
+
+                        </div>
+
+                        <span class="text-sm font-bold">
+                            97%
+                        </span>
+
+                    </div>
+
+                    <progress
+                        class="progress progress-primary w-full"
+                        value="97"
+                        max="100"
+                    ></progress>
+
+                </div>
+
+
+                <!-- primaria -->
+                <div>
+
+                    <div class="mb-2 flex items-center justify-between">
+
+                        <div class="flex items-center gap-2">
+
+                            <span
+                                class="
+                                    size-2.5
+                                    rounded-full
+                                    bg-secondary
+                                "
+                            ></span>
+
+                            <span class="text-sm font-medium">
+                                Primaria
+                            </span>
+
+                        </div>
+
+                        <span class="text-sm font-bold">
+                            95%
+                        </span>
+
+                    </div>
+
+                    <progress
+                        class="progress progress-secondary w-full"
+                        value="95"
+                        max="100"
+                    ></progress>
+
+                </div>
+
+
+                <!-- secundaria -->
+                <div>
+
+                    <div class="mb-2 flex items-center justify-between">
+
+                        <div class="flex items-center gap-2">
+
+                            <span
+                                class="
+                                    size-2.5
+                                    rounded-full
+                                    bg-accent
+                                "
+                            ></span>
+
+                            <span class="text-sm font-medium">
+                                Secundaria
+                            </span>
+
+                        </div>
+
+                        <span class="text-sm font-bold">
+                            91%
+                        </span>
+
+                    </div>
+
+                    <progress
+                        class="progress progress-accent w-full"
+                        value="91"
+                        max="100"
+                    ></progress>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         INSCRIPCIONES
+    ========================================================= -->
+    <div
+        class="
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            shadow-sm
+        "
+    >
+
+        <div class="border-b border-base-300 p-5">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+
+                    <h3 class="text-lg font-bold">
+                        Inscripciones
+                    </h3>
+
+                    <p class="text-sm text-base-content/50">
+                        Ciclo actual
+                    </p>
+
+                </div>
+
+                <div
+                    class="
+                        flex size-11
+                        items-center justify-center
+                        rounded-2xl
+                        bg-success/10
+                        text-success
+                    "
+                >
+                    ✓
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="p-5">
+
+            <div class="mb-6 text-center">
+
+                <div
+                    class="
+                        radial-progress
+                        text-primary
+                    "
+                    style="--value:86; --size:10rem; --thickness:0.8rem;"
+                    role="progressbar"
+                >
+                    <div class="text-center">
+
+                        <p class="text-3xl font-black">
+                            86%
+                        </p>
+
+                        <p class="text-xs text-base-content/50">
+                            completado
+                        </p>
+
+                    </div>
+                </div>
+
+            </div>
+
+
+            <div class="grid grid-cols-2 gap-3">
+
+                <div class="rounded-2xl bg-base-200 p-4">
+
+                    <p class="text-xs text-base-content/50">
+                        Completadas
+                    </p>
+
+                    <p class="mt-1 text-2xl font-black">
+                        236
+                    </p>
+
+                </div>
+
+
+                <div class="rounded-2xl bg-base-200 p-4">
+
+                    <p class="text-xs text-base-content/50">
+                        Pendientes
+                    </p>
+
+                    <p class="mt-1 text-2xl font-black text-warning">
+                        12
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <button
+                class="
+                    btn
+                    btn-primary
+                    btn-block
+                    mt-5
+                "
+            >
+                Gestionar inscripciones
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- ============================================================
+     PARTE INFERIOR
+============================================================= -->
+<section
+    class="
+        mt-6
+        grid gap-6
+        xl:grid-cols-[1.35fr_.8fr_.85fr]
+    "
+>
+
+    <!-- ========================================================
+         ACTIVIDAD RECIENTE
+    ========================================================= -->
+    <div
+        class="
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            shadow-sm
+        "
+    >
+
+        <div
+            class="
+                flex items-center justify-between
+                border-b border-base-300
+                p-5
+            "
+        >
+
+            <div>
+
+                <h3 class="text-lg font-bold">
+                    Actividad reciente
+                </h3>
+
+                <p class="text-sm text-base-content/50">
+                    Últimos movimientos del sistema
+                </p>
+
+            </div>
+
+            <button class="btn btn-sm btn-ghost">
+                Ver todo
+            </button>
+
+        </div>
+
+
+        <div class="p-5">
+
+            <ul class="timeline timeline-vertical timeline-compact">
+
+                <!-- 1 -->
+                <li>
+
+                    <div class="timeline-middle">
+
+                        <div
+                            class="
+                                flex size-8
+                                items-center justify-center
+                                rounded-full
+                                bg-success/15
+                                text-success
+                            "
+                        >
+                            ✓
+                        </div>
+
+                    </div>
+
+                    <div class="timeline-end mb-6">
+
+                        <p class="font-semibold">
+                            Nueva inscripción registrada
+                        </p>
+
+                        <p class="mt-1 text-sm text-base-content/50">
+                            Se completó el expediente de un alumno.
+                        </p>
+
+                        <p class="mt-1 text-xs text-base-content/35">
+                            Hace 8 minutos
+                        </p>
+
+                    </div>
+
+                    <hr>
+
+                </li>
+
+
+                <!-- 2 -->
+                <li>
+
+                    <hr>
+
+                    <div class="timeline-middle">
+
+                        <div
+                            class="
+                                flex size-8
+                                items-center justify-center
+                                rounded-full
+                                bg-primary/15
+                                text-primary
+                            "
+                        >
+                            👤
+                        </div>
+
+                    </div>
+
+                    <div class="timeline-end mb-6">
+
+                        <p class="font-semibold">
+                            Alumno actualizado
+                        </p>
+
+                        <p class="mt-1 text-sm text-base-content/50">
+                            Se actualizaron datos del expediente escolar.
+                        </p>
+
+                        <p class="mt-1 text-xs text-base-content/35">
+                            Hace 34 minutos
+                        </p>
+
+                    </div>
+
+                    <hr>
+
+                </li>
+
+
+                <!-- 3 -->
+                <li>
+
+                    <hr>
+
+                    <div class="timeline-middle">
+
+                        <div
+                            class="
+                                flex size-8
+                                items-center justify-center
+                                rounded-full
+                                bg-warning/15
+                                text-warning
+                            "
+                        >
+                            !
+                        </div>
+
+                    </div>
+
+                    <div class="timeline-end">
+
+                        <p class="font-semibold">
+                            Asistencia pendiente
+                        </p>
+
+                        <p class="mt-1 text-sm text-base-content/50">
+                            Falta capturar asistencia de un grado.
+                        </p>
+
+                        <p class="mt-1 text-xs text-base-content/35">
+                            Hace 1 hora
+                        </p>
+
+                    </div>
+
+                </li>
+
+            </ul>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         ACCESOS RÁPIDOS
+    ========================================================= -->
+    <div
+        class="
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            p-5
+            shadow-sm
+        "
+    >
+
+        <div class="mb-5">
+
+            <h3 class="text-lg font-bold">
+                Accesos rápidos
+            </h3>
+
+            <p class="text-sm text-base-content/50">
+                Acciones frecuentes
+            </p>
+
+        </div>
+
+
+        <div class="grid grid-cols-2 gap-3">
+
+            <a
+                href="#"
+                class="
+                    group
+                    flex flex-col
+                    gap-4
+                    rounded-2xl
+                    bg-base-200
+                    p-4
+                    transition
+                    hover:bg-primary
+                    hover:text-primary-content
+                "
+            >
+
+                <div
+                    class="
+                        flex size-10
+                        items-center justify-center
+                        rounded-xl
+                        bg-primary/10
+                        text-primary
+                        transition
+                        group-hover:bg-white/15
+                        group-hover:text-white
+                    "
+                >
+                    +
+                </div>
+
+                <span class="text-sm font-bold">
+                    Nuevo alumno
+                </span>
+
+            </a>
+
+
+            <a
+                href="#"
+                class="
+                    group
+                    flex flex-col
+                    gap-4
+                    rounded-2xl
+                    bg-base-200
+                    p-4
+                    transition
+                    hover:bg-secondary
+                    hover:text-secondary-content
+                "
+            >
+
+                <div
+                    class="
+                        flex size-10
+                        items-center justify-center
+                        rounded-xl
+                        bg-secondary/10
+                        text-secondary
+                        transition
+                        group-hover:bg-white/15
+                        group-hover:text-white
+                    "
+                >
+                    👥
+                </div>
+
+                <span class="text-sm font-bold">
+                    Nuevo tutor
+                </span>
+
+            </a>
+
+
+            <a
+                href="#"
+                class="
+                    group
+                    flex flex-col
+                    gap-4
+                    rounded-2xl
+                    bg-base-200
+                    p-4
+                    transition
+                    hover:bg-success
+                    hover:text-success-content
+                "
+            >
+
+                <div
+                    class="
+                        flex size-10
+                        items-center justify-center
+                        rounded-xl
+                        bg-success/10
+                        text-success
+                        transition
+                        group-hover:bg-white/15
+                        group-hover:text-white
+                    "
+                >
+                    ✓
+                </div>
+
+                <span class="text-sm font-bold">
+                    Asistencia
+                </span>
+
+            </a>
+
+
+            <a
+                href="#"
+                class="
+                    group
+                    flex flex-col
+                    gap-4
+                    rounded-2xl
+                    bg-base-200
+                    p-4
+                    transition
+                    hover:bg-warning
+                    hover:text-warning-content
+                "
+            >
+
+                <div
+                    class="
+                        flex size-10
+                        items-center justify-center
+                        rounded-xl
+                        bg-warning/10
+                        text-warning
+                        transition
+                        group-hover:bg-white/15
+                        group-hover:text-white
+                    "
+                >
+                    📄
+                </div>
+
+                <span class="text-sm font-bold">
+                    Reportes
+                </span>
+
+            </a>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         AVISOS
+    ========================================================= -->
+    <div
+        class="
+            rounded-3xl
+            border border-base-300
+            bg-base-100
+            shadow-sm
+        "
+    >
+
+        <div class="border-b border-base-300 p-5">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+
+                    <h3 class="text-lg font-bold">
+                        Próximamente
+                    </h3>
+
+                    <p class="text-sm text-base-content/50">
+                        Fechas importantes
+                    </p>
+
+                </div>
+
+                <button class="btn btn-sm btn-circle btn-ghost">
+                    +
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <div class="space-y-3 p-5">
+
+            <div
+                class="
+                    flex gap-4
+                    rounded-2xl
+                    bg-primary/5
+                    p-4
+                "
+            >
+
+                <div
+                    class="
+                        flex size-12
+                        shrink-0
+                        flex-col
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-primary
+                        text-primary-content
+                    "
+                >
+
+                    <span class="text-[10px] font-bold uppercase">
+                        Sep
+                    </span>
+
+                    <span class="text-lg font-black leading-none">
+                        18
+                    </span>
+
+                </div>
+
+
+                <div class="min-w-0">
+
+                    <p class="truncate text-sm font-bold">
+                        Reunión de tutores
+                    </p>
+
+                    <p class="mt-1 text-xs text-base-content/50">
+                        08:00 AM · Auditorio
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="
+                    flex gap-4
+                    rounded-2xl
+                    bg-secondary/5
+                    p-4
+                "
+            >
+
+                <div
+                    class="
+                        flex size-12
+                        shrink-0
+                        flex-col
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-secondary
+                        text-secondary-content
+                    "
+                >
+
+                    <span class="text-[10px] font-bold uppercase">
+                        Sep
+                    </span>
+
+                    <span class="text-lg font-black leading-none">
+                        22
+                    </span>
+
+                </div>
+
+
+                <div class="min-w-0">
+
+                    <p class="truncate text-sm font-bold">
+                        Consejo técnico
+                    </p>
+
+                    <p class="mt-1 text-xs text-base-content/50">
+                        12:00 PM · Dirección
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="
+                    flex gap-4
+                    rounded-2xl
+                    bg-success/5
+                    p-4
+                "
+            >
+
+                <div
+                    class="
+                        flex size-12
+                        shrink-0
+                        flex-col
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-success
+                        text-success-content
+                    "
+                >
+
+                    <span class="text-[10px] font-bold uppercase">
+                        Sep
+                    </span>
+
+                    <span class="text-lg font-black leading-none">
+                        30
+                    </span>
+
+                </div>
+
+
+                <div class="min-w-0">
+
+                    <p class="truncate text-sm font-bold">
+                        Cierre de evaluaciones
+                    </p>
+
+                    <p class="mt-1 text-xs text-base-content/50">
+                        Fin del periodo
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}

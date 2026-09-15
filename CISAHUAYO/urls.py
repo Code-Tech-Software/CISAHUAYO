@@ -6,7 +6,6 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
 
-    path('', RedirectView.as_view(pattern_name='asistencia_rapida',permanent=False),name='inicio'),
     path('admin/',admin.site.urls),
     path('', include('Alumnos.urls')),
 

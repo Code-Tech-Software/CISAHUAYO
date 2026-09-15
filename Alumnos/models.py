@@ -1,17 +1,19 @@
-from django.db import models
-
-# Create your models here.
 from datetime import date
+
+from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
+from django.utils import timezone
 
 
 class Alumno(models.Model):
+
     SEXO_CHOICES = [
         ('M', 'Masculino'),
         ('F', 'Femenino'),
         ('O', 'Otro'),
     ]
+
     GRUPO_SANGUINEO_CHOICES = [
         ('A+', 'A+'),
         ('A-', 'A-'),
@@ -22,18 +24,21 @@ class Alumno(models.Model):
         ('O+', 'O+'),
         ('O-', 'O-'),
     ]
+
     ESTATUS_CHOICES = [
         ('ACTIVO', 'Activo'),
         ('BAJA', 'Baja'),
         ('EGRESADO', 'Egresado'),
         ('SUSPENDIDO', 'Suspendido'),
     ]
-    referencia = models.CharField(max_length=20, unique=True, verbose_name='Referencia')
-    nombre = models.CharField(max_length=80, verbose_name='Nombre')
-    apellido_paterno = models.CharField(max_length=60, verbose_name='Apellido paterno')
-    apellido_materno = models.CharField(max_length=60, blank=True, verbose_name='Apellido materno')
-    curp = models.CharField(max_length=18, unique=True, verbose_name='CURP')
-    nacionalidad = models.CharField(max_length=50, default='Mexicana', verbose_name='Nacionalidad')
+
+    uid = models.CharField(max_length=50,unique=True,null=True,blank=True,verbose_name='UID de tarjeta')
+    referencia = models.CharField(max_length=20,unique=True,verbose_name='Referencia')
+    nombre = models.CharField(max_length=80,verbose_name='Nombre')
+    apellido_paterno = models.CharField(max_length=60,verbose_name='Apellido paterno')
+    apellido_materno = models.CharField(max_length=60,blank=True,verbose_name='Apellido materno')
+    curp = models.CharField(max_length=18, unique=True,verbose_name='CURP')
+    nacionalidad = models.CharField(max_length=50,default='Mexicana', verbose_name='Nacionalidad')
     sexo = models.CharField(max_length=1, choices=SEXO_CHOICES, verbose_name='Sexo')
     fecha_nacimiento = models.DateField(verbose_name='Fecha de nacimiento')
     grupo_sanguineo = models.CharField(max_length=3, choices=GRUPO_SANGUINEO_CHOICES, verbose_name='Grupo sanguíneo')
@@ -53,28 +58,39 @@ class Alumno(models.Model):
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido_paterno} {self.apellido_materno}".strip()
+        return (
+            f"{self.nombre} "
+            f"{self.apellido_paterno} "
+            f"{self.apellido_materno}"
+        ).strip()
 
     class Meta:
         verbose_name = 'Alumno'
         verbose_name_plural = 'Alumnos'
-        ordering = ['apellido_paterno', 'apellido_materno', 'nombre']
+        ordering = [
+            'apellido_paterno',
+            'apellido_materno',
+            'nombre'
+        ]
         db_table = 'alumnos'
-
-from django.db import models
-from django.core.exceptions import ValidationError
-from django.utils import timezone
 
 
 class CicloEscolar(models.Model):
-    nombre = models.CharField(
-        max_length=30,
-        unique=True,
-        verbose_name='Ciclo escolar'
-    )
-    fecha_inicio = models.DateField()
-    fecha_fin = models.DateField()
-    activo = models.BooleanField(default=True)
+
+    nombre = models.CharField(max_length=30, unique=True, verbose_name='Ciclo escolar')
+    fecha_inicio = models.DateField(verbose_name='Fecha de inicio')
+    fecha_fin = models.DateField(verbose_name='Fecha de fin')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    def clean(self):
+        if (
+            self.fecha_inicio
+            and self.fecha_fin
+            and self.fecha_inicio >= self.fecha_fin
+        ):
+            raise ValidationError(
+                'La fecha de inicio debe ser anterior a la fecha de fin.'
+            )
 
     def __str__(self):
         return self.nombre
@@ -86,22 +102,14 @@ class CicloEscolar(models.Model):
 
 
 class Grado(models.Model):
-
     NIVEL_CHOICES = [
         ('PREESCOLAR', 'Preescolar'),
         ('PRIMARIA', 'Primaria'),
         ('SECUNDARIA', 'Secundaria'),
         ('PREPARATORIA', 'Preparatoria'),
     ]
-
-    nivel = models.CharField(
-        max_length=20,
-        choices=NIVEL_CHOICES
-    )
-
-    numero = models.PositiveSmallIntegerField(
-        verbose_name='Grado'
-    )
+    nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, verbose_name='Nivel')
+    numero = models.PositiveSmallIntegerField(verbose_name='Grado')
 
     def __str__(self):
         return f"{self.numero}° {self.get_nivel_display()}"
@@ -109,82 +117,53 @@ class Grado(models.Model):
     class Meta:
         verbose_name = 'Grado'
         verbose_name_plural = 'Grados'
+        ordering = [
+            'nivel',
+            'numero'
+        ]
         constraints = [
             models.UniqueConstraint(
-                fields=['nivel', 'numero'],
+                fields=[
+                    'nivel',
+                    'numero'
+                ],
                 name='grado_nivel_numero_unico'
             )
         ]
 
 
-class Grupo(models.Model):
-    ciclo = models.ForeignKey(
-        CicloEscolar,
-        on_delete=models.PROTECT,
-        related_name='grupos'
-    )
-
-    grado = models.ForeignKey(
-        Grado,
-        on_delete=models.PROTECT,
-        related_name='grupos'
-    )
-
-    nombre = models.CharField(
-        max_length=20,
-        verbose_name='Grupo'
-    )
-
-    activo = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f"{self.grado} - {self.nombre} ({self.ciclo})"
-
-    class Meta:
-        verbose_name = 'Grupo'
-        verbose_name_plural = 'Grupos'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['ciclo', 'grado', 'nombre'],
-                name='grupo_unico_por_ciclo'
-            )
-        ]
-
-
 class Inscripcion(models.Model):
-    alumno = models.ForeignKey(
-        Alumno,
-        on_delete=models.PROTECT,
-        related_name='inscripciones'
-    )
 
-    grupo = models.ForeignKey(
-        Grupo,
-        on_delete=models.PROTECT,
-        related_name='inscripciones'
-    )
-
-    fecha_inscripcion = models.DateField(
-        default=timezone.localdate
-    )
-
-    activa = models.BooleanField(default=True)
+    alumno = models.ForeignKey(Alumno, on_delete=models.PROTECT, related_name='inscripciones')
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='inscripciones')
+    grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='inscripciones')
+    fecha_inscripcion = models.DateField(default=timezone.localdate, verbose_name='Fecha de inscripción')
+    activa = models.BooleanField(default=True, verbose_name='Activa')
 
     def __str__(self):
-        return f"{self.alumno} - {self.grupo}"
+        return (
+            f"{self.alumno} - "
+            f"{self.grado} - "
+            f"{self.ciclo}"
+        )
 
     def clean(self):
-        """
-        Evita que el alumno aparezca en dos grupos activos
-        del mismo ciclo escolar.
-        """
-        if self.activa and self.grupo_id and self.alumno_id:
 
-            existe = Inscripcion.objects.filter(
-                alumno=self.alumno,
-                grupo__ciclo=self.grupo.ciclo,
-                activa=True
-            ).exclude(pk=self.pk).exists()
+        if (
+            self.activa
+            and self.alumno_id
+            and self.ciclo_id
+        ):
+            existe = (
+                Inscripcion.objects
+                .filter(
+                    alumno=self.alumno,
+                    ciclo=self.ciclo,
+                    activa=True
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
 
             if existe:
                 raise ValidationError(
@@ -197,23 +176,20 @@ class Inscripcion(models.Model):
         verbose_name_plural = 'Inscripciones'
         constraints = [
             models.UniqueConstraint(
-                fields=['alumno', 'grupo'],
-                name='alumno_grupo_unico'
+                fields=[
+                    'alumno',
+                    'ciclo'
+                ],
+                name='alumno_ciclo_unico'
             )
         ]
 
 
 class Materia(models.Model):
-    clave = models.CharField(
-        max_length=20,
-        unique=True
-    )
 
-    nombre = models.CharField(
-        max_length=100
-    )
-
-    activa = models.BooleanField(default=True)
+    clave = models.CharField(max_length=20, unique=True, verbose_name='Clave')
+    nombre = models.CharField(max_length=100, verbose_name='Nombre')
+    activa = models.BooleanField(default=True, verbose_name='Activa')
 
     def __str__(self):
         return self.nombre
@@ -224,38 +200,39 @@ class Materia(models.Model):
         ordering = ['nombre']
 
 
-class MateriaGrupo(models.Model):
-    """
-    Indica qué materias lleva determinado grupo.
-    """
+class MateriaGrado(models.Model):
 
-    grupo = models.ForeignKey(
-        Grupo,
-        on_delete=models.CASCADE,
-        related_name='materias_grupo'
-    )
-
-    materia = models.ForeignKey(
-        Materia,
-        on_delete=models.PROTECT,
-        related_name='grupos_materia'
-    )
-
-    activa = models.BooleanField(default=True)
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='materias_grado')
+    grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='materias_grado')
+    materia = models.ForeignKey(Materia, on_delete=models.PROTECT, related_name='grados_materia')
+    activa = models.BooleanField(default=True, verbose_name='Activa')
 
     def __str__(self):
-        return f"{self.materia} - {self.grupo}"
+        return (
+            f"{self.materia} - "
+            f"{self.grado} - "
+            f"{self.ciclo}"
+        )
 
     class Meta:
-        verbose_name = 'Materia del grupo'
-        verbose_name_plural = 'Materias del grupo'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['grupo', 'materia'],
-                name='materia_grupo_unica'
-            )
+        verbose_name = 'Materia del grado'
+        verbose_name_plural = 'Materias del grado'
+
+        ordering = [
+            'grado',
+            'materia__nombre'
         ]
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'ciclo',
+                    'grado',
+                    'materia'
+                ],
+                name='materia_grado_ciclo_unica'
+            )
+        ]
 
 class HorarioMateria(models.Model):
 
@@ -269,24 +246,27 @@ class HorarioMateria(models.Model):
         (6, 'Domingo'),
     ]
 
-    materia_grupo = models.ForeignKey(
-        MateriaGrupo,
-        on_delete=models.CASCADE,
-        related_name='horarios'
-    )
+    materia_grado = models.ForeignKey(MateriaGrado, on_delete=models.CASCADE, related_name='horarios')
+    dia_semana = models.PositiveSmallIntegerField(choices=DIA_CHOICES, verbose_name='Día')
+    hora_inicio = models.TimeField(verbose_name='Hora de inicio')
+    hora_fin = models.TimeField(verbose_name='Hora de fin')
 
-    dia_semana = models.PositiveSmallIntegerField(
-        choices=DIA_CHOICES
-    )
+    def clean(self):
 
-    hora_inicio = models.TimeField()
-    hora_fin = models.TimeField()
+        if (
+            self.hora_inicio
+            and self.hora_fin
+            and self.hora_inicio >= self.hora_fin
+        ):
+            raise ValidationError(
+                'La hora de inicio debe ser anterior a la hora de fin.'
+            )
 
     def __str__(self):
         return (
-            f"{self.materia_grupo} - "
+            f"{self.materia_grado} - "
             f"{self.get_dia_semana_display()} "
-            f"{self.hora_inicio}"
+            f"{self.hora_inicio} - {self.hora_fin}"
         )
 
     class Meta:
@@ -296,7 +276,17 @@ class HorarioMateria(models.Model):
             'dia_semana',
             'hora_inicio'
         ]
-
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'materia_grado',
+                    'dia_semana',
+                    'hora_inicio',
+                    'hora_fin'
+                ],
+                name='horario_materia_unico'
+            )
+        ]
 
 class AsistenciaGeneral(models.Model):
 
@@ -306,45 +296,43 @@ class AsistenciaGeneral(models.Model):
         ('RETARDO', 'Retardo'),
     ]
 
-    inscripcion = models.ForeignKey(
-        Inscripcion,
-        on_delete=models.CASCADE,
-        related_name='asistencias_generales'
-    )
-
-    fecha = models.DateField()
-
-    estado = models.CharField(
-        max_length=15,
-        choices=ESTADO_CHOICES,
-        default='PRESENTE'
-    )
-
-    observaciones = models.CharField(
-        max_length=250,
-        blank=True
-    )
-
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='asistencias_generales')
+    fecha = models.DateField(verbose_name='Fecha')
+    estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='PRESENTE', verbose_name='Estado')
+    observaciones = models.CharField(max_length=250, blank=True, verbose_name='Observaciones')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.inscripcion.alumno} - {self.fecha} - {self.estado}"
+        return (
+            f"{self.inscripcion.alumno} - "
+            f"{self.fecha} - "
+            f"{self.get_estado_display()}"
+        )
 
     class Meta:
         verbose_name = 'Asistencia general'
         verbose_name_plural = 'Asistencias generales'
-        ordering = ['-fecha']
+
+        ordering = [
+            '-fecha',
+            '-creado'
+        ]
 
         constraints = [
             models.UniqueConstraint(
-                fields=['inscripcion', 'fecha'],
+                fields=[
+                    'inscripcion',
+                    'fecha'
+                ],
                 name='asistencia_general_unica'
             )
         ]
 
         indexes = [
-            models.Index(fields=['fecha']),
+            models.Index(
+                fields=['fecha']
+            ),
         ]
 
 
@@ -356,60 +344,58 @@ class AsistenciaMateria(models.Model):
         ('RETARDO', 'Retardo'),
     ]
 
-    inscripcion = models.ForeignKey(
-        Inscripcion,
-        on_delete=models.CASCADE,
-        related_name='asistencias_materias'
-    )
-
-    materia_grupo = models.ForeignKey(
-        MateriaGrupo,
-        on_delete=models.PROTECT,
-        related_name='asistencias'
-    )
-
-    fecha = models.DateField()
-
-    estado = models.CharField(
-        max_length=15,
-        choices=ESTADO_CHOICES,
-        default='PRESENTE'
-    )
-
-    observaciones = models.CharField(
-        max_length=250,
-        blank=True
-    )
-
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='asistencias_materias')
+    materia_grado = models.ForeignKey(MateriaGrado, on_delete=models.PROTECT, related_name='asistencias')
+    fecha = models.DateField(verbose_name='Fecha')
+    estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='PRESENTE', verbose_name='Estado')
+    observaciones = models.CharField(max_length=250, blank=True, verbose_name='Observaciones')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
     def clean(self):
-        if (
+
+        if not (
             self.inscripcion_id
-            and self.materia_grupo_id
-            and self.inscripcion.grupo_id != self.materia_grupo.grupo_id
+            and self.materia_grado_id
+        ):
+            return
+
+        if (
+            self.inscripcion.grado_id
+            != self.materia_grado.grado_id
         ):
             raise ValidationError(
-                'La materia no pertenece al grupo del alumno.'
+                'La materia no pertenece al grado del alumno.'
+            )
+
+        if (
+            self.inscripcion.ciclo_id
+            != self.materia_grado.ciclo_id
+        ):
+            raise ValidationError(
+                'La materia no pertenece al ciclo escolar '
+                'de la inscripción del alumno.'
             )
 
     def __str__(self):
         return (
             f"{self.inscripcion.alumno} - "
-            f"{self.materia_grupo.materia} - "
+            f"{self.materia_grado.materia} - "
             f"{self.fecha}"
         )
 
     class Meta:
         verbose_name = 'Asistencia por materia'
         verbose_name_plural = 'Asistencias por materia'
-
+        ordering = [
+            '-fecha',
+            '-creado'
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=[
                     'inscripcion',
-                    'materia_grupo',
+                    'materia_grado',
                     'fecha'
                 ],
                 name='asistencia_materia_unica'
@@ -417,61 +403,146 @@ class AsistenciaMateria(models.Model):
         ]
 
         indexes = [
-            models.Index(fields=['fecha']),
+            models.Index(
+                fields=['fecha']
+            ),
         ]
-
 
 class Justificacion(models.Model):
 
-    inscripcion = models.ForeignKey(
-        Inscripcion,
-        on_delete=models.CASCADE,
-        related_name='justificaciones'
-    )
-
-    fecha = models.DateField()
-
-    motivo = models.TextField()
-
-    # Justificar la falta de entrada general al colegio
-    justifica_general = models.BooleanField(
-        default=False,
-        verbose_name='Justificar asistencia general'
-    )
-
-    # Justificar todas las materias de ese día
-    todas_materias = models.BooleanField(
-        default=False,
-        verbose_name='Justificar todas las materias'
-    )
-
-    # Si no son todas, cuáles materias se justifican
-    materias = models.ManyToManyField(
-        MateriaGrupo,
-        blank=True,
-        related_name='justificaciones'
-    )
-
-    documento = models.FileField(
-        upload_to='justificaciones/%Y/%m/',
-        blank=True,
-        null=True,
-        verbose_name='Comprobante'
-    )
-
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='justificaciones')
+    fecha = models.DateField(verbose_name='Fecha')
+    motivo = models.TextField(verbose_name='Motivo')
+    justifica_general = models.BooleanField(default=False, verbose_name='Justificar asistencia general')
+    todas_materias = models.BooleanField(default=False, verbose_name='Justificar todas las materias')
+    materias = models.ManyToManyField(MateriaGrado, blank=True, related_name='justificaciones', verbose_name='Materias')
+    documento = models.FileField(upload_to='justificaciones/%Y/%m/', blank=True, null=True, verbose_name='Comprobante')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.inscripcion.alumno} - {self.fecha}"
+        return (
+            f"{self.inscripcion.alumno} - "
+            f"{self.fecha}"
+        )
 
     class Meta:
         verbose_name = 'Justificación'
         verbose_name_plural = 'Justificaciones'
+        ordering = [
+            '-fecha'
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'inscripcion',
+                    'fecha'
+                ],
+                name='justificacion_alumno_fecha_unica'
+            )
+        ]
+
+
+class Tutor(models.Model):
+
+
+
+    ESTATUS_CHOICES = [
+        ('ACTIVO', 'Activo'),
+        ('INACTIVO', 'Inactivo'),
+    ]
+
+    ESTADO_CIVIL_CHOICES = [
+        ('SOLTERO', 'Soltero/a'),
+        ('CASADO', 'Casado/a'),
+        ('DIVORCIADO', 'Divorciado/a'),
+        ('VIUDO', 'Viudo/a'),
+        ('UNION_LIBRE', 'Unión libre'),
+        ('OTRO', 'Otro'),
+    ]
+
+    nombre = models.CharField(max_length=80, verbose_name='Nombre')
+    apellido_paterno = models.CharField(max_length=60, verbose_name='Apellido paterno')
+    apellido_materno = models.CharField(max_length=60, blank=True, verbose_name='Apellido materno')
+    curp = models.CharField(max_length=18, unique=True, null=True, blank=True, verbose_name='CURP')
+    estado_civil = models.CharField(max_length=20, choices=ESTADO_CIVIL_CHOICES, blank=True, verbose_name='Estado civil')
+    religion = models.CharField(max_length=80, blank=True, verbose_name='Religión')
+    telefono = models.CharField(max_length=20, verbose_name='Teléfono')
+    telefono_alternativo = models.CharField(max_length=20, blank=True, verbose_name='Teléfono alternativo')
+    correo_electronico = models.EmailField(max_length=254,blank=True,null=True,verbose_name='Correo electrónico')
+    domicilio = models.CharField(max_length=200,blank=True, verbose_name='Domicilio')
+    colonia = models.CharField(max_length=100,blank=True,verbose_name='Colonia')
+    ciudad = models.CharField(max_length=100,blank=True,verbose_name='Ciudad')
+    estado = models.CharField(max_length=100,blank=True,verbose_name='Estado')
+    cp = models.CharField(max_length=5,blank=True,validators=[RegexValidator(regex=r'^\d{5}$',message='El código postal debe contener exactamente 5 dígitos.')],verbose_name='Código postal')
+    ocupacion = models.CharField(max_length=100,blank=True,verbose_name='Ocupación')
+    lugar_trabajo = models.CharField(max_length=150,blank=True,verbose_name='Lugar de trabajo')
+    telefono_trabajo = models.CharField(max_length=20,blank=True,verbose_name='Teléfono del trabajo')
+    observaciones = models.TextField(blank=True,verbose_name='Observaciones')
+    estatus = models.CharField(max_length=20,choices=ESTATUS_CHOICES,default='ACTIVO',verbose_name='Estatus')
+    creado = models.DateTimeField( auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return (
+            f"{self.nombre} "
+            f"{self.apellido_paterno} "
+            f"{self.apellido_materno}"
+        ).strip()
+
+    class Meta:
+        verbose_name = 'Tutor'
+        verbose_name_plural = 'Tutores'
+        ordering = [
+            'apellido_paterno',
+            'apellido_materno',
+            'nombre'
+        ]
+
+
+class TutorAlumno(models.Model):
+    PARENTESCO_CHOICES = [
+        ('MADRE', 'Madre'),
+        ('PADRE', 'Padre'),
+        ('ABUELA', 'Abuela'),
+        ('ABUELO', 'Abuelo'),
+        ('HERMANA', 'Hermana'),
+        ('HERMANO', 'Hermano'),
+        ('TIA', 'Tía'),
+        ('TIO', 'Tío'),
+        ('TUTOR_LEGAL', 'Tutor legal'),
+        ('OTRO', 'Otro'),
+    ]
+    tutor = models.ForeignKey(Tutor,on_delete=models.CASCADE,related_name='alumnos_relacionados')
+    alumno = models.ForeignKey(Alumno,on_delete=models.CASCADE,related_name='tutores_relacionados')
+    parentesco = models.CharField(max_length=20,choices=PARENTESCO_CHOICES,verbose_name='Parentesco')
+    tutor_principal = models.BooleanField( default=False,verbose_name='Tutor principal')
+    contacto_emergencia = models.BooleanField(default=False,verbose_name='Contacto de emergencia')
+    autorizado_recoger = models.BooleanField(default=False,verbose_name='Autorizado para recoger al alumno')
+    recibe_notificaciones = models.BooleanField(default=True,verbose_name='Recibe notificaciones')
+    responsable_pagos = models.BooleanField(default=False,verbose_name='Responsable de pagos')
+    observaciones = models.TextField(blank=True,verbose_name='Observaciones')
+    activo = models.BooleanField(default=True,verbose_name='Activo')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return (
+            f"{self.tutor} - "
+            f"{self.alumno} - "
+            f"{self.get_parentesco_display()}"
+        )
+
+    class Meta:
+        verbose_name = 'Tutor del alumno'
+        verbose_name_plural = 'Tutores de alumnos'
 
         constraints = [
             models.UniqueConstraint(
-                fields=['inscripcion', 'fecha'],
-                name='justificacion_alumno_fecha_unica'
+                fields=[
+                    'tutor',
+                    'alumno'
+                ],
+                name='tutor_alumno_unico'
             )
         ]

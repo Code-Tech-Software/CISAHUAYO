@@ -6,4 +6,121 @@
 @source not "./tailwindcss";
 @source not "./daisyui{,*}.mjs";
 
-@plugin "./daisyui.mjs";
+@plugin "./daisyui.mjs" {
+    themes: false;
+}
+
+/* =========================================================
+   CISAHUAYO — TEMA CLARO
+========================================================= */
+
+@plugin "./daisyui-theme.mjs" {
+    name: "cisahuayo";
+    default: true;
+    prefersdark: false;
+    color-scheme: light;
+
+    /* Fondos */
+    --color-base-100: #FFFFFF;
+    --color-base-200: #F5F8F8;
+    --color-base-300: #E4ECEC;
+    --color-base-content: #1F2937;
+
+    /* Colores institucionales */
+    --color-primary: #91C7CB;
+    --color-primary-content: #172A2C;
+
+    --color-secondary: #FABD5C;
+    --color-secondary-content: #332609;
+
+    --color-accent: #BA1346;
+    --color-accent-content: #FFFFFF;
+
+    /* Neutral */
+    --color-neutral: #334155;
+    --color-neutral-content: #F8FAFC;
+
+    /* Estados */
+    --color-info: #91C7CB;
+    --color-info-content: #172A2C;
+
+    --color-success: #57966B;
+    --color-success-content: #FFFFFF;
+
+    --color-warning: #FABD5C;
+    --color-warning-content: #332609;
+
+    --color-error: #BA1346;
+    --color-error-content: #FFFFFF;
+
+    /* Forma */
+    --radius-selector: 0.75rem;
+    --radius-field: 0.75rem;
+    --radius-box: 1rem;
+
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+
+    --border: 1px;
+
+    --depth: 1;
+    --noise: 0;
+}
+
+
+/* =========================================================
+   CISAHUAYO — TEMA OSCURO
+========================================================= */
+
+@plugin "./daisyui-theme.mjs" {
+    name: "cisahuayo-dark";
+    default: false;
+    prefersdark: true;
+    color-scheme: dark;
+
+    /* Fondos */
+    --color-base-100: #182226;
+    --color-base-200: #11191C;
+    --color-base-300: #28363A;
+    --color-base-content: #ECF4F4;
+
+    /* Colores institucionales */
+    --color-primary: #91C7CB;
+    --color-primary-content: #172A2C;
+
+    --color-secondary: #FABD5C;
+    --color-secondary-content: #332609;
+
+    --color-accent: #BA1346;
+    --color-accent-content: #FFFFFF;
+
+    /* Neutral */
+    --color-neutral: #37474B;
+    --color-neutral-content: #F5F8F8;
+
+    /* Estados */
+    --color-info: #91C7CB;
+    --color-info-content: #172A2C;
+
+    --color-success: #72B487;
+    --color-success-content: #102117;
+
+    --color-warning: #FABD5C;
+    --color-warning-content: #332609;
+
+    --color-error: #D84B70;
+    --color-error-content: #FFFFFF;
+
+    /* Forma */
+    --radius-selector: 0.75rem;
+    --radius-field: 0.75rem;
+    --radius-box: 1rem;
+
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+
+    --border: 1px;
+
+    --depth: 1;
+    --noise: 0;
+}

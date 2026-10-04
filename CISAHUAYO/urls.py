@@ -2,12 +2,14 @@ from django.contrib import admin
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import RedirectView
+
+from Alumnos.views import inicio
 
 urlpatterns = [
-
-    path('admin/',admin.site.urls),
-    path('', include('Alumnos.urls')),
+    path('', inicio, name='inicio'),
+    path('admin/', admin.site.urls),
+    path('alumnos/', include('Alumnos.urls')),
+    path('tutores/', include('Tutores.urls')),
 
 ]  # Para servir archivos multimedia en desarrollo
 if settings.DEBUG:

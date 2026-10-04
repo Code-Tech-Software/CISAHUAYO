@@ -1,300 +1,64 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CISAHUAYO{% endblock %}</title>
-    <link href="{% static 'css/output.css' %}" rel="stylesheet" type="text/css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CISAHUAYO{% endblock %}</title>
 </head>
-<body class="bg-base-200 text-base-content">
+<body>
+  <header>
+    <p>
+      <img src="{% static 'img/logointer.svg' %}" alt="Logo Colegio Interamericano de Sahuayo" width="40" height="40">
+      <strong>CISAHUAYO</strong>
+    </p>
 
-<div class="drawer lg:drawer-open">
-    <input id="main-drawer" type="checkbox" class="drawer-toggle">
+    <nav aria-label="Navegación principal">
+      <a href="#">Dashboard</a> |
+      <a href="#">Alumnos</a> |
+      <a href="#">Tutores</a> |
+      <a href="#">Inscripciones</a> |
+      <a href="#">Grados</a> |
+      <a href="#">Materias</a> |
+      <a href="#">Asistencias</a> |
+      <a href="#">Calificaciones</a> |
+      <a href="#">Configuración</a> |
+      <a href="/admin/">Django Admin</a>
+    </nav>
 
-    <!-- CONTENIDO PRINCIPAL -->
-    <div class="drawer-content flex min-h-screen flex-col">
+    <form action="#" method="get">
+      <label for="global-search">Buscar:</label>
+      <input id="global-search" name="q" type="search" placeholder="Buscar en CISAHUAYO" autocomplete="off">
+    </form>
 
-        <!-- TOPBAR -->
-        <header class="sticky top-0 z-30 h-16 border-b border-base-300 bg-base-100/90 backdrop-blur-xl">
-            <div class="flex h-full items-center gap-3 px-4 lg:px-6">
+    {% block topbar_actions %}{% endblock %}
+  </header>
 
-                <!-- Botón móvil -->
-                <label for="main-drawer" class="btn btn-square btn-ghost lg:hidden" aria-label="Abrir menú">
-                    {% include "partials/icon.html" with name="menu" icon_class="size-5" only %}
-                </label>
+  <main>
+    {% block page_actions %}{% endblock %}
 
-                <!-- Título de página -->
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2 text-xs text-base-content/50">
-                        <span>CISAHUAYO</span>
-                        {% include "partials/icon.html" with name="chevron-right" icon_class="size-3" only %}
-                        <span class="truncate">{% block breadcrumb %}Panel{% endblock %}</span>
-                    </div>
-                    <h1 class="truncate text-lg font-bold tracking-tight">{% block page_title %}Panel de
-                        control{% endblock %}</h1>
-                </div>
+    {% if messages %}
+      {% for message in messages %}
+        <p role="alert">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
 
-                <!-- Buscador -->
-                <div class="hidden md:block">
-                    <label class="input input-sm flex w-64 items-center gap-2 bg-base-200 transition-all focus-within:w-80 focus-within:border-primary">
-                        {% include "partials/icon.html" with name="search" icon_class="size-4 opacity-50" only %}
-                        <input id="global-search" type="search" class="grow" placeholder="Buscar en CISAHUAYO..."
-                               autocomplete="off">
-                        <kbd class="kbd kbd-sm">Ctrl</kbd>
-                        <kbd class="kbd kbd-sm">K</kbd>
-                    </label>
-                </div>
-                {% block topbar_actions %}{% endblock %}
+    {% block content %}{% endblock %}
+  </main>
 
-                <!-- Tema -->
-                <label class="swap swap-rotate btn btn-circle btn-ghost" title="Cambiar tema">
-                    <input type="checkbox" class="theme-controller" value="cisahuayo-dark">
-                    {% include "partials/icon.html" with name="sun" icon_class="swap-off size-5" only %}
-                    {% include "partials/icon.html" with name="moon" icon_class="swap-on size-5" only %}
-                </label>
+  <footer>
+    <hr>
+    <p>© {% now "Y" %} Colegio Interamericano de Sahuayo</p>
+  </footer>
 
-                <!-- Notificaciones -->
-                <div class="dropdown dropdown-end">
-                    <button tabindex="0" class="btn btn-circle btn-ghost" aria-label="Notificaciones">
-                        <div class="indicator">
-                            <span class="indicator-item badge badge-error badge-xs"></span>
-                            {% include "partials/icon.html" with name="bell" icon_class="size-5" only %}
-                        </div>
-                    </button>
-
-                    <div tabindex="0"
-                         class="dropdown-content mt-3 w-80 rounded-box border border-base-300 bg-base-100 p-3 shadow-2xl">
-                        <div class="mb-3 flex items-center justify-between px-2">
-                            <div>
-                                <p class="font-bold">Notificaciones</p>
-                                <p class="text-xs text-base-content/50">Actividad reciente</p>
-                            </div>
-                            <span class="badge badge-primary badge-sm">3 nuevas</span>
-                        </div>
-
-                        <div class="space-y-1">
-                            <a href="#" class="flex gap-3 rounded-xl p-3 transition hover:bg-base-200">
-                                <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
-                                    ✓
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold">Inscripción registrada</p>
-                                    <p class="truncate text-xs text-base-content/50">Se agregó un nuevo alumno</p>
-                                </div>
-                            </a>
-
-                            <a href="#" class="flex gap-3 rounded-xl p-3 transition hover:bg-base-200">
-                                <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning">
-                                    !
-                                </div>
-                                <div>
-                                    <p class="text-sm font-semibold">Asistencias pendientes</p>
-                                    <p class="text-xs text-base-content/50">Hay registros por capturar</p>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Usuario -->
-                <div class="dropdown dropdown-end">
-                    <button tabindex="0" class="btn btn-ghost h-auto gap-3 rounded-xl px-2 py-1.5">
-                        <div class="avatar avatar-placeholder">
-                            <div class="w-9 rounded-xl bg-primary text-primary-content">
-                                <span class="text-sm font-bold">
-                                    {% if request.user.is_authenticated %}
-                                        {{ request.user.username|slice:":2"|upper }}{% else %}CI{% endif %}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="hidden text-left xl:block">
-                            <p class="max-w-32 truncate text-sm font-semibold">
-                                {% if request.user.is_authenticated %}
-                                    {{ request.user.get_full_name|default:request.user.username }}{% else %}
-                                    Administrador{% endif %}
-                            </p>
-                            <p class="text-xs font-normal text-base-content/50">Administración</p>
-                        </div>
-
-                        {% include "partials/icon.html" with name="chevron-down" icon_class="hidden size-4 opacity-40 xl:block" only %}
-                    </button>
-
-                    <ul tabindex="0"
-                        class="menu dropdown-content mt-3 w-60 rounded-box border border-base-300 bg-base-100 p-2 shadow-2xl">
-                        <li class="menu-title">Mi cuenta</li>
-                        <li><a href="#">Mi perfil</a></li>
-                        <li><a href="#">Configuración</a></li>
-                        <li class="divider my-1"></li>
-                        <li><a class="text-error">Cerrar sesión</a></li>
-                    </ul>
-                </div>
-            </div>
-        </header>
-
-        <!-- CONTENIDO -->
-        <main class="flex-1">
-            <div class="mx-auto w-full max-w-[1600px] p-4 md:p-6 lg:p-8">
-                <div class="mb-6">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <h2 class="text-2xl font-black tracking-tight md:text-3xl">
-                                {% block content_title %}{% block page_heading %}Bienvenido a CISAHUAYO
-                                {% endblock %}{% endblock %}
-                            </h2>
-                            <p class="mt-1 text-sm text-base-content/60">
-                                {% block page_description %}Sistema integral de administración escolar{% endblock %}
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap gap-2">{% block page_actions %}{% endblock %}</div>
-                    </div>
-                </div>
-
-                <!-- Mensajes Django -->
-                {% if messages %}
-                    <div class="mb-6 space-y-3">
-                        {% for message in messages %}
-                            <div role="alert"
-                                 class="alert shadow-sm {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-error{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'info' %}alert-info{% endif %}">
-                                {% include "partials/icon.html" with name="check-circle" icon_class="size-5 shrink-0" only %}
-                                <span>{{ message }}</span>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                {% block content %}{% endblock %}
-            </div>
-        </main>
-
-        <!-- FOOTER -->
-        <footer class="border-t border-base-300 bg-base-100 px-6 py-4">
-            <div class="mx-auto flex max-w-[1600px] flex-col gap-2 text-xs text-base-content/50 sm:flex-row sm:items-center sm:justify-between">
-                <p>© {% now "Y" %} Colegio interamericano de Sahuayo</p>
-                <div class="flex items-center gap-2">
-                    <span class="status status-success"></span>
-                    <span>Sistema operativo</span>
-                </div>
-            </div>
-        </footer>
-    </div>
-
-    <!-- SIDEBAR -->
-    <div class="drawer-side z-40">
-        <label for="main-drawer" aria-label="Cerrar menú" class="drawer-overlay"></label>
-
-        <aside class="flex min-h-full w-72 flex-col border-r border-base-300 bg-base-100">
-            <!-- Logo -->
-            <div class="flex h-16 items-center gap-3 border-b border-base-300 px-5">
-                <img src="{% static 'img/logointer.svg' %}" alt="Logo Colegio Interamericano de Sahuayo"
-                     class="size-10 object-contain">
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                        <span class="truncate text-lg font-black tracking-tight">CISAHUAYO</span>
-                        <span class="badge badge-primary badge-xs font-bold">ERP</span>
-                    </div>
-                    <p class="truncate text-[11px] uppercase tracking-[0.18em] text-base-content/40">Gestión escolar</p>
-                </div>
-            </div>
-
-            <!-- Menú -->
-            <div class="flex-1 overflow-y-auto px-3 py-5">
-                <ul class="menu w-full gap-1 p-0">
-                    <li>
-                        <a href="#" class="group rounded-xl bg-primary font-semibold text-primary-content shadow-sm">
-                            {% include "partials/icon.html" with name="dashboard" icon_class="size-5" only %}
-                            Dashboard
-                        </a>
-                    </li>
-
-                    <li class="menu-title mt-5"><span>Gestión escolar</span></li>
-
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="students" icon_class="size-5" only %}
-                            Alumnos
-                            <span class="badge badge-ghost badge-sm ml-auto">248</span>
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="tutors" icon_class="size-5" only %}
-                            Tutores
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="enrollment" icon_class="size-5" only %}
-                            Inscripciones
-                            <span class="badge badge-success badge-xs ml-auto">Nuevo</span>
-                        </a>
-                    </li>
-
-                    <li class="menu-title mt-5"><span>Académico</span></li>
-
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="grades" icon_class="size-5" only %}
-                            Grados
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="subjects" icon_class="size-5" only %}
-                            Materias
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="attendance" icon_class="size-5" only %}
-                            Asistencias
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="scores" icon_class="size-5" only %}
-                            Calificaciones
-                        </a>
-                    </li>
-
-                    <li class="menu-title mt-5"><span>Administración</span></li>
-
-                    <li>
-                        <a href="#" class="rounded-xl">
-                            {% include "partials/icon.html" with name="settings" icon_class="size-5" only %}
-                            Configuración
-                        </a>
-                    </li>
-                    <li>
-                        <a href="/admin/" class="rounded-xl">
-                            {% include "partials/icon.html" with name="admin" icon_class="size-5" only %}
-                            Django Admin
-                            <span class="badge badge-neutral badge-xs ml-auto">DEV</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </aside>
-    </div>
-</div>
-
-</body>
-<script>
-    document.addEventListener("keydown", (event) => {
-        const search = document.getElementById("global-search");
-
-        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-            event.preventDefault();
-            search?.focus();
-            search?.select();
-        }
-
-        if (event.key === "Escape" && document.activeElement === search) {
-            search.blur();
-        }
+  <script>
+    document.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        document.getElementById('global-search').focus();
+      }
     });
-</script>
+  </script>
+</body>
 </html>

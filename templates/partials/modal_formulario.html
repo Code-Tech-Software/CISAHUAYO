@@ -1,0 +1,31 @@
+{% comment %}
+  Ventana donde se abren los formularios de alta y edición (static/js/modal-form.js). Los enlaces con data-modal-form
+  cargan en ella la página del formulario; sin JavaScript esos enlaces siguen llevando a la página completa.
+  El script rellena el título, la descripción y el cuerpo, y pide confirmar antes de cerrar si hay cambios sin guardar.
+{% endcomment %}
+<dialog class="modal modal--form" id="modal-formulario" data-form-modal aria-labelledby="modal-formulario-titulo">
+  <div class="modal__panel">
+    <header class="modal__header modal__header--form">
+      <div class="modal__heading">
+        <h2 class="modal__title" id="modal-formulario-titulo" data-form-modal-title>Formulario</h2>
+        <p class="modal__description" data-form-modal-description hidden></p>
+      </div>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-form-modal-close aria-label="Cerrar" data-tooltip="Cerrar">
+        {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+      </button>
+    </header>
+
+    <div class="modal__body modal__body--form" data-form-modal-body></div>
+
+    <div class="modal__confirm" data-form-modal-confirm role="alertdialog" aria-labelledby="modal-confirmar-titulo" hidden>
+      <div class="modal__confirm-card">
+        <p class="modal__confirm-title" id="modal-confirmar-titulo">¿Descartar los cambios?</p>
+        <p class="modal__confirm-text">Lo que escribiste no se ha guardado y se perderá.</p>
+        <div class="modal__confirm-actions">
+          <button type="button" class="btn" data-form-modal-seguir>Seguir editando</button>
+          <button type="button" class="btn btn--danger" data-form-modal-descartar>Descartar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>

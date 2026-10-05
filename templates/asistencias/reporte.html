@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Reportes de asistencia | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reportes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reportes de asistencia</h1>
+      <p class="page-header__description">La asistencia de un grado en un periodo: resumen por alumno o cuadrícula día por día, de la asistencia general o de una materia.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if grado %}
+        <button type="button" class="btn" data-print>
+          {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %}
+          Imprimir
+        </button>
+        <a class="btn" href="{% url 'asistencias:reporte_exportar' %}?{{ consulta }}">
+          {% include "partials/icon.html" with name="download" icon_class="icon--sm" %}
+          Exportar CSV
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "asistencias/_subnav.html" %}
+
+  <form class="filters filters--report" method="get" role="search" aria-label="Elegir el reporte" data-autosubmit>
+    <input type="hidden" name="vista" value="{{ vista }}">
+    <div class="filters__field">
+      <label class="visually-hidden" for="filtro-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select" id="filtro-ciclo" name="ciclo">
+        {% for c in ciclos %}<option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">Grado</label>
+      {{ filtro.grado }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="filtro-materia">Materia</label>
+      <select class="field__control field__control--select" id="filtro-materia" name="materia"{% if not grado %} disabled{% endif %}>
+        <option value="">Asistencia general</option>
+        {% for m in materias %}<option value="{{ m.pk }}"{% if asignacion and asignacion.pk == m.pk %} selected{% endif %}>{{ m.materia }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters__field filters__field--date">
+      <label class="visually-hidden" for="{{ filtro.desde.id_for_label }}">Desde</label>
+      <input class="field__control" type="date" id="{{ filtro.desde.id_for_label }}" name="desde" value="{{ desde|date:'Y-m-d' }}">
+    </div>
+    <div class="filters__field filters__field--date">
+      <label class="visually-hidden" for="{{ filtro.hasta.id_for_label }}">Hasta</label>
+      <input class="field__control" type="date" id="{{ filtro.hasta.id_for_label }}" name="hasta" value="{{ hasta|date:'Y-m-d' }}">
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Ver reporte</button>
+    </div>
+  </form>
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Crea un ciclo para empezar a registrar asistencias.</p>
+      </div>
+    </div>
+  {% elif not grado %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="layers" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Elige un grado</p>
+        <p class="empty-state__text">Selecciona el grado, el periodo y, si quieres, una materia para ver su reporte de asistencia.</p>
+      </div>
+    </div>
+  {% else %}
+    <nav class="pills" aria-label="Vista del reporte">
+      <a class="pill{% if vista != 'cuadricula' %} is-active{% endif %}" href="{% querystring vista='resumen' %}"{% if vista != 'cuadricula' %} aria-current="true"{% endif %}>Resumen por alumno</a>
+      <a class="pill{% if vista == 'cuadricula' %} is-active{% endif %}" href="{% querystring vista='cuadricula' %}"{% if vista == 'cuadricula' %} aria-current="true"{% endif %}>Cuadrícula por día</a>
+    </nav>
+
+    <div class="print-area">
+    <p class="results-summary report-title" role="status">
+      {{ grado }} · {{ ciclo }} · {% if asignacion %}{{ asignacion.materia }}{% else %}asistencia general{% endif %}
+      · del {{ desde|date:"j M Y" }} al {{ hasta|date:"j M Y" }}
+    </p>
+
+    {% if not filas %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">{{ grado }} no tiene alumnos inscritos en {{ ciclo }}</p>
+          <p class="empty-state__text">Inscribe alumnos en este grado para ver su asistencia.</p>
+        </div>
+      </div>
+    {% elif vista == 'cuadricula' %}
+      {% if not cuadricula_posible %}
+        <div class="alert alert--info alert--spaced" role="note">
+          {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+          <p class="alert__body">La cuadrícula muestra hasta 31 días. Elige un periodo más corto (por ejemplo, un mes) o usa el resumen por alumno.</p>
+        </div>
+      {% elif not dias %}
+        <div class="table-card">
+          <div class="empty-state">
+            {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">No hay días de clases en ese periodo</p>
+            <p class="empty-state__text">Elige otras fechas dentro del ciclo.</p>
+          </div>
+        </div>
+      {% else %}
+        <div class="table-card matrix-card">
+          <div class="scroll-x">
+            <table class="matrix">
+              <caption class="visually-hidden">Asistencia de {{ grado }} del {{ desde|date:"j M" }} al {{ hasta|date:"j M" }}</caption>
+              <thead>
+                <tr>
+                  <th class="matrix__name" scope="col">Alumno</th>
+                  {% for dia in dias %}
+                    <th class="matrix__day" scope="col"><span class="matrix__num">{{ dia|date:"j" }}</span><span class="matrix__wd">{{ dia|date:"D" }}</span></th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for inscripcion in filas %}
+                  <tr>
+                    <th class="matrix__name" scope="row"><a class="link-subtle" href="{% url 'asistencias:alumno' inscripcion.alumno.pk %}">{{ inscripcion.alumno }}</a></th>
+                    {% for celda in inscripcion.celdas %}
+                      <td class="matrix__cell{% if celda %} matrix__cell--{{ celda|lower }}{% endif %}">{{ celda|default:"·" }}</td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="text-muted attendance-legend">
+          <span class="matrix__key matrix__key--a">A</span> asistió ·
+          <span class="matrix__key matrix__key--r">R</span> retardo ·
+          <span class="matrix__key matrix__key--f">F</span> falta ·
+          <span class="matrix__key matrix__key--j">J</span> falta justificada ·
+          <span class="matrix__key">·</span> sin registro
+        </p>
+      {% endif %}
+    {% else %}
+      <section class="stat-grid stat-grid--five" aria-label="Totales del periodo">
+        <div class="stat">
+          <p class="stat__label">Asistencia</p>
+          <p class="stat__value">{% if total.porcentaje is None %}—{% else %}{{ total.porcentaje }}<span class="stat__unit">%</span>{% endif %}</p>
+          <p class="stat__hint">presentes y retardos</p>
+        </div>
+        <div class="stat stat--ok">
+          <p class="stat__label">Presentes</p>
+          <p class="stat__value">{{ total.presentes }}</p>
+          <p class="stat__hint">de {{ total.registros }} registros</p>
+        </div>
+        <div class="stat stat--late">
+          <p class="stat__label">Retardos</p>
+          <p class="stat__value">{{ total.retardos }}</p>
+          <p class="stat__hint">&nbsp;</p>
+        </div>
+        <div class="stat stat--miss">
+          <p class="stat__label">Faltas</p>
+          <p class="stat__value">{{ total.faltas }}</p>
+          <p class="stat__hint">{{ total.justificadas }} justificada{{ total.justificadas|pluralize }}</p>
+        </div>
+        <div class="stat">
+          <p class="stat__label">Alumnos</p>
+          <p class="stat__value">{{ filas|length }}</p>
+          <p class="stat__hint">en {{ grado }}</p>
+        </div>
+      </section>
+
+      <div class="table-card">
+        <table class="table table--people">
+          <caption class="visually-hidden">Resumen de asistencia por alumno</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Alumno</th>
+              <th class="table__th" scope="col">Registros</th>
+              <th class="table__th" scope="col">Presentes</th>
+              <th class="table__th" scope="col">Retardos</th>
+              <th class="table__th" scope="col">Faltas</th>
+              <th class="table__th" scope="col">Justificadas</th>
+              <th class="table__th" scope="col">Asistencia</th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for inscripcion in filas %}
+              <tr class="table__row">
+                <td class="table__cell table__cell--main">
+                  <a class="person" href="{% url 'asistencias:alumno' inscripcion.alumno.pk %}">
+                    {% include "partials/avatar.html" with persona=inscripcion.alumno %}
+                    <span class="person__text">
+                      <span class="person__name">{{ inscripcion.alumno }}</span>
+                      <span class="person__meta">Ref. {{ inscripcion.alumno.referencia }}</span>
+                    </span>
+                  </a>
+                </td>
+                <td class="table__cell" data-label="Registros">{{ inscripcion.cuenta.registros }}</td>
+                <td class="table__cell" data-label="Presentes"><span class="count count--ok">{{ inscripcion.cuenta.presentes }}</span></td>
+                <td class="table__cell" data-label="Retardos"><span class="count count--late">{{ inscripcion.cuenta.retardos }}</span></td>
+                <td class="table__cell" data-label="Faltas"><span class="count count--miss">{{ inscripcion.cuenta.faltas }}</span></td>
+                <td class="table__cell" data-label="Justificadas">{{ inscripcion.cuenta.justificadas|default:"—" }}</td>
+                <td class="table__cell" data-label="Asistencia">
+                  {% if inscripcion.porcentaje is None %}<span class="text-muted">Sin registros</span>
+                  {% else %}
+                    <span class="rate{% if inscripcion.bajo_umbral %} rate--low{% endif %}">
+                      <progress class="meter" max="100" value="{{ inscripcion.porcentaje }}" aria-label="Asistencia de {{ inscripcion.alumno }}">{{ inscripcion.porcentaje }}%</progress>
+                      <strong>{{ inscripcion.porcentaje }}%</strong>
+                    </span>
+                    {% if inscripcion.bajo_umbral %}<span class="tag tag--danger">Bajo {{ umbral }}%</span>{% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted attendance-legend">La asistencia cuenta presentes y retardos entre los días con registro. Las faltas justificadas se siguen contando como falta y se muestran aparte.</p>
+    {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

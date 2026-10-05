@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{% if es_edicion %}Editar a {{ alumno }}{% else %}Registrar alumno{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Alumnos</a></li>
+  {% if es_edicion %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ alumno.get_absolute_url }}">{{ alumno }}</a></li>
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Editar</span></li>
+  {% else %}
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nuevo alumno</span></li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar alumno{% else %}Registrar alumno{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Actualiza los datos de {{ alumno }}, incluidos sus tutores.{% else %}Sigue los pasos: al final podrás revisar todo antes de guardar.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <datalist id="estados-mx">
+    {% for estado in estados_mx %}<option value="{{ estado }}">{% endfor %}
+  </datalist>
+
+  <form class="wizard" id="alumno-form" method="post" enctype="multipart/form-data" novalidate
+        data-wizard data-edit="{{ es_edicion|yesno:'true,false' }}" data-initial-step="{{ paso_inicial }}"
+        data-search-url="{% url 'alumnos:tutor_buscar' %}">
+    {% csrf_token %}
+
+    {% if form.non_field_errors or inscripcion.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+          {% for error in inscripcion.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {# --- Barra de pasos ----------------------------------------------------- #}
+    <nav class="wizard__nav-steps" aria-label="Pasos del formulario">
+      <ol class="stepper" data-stepper>
+        {% for paso in pasos %}
+          <li class="stepper__item" data-step-item>
+            <button type="button" class="stepper__button" data-step-goto="{{ forloop.counter0 }}">
+              <span class="stepper__marker" aria-hidden="true">{{ forloop.counter }}</span>
+              <span class="stepper__label">{{ paso.titulo }}</span>
+              <span class="visually-hidden" data-step-status></span>
+            </button>
+          </li>
+        {% endfor %}
+      </ol>
+      <div class="wizard__bar" aria-hidden="true"><span class="wizard__bar-fill"></span></div>
+      <p class="wizard__summary" data-step-summary aria-live="polite"></p>
+    </nav>
+
+    <div class="wizard__panels">
+
+      {# === 1 · Identidad ================================================== #}
+      <section class="wizard__panel" data-step-panel="identidad" aria-labelledby="titulo-identidad">
+        <header class="wizard__panel-header">
+          <span class="wizard__panel-icon">{% include "partials/icon.html" with name="user" icon_class="icon--lg" %}</span>
+          <div>
+            <h2 class="wizard__panel-title" id="titulo-identidad">Identidad</h2>
+            <p class="wizard__panel-text">¿Quién es el alumno? Con la CURP completamos varios datos por ti.</p>
+          </div>
+        </header>
+
+        <div class="photo-field" data-photo-field>
+          <div class="photo-field__preview" data-photo-preview>
+            {% if alumno.fotografia %}
+              <img class="photo-field__img" src="{{ alumno.fotografia.url }}" alt="Fotografía actual de {{ alumno }}">
+            {% else %}
+              <span class="photo-field__placeholder">{% include "partials/icon.html" with name="camera" icon_class="icon--lg" %}</span>
+            {% endif %}
+          </div>
+          <div class="photo-field__body">
+            <p class="field__label">Fotografía <span class="text-muted">(opcional)</span></p>
+            <div class="photo-field__actions">
+              {{ form.fotografia }}
+              <label class="btn btn--sm photo-field__button" for="{{ form.fotografia.id_for_label }}">
+                {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %} Elegir foto
+              </label>
+              {% if es_edicion and alumno.fotografia %}
+                {% include "partials/chip.html" with campo=form.quitar_fotografia %}
+              {% endif %}
+            </div>
+            <p class="field__hint" data-photo-hint>{{ form.fotografia.help_text }}</p>
+            {% for error in form.fotografia.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+
+        <div class="form-grid">
+          {% include "partials/field.html" with campo=form.nombre %}
+          {% include "partials/field.html" with campo=form.apellido_paterno %}
+          {% include "partials/field.html" with campo=form.apellido_materno %}
+
+          <div class="field{% if form.curp.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="{{ form.curp.id_for_label }}">{{ form.curp.label }}</label>
+            {{ form.curp }}
+            <p class="field__hint" id="{{ form.curp.auto_id }}_helptext" data-curp-feedback aria-live="polite">{{ form.curp.help_text }}</p>
+            {% for error in form.curp.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          {% include "partials/field.html" with campo=form.fecha_nacimiento %}
+
+          {% include "partials/choices.html" with campo=form.sexo clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.nacionalidad %}
+          {% include "partials/field.html" with campo=form.religion %}
+        </div>
+      </section>
+
+      {# === 2 · Domicilio y salud ============================================ #}
+      <section class="wizard__panel" data-step-panel="domicilio" aria-labelledby="titulo-domicilio">
+        <header class="wizard__panel-header">
+          <span class="wizard__panel-icon">{% include "partials/icon.html" with name="map-pin" icon_class="icon--lg" %}</span>
+          <div>
+            <h2 class="wizard__panel-title" id="titulo-domicilio">Domicilio y salud</h2>
+            <p class="wizard__panel-text">Dónde vive y la información médica que la escuela debe conocer.</p>
+          </div>
+        </header>
+
+        <div class="form-grid">
+          {% include "partials/field.html" with campo=form.domicilio clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.colonia %}
+          {% include "partials/field.html" with campo=form.cp %}
+          {% include "partials/field.html" with campo=form.ciudad %}
+          {% include "partials/field.html" with campo=form.estado %}
+        </div>
+
+        <h3 class="wizard__subtitle">{% include "partials/icon.html" with name="droplet" icon_class="icon--sm" %} Salud</h3>
+        <div class="form-grid">
+          {% include "partials/choices.html" with campo=form.grupo_sanguineo clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.alergias clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.observaciones_generales clase="form-grid__full" %}
+        </div>
+      </section>
+
+      {# === 3 · Datos escolares ================================================ #}
+      <section class="wizard__panel" data-step-panel="escolar" aria-labelledby="titulo-escolar">
+        <header class="wizard__panel-header">
+          <span class="wizard__panel-icon">{% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg" %}</span>
+          <div>
+            <h2 class="wizard__panel-title" id="titulo-escolar">Datos escolares</h2>
+            <p class="wizard__panel-text">Ingreso, identificación en el colegio y{% if not es_edicion %} acceso e inscripción{% else %} estatus{% endif %}.</p>
+          </div>
+        </header>
+
+        <div class="form-grid">
+          {% include "partials/field.html" with campo=form.fecha_ingreso %}
+          {% include "partials/field.html" with campo=form.escuela_procedencia %}
+          {% include "partials/field.html" with campo=form.referencia %}
+          {% include "partials/field.html" with campo=form.uid %}
+          {% include "partials/field.html" with campo=form.correo_electronico clase="form-grid__full" %}
+          {% if es_edicion %}
+            {% include "partials/field.html" with campo=form.estatus %}
+          {% endif %}
+        </div>
+
+        {% if not es_edicion %}
+          <h3 class="wizard__subtitle">{% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Acceso del alumno</h3>
+          <div class="form-grid">
+            <div class="field form-grid__full{% if form.contrasena_inicial.errors %} is-invalid{% endif %}">
+              <label class="field__label" for="{{ form.contrasena_inicial.id_for_label }}">{{ form.contrasena_inicial.label }}</label>
+              <div class="input-group">
+                {{ form.contrasena_inicial }}
+                <button type="button" class="btn" data-password-generate>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Generar otra</button>
+                <button type="button" class="btn" data-copy="#{{ form.contrasena_inicial.id_for_label }}">{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar</button>
+              </div>
+              <p class="field__hint" id="{{ form.contrasena_inicial.auto_id }}_helptext">{{ form.contrasena_inicial.help_text }} Al terminar podrás verla una sola vez.</p>
+              {% for error in form.contrasena_inicial.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            </div>
+          </div>
+
+          <h3 class="wizard__subtitle">{% include "partials/icon.html" with name="clipboard-list" icon_class="icon--sm" %} Inscripción</h3>
+          <div class="enroll" data-enroll>
+            {% include "partials/chip.html" with campo=inscripcion.inscribir %}
+            <div class="form-grid enroll__fields" data-enroll-fields>
+              {% include "partials/field.html" with campo=inscripcion.ciclo %}
+              {% include "partials/field.html" with campo=inscripcion.grado %}
+            </div>
+          </div>
+        {% endif %}
+      </section>
+
+      {# === 4 · Tutores ============================================================ #}
+      <section class="wizard__panel" data-step-panel="tutores" aria-labelledby="titulo-tutores">
+        <header class="wizard__panel-header">
+          <span class="wizard__panel-icon">{% include "partials/icon.html" with name="users" icon_class="icon--lg" %}</span>
+          <div>
+            <h2 class="wizard__panel-title" id="titulo-tutores">Tutores</h2>
+            <p class="wizard__panel-text">Busca a un tutor que ya esté registrado (por ejemplo, el de un hermano) o crea uno nuevo.</p>
+          </div>
+        </header>
+
+        {{ tutores.management_form }}
+        {% if tutores.non_form_errors %}
+          <div class="alert alert--error" role="alert">
+            {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+            <div class="alert__body">{% for error in tutores.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div>
+          </div>
+        {% endif %}
+
+        <div class="tutor-picker">
+          <div class="live-search tutor-picker__search" data-tutor-search>
+            <label class="visually-hidden" for="buscar-tutor">Buscar un tutor existente</label>
+            {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
+            <input class="field__control live-search__input" id="buscar-tutor" type="text" role="combobox" aria-expanded="false"
+                   aria-controls="resultados-tutor" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+                   placeholder="Buscar tutor existente por nombre, teléfono o CURP…" data-tutor-search-input>
+            <div class="live-search__results" id="resultados-tutor" role="listbox" aria-label="Tutores encontrados" data-tutor-results hidden></div>
+          </div>
+          <button type="button" class="btn" data-tutor-add>
+            {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %} Crear tutor nuevo
+          </button>
+        </div>
+
+        <div class="tutor-list" data-tutor-list>
+          {% for tutor_form in tutores.forms %}
+            {% include "alumnos/_tutor_form.html" with form=tutor_form %}
+          {% endfor %}
+        </div>
+
+        <div class="tutor-empty" data-tutor-empty>
+          {% include "partials/icon.html" with name="users" icon_class="icon--lg" %}
+          <p class="tutor-empty__title">Todavía no hay tutores</p>
+          <p class="tutor-empty__text">Agrega al menos uno: será a quien contactemos primero.</p>
+        </div>
+
+        <template data-tutor-template>
+          {% include "alumnos/_tutor_form.html" with form=tutores.empty_form %}
+        </template>
+      </section>
+
+      {# === 5 · Revisión ============================================================ #}
+      <section class="wizard__panel" data-step-panel="revision" aria-labelledby="titulo-revision">
+        <header class="wizard__panel-header">
+          <span class="wizard__panel-icon">{% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg" %}</span>
+          <div>
+            <h2 class="wizard__panel-title" id="titulo-revision">Revisión</h2>
+            <p class="wizard__panel-text">Confirma que todo esté bien. Puedes volver a cualquier sección para corregir.</p>
+          </div>
+        </header>
+        <div class="review" data-review></div>
+      </section>
+    </div>
+
+    <footer class="wizard__footer">
+      <a class="btn btn--ghost" href="{% if es_edicion %}{{ alumno.get_absolute_url }}{% else %}{% url 'alumnos:lista' %}{% endif %}">Cancelar</a>
+      <div class="wizard__buttons">
+        <button type="button" class="btn" data-step-prev>
+          {% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %} Anterior
+        </button>
+        <button type="button" class="btn btn--primary" data-step-next>
+          Siguiente {% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}
+        </button>
+        <button type="submit" class="btn btn--primary" data-step-submit hidden>
+          {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+          {% if es_edicion %}Guardar cambios{% else %}Registrar alumno{% endif %}
+        </button>
+      </div>
+    </footer>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/alumnos-form.js' %}" defer></script>
+{% endblock %}

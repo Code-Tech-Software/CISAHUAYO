@@ -1,0 +1,109 @@
+/* ==========================================================================
+   CISAHUAYO · Sección de tutores
+   Estilos propios del perfil del tutor. Se apoya en los componentes de
+   app.css (cabecera .identity, .form-page, .table, .pills, .filters, .tabs,
+   .modal, .live-search...) y sigue sus mismas convenciones.
+
+   Índice
+     1. Perfil: alumnos vinculados
+     2. Responsive
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. PERFIL: ALUMNOS VINCULADOS
+   ========================================================================== */
+.student-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.student-card {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.student-card.is-inactive {
+  border-style: dashed;
+  background: var(--color-surface-2);
+}
+
+.student-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.student-card__title {
+  min-width: 0;
+}
+
+.student-card__name {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.student-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+}
+
+.student-card__meta {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.student-card__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-card__note {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.student-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: var(--border);
+}
+
+.notes {
+  margin: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.record-meta {
+  margin: var(--space-5) 0 0;
+  font-size: var(--text-xs);
+}
+
+
+/* ==========================================================================
+   2. RESPONSIVE
+   ========================================================================== */
+@media (min-width: 40rem) {
+  .student-grid {
+    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+  }
+}

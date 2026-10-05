@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% comment %}Sin permiso para ver o hacer algo. Se muestra dentro del diseño normal, con el menú.{% endcomment %}
+
+{% block title %}Sin permiso | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Sin permiso</span></li>
+{% endblock %}
+
+{% block content %}
+  {% include "partials/error_estado.html" with codigo="403" titulo="No tienes permiso para esto" texto="Tu cuenta no puede entrar a esta sección. Si crees que es un error, pide a la dirección del colegio que revise tus permisos." %}
+{% endblock %}

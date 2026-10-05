@@ -1,0 +1,57 @@
+{% comment %}
+  Paginación del Paginator de Django; conserva los filtros de la URL ({% querystring %}).
+  Parámetros: pagina (Page), rango (get_elided_page_range), etiqueta (p. ej. "alumnos"),
+  por_pagina (tamaño actual) y opciones (tamaños permitidos).
+{% endcomment %}
+{% if pagina.paginator.count > opciones.0 %}
+  <nav class="pagination" aria-label="Paginación">
+    <div class="pagination__info">
+      <p class="pagination__summary">
+        {{ pagina.start_index }}–{{ pagina.end_index }} de {{ pagina.paginator.count }} {{ etiqueta }}
+      </p>
+      <p class="pagination__size">
+        <span class="pagination__size-label" id="por-pagina-etiqueta">Por página:</span>
+        {% for opcion in opciones %}
+          {% if opcion == por_pagina %}
+            <span class="pagination__link is-current" aria-current="true" aria-labelledby="por-pagina-etiqueta">{{ opcion }}</span>
+          {% else %}
+            <a class="pagination__link" href="{% querystring por_pagina=opcion page=None %}" aria-label="Mostrar {{ opcion }} por página">{{ opcion }}</a>
+          {% endif %}
+        {% endfor %}
+      </p>
+    </div>
+    {% if pagina.paginator.num_pages > 1 %}
+      <ul class="pagination__list">
+        <li>
+          {% if pagina.has_previous %}
+            <a class="pagination__link" href="{% querystring page=pagina.previous_page_number %}" rel="prev" aria-label="Página anterior">
+              {% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}
+            </a>
+          {% else %}
+            <span class="pagination__link is-disabled" aria-hidden="true">{% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}</span>
+          {% endif %}
+        </li>
+        {% for numero in rango %}
+          <li>
+            {% if numero == pagina.paginator.ELLIPSIS %}
+              <span class="pagination__gap">…</span>
+            {% elif numero == pagina.number %}
+              <span class="pagination__link is-current" aria-current="page">{{ numero }}</span>
+            {% else %}
+              <a class="pagination__link" href="{% querystring page=numero %}" aria-label="Página {{ numero }}">{{ numero }}</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+        <li>
+          {% if pagina.has_next %}
+            <a class="pagination__link" href="{% querystring page=pagina.next_page_number %}" rel="next" aria-label="Página siguiente">
+              {% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}
+            </a>
+          {% else %}
+            <span class="pagination__link is-disabled" aria-hidden="true">{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</span>
+          {% endif %}
+        </li>
+      </ul>
+    {% endif %}
+  </nav>
+{% endif %}

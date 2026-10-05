@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{{ tutor }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/tutores.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'tutores:lista' %}">Tutores</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ tutor }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with tono=tutor.estatus|tono_estatus %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        {% include "partials/avatar.html" with persona=tutor tamano="xl" extra="avatar--square avatar--soft" %}
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Tutor</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ tutor }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{{ tutor.get_estatus_display }}</span>
+            {% if tutor.ocupacion %}<span>{{ tutor.ocupacion }}</span>{% endif %}
+            <span class="text-muted">{{ total_vigentes }} alumno{{ total_vigentes|pluralize }} vigente{{ total_vigentes|pluralize }}</span>
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if perms.Alumnos.change_tutor %}
+            <a class="btn btn--primary" href="{% url 'tutores:editar' tutor.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
+            </a>
+            {% if perms.Alumnos.delete_tutor and not esta_de_baja %}
+              <div class="menu" data-menu>
+                <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
+                  {% include "partials/icon.html" with name="more-horizontal" %}
+                </button>
+                <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
+                  <ul class="menu__list">
+                    <li>
+                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-baja">
+                        {% include "partials/icon.html" with name="trash" %} Dar de baja
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact"><dt>Teléfono</dt><dd><a href="tel:{{ tutor.telefono }}">{{ tutor.telefono|telefono }}</a></dd></div>
+        <div class="identity__fact identity__fact--clip">
+          <dt>Correo</dt>
+          <dd>{% if tutor.correo_electronico %}<a href="mailto:{{ tutor.correo_electronico }}" title="{{ tutor.correo_electronico }}">{{ tutor.correo_electronico }}</a>{% else %}<span class="text-muted">No registrado</span>{% endif %}</dd>
+        </div>
+        <div class="identity__fact"><dt>Estado civil</dt><dd>{{ tutor.get_estado_civil_display|default:"—" }}</dd></div>
+        <div class="identity__fact identity__fact--mono"><dt>CURP</dt><dd>{{ tutor.curp|default:"—" }}</dd></div>
+        <div class="identity__fact"><dt>Registrado</dt><dd>{{ tutor.creado|date:"j M Y" }}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if esta_de_baja %}
+    <div class="alert alert--error alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Tutor dado de baja.</strong> No aparece en el listado principal ni se ofrece al vincular alumnos. Su registro y sus vínculos se conservan.</p>
+      {% if perms.Alumnos.change_tutor %}
+        <form method="post" action="{% url 'tutores:reactivar' tutor.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm">Reactivar tutor</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="tabs" data-tabs>
+    <div class="tabs__list" role="tablist" aria-label="Secciones del perfil">
+      <button type="button" class="tabs__tab" role="tab" id="tab-resumen" aria-controls="resumen" aria-selected="true">Resumen</button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-alumnos" aria-controls="alumnos" aria-selected="false">
+        Alumnos <span class="tabs__count">{{ vinculos|length }}</span>
+      </button>
+    </div>
+
+    {# --- Resumen ---------------------------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="resumen" aria-labelledby="tab-resumen">
+      <div class="info-grid">
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="user" %}<h2 class="card__title">Datos personales</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Nombre completo" valor=tutor.nombre_completo ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="CURP" valor=tutor.curp %}
+            {% include "alumnos/_dato.html" with etiqueta="Estado civil" valor=tutor.get_estado_civil_display %}
+            {% include "alumnos/_dato.html" with etiqueta="Religión" valor=tutor.religion %}
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="phone" %}<h2 class="card__title">Contacto</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Teléfono celular" valor=tutor.telefono|telefono %}
+            {% include "alumnos/_dato.html" with etiqueta="Teléfono alternativo" valor=tutor.telefono_alternativo|telefono %}
+            {% include "alumnos/_dato.html" with etiqueta="Correo electrónico" valor=tutor.correo_electronico ancho=True %}
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="map-pin" %}<h2 class="card__title">Domicilio</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Domicilio" valor=tutor.domicilio ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="Colonia" valor=tutor.colonia %}
+            {% include "alumnos/_dato.html" with etiqueta="Código postal" valor=tutor.cp %}
+            {% include "alumnos/_dato.html" with etiqueta="Ciudad" valor=tutor.ciudad %}
+            {% include "alumnos/_dato.html" with etiqueta="Estado" valor=tutor.estado %}
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="briefcase" %}<h2 class="card__title">Trabajo</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Ocupación" valor=tutor.ocupacion %}
+            {% include "alumnos/_dato.html" with etiqueta="Lugar de trabajo" valor=tutor.lugar_trabajo %}
+            {% include "alumnos/_dato.html" with etiqueta="Teléfono del trabajo" valor=tutor.telefono_trabajo ancho=True %}
+          </dl>
+        </article>
+
+        {% if tutor.observaciones %}
+          <article class="card info-grid__wide">
+            <header class="card__header card__header--icon">
+              {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title">Observaciones</h2>
+            </header>
+            <p class="card__body notes">{{ tutor.observaciones|linebreaksbr }}</p>
+          </article>
+        {% endif %}
+      </div>
+      <p class="text-muted record-meta">Registrado el {{ tutor.creado|date:"j \d\e F \d\e Y"|lower }} · Última actualización el {{ tutor.modificado|date:"j \d\e F \d\e Y"|lower }}</p>
+    </section>
+
+    {# --- Alumnos ------------------------------------------------------------ #}
+    <section class="tabs__panel" role="tabpanel" id="alumnos" aria-labelledby="tab-alumnos">
+      {% if perms.Alumnos.change_tutor and not esta_de_baja %}
+        <div class="panel-actions">
+          <button type="button" class="btn btn--sm" data-modal-open="modal-vincular" data-link-new>
+            {% include "partials/icon.html" with name="link" icon_class="icon--sm" %} Vincular alumno
+          </button>
+        </div>
+      {% endif %}
+
+      {% if vinculos %}
+        <div class="student-grid">
+          {% for vinculo in vinculos %}
+            {% with alumno=vinculo.alumno inscripcion=vinculo.alumno.inscripciones_actuales.0 %}
+              <article class="student-card{% if not vinculo.activo or alumno.estatus == 'BAJA' %} is-inactive{% endif %}">
+                <header class="student-card__header">
+                  {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
+                  <div class="student-card__title">
+                    <h3 class="student-card__name">
+                      {% if perms.Alumnos.view_alumno %}<a class="link-subtle" href="{{ alumno.get_absolute_url }}">{{ alumno }}</a>{% else %}{{ alumno }}{% endif %}
+                    </h3>
+                    <p class="student-card__tags">
+                      <span class="tag tag--info">{{ vinculo.get_parentesco_display }}</span>
+                      {% if vinculo.tutor_principal %}<span class="tag tag--primary">Principal</span>{% endif %}
+                      {% if not vinculo.activo %}<span class="tag">Vínculo inactivo</span>{% endif %}
+                      {% if alumno.estatus != 'ACTIVO' %}<span class="tag tag--{{ alumno.estatus|tono_estatus }}">{{ alumno.get_estatus_display }}</span>{% endif %}
+                    </p>
+                  </div>
+                </header>
+
+                <p class="student-card__meta">
+                  {% if inscripcion %}{{ inscripcion.grado }} · Ciclo {{ inscripcion.ciclo }}{% else %}Sin inscripción en el ciclo actual{% endif %}
+                  · Ref. {{ alumno.referencia }}
+                </p>
+
+                <ul class="student-card__roles" aria-label="Permisos">
+                  <li class="role{% if vinculo.contacto_emergencia %} is-on{% endif %}">Emergencia</li>
+                  <li class="role{% if vinculo.autorizado_recoger %} is-on{% endif %}">Puede recoger</li>
+                  <li class="role{% if vinculo.recibe_notificaciones %} is-on{% endif %}">Notificaciones</li>
+                  <li class="role{% if vinculo.responsable_pagos %} is-on{% endif %}">Pagos</li>
+                </ul>
+                {% if vinculo.observaciones %}<p class="student-card__note">{{ vinculo.observaciones }}</p>{% endif %}
+
+                {% if perms.Alumnos.change_tutor and not esta_de_baja %}
+                  <div class="student-card__actions">
+                    <button type="button" class="btn btn--sm" data-modal-open="modal-vincular"
+                            data-link-edit
+                            data-alumno-id="{{ alumno.pk }}"
+                            data-alumno-nombre="{{ alumno }}"
+                            data-alumno-iniciales="{{ alumno.iniciales }}"
+                            data-parentesco="{{ vinculo.parentesco }}"
+                            data-activo="{{ vinculo.activo|yesno:'1,0' }}"
+                            data-principal="{{ vinculo.tutor_principal|yesno:'1,0' }}"
+                            data-emergencia="{{ vinculo.contacto_emergencia|yesno:'1,0' }}"
+                            data-recoger="{{ vinculo.autorizado_recoger|yesno:'1,0' }}"
+                            data-notificaciones="{{ vinculo.recibe_notificaciones|yesno:'1,0' }}"
+                            data-pagos="{{ vinculo.responsable_pagos|yesno:'1,0' }}"
+                            data-observaciones="{{ vinculo.observaciones }}">
+                      {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar vínculo
+                    </button>
+                    {% if vinculo.activo %}
+                      <button type="button" class="btn btn--ghost btn--sm" data-modal-open="modal-desvincular"
+                              data-unlink data-vinculo-id="{{ vinculo.pk }}" data-alumno-nombre="{{ alumno }}">
+                        {% include "partials/icon.html" with name="x" icon_class="icon--sm" %} Desvincular
+                      </button>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </article>
+            {% endwith %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">Este tutor aún no tiene alumnos</p>
+            <p class="empty-state__text">Vincúlalo con los alumnos que tiene a su cargo para que reciba sus avisos.</p>
+            {% if perms.Alumnos.change_tutor and not esta_de_baja %}
+              <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-vincular" data-link-new>Vincular alumno</button>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  {# --- Ventanas modales -------------------------------------------------------- #}
+  {% if perms.Alumnos.delete_tutor and not esta_de_baja %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'tutores:baja' tutor.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja a {{ tutor.nombre }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong>{{ tutor }}</strong> dejará de aparecer en el listado principal y no se ofrecerá al vincular alumnos.</p>
+          {% if sin_otro_tutor %}
+            <div class="alert alert--warning" role="note">
+              {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+              <p class="alert__body">{{ sin_otro_tutor }} alumno{{ sin_otro_tutor|pluralize }} se quedar{{ sin_otro_tutor|pluralize:"á,án" }} sin ningún tutor vigente. Conviene vincularles otro tutor.</p>
+            </div>
+          {% endif %}
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su registro y sus vínculos se conservan y podrás reactivarlo desde el filtro «Bajas». Si era el tutor principal de algún alumno, otro tutor vigente tomará su lugar.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if perms.Alumnos.change_tutor and not esta_de_baja %}
+    <dialog class="modal modal--wide" id="modal-vincular" aria-labelledby="modal-vincular-titulo" data-modal data-link-modal data-search-url="{% url 'alumnos:buscar' %}">
+      <form class="modal__panel" method="post" action="{% url 'tutores:vincular' tutor.pk %}" novalidate>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-vincular-titulo" data-link-title>Vincular alumno</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          {{ vinculo_form.alumno }}
+
+          <div class="live-search" data-link-search>
+            <label class="field__label field__label--required" for="buscar-alumno">Alumno</label>
+            <div class="live-search__field">
+              {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
+              <input class="field__control live-search__input" id="buscar-alumno" type="text" role="combobox" aria-expanded="false"
+                     aria-controls="resultados-alumno" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+                     placeholder="Buscar por nombre, referencia o CURP…" data-link-search-input>
+              <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Alumnos encontrados" data-link-results hidden></div>
+            </div>
+          </div>
+
+          <div class="chosen" data-link-chosen hidden>
+            <span class="avatar avatar--tone-1" data-link-chosen-avatar aria-hidden="true"></span>
+            <div class="chosen__text">
+              <p class="chosen__name" data-link-chosen-name></p>
+              <p class="chosen__meta">Alumno seleccionado</p>
+            </div>
+            <button type="button" class="btn btn--sm" data-link-change>Cambiar</button>
+          </div>
+          <p class="field__error" data-link-alumno-error hidden>Busca y elige un alumno.</p>
+
+          <div class="form-grid">
+            {% include "partials/field.html" with campo=vinculo_form.parentesco clase="form-grid__full" %}
+          </div>
+          <fieldset class="field">
+            <legend class="field__label">Permisos y responsabilidades</legend>
+            <div class="choice-group">
+              {% include "partials/chip.html" with campo=vinculo_form.tutor_principal %}
+              {% include "partials/chip.html" with campo=vinculo_form.contacto_emergencia %}
+              {% include "partials/chip.html" with campo=vinculo_form.autorizado_recoger %}
+              {% include "partials/chip.html" with campo=vinculo_form.recibe_notificaciones %}
+              {% include "partials/chip.html" with campo=vinculo_form.responsable_pagos %}
+              {% include "partials/chip.html" with campo=vinculo_form.activo %}
+            </div>
+            <p class="field__hint">Si el alumno no tiene otro tutor principal vigente, este quedará como principal.</p>
+          </fieldset>
+          {% include "partials/field.html" with campo=vinculo_form.observaciones %}
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary" data-link-submit>Guardar vínculo</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="modal-desvincular" aria-labelledby="modal-desvincular-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'tutores:desvincular' tutor.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="vinculo" data-unlink-id>
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-desvincular-titulo">Desvincular alumno</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong>{{ tutor }}</strong> dejará de ser tutor vigente de <strong data-unlink-name>este alumno</strong>.</p>
+          <p class="text-muted">El vínculo se conserva como inactivo y puedes reactivarlo cuando quieras. Si era el tutor principal, otro tutor vigente tomará su lugar.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Desvincular</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/tutores-perfil.js' %}" defer></script>
+{% endblock %}

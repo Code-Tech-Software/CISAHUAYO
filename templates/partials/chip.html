@@ -1,0 +1,8 @@
+{% comment %}
+  Casilla tipo "chip" para un BooleanField (widget con clase choice__input).
+  Parámetros: campo (BoundField).
+{% endcomment %}
+<label class="choice choice--check" for="{{ campo.id_for_label }}">
+  {{ campo }}
+  <span class="choice__box">{{ campo.label }}</span>
+</label>

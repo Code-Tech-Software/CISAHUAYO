@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Asistencia de {{ alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div class="page-header__person">
+      {% include "partials/avatar.html" with persona=alumno tamano="lg" extra="avatar--square avatar--soft" %}
+      <div>
+        <h1 class="page-header__title">{{ alumno }}</h1>
+        <p class="page-header__description">
+          Historial de asistencia{% if inscripcion %} · {{ inscripcion.grado }} · ciclo {{ inscripcion.ciclo }}{% endif %} · Ref. {{ alumno.referencia }}
+        </p>
+      </div>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.view_alumno %}
+        <a class="btn" href="{{ alumno.get_absolute_url }}">
+          {% include "partials/icon.html" with name="user" icon_class="icon--sm" %}
+          Ver perfil
+        </a>
+      {% endif %}
+      {% if perms.Alumnos.add_justificacion and inscripcion.ciclo.activo %}
+        <a class="btn btn--primary" href="{% url 'asistencias:justificacion_crear' %}?alumno={{ alumno.pk }}" data-modal-form>
+          {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %}
+          Justificar falta
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}<option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  {% if not inscripcion %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-list" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Sin inscripción</p>
+        <p class="empty-state__text">{{ alumno }} no tiene inscripciones, así que no hay asistencia que mostrar.</p>
+        {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
+      </div>
+    </div>
+  {% elif not resumen.registros %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Sin registros de asistencia</p>
+        <p class="empty-state__text">Todavía no hay asistencia registrada para {{ alumno }} en el ciclo {{ ciclo }}.</p>
+      </div>
+    </div>
+  {% else %}
+    <section class="stat-grid stat-grid--five" aria-label="Resumen del ciclo">
+      <div class="stat">
+        <p class="stat__label">Asistencia</p>
+        <p class="stat__value">{{ resumen.porcentaje }}<span class="stat__unit">%</span></p>
+        <p class="stat__hint">presentes y retardos</p>
+      </div>
+      <div class="stat stat--ok">
+        <p class="stat__label">Presentes</p>
+        <p class="stat__value">{{ resumen.presentes }}</p>
+        <p class="stat__hint">de {{ resumen.registros }} días</p>
+      </div>
+      <div class="stat stat--late">
+        <p class="stat__label">Retardos</p>
+        <p class="stat__value">{{ resumen.retardos }}</p>
+        <p class="stat__hint">&nbsp;</p>
+      </div>
+      <div class="stat stat--miss">
+        <p class="stat__label">Faltas</p>
+        <p class="stat__value">{{ resumen.faltas }}</p>
+        <p class="stat__hint">{{ resumen.justificadas }} justificada{{ resumen.justificadas|pluralize }}</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Sin justificar</p>
+        <p class="stat__value">{{ resumen.sin_justificar }}</p>
+        <p class="stat__hint">falta{{ resumen.sin_justificar|pluralize }} por justificar</p>
+      </div>
+    </section>
+
+    {% if por_materia %}
+      <section class="card" aria-labelledby="titulo-materias">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="book-open" %}<h2 class="card__title" id="titulo-materias">Por materia</h2>
+        </header>
+        <div class="table-card table-card--flush">
+          <table class="table table--people">
+            <caption class="visually-hidden">Asistencia por materia en el ciclo</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Materia</th>
+                <th class="table__th" scope="col">Registros</th>
+                <th class="table__th" scope="col">Presentes</th>
+                <th class="table__th" scope="col">Retardos</th>
+                <th class="table__th" scope="col">Faltas</th>
+                <th class="table__th" scope="col">Asistencia</th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for fila in por_materia %}
+                <tr class="table__row">
+                  <td class="table__cell table__cell--main">{{ fila.nombre }} <code class="code">{{ fila.clave }}</code></td>
+                  <td class="table__cell" data-label="Registros">{{ fila.registros }}</td>
+                  <td class="table__cell" data-label="Presentes"><span class="count count--ok">{{ fila.presentes }}</span></td>
+                  <td class="table__cell" data-label="Retardos"><span class="count count--late">{{ fila.retardos }}</span></td>
+                  <td class="table__cell" data-label="Faltas"><span class="count count--miss">{{ fila.faltas }}</span>{% if fila.justificadas %} <span class="text-muted">({{ fila.justificadas }} justif.)</span>{% endif %}</td>
+                  <td class="table__cell" data-label="Asistencia">
+                    {% if fila.porcentaje is None %}—{% else %}
+                      <span class="rate{% if fila.porcentaje < umbral %} rate--low{% endif %}">
+                        <progress class="meter" max="100" value="{{ fila.porcentaje }}" aria-label="Asistencia en {{ fila.nombre }}">{{ fila.porcentaje }}%</progress>
+                        <strong>{{ fila.porcentaje }}%</strong>
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+
+    <h2 class="section-title">Día por día</h2>
+    <div class="table-card">
+      <table class="table table--people">
+        <caption class="visually-hidden">Asistencia día por día</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Día</th>
+            <th class="table__th" scope="col">Entrada</th>
+            <th class="table__th" scope="col">Asistencia</th>
+            <th class="table__th table__col--wide" scope="col">Materias</th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for general in pagina %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">{{ general.fecha|date:"D j M Y" }}</td>
+              <td class="table__cell" data-label="Entrada">
+                {% if general.hora_entrada %}<span class="attendance-hour">{{ general.hora_entrada|time:"H:i" }}</span> <span class="text-muted attendance-origin">{{ general.get_origen_display }}</span>{% else %}—{% endif %}
+              </td>
+              <td class="table__cell" data-label="Asistencia">
+                {% include "asistencias/_estado.html" with estado=general.estado justificada=general.justificada %}
+                {% if general.observaciones %}<span class="text-muted attendance-origin">{{ general.observaciones }}</span>{% endif %}
+              </td>
+              <td class="table__cell table__col--wide" data-label="Materias">
+                {% if general.materias %}
+                  <span class="subject-chips">
+                    {% for registro in general.materias %}
+                      <span class="subject-chip subject-chip--{% if registro.estado == 'FALTA' and registro.justificada %}j{% elif registro.estado == 'PRESENTE' %}a{% elif registro.estado == 'RETARDO' %}r{% else %}f{% endif %}"
+                            title="{{ registro.materia_grado.materia }}: {% if registro.estado == 'FALTA' and registro.justificada %}falta justificada{% else %}{{ registro.get_estado_display|lower }}{% endif %}{% if registro.observaciones %} · {{ registro.observaciones }}{% endif %}">{{ registro.materia_grado.materia.clave|slice:":4" }}</span>
+                    {% endfor %}
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted attendance-legend">
+      <span class="subject-chip subject-chip--a">A</span> asistió ·
+      <span class="subject-chip subject-chip--r">R</span> retardo ·
+      <span class="subject-chip subject-chip--f">F</span> falta ·
+      <span class="subject-chip subject-chip--j">J</span> falta justificada
+    </p>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="días" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

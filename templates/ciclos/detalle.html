@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Ciclo {{ ciclo }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ciclos:lista' %}">Ciclos escolares</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ ciclo }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with tono=ciclo.estado|tono_estatus %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        <span class="identity__badge" aria-hidden="true">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg" %}</span>
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Ciclo escolar</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ ciclo }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{{ ciclo.estado_display }}</span>
+            <span>{{ ciclo.fecha_inicio|date:"j M Y" }} – {{ ciclo.fecha_fin|date:"j M Y" }}</span>
+            <span class="text-muted">{{ total_activas }} alumno{{ total_activas|pluralize }} inscrito{{ total_activas|pluralize }}</span>
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if perms.Alumnos.change_cicloescolar %}
+            <a class="btn btn--primary" href="{% url 'ciclos:editar' ciclo.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
+            </a>
+            <div class="menu" data-menu>
+              <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
+                {% include "partials/icon.html" with name="more-horizontal" %}
+              </button>
+              <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
+                <ul class="menu__list">
+                  {% if ciclo.activo %}
+                    <li>
+                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-cerrar">
+                        {% include "partials/icon.html" with name="lock" %} Cerrar el ciclo
+                      </button>
+                    </li>
+                  {% else %}
+                    <li>
+                      <button type="button" class="menu__item" data-modal-open="modal-actual">
+                        {% include "partials/icon.html" with name="circle-check" %} Establecer como ciclo actual
+                      </button>
+                    </li>
+                  {% endif %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact"><dt>Inicio</dt><dd>{{ ciclo.fecha_inicio|date:"j \d\e M \d\e Y" }}</dd></div>
+        <div class="identity__fact"><dt>Fin</dt><dd>{{ ciclo.fecha_fin|date:"j \d\e M \d\e Y" }}</dd></div>
+        <div class="identity__fact"><dt>Duración</dt><dd>{{ ciclo.duracion_dias }} días</dd></div>
+        <div class="identity__fact"><dt>Transcurrido</dt><dd>{{ ciclo.avance }}%</dd></div>
+        <div class="identity__fact"><dt>Estado</dt><dd>{{ ciclo.estado_display }}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if ciclo.fuera_de_fechas %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body">Este es el ciclo actual, pero hoy queda fuera de sus fechas. Revisa las fechas o marca otro ciclo como actual.</p>
+    </div>
+  {% endif %}
+
+  <div class="stat-grid">
+    <div class="stat">
+      <p class="stat__label">Inscritos</p>
+      <p class="stat__value">{{ total_activas }}</p>
+      <p class="stat__hint">con inscripción activa</p>
+    </div>
+    <div class="stat">
+      <p class="stat__label">Bajas</p>
+      <p class="stat__value">{{ total_bajas }}</p>
+      <p class="stat__hint">inscripciones dadas de baja</p>
+    </div>
+    <div class="stat">
+      <p class="stat__label">Por inscribir</p>
+      <p class="stat__value">{{ sin_inscribir }}</p>
+      <p class="stat__hint">alumnos activos sin inscripción aquí</p>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <article class="card info-grid__wide">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title">Alumnos por grado</h2>
+      </header>
+      {% if filas %}
+        <div class="table-card table-card--flush">
+          <table class="table">
+            <caption class="visually-hidden">Alumnos inscritos en cada grado del ciclo {{ ciclo }}</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Grado</th>
+                <th class="table__th" scope="col">Proporción</th>
+                <th class="table__th" scope="col">Inscritos</th>
+                <th class="table__th" scope="col">Bajas</th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for fila in filas %}
+                <tr class="table__row">
+                  <td class="table__cell table__cell--main">
+                    {% if perms.Alumnos.view_grado %}
+                      <a class="link-subtle" href="{{ fila.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.grado }}</a>
+                    {% else %}{{ fila.grado }}{% endif %}
+                    {% if not fila.grado.activo %}<span class="tag">Grado dado de baja</span>{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Proporción">
+                    <progress class="meter" max="100" value="{{ fila.porcentaje }}" aria-label="Proporción de alumnos en {{ fila.grado }}">{{ fila.porcentaje }}%</progress>
+                  </td>
+                  <td class="table__cell" data-label="Inscritos">{{ fila.activas }}</td>
+                  <td class="table__cell" data-label="Bajas">{{ fila.bajas|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card__body">
+          <div class="empty-state empty-state--inline">
+            <p class="empty-state__title">Todavía no hay grados</p>
+            <p class="empty-state__text">Crea los grados del colegio para poder inscribir alumnos.</p>
+          </div>
+        </div>
+      {% endif %}
+    </article>
+
+    <article class="card info-grid__wide">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title">Siguientes pasos</h2>
+      </header>
+      <ul class="shortcuts card__body">
+        {% if perms.Alumnos.add_inscripcion %}
+          <li><a class="shortcut" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}" data-modal-form>
+            <span class="shortcut__icon">{% include "partials/icon.html" with name="user-plus" %}</span>
+            <span class="shortcut__text"><span class="shortcut__title">Inscribir a un alumno</span><span class="shortcut__hint">Elige el grado y la fecha de inscripción.</span></span>
+          </a></li>
+          {% if origen_sugerido %}
+            <li><a class="shortcut" href="{% url 'inscripciones:promocion' %}?origen={{ origen_sugerido.pk }}&amp;destino={{ ciclo.pk }}">
+              <span class="shortcut__icon">{% include "partials/icon.html" with name="trending-up" %}</span>
+              <span class="shortcut__text"><span class="shortcut__title">Reinscribir desde {{ origen_sugerido }}</span><span class="shortcut__hint">Pasa a los alumnos de ese ciclo a su siguiente grado, de una sola vez.</span></span>
+            </a></li>
+          {% endif %}
+        {% endif %}
+        {% if origen_plan and perms.Alumnos.add_materiagrado %}
+          <li><a class="shortcut" href="{% url 'materias:copiar' %}?origen={{ origen_plan.pk }}&amp;destino={{ ciclo.pk }}">
+            <span class="shortcut__icon">{% include "partials/icon.html" with name="copy" %}</span>
+            <span class="shortcut__text"><span class="shortcut__title">Copiar materias y horarios de {{ origen_plan }}</span><span class="shortcut__hint">Arma el plan de este ciclo a partir del anterior.</span></span>
+          </a></li>
+        {% endif %}
+        {% if perms.Alumnos.view_horariomateria %}
+          <li><a class="shortcut" href="{% url 'horarios:lista' %}?ciclo={{ ciclo.pk }}">
+            <span class="shortcut__icon">{% include "partials/icon.html" with name="clock" %}</span>
+            <span class="shortcut__text"><span class="shortcut__title">Ver los horarios</span><span class="shortcut__hint">{{ materias_del_ciclo }} materia{{ materias_del_ciclo|pluralize }} asignada{{ materias_del_ciclo|pluralize }} a los grados de este ciclo.</span></span>
+          </a></li>
+        {% endif %}
+        {% if perms.Alumnos.view_inscripcion %}
+          <li><a class="shortcut" href="{% url 'inscripciones:lista' %}?ciclo={{ ciclo.pk }}">
+            <span class="shortcut__icon">{% include "partials/icon.html" with name="clipboard-list" %}</span>
+            <span class="shortcut__text"><span class="shortcut__title">Ver las inscripciones</span><span class="shortcut__hint">Busca, filtra y exporta los alumnos de este ciclo.</span></span>
+          </a></li>
+        {% endif %}
+      </ul>
+    </article>
+  </div>
+
+  {# --- Ventanas modales -------------------------------------------------------- #}
+  {% if perms.Alumnos.change_cicloescolar %}
+    {% if ciclo.activo %}
+      <dialog class="modal" id="modal-cerrar" aria-labelledby="modal-cerrar-titulo" data-modal>
+        <form class="modal__panel" method="post" action="{% url 'ciclos:cerrar' ciclo.pk %}">
+          {% csrf_token %}
+          <header class="modal__header">
+            <h2 class="modal__title" id="modal-cerrar-titulo">Cerrar el ciclo {{ ciclo }}</h2>
+            <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          </header>
+          <div class="modal__body">
+            <p>El ciclo <strong>{{ ciclo }}</strong> dejará de ser el ciclo actual.</p>
+            <div class="alert alert--warning" role="note">
+              {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+              <p class="alert__body">Mientras no haya un ciclo actual, los alumnos aparecerán sin inscripción actual y no se podrá tomar asistencia. Marca otro ciclo como actual cuando comience.</p>
+            </div>
+            <p class="text-muted">Cerrar es lógico: las inscripciones y el historial del ciclo se conservan.</p>
+          </div>
+          <footer class="modal__footer">
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+            <button type="submit" class="btn btn--danger">Cerrar ciclo</button>
+          </footer>
+        </form>
+      </dialog>
+    {% else %}
+      <dialog class="modal" id="modal-actual" aria-labelledby="modal-actual-titulo" data-modal>
+        <form class="modal__panel" method="post" action="{% url 'ciclos:establecer_actual' ciclo.pk %}">
+          {% csrf_token %}
+          <header class="modal__header">
+            <h2 class="modal__title" id="modal-actual-titulo">Establecer {{ ciclo }} como ciclo actual</h2>
+            <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          </header>
+          <div class="modal__body">
+            <p>A partir de ahora las inscripciones, la asistencia y el grado que se muestra de cada alumno serán los del ciclo <strong>{{ ciclo }}</strong>.</p>
+            {% if otro_actual %}
+              <p class="text-muted">El ciclo {{ otro_actual }} dejará de ser el actual; sus inscripciones y su historial se conservan.</p>
+            {% endif %}
+          </div>
+          <footer class="modal__footer">
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+            <button type="submit" class="btn btn--primary">Establecer como actual</button>
+          </footer>
+        </form>
+      </dialog>
+    {% endif %}
+  {% endif %}
+{% endblock %}

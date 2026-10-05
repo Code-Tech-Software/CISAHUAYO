@@ -1,0 +1,76 @@
+{% load alumnos_extras %}{% comment %}
+  Tarjeta de un tutor dentro del asistente. Se usa para los formularios del formset y para
+  la plantilla vacía (formset.empty_form) que clona el JavaScript al agregar tutores.
+  Modos (campo oculto "modo"): "nuevo" (se captura al tutor) o "existente" (se vincula uno ya registrado).
+  Parámetros: form (TutorVinculoForm), es_edicion.
+{% endcomment %}
+{% with modo=form.modo.value|default:"nuevo" existente=form.tutor_existente %}
+  <article class="tutor-form{% if form.errors %} has-errors{% endif %}{% if es_edicion and modo == "existente" and not form.activo.value %} is-inactive{% endif %}" data-tutor-form data-mode="{{ modo }}">
+    {{ form.vinculo_id }}{{ form.modo }}{{ form.tutor }}
+    <span class="visually-hidden">{{ form.DELETE }}</span>
+
+    <header class="tutor-form__header">
+      <span class="avatar avatar--lg avatar--tone-{{ existente.pk|tono }}" data-tutor-avatar aria-hidden="true">{{ existente.iniciales|default:"+" }}</span>
+      <div class="tutor-form__title">
+        <p class="tutor-form__name" data-tutor-name>{% if existente %}{{ existente }}{% else %}Tutor nuevo{% endif %}</p>
+        <p class="tutor-form__sub" data-tutor-sub>{% if existente %}{% if existente.estatus != "ACTIVO" %}Tutor dado de baja{% else %}Tutor ya registrado{% endif %}{% else %}Completa sus datos de contacto{% endif %}</p>
+      </div>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm tutor-form__remove" data-tutor-remove aria-label="Quitar este tutor del alumno" data-tooltip="Quitar (se conserva como inactivo)">
+        {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+      </button>
+    </header>
+
+    {% for error in form.non_field_errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    {% for error in form.tutor.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+
+    {# Tutor ya registrado: se muestra un resumen #}
+    <div class="tutor-form__existing" data-tutor-existing{% if modo != "existente" %} hidden{% endif %}>
+      <ul class="tutor-form__facts">
+        <li data-fact="telefono">{% if existente %}{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} {{ existente.telefono|telefono }}{% endif %}</li>
+        <li data-fact="correo">{% if existente.correo_electronico %}{% include "partials/icon.html" with name="mail" icon_class="icon--sm" %} {{ existente.correo_electronico }}{% endif %}</li>
+        <li data-fact="ocupacion">{% if existente.ocupacion %}{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} {{ existente.ocupacion }}{% endif %}</li>
+      </ul>
+      <p class="tutor-form__siblings" data-fact="alumnos">
+        {% if existente %}{% with otros=existente.alumnos_relacionados.all %}{% if otros %}También es tutor de: {% for v in otros|slice:":3" %}{{ v.alumno }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}{% endwith %}{% endif %}
+      </p>
+    </div>
+
+    {# Tutor nuevo: se capturan sus datos #}
+    <div class="tutor-form__new" data-tutor-new{% if modo == "existente" %} hidden{% endif %}>
+      <div class="form-grid">
+        {% include "partials/field.html" with campo=form.nombre %}
+        {% include "partials/field.html" with campo=form.apellido_paterno %}
+        {% include "partials/field.html" with campo=form.apellido_materno %}
+        {% include "partials/field.html" with campo=form.telefono %}
+        {% include "partials/field.html" with campo=form.correo_electronico %}
+        {% include "partials/field.html" with campo=form.ocupacion %}
+        {% include "partials/field.html" with campo=form.curp %}
+        <div class="form-grid__full">{% include "partials/chip.html" with campo=form.mismo_domicilio %}</div>
+      </div>
+    </div>
+
+    {# Relación con el alumno #}
+    <div class="tutor-form__relation">
+      <div class="form-grid">
+        {% include "partials/field.html" with campo=form.parentesco %}
+        {% include "partials/field.html" with campo=form.observaciones clase="form-grid__full" %}
+      </div>
+      <fieldset class="field">
+        <legend class="field__label">Permisos y responsabilidades</legend>
+        <div class="choice-group">
+          {% include "partials/chip.html" with campo=form.tutor_principal %}
+          {% include "partials/chip.html" with campo=form.contacto_emergencia %}
+          {% include "partials/chip.html" with campo=form.autorizado_recoger %}
+          {% include "partials/chip.html" with campo=form.recibe_notificaciones %}
+          {% include "partials/chip.html" with campo=form.responsable_pagos %}
+          {% if es_edicion %}
+            {% include "partials/chip.html" with campo=form.activo %}
+          {% else %}
+            {# Al registrar no se muestra: sin este valor una casilla ausente se leería como "inactivo" #}
+            <input type="hidden" name="{{ form.activo.html_name }}" value="on">
+          {% endif %}
+        </div>
+      </fieldset>
+    </div>
+  </article>
+{% endwith %}

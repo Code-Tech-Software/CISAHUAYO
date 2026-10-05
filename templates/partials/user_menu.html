@@ -1,0 +1,48 @@
+{% comment %}
+  Menú del usuario autenticado. Si aún no hay sesión muestra el acceso al login.
+  Usa las rutas 'login' y 'logout' del proyecto si existen; si no, las del admin.
+{% endcomment %}
+{% url 'login' as login_url %}
+{% url 'logout' as logout_url %}
+{% if user.is_authenticated %}
+  {% with nombre=user.get_full_name|default:user.get_username %}
+    <div class="menu" data-menu>
+      <button type="button" class="user-trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-usuario" aria-label="Menú de usuario, {{ nombre }}">
+        <span class="avatar avatar--ring" aria-hidden="true">{{ nombre|first|upper }}</span>
+        <span class="user-trigger__name" aria-hidden="true">{{ nombre }}</span>
+        {% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm user-trigger__chevron" %}
+      </button>
+      <div class="menu__panel" id="menu-usuario" data-menu-panel hidden>
+        <div class="menu__header">
+          <p class="menu__title">{{ nombre }}</p>
+          <p class="menu__subtitle">{{ user.email|default:user.get_username }}</p>
+        </div>
+        <div class="menu__separator"></div>
+        <ul class="menu__list">
+          {% if user.is_staff %}
+            <li>
+              <a class="menu__item" href="{% url 'admin:index' %}">
+                {% include "partials/icon.html" with name="shield-check" %}
+                Administración de Django
+              </a>
+            </li>
+          {% endif %}
+          <li>
+            <form method="post" action="{% if logout_url %}{{ logout_url }}{% else %}{% url 'admin:logout' %}{% endif %}">
+              {% csrf_token %}
+              <button type="submit" class="menu__item menu__item--danger">
+                {% include "partials/icon.html" with name="log-out" %}
+                Cerrar sesión
+              </button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </div>
+  {% endwith %}
+{% else %}
+  <a class="btn btn--primary btn--sm" href="{% if login_url %}{{ login_url }}{% else %}{% url 'admin:login' %}{% endif %}?next={{ request.path|urlencode }}">
+    {% include "partials/icon.html" with name="log-in" icon_class="icon--sm" %}
+    Iniciar sesión
+  </a>
+{% endif %}

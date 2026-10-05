@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{% if es_edicion %}Editar justificación{% else %}Nueva justificación{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:justificaciones' %}">Justificaciones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar{% else %}Nueva justificación{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar justificación{% else %}Nueva justificación{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Cambia qué cubre la justificación de {{ alumno }} del {{ justificacion.fecha|date:"j \d\e F"|lower }}, su motivo o su comprobante. El alumno y el día no cambian: para eso anula esta y registra otra.{% else %}Justifica la falta de un alumno: la falta general del día, todas las materias o solo algunas. Puedes justificar varios días seguidos.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" enctype="multipart/form-data" novalidate data-justificacion-form{% if not es_edicion %} data-search-url="{{ url_alumnos }}" data-materias-url="{{ url_materias }}"{% endif %}>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-alumno">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="seccion-alumno">Alumno y día</h2>
+      </header>
+      <div class="card__body">
+        {% if es_edicion %}
+          <div class="chosen chosen--static">
+            {% include "partials/avatar.html" with persona=alumno %}
+            <div class="chosen__text">
+              <p class="chosen__name"><a class="link-subtle" href="{% url 'asistencias:alumno' alumno.pk %}">{{ alumno }}</a></p>
+              <p class="chosen__meta">{{ inscripcion.grado }} · {{ justificacion.fecha|date:"l j \d\e F \d\e Y"|lower }}</p>
+            </div>
+          </div>
+        {% else %}
+          <div class="field{% if form.alumno.errors %} is-invalid{% endif %}">
+            {{ form.alumno }}
+
+            <div class="live-search" data-picker-search{% if alumno %} hidden{% endif %}>
+              <label class="field__label field__label--required" for="buscar-alumno">Buscar alumno</label>
+              <div class="live-search__field">
+                {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
+                <input class="field__control live-search__input" id="buscar-alumno" type="text" role="combobox" aria-expanded="false"
+                       aria-controls="resultados-alumno" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+                       placeholder="Nombre, referencia o CURP…" data-picker-input>
+                <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Alumnos encontrados" data-picker-results hidden></div>
+              </div>
+            </div>
+
+            <div class="chosen" data-picker-chosen{% if not alumno %} hidden{% endif %}>
+              <span class="avatar avatar--tone-{{ alumno.pk|tono }}" data-picker-avatar aria-hidden="true">{{ alumno.iniciales }}</span>
+              <div class="chosen__text">
+                <p class="chosen__name" data-picker-name>{{ alumno }}</p>
+                <p class="chosen__meta" data-picker-grado>{% if inscripcion %}{{ inscripcion.grado }}{% else %}Alumno seleccionado{% endif %}</p>
+              </div>
+              <button type="button" class="btn btn--sm" data-picker-change>Cambiar</button>
+            </div>
+
+            {% for error in form.alumno.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            <p class="field__error" data-picker-error hidden>Busca y elige un alumno.</p>
+          </div>
+
+          <div class="form-grid attendance-dates">
+            {% include "partials/field.html" with campo=form.fecha_desde %}
+            {% include "partials/field.html" with campo=form.fecha_hasta %}
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-alcance">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="seccion-alcance">Qué se justifica</h2>
+      </header>
+      <div class="card__body">
+        <div class="field{% if form.materias_modo.errors %} is-invalid{% endif %}">
+          <label class="choice choice--check" for="{{ form.justifica_general.id_for_label }}">
+            {{ form.justifica_general }}
+            <span class="choice__box">{{ form.justifica_general.label }}</span>
+          </label>
+          <p class="field__hint">Su asistencia general (entrada al colegio) deja de contar como falta sin justificar.</p>
+        </div>
+
+        {% include "partials/choices.html" with campo=form.materias_modo %}
+
+        <div class="field attendance-subjects{% if form.materias.errors %} is-invalid{% endif %}" data-materias-bloque>
+          <p class="field__label">Materias <span class="text-muted" data-materias-grado>{% if inscripcion %}de {{ inscripcion.grado }}{% endif %}</span></p>
+          <div class="choice-group choice-group--stack" data-materias-lista>
+            {% for opcion in form.materias %}
+              <label class="choice choice--check" for="{{ opcion.id_for_label }}">
+                {{ opcion.tag }}
+                <span class="choice__box">{{ opcion.choice_label }}</span>
+              </label>
+            {% empty %}
+              <p class="field__hint" data-materias-vacio>{% if es_edicion %}Este grado no tiene materias vigentes.{% else %}Elige primero al alumno para ver las materias de su grado.{% endif %}</p>
+            {% endfor %}
+          </div>
+          {% for error in form.materias.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-motivo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="pencil" %}<h2 class="card__title" id="seccion-motivo">Motivo y comprobante</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.motivo clase="form-grid__full" %}
+        <div class="field{% if form.documento.errors %} is-invalid{% endif %} form-grid__full">
+          <label class="field__label" for="{{ form.documento.id_for_label }}">{{ form.documento.label }}</label>
+          {% if es_edicion and justificacion.documento %}
+            <p class="attendance-doc-current">
+              {% include "partials/icon.html" with name="link" icon_class="icon--sm" %}
+              <a class="link-subtle" href="{{ justificacion.documento.url }}" target="_blank" rel="noopener">Ver comprobante actual</a>
+            </p>
+          {% endif %}
+          {{ form.documento }}
+          {% if form.documento.help_text %}<p class="field__hint">{{ form.documento.help_text }}</p>{% endif %}
+          {% for error in form.documento.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          {% if es_edicion and justificacion.documento %}
+            <label class="choice choice--check" for="{{ form.quitar_documento.id_for_label }}">
+              {{ form.quitar_documento }}
+              <span class="choice__box">{{ form.quitar_documento.label }}</span>
+            </label>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'asistencias:justificaciones' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Registrar justificación{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/justificaciones.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% comment %}Fila etiqueta/valor de una lista de datos. Parámetros: etiqueta, valor, ancho (opcional).{% endcomment %}
+<div class="details__item{% if ancho %} details__item--wide{% endif %}">
+  <dt class="details__label">{{ etiqueta }}</dt>
+  <dd class="details__value{% if not valor %} details__value--empty{% endif %}">{{ valor|default:"No registrado" }}</dd>
+</div>

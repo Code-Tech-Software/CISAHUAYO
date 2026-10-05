@@ -1,12 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}
-    Dashboard | CISAHUAYO
-{% endblock %}
-
+{% block title %}Panel de control | CISAHUAYO{% endblock %}
 
 {% block content %}
+  {% now "G" as hora %}
+  {% now "l, j \d\e F \d\e Y" as fecha %}
 
+  <section class="hero" aria-labelledby="titulo-bienvenida">
+    <div class="hero__content">
+      <p class="hero__eyebrow">{{ fecha|capfirst }}</p>
+      <h1 class="hero__title" id="titulo-bienvenida">
+        {% if hora|add:"0" < 12 %}Buenos días{% elif hora|add:"0" < 19 %}Buenas tardes{% else %}Buenas noches{% endif %}{% if user.is_authenticated %}, {{ user.first_name|default:user.get_username }}{% endif %}
+      </h1>
+      <p class="hero__text">
+        Bienvenido al sistema de administración escolar del Colegio Interamericano de Sahuayo.
+        Salta a cualquier sección sin quitar las manos del teclado.
+      </p>
+      <button type="button" class="btn btn--primary" data-palette-open aria-haspopup="dialog" aria-controls="palette">
+        {% include "partials/icon.html" with name="search" icon_class="icon--sm" %}
+        Buscar o ir a…
+        <kbd class="kbd" aria-hidden="true" data-shortcut-kbd>Ctrl K</kbd>
+      </button>
+    </div>
+  </section>
 
-
+  <h2 class="section-title">Accesos rápidos</h2>
+  <div class="tile-grid">
+    {% for seccion in navegacion %}
+      {% if seccion.titulo %}
+        {% for elemento in seccion.elementos %}
+          <a class="tile{% if forloop.parentloop.counter == 3 %} tile--tone-2{% endif %}" href="{{ elemento.url }}">
+            <span class="tile__chip">{% include "partials/icon.html" with name=elemento.icono icon_class="icon--lg" %}</span>
+            <div class="tile__body">
+              <p class="tile__title">{{ elemento.etiqueta }}</p>
+              <p class="tile__text">{{ seccion.titulo }}</p>
+            </div>
+            {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm tile__arrow" %}
+          </a>
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+  </div>
 {% endblock %}

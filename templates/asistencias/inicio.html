@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Asistencias | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Asistencias</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Asistencias</h1>
+      <p class="page-header__description">La entrada de los alumnos al colegio, el pase de lista de cada materia y las justificaciones de las faltas.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_asistenciageneral %}
+        <a class="btn btn--primary" href="{% url 'asistencias:kiosco' %}">
+          {% include "partials/icon.html" with name="credit-card" icon_class="icon--sm" %}
+          Abrir pantalla de entrada
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "asistencias/_subnav.html" %}
+
+  <form id="filtros-dia" method="get" hidden></form>
+  {% include "asistencias/_fecha_nav.html" with formulario="filtros-dia" %}
+
+  {% if pendientes %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body attendance-alert">
+        <p>
+          {% if pendientes|length == 1 %}Hay <strong>1 día anterior sin cerrar</strong>: {{ pendientes.0|date:"j M" }}.{% else %}Hay <strong>{{ pendientes|length }} días anteriores sin cerrar</strong> (del {{ pendientes.0|date:"j M" }} al {{ pendientes|last|date:"j M" }}).{% endif %}
+          Al cerrarlos se genera la falta de quien no registró entrada.
+        </p>
+        <form method="post" action="{% url 'asistencias:cerrar' %}">
+          {% csrf_token %}
+          <input type="hidden" name="alcance" value="pendientes">
+          <button type="submit" class="btn btn--sm">Cerrar {% if pendientes|length == 1 %}el día{% else %}los {{ pendientes|length }} días{% endif %}</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Ese día queda fuera de los ciclos escolares</p>
+        <p class="empty-state__text">Las asistencias se registran dentro de las fechas de un ciclo. Revisa las fechas del ciclo actual o elige otro día.</p>
+        {% if perms.Alumnos.view_cicloescolar %}<a class="btn btn--sm" href="{% url 'ciclos:lista' %}">Ver ciclos escolares</a>{% endif %}
+      </div>
+    </div>
+  {% elif motivo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay clases este día</p>
+        <p class="empty-state__text">{{ motivo }}</p>
+        {% if perms.Alumnos.view_configuracionasistencia %}<a class="btn btn--sm" href="{% url 'asistencias:ajustes' %}">Ver días sin clases</a>{% endif %}
+      </div>
+    </div>
+  {% elif not total.inscritos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay alumnos inscritos este día</p>
+        <p class="empty-state__text">Inscribe a los alumnos en el ciclo {{ ciclo }} para poder registrar su asistencia.</p>
+        {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
+      </div>
+    </div>
+  {% else %}
+    <section class="stat-grid stat-grid--five" aria-label="Asistencia del día">
+      <div class="stat">
+        <p class="stat__label">Inscritos</p>
+        <p class="stat__value">{{ total.inscritos }}</p>
+        <p class="stat__hint">en {{ resumen.grados|length }} grado{{ resumen.grados|length|pluralize }}</p>
+      </div>
+      <div class="stat stat--ok">
+        <p class="stat__label">Presentes</p>
+        <p class="stat__value">{{ total.presentes }}</p>
+        <p class="stat__hint">llegaron a tiempo</p>
+      </div>
+      <div class="stat stat--late">
+        <p class="stat__label">Retardos</p>
+        <p class="stat__value">{{ total.retardos }}</p>
+        <p class="stat__hint">llegaron tarde</p>
+      </div>
+      <div class="stat stat--miss">
+        <p class="stat__label">Faltas</p>
+        <p class="stat__value">{{ total.faltas }}</p>
+        <p class="stat__hint">{% if total.justificadas %}{{ total.justificadas }} justificada{{ total.justificadas|pluralize }}{% else %}ninguna justificada{% endif %}</p>
+      </div>
+      <div class="stat{% if total.sin_registro and not es_hoy %} stat--attention{% endif %}">
+        <p class="stat__label">Sin entrada</p>
+        <p class="stat__value">{{ total.sin_registro }}</p>
+        <p class="stat__hint">{% if es_hoy %}todavía no llegan{% else %}sin registro ese día{% endif %}</p>
+      </div>
+    </section>
+
+    <div class="attendance-progress">
+      <progress class="meter" max="100" value="{{ porcentaje_entrada }}" aria-label="Alumnos que han entrado">{{ porcentaje_entrada }}%</progress>
+      <p class="attendance-progress__text"><strong>{{ total.entraron }}</strong> de {{ total.inscritos }} alumnos entraron al colegio ({{ porcentaje_entrada }}%)</p>
+    </div>
+
+    <div class="table-card">
+      <table class="table table--people">
+        <caption class="visually-hidden">Asistencia general por grado</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Grado</th>
+            <th class="table__th" scope="col">Inscritos</th>
+            <th class="table__th" scope="col">Presentes</th>
+            <th class="table__th" scope="col">Retardos</th>
+            <th class="table__th" scope="col">Faltas</th>
+            <th class="table__th" scope="col">Sin entrada</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for fila in resumen.grados %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">
+                <a class="person" href="{% url 'asistencias:dia' %}?fecha={{ fecha|date:'Y-m-d' }}&amp;grado={{ fila.grado.pk }}">
+                  <span class="avatar avatar--soft avatar--square avatar--tone-{{ fila.grado.nivel|nivel_tono }}" aria-hidden="true">{{ fila.grado.numero }}°</span>
+                  <span class="person__text"><span class="person__name">{{ fila.grado }}</span></span>
+                </a>
+              </td>
+              <td class="table__cell" data-label="Inscritos">{{ fila.inscritos }}</td>
+              <td class="table__cell" data-label="Presentes"><span class="count count--ok">{{ fila.presentes }}</span></td>
+              <td class="table__cell" data-label="Retardos"><span class="count count--late">{{ fila.retardos }}</span></td>
+              <td class="table__cell" data-label="Faltas"><span class="count count--miss">{{ fila.faltas }}</span>{% if fila.justificadas %} <span class="text-muted">({{ fila.justificadas }} justif.)</span>{% endif %}</td>
+              <td class="table__cell" data-label="Sin entrada">{{ fila.sin_registro|default:"—" }}</td>
+              <td class="table__cell table__cell--actions">
+                <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'asistencias:dia' %}?fecha={{ fecha|date:'Y-m-d' }}&amp;grado={{ fila.grado.pk }}" aria-label="Ver la lista de {{ fila.grado }}" data-tooltip="Ver lista">
+                  {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if cierre %}
+      <p class="attendance-closed">
+        {% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %}
+        Día cerrado el {{ cierre.cerrado_en|date:"j M, H:i" }}{% if cierre.automatico %} (cierre automático){% elif cierre.cerrado_por %} por {{ cierre.cerrado_por.get_full_name|default:cierre.cerrado_por.username }}{% endif %}
+        · {{ cierre.faltas }} falta{{ cierre.faltas|pluralize }} generada{{ cierre.faltas|pluralize }}.
+      </p>
+    {% endif %}
+
+    {% if puede_cerrar %}
+      <div class="attendance-close">
+        <div>
+          <h2 class="attendance-close__title">{% if cierre %}Volver a cerrar el día{% else %}Cerrar el día{% endif %}</h2>
+          <p class="text-muted">Genera la falta (general y de cada materia) de quien no registró entrada y completa lo que falte. Se puede repetir sin problema.</p>
+        </div>
+        <button type="button" class="btn{% if not cierre %} btn--primary{% endif %}" data-modal-open="modal-cerrar">Cerrar {% if es_hoy %}hoy{% else %}este día{% endif %}</button>
+      </div>
+
+      <dialog class="modal" id="modal-cerrar" aria-labelledby="modal-cerrar-titulo" data-modal>
+        <form class="modal__panel" method="post" action="{% url 'asistencias:cerrar' %}">
+          {% csrf_token %}
+          <input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+          <header class="modal__header">
+            <h2 class="modal__title" id="modal-cerrar-titulo">Cerrar el {{ fecha|date:"j \d\e F"|lower }}</h2>
+            <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          </header>
+          <div class="modal__body">
+            {% if sin_entradas %}
+              <div class="alert alert--warning" role="note">
+                {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+                <p class="alert__body"><strong>Nadie registró entrada este día.</strong> Si fue un día sin clases, regístralo en Ajustes en lugar de cerrarlo; de lo contrario todos quedarán con falta.</p>
+              </div>
+            {% endif %}
+            <p>Se marcará <strong>falta</strong> a {{ total.sin_registro }} alumno{{ total.sin_registro|pluralize }} que no registr{{ total.sin_registro|pluralize:"ó,aron" }} entrada, en la asistencia general y en cada una de sus materias de ese día.</p>
+            {% if es_hoy %}<p class="text-muted">Es el día de hoy: quien llegue después de cerrar tendrá que pasar por dirección.</p>{% endif %}
+          </div>
+          <footer class="modal__footer">
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+            <button type="submit" class="btn btn--primary">Cerrar el día</button>
+          </footer>
+        </form>
+      </dialog>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

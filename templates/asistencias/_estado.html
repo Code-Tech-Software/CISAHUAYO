@@ -1,0 +1,5 @@
+{% comment %}
+  Etiqueta del estado de una asistencia (presente, retardo, falta) y, si es falta, si está justificada.
+  Parámetros: estado ('PRESENTE', 'RETARDO' o 'FALTA'), justificada (bool, opcional).
+{% endcomment %}
+{% if estado == 'FALTA' and justificada %}<span class="tag tag--info">Falta justificada</span>{% elif estado == 'PRESENTE' %}<span class="tag tag--success">Presente</span>{% elif estado == 'RETARDO' %}<span class="tag tag--warning">Retardo</span>{% elif estado == 'FALTA' %}<span class="tag tag--danger">Falta</span>{% endif %}

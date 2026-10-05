@@ -1,0 +1,40 @@
+{% load static %}
+<aside class="sidebar" id="sidebar" data-sidebar aria-label="Barra lateral">
+  <div class="sidebar__header">
+    <a class="brand" href="{% url 'inicio' %}" aria-label="CISAHUAYO, ir al panel de control">
+      <span class="brand__mark">
+        <img class="brand__logo" src="{% static 'img/logointer.svg' %}" alt="" width="24" height="26">
+      </span>
+      <span class="brand__text">
+        <span class="brand__name">CISAHUAYO</span>
+        <span class="brand__tagline">Administración escolar</span>
+      </span>
+    </a>
+    <button type="button" class="btn btn--ghost btn--icon sidebar__close" data-sidebar-close aria-label="Cerrar menú">
+      {% include "partials/icon.html" with name="x" %}
+    </button>
+  </div>
+
+  <nav class="nav" aria-label="Navegación principal">
+    {% for seccion in navegacion %}
+      <div class="nav__section">
+        {% if seccion.titulo %}
+          <p class="nav__title" id="nav-titulo-{{ forloop.counter }}">{{ seccion.titulo }}</p>
+        {% endif %}
+        <ul class="nav__list"{% if seccion.titulo %} aria-labelledby="nav-titulo-{{ forloop.counter }}"{% endif %}>
+          {% for elemento in seccion.elementos %}
+            <li>
+              <a class="nav__link" href="{{ elemento.url }}"{% if elemento.activo %} aria-current="page"{% endif %}
+                 data-tooltip="{{ elemento.etiqueta }}" data-tooltip-placement="right" data-tooltip-collapsed>
+                <span class="nav__chip">
+                  {% include "partials/icon.html" with name=elemento.icono %}
+                </span>
+                <span class="nav__label">{{ elemento.etiqueta }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </nav>
+</aside>

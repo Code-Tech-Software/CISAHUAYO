@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if es_edicion %}Editar a {{ tutor }}{% else %}Registrar tutor{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/tutores.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'tutores:lista' %}">Tutores</a></li>
+  {% if es_edicion %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ tutor.get_absolute_url }}">{{ tutor }}</a></li>
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Editar</span></li>
+  {% else %}
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nuevo tutor</span></li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar tutor{% else %}Registrar tutor{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Actualiza los datos de {{ tutor }}.{% else %}Captura sus datos de contacto. Después podrás vincularlo con sus alumnos desde su perfil.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <datalist id="estados-mx">
+    {% for estado in estados_mx %}<option value="{{ estado }}">{% endfor %}
+  </datalist>
+
+  <form class="form-page" id="tutor-form" method="post" novalidate data-persona-form>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-personal">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="user" %}<h2 class="card__title" id="seccion-personal">Datos personales</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nombre %}
+        {% include "partials/field.html" with campo=form.apellido_paterno %}
+        {% include "partials/field.html" with campo=form.apellido_materno %}
+        <div class="field{% if form.curp.errors %} is-invalid{% endif %}">
+          <label class="field__label" for="{{ form.curp.id_for_label }}">{{ form.curp.label }}</label>
+          {{ form.curp }}
+          <p class="field__hint" id="{{ form.curp.auto_id }}_helptext" data-curp-feedback aria-live="polite">{{ form.curp.help_text }}</p>
+          {% for error in form.curp.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
+        {% include "partials/field.html" with campo=form.estado_civil %}
+        {% include "partials/field.html" with campo=form.religion %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-contacto">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="phone" %}<h2 class="card__title" id="seccion-contacto">Contacto</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.telefono %}
+        {% include "partials/field.html" with campo=form.telefono_alternativo %}
+        {% include "partials/field.html" with campo=form.correo_electronico clase="form-grid__full" %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-domicilio">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="map-pin" %}<h2 class="card__title" id="seccion-domicilio">Domicilio</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.domicilio clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.colonia %}
+        {% include "partials/field.html" with campo=form.cp %}
+        {% include "partials/field.html" with campo=form.ciudad %}
+        {% include "partials/field.html" with campo=form.estado %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-trabajo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="briefcase" %}<h2 class="card__title" id="seccion-trabajo">Trabajo</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.ocupacion %}
+        {% include "partials/field.html" with campo=form.lugar_trabajo %}
+        {% include "partials/field.html" with campo=form.telefono_trabajo %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-notas">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="seccion-notas">Notas{% if es_edicion %} y estatus{% endif %}</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.observaciones clase="form-grid__full" %}
+        {% if es_edicion %}
+          {% include "partials/field.html" with campo=form.estatus %}
+        {% endif %}
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% if es_edicion %}{{ tutor.get_absolute_url }}{% else %}{% url 'tutores:lista' %}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary" data-submit>
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Registrar tutor{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/persona-form.js' %}" defer></script>
+{% endblock %}

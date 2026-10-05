@@ -1,0 +1,62 @@
+{% comment %}
+  Horario semanal como tabla accesible (una fila por franja, una columna por día).
+  Parámetros: cuadricula (de Alumnos.horarios.cuadricula), etiqueta (texto para lectores de pantalla),
+  modo ("grado": cada bloque muestra su clave y profesor, y se puede editar/quitar; "profesor": muestra el grado),
+  editable (bool, solo en modo grado).
+{% endcomment %}
+{% load alumnos_extras %}
+<div class="timetable-wrap" role="region" aria-label="{{ etiqueta }}" tabindex="0">
+  <table class="timetable">
+    <caption class="visually-hidden">{{ etiqueta }}</caption>
+    <thead>
+      <tr>
+        <th class="timetable__corner" scope="col">Hora</th>
+        {% for dia in cuadricula.dias %}
+          <th class="timetable__day" scope="col"><span class="timetable__day-long">{{ dia.nombre }}</span><span class="timetable__day-short" aria-hidden="true">{{ dia.corto }}</span></th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for fila in cuadricula.filas %}
+        <tr>
+          <th class="timetable__time" scope="row">{{ fila.inicio|time:"H:i" }}<span class="timetable__time-end">{{ fila.fin|time:"H:i" }}</span></th>
+          {% for celda in fila.celdas %}
+            <td class="timetable__cell">
+              {% for bloque in celda %}
+                {% with asignacion=bloque.materia_grado materia=bloque.materia_grado.materia %}
+                  <div class="slot slot--tone-{{ materia.pk|tono }}">
+                    <div class="slot__text">
+                      {% if modo == "profesor" %}
+                        {% if perms.Alumnos.view_horariomateria %}
+                          <a class="slot__name" href="{% url 'horarios:grado' asignacion.grado_id %}?ciclo={{ asignacion.ciclo_id }}">{{ materia.nombre }}</a>
+                        {% else %}
+                          <span class="slot__name">{{ materia.nombre }}</span>
+                        {% endif %}
+                        <span class="slot__code">{{ asignacion.grado }}</span>
+                      {% else %}
+                        {% if editable and perms.Alumnos.change_horariomateria %}
+                          <a class="slot__name" href="{% url 'horarios:editar' bloque.pk %}" aria-label="Editar {{ materia.nombre }}, {{ bloque.get_dia_semana_display }} de {{ bloque.hora_inicio|time:'H:i' }} a {{ bloque.hora_fin|time:'H:i' }}" data-modal-form>{{ materia.nombre }}</a>
+                        {% else %}
+                          <span class="slot__name">{{ materia.nombre }}</span>
+                        {% endif %}
+                        <span class="slot__code">{{ materia.clave }}{% if asignacion.profesor %} · {{ asignacion.profesor.apellido_paterno }}{% endif %}</span>
+                      {% endif %}
+                    </div>
+                    {% if modo != "profesor" and editable and perms.Alumnos.delete_horariomateria %}
+                      <button type="button" class="slot__remove" data-modal-open="modal-eliminar" data-eliminar
+                              data-action="{% url 'horarios:eliminar' bloque.pk %}" data-materia="{{ materia.nombre }}"
+                              data-detalle="{{ bloque.get_dia_semana_display }} {{ bloque.hora_inicio|time:'H:i' }}–{{ bloque.hora_fin|time:'H:i' }}"
+                              aria-label="Quitar {{ materia.nombre }} del {{ bloque.get_dia_semana_display|lower }} a las {{ bloque.hora_inicio|time:'H:i' }}" data-tooltip="Quitar del horario">
+                        {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+                      </button>
+                    {% endif %}
+                  </div>
+                {% endwith %}
+              {% endfor %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

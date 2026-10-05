@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+{% comment %}
+  Error del servidor. Es una página completamente autónoma (estilos dentro, sin {% static %}, sin menú ni contexto):
+  se muestra justo cuando algo falló, así que no puede depender de archivos ni de plantillas que quizá sean la causa.
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#245a62">
+  <title>Algo salió mal | CISAHUAYO</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #f6f8f9; --text: #1b2a2e; --muted: #5b6b70; --code: #a8d5d9; --primary: #245a62; --on-primary: #fff; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0b1417; --text: #eaf1f2; --muted: #9db0b5; --code: #2f737c; --primary: #91c7cb; --on-primary: #0b1e22; } }
+    * { box-sizing: border-box; }
+    body { display: grid; min-height: 100vh; margin: 0; place-items: center; padding: 1.5rem; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; text-align: center; }
+    body::before { content: ""; position: fixed; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, #ba1346 0 32%, #fabd5c 32% 58%, #91c7cb 58% 100%); }
+    main { max-width: 32rem; }
+    .code { margin: 0; color: var(--code); font-size: clamp(4.5rem, 16vw, 7.5rem); font-weight: 800; letter-spacing: -0.05em; line-height: 1; }
+    h1 { margin: 1rem 0 0.5rem; font-size: 1.375rem; }
+    p { margin: 0 0 1.5rem; color: var(--muted); }
+    a { display: inline-block; padding: 0.75rem 1.25rem; border-radius: 0.625rem; background: var(--primary); color: var(--on-primary); font-weight: 600; text-decoration: none; }
+    a:focus-visible { outline: 3px solid #fabd5c; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="code" aria-hidden="true">500</p>
+    <h1>Algo salió mal de nuestro lado</h1>
+    <p>No se pudo completar lo que pediste. Lo que ya estaba guardado sigue intacto. Inténtalo de nuevo en un momento; si el problema continúa, avisa a quien administra el sistema.</p>
+    <a href="/">Ir al panel de control</a>
+  </main>
+</body>
+</html>

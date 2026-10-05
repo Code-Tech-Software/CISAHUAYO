@@ -1,0 +1,29 @@
+{% comment %}
+  Mensajes del framework de mensajes de Django (messages.success, .error, etc.) como avisos
+  flotantes. Los de nivel informativo o de éxito se cierran solos (la barra marca el tiempo);
+  los de advertencia y error permanecen hasta que se cierren. Lo controla app.js (initToasts).
+{% endcomment %}
+{% if messages %}
+  <div class="toasts" data-toasts>
+    {% for message in messages %}
+      <div class="toast toast--{{ message.level_tag }}" role="{% if message.level >= 30 %}alert{% else %}status{% endif %}" data-toast>
+        <span class="toast__icon">
+          {% if message.level_tag == "success" %}
+            {% include "partials/icon.html" with name="circle-check" %}
+          {% elif message.level_tag == "warning" %}
+            {% include "partials/icon.html" with name="triangle-alert" %}
+          {% elif message.level_tag == "error" %}
+            {% include "partials/icon.html" with name="circle-x" %}
+          {% else %}
+            {% include "partials/icon.html" with name="info" %}
+          {% endif %}
+        </span>
+        <p class="toast__body">{{ message }}</p>
+        <button type="button" class="toast__close" data-toast-dismiss aria-label="Cerrar mensaje">
+          {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+        </button>
+        {% if message.level < 30 %}<span class="toast__progress" data-toast-progress></span>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

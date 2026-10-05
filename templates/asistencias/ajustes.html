@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Ajustes de asistencia | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Ajustes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes de asistencia</h1>
+      <p class="page-header__description">Las reglas de la entrada, los días sin clases y el cierre de los días.</p>
+    </div>
+  </header>
+
+  {% include "asistencias/_subnav.html" %}
+
+  <div class="info-grid">
+    <form class="card" method="post" novalidate aria-labelledby="titulo-reglas">
+      {% csrf_token %}
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-reglas">Reglas de la entrada</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% if form.non_field_errors %}
+          <div class="alert alert--error form-grid__full" role="alert">
+            {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+            <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+          </div>
+        {% endif %}
+        {% include "partials/field.html" with campo=form.hora_entrada %}
+        {% include "partials/field.html" with campo=form.tolerancia_minutos %}
+        <div class="field form-grid__full{% if form.cierre_automatico.errors %} is-invalid{% endif %}">
+          <label class="choice choice--check" for="{{ form.cierre_automatico.id_for_label }}">
+            <input class="choice__input" type="checkbox" name="{{ form.cierre_automatico.html_name }}" id="{{ form.cierre_automatico.id_for_label }}"{% if form.cierre_automatico.value %} checked{% endif %}>
+            <span class="choice__box">{{ form.cierre_automatico.label }}</span>
+          </label>
+          <p class="field__hint">{{ form.cierre_automatico.help_text }}</p>
+        </div>
+      </div>
+      {% if perms.Alumnos.change_configuracionasistencia %}
+        <footer class="card__foot card__foot--actions">
+          <button type="submit" class="btn btn--primary">Guardar reglas</button>
+        </footer>
+      {% endif %}
+    </form>
+
+    <article class="card" aria-labelledby="titulo-lector">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="credit-card" %}<h2 class="card__title" id="titulo-lector">Pantalla de entrada y lector</h2>
+      </header>
+      <div class="card__body attendance-help">
+        <p>El lector RFID funciona como un teclado: al acercar la credencial escribe su <strong>UID</strong> y pulsa Enter. Basta abrir la pantalla de entrada en el equipo del lector y dejarla abierta.</p>
+        <ul class="attendance-help__list">
+          <li>Cada alumno debe tener su <strong>UID</strong> capturado en su perfil (campo «UID de tarjeta»).</li>
+          <li>Quien no traiga credencial escribe su <strong>número de referencia</strong> en la misma pantalla.</li>
+          <li>Inicia sesión en ese equipo con una cuenta que pueda registrar entradas.</li>
+          <li>Para que los días se cierren solos aunque nadie abra el sistema, programa cada noche <code class="code">python manage.py cerrar_asistencias</code>.</li>
+        </ul>
+        {% if perms.Alumnos.add_asistenciageneral %}
+          <a class="btn btn--primary btn--sm" href="{% url 'asistencias:kiosco' %}">Abrir pantalla de entrada</a>
+        {% endif %}
+      </div>
+    </article>
+  </div>
+
+  <section class="card attendance-days" aria-labelledby="titulo-dias">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="titulo-dias">Días sin clases</h2>
+    </header>
+    <div class="card__body">
+      <p class="text-muted">En estos días no se registra entrada y no se generan faltas: asuetos, consejos técnicos, vacaciones, suspensiones.</p>
+      {% if perms.Alumnos.add_dianolectivo %}
+        <form class="attendance-days__form" method="post" action="{% url 'asistencias:dia_sin_clases_crear' %}" novalidate>
+          {% csrf_token %}
+          {% include "partials/field.html" with campo=dia_form.desde %}
+          {% include "partials/field.html" with campo=dia_form.hasta %}
+          {% include "partials/field.html" with campo=dia_form.motivo %}
+          <div class="attendance-days__action"><button type="submit" class="btn btn--primary">Agregar</button></div>
+        </form>
+      {% endif %}
+    </div>
+    {% if dias_sin_clases %}
+      <div class="table-card table-card--flush">
+        <table class="table table--people">
+          <caption class="visually-hidden">Días sin clases registrados</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Día</th>
+              <th class="table__th table__col--wide" scope="col">Motivo</th>
+              <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for dia in dias_sin_clases %}
+              <tr class="table__row">
+                <td class="table__cell table__cell--main">{{ dia.fecha|date:"l j \d\e F \d\e Y"|lower }}{% if dia.fecha >= hoy %} <span class="tag tag--info">Próximo</span>{% endif %}</td>
+                <td class="table__cell table__col--wide" data-label="Motivo">{{ dia.motivo }}</td>
+                <td class="table__cell table__cell--actions">
+                  {% if perms.Alumnos.delete_dianolectivo %}
+                    <form method="post" action="{% url 'asistencias:dia_sin_clases_eliminar' dia.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Quitar el día sin clases del {{ dia.fecha|date:'j M Y' }}" data-tooltip="Quitar">
+                        {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                      </button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state empty-state--inline">
+        <p class="empty-state__title">Aún no hay días sin clases</p>
+        <p class="empty-state__text">Los fines de semana sin horario ya se omiten solos; aquí registras los demás.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if cierres %}
+    <section class="card" aria-labelledby="titulo-cierres">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="circle-check" %}<h2 class="card__title" id="titulo-cierres">Cierres recientes</h2>
+      </header>
+      <ul class="timeline">
+        {% for cierre in cierres %}
+          <li class="timeline__item">
+            <span class="timeline__date">{{ cierre.fecha|date:"D j M" }}</span>
+            <span class="tag {% if cierre.automatico %}tag--info{% else %}tag--success{% endif %}">{% if cierre.automatico %}Automático{% else %}Manual{% endif %}</span>
+            <span class="text-muted">{{ cierre.faltas }} falta{{ cierre.faltas|pluralize }} generada{{ cierre.faltas|pluralize }}{% if cierre.cerrado_por %} · {{ cierre.cerrado_por.get_full_name|default:cierre.cerrado_por.username }}{% endif %}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

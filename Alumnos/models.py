@@ -1,8 +1,10 @@
-from datetime import date
+from datetime import date, time
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
+from django.core.validators import MaxValueValidator, RegexValidator
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 
 
@@ -64,6 +66,24 @@ class Alumno(models.Model):
             f"{self.apellido_materno}"
         ).strip()
 
+    @property
+    def nombre_completo(self):
+        return str(self)
+
+    @property
+    def iniciales(self):
+        return (self.nombre[:1] + self.apellido_paterno[:1]).upper()
+
+    @property
+    def edad(self):
+        """Años cumplidos a la fecha de hoy."""
+        hoy = timezone.localdate()
+        nacimiento = self.fecha_nacimiento
+        return hoy.year - nacimiento.year - ((hoy.month, hoy.day) < (nacimiento.month, nacimiento.day))
+
+    def get_absolute_url(self):
+        return reverse('alumnos:detalle', args=[self.pk])
+
     class Meta:
         verbose_name = 'Alumno'
         verbose_name_plural = 'Alumnos'
@@ -95,10 +115,66 @@ class CicloEscolar(models.Model):
     def __str__(self):
         return self.nombre
 
+    def get_absolute_url(self):
+        return reverse('ciclos:detalle', args=[self.pk])
+
+    @property
+    def estado(self):
+        """ACTUAL (el ciclo en curso), PROXIMO (todavía no empieza) o CERRADO."""
+        if self.activo:
+            return 'ACTUAL'
+        return 'PROXIMO' if self.fecha_inicio > timezone.localdate() else 'CERRADO'
+
+    @property
+    def estado_display(self):
+        return {'ACTUAL': 'Actual', 'PROXIMO': 'Próximo', 'CERRADO': 'Cerrado'}[self.estado]
+
+    @property
+    def duracion_dias(self):
+        return (self.fecha_fin - self.fecha_inicio).days + 1
+
+    @property
+    def avance(self):
+        """Porcentaje (0-100) del ciclo que ya transcurrió."""
+        hoy = timezone.localdate()
+        if hoy <= self.fecha_inicio:
+            return 0
+        if hoy >= self.fecha_fin:
+            return 100
+        return round((hoy - self.fecha_inicio).days * 100 / max((self.fecha_fin - self.fecha_inicio).days, 1))
+
+    @property
+    def fuera_de_fechas(self):
+        """True si es el ciclo actual pero hoy queda fuera de su rango de fechas (conviene revisarlo)."""
+        hoy = timezone.localdate()
+        return self.activo and not (self.fecha_inicio <= hoy <= self.fecha_fin)
+
     class Meta:
         verbose_name = 'Ciclo escolar'
         verbose_name_plural = 'Ciclos escolares'
         ordering = ['-fecha_inicio']
+
+
+ORDEN_NIVELES = ('PREESCOLAR', 'PRIMARIA', 'SECUNDARIA', 'PREPARATORIA')
+
+
+def orden_de_nivel(campo='nivel'):
+    """Expresión para ordenar por nivel escolar (preescolar, primaria, secundaria, preparatoria).
+
+    El orden alfabético de `nivel` pondría a la preparatoria antes que a la primaria. `campo` es la ruta al
+    nivel cuando se parte de otro modelo (por ejemplo 'grado__nivel' desde una inscripción).
+    """
+    return models.Case(
+        *[models.When(**{campo: nombre}, then=models.Value(indice)) for indice, nombre in enumerate(ORDEN_NIVELES)],
+        default=models.Value(len(ORDEN_NIVELES)),
+        output_field=models.IntegerField(),
+    )
+
+
+class GradoQuerySet(models.QuerySet):
+    def academicos(self):
+        """Orden escolar: por nivel (preescolar a preparatoria) y, dentro de cada nivel, por número."""
+        return self.order_by(orden_de_nivel(), 'numero')
 
 
 class Grado(models.Model):
@@ -110,9 +186,15 @@ class Grado(models.Model):
     ]
     nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, verbose_name='Nivel')
     numero = models.PositiveSmallIntegerField(verbose_name='Grado')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    objects = GradoQuerySet.as_manager()
 
     def __str__(self):
         return f"{self.numero}° {self.get_nivel_display()}"
+
+    def get_absolute_url(self):
+        return reverse('grados:detalle', args=[self.pk])
 
     class Meta:
         verbose_name = 'Grado'
@@ -194,6 +276,9 @@ class Materia(models.Model):
     def __str__(self):
         return self.nombre
 
+    def get_absolute_url(self):
+        return reverse('materias:detalle', args=[self.pk])
+
     class Meta:
         verbose_name = 'Materia'
         verbose_name_plural = 'Materias'
@@ -205,6 +290,10 @@ class MateriaGrado(models.Model):
     ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='materias_grado')
     grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='materias_grado')
     materia = models.ForeignKey(Materia, on_delete=models.PROTECT, related_name='grados_materia')
+    profesor = models.ForeignKey(
+        'Profesor', null=True, blank=True, on_delete=models.PROTECT, related_name='asignaciones',
+        verbose_name='Profesor',
+    )
     activa = models.BooleanField(default=True, verbose_name='Activa')
 
     def __str__(self):
@@ -296,9 +385,22 @@ class AsistenciaGeneral(models.Model):
         ('RETARDO', 'Retardo'),
     ]
 
+    ORIGEN_CHOICES = [
+        ('UID', 'Credencial (UID)'),
+        ('REFERENCIA', 'Número de referencia'),
+        ('MANUAL', 'Captura manual'),
+        ('CIERRE', 'Cierre del día'),
+    ]
+
     inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='asistencias_generales')
     fecha = models.DateField(verbose_name='Fecha')
     estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='PRESENTE', verbose_name='Estado')
+    hora_entrada = models.TimeField(null=True, blank=True, verbose_name='Hora de entrada')
+    origen = models.CharField(max_length=12, choices=ORIGEN_CHOICES, default='MANUAL', verbose_name='Origen')
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+        verbose_name='Registrado por',
+    )
     observaciones = models.CharField(max_length=250, blank=True, verbose_name='Observaciones')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
@@ -344,10 +446,22 @@ class AsistenciaMateria(models.Model):
         ('RETARDO', 'Retardo'),
     ]
 
+    ORIGEN_CHOICES = [
+        ('ENTRADA', 'Entrada del alumno'),
+        ('PASE', 'Pase de lista'),
+        ('MANUAL', 'Captura manual'),
+        ('CIERRE', 'Cierre del día'),
+    ]
+
     inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='asistencias_materias')
     materia_grado = models.ForeignKey(MateriaGrado, on_delete=models.PROTECT, related_name='asistencias')
     fecha = models.DateField(verbose_name='Fecha')
     estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='PRESENTE', verbose_name='Estado')
+    origen = models.CharField(max_length=10, choices=ORIGEN_CHOICES, default='PASE', verbose_name='Origen')
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+        verbose_name='Registrado por',
+    )
     observaciones = models.CharField(max_length=250, blank=True, verbose_name='Observaciones')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
@@ -417,6 +531,11 @@ class Justificacion(models.Model):
     todas_materias = models.BooleanField(default=False, verbose_name='Justificar todas las materias')
     materias = models.ManyToManyField(MateriaGrado, blank=True, related_name='justificaciones', verbose_name='Materias')
     documento = models.FileField(upload_to='justificaciones/%Y/%m/', blank=True, null=True, verbose_name='Comprobante')
+    activa = models.BooleanField(default=True, verbose_name='Vigente')
+    registrada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+        verbose_name='Registrada por',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -433,14 +552,79 @@ class Justificacion(models.Model):
             '-fecha'
         ]
         constraints = [
+            # Una justificación vigente por alumno y día; las anuladas se conservan como historial
             models.UniqueConstraint(
                 fields=[
                     'inscripcion',
                     'fecha'
                 ],
+                condition=models.Q(activa=True),
                 name='justificacion_alumno_fecha_unica'
             )
         ]
+
+
+class ConfiguracionAsistencia(models.Model):
+    """Reglas del control de asistencia del colegio. Hay un solo registro (`cargar()` lo crea si falta)."""
+
+    hora_entrada = models.TimeField(default=time(8, 0), verbose_name='Hora de entrada')
+    tolerancia_minutos = models.PositiveSmallIntegerField(
+        default=10, validators=[MaxValueValidator(120)], verbose_name='Tolerancia (minutos)',
+    )
+    cierre_automatico = models.BooleanField(default=True, verbose_name='Cerrar automáticamente los días anteriores')
+
+    @classmethod
+    def cargar(cls):
+        configuracion, _ = cls.objects.get_or_create(pk=1)
+        return configuracion
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Entrada {self.hora_entrada:%H:%M} (tolerancia de {self.tolerancia_minutos} min)"
+
+    class Meta:
+        verbose_name = 'Configuración de asistencia'
+        verbose_name_plural = 'Configuración de asistencia'
+
+
+class DiaNoLectivo(models.Model):
+    """Un día sin clases (asueto, suspensión, vacaciones): no se registra entrada ni se generan faltas."""
+
+    fecha = models.DateField(unique=True, verbose_name='Fecha')
+    motivo = models.CharField(max_length=120, verbose_name='Motivo')
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.fecha} - {self.motivo}"
+
+    class Meta:
+        verbose_name = 'Día sin clases'
+        verbose_name_plural = 'Días sin clases'
+        ordering = ['fecha']
+
+
+class CierreDia(models.Model):
+    """Marca que un día de clases ya se cerró: a quien no registró entrada se le generó la falta."""
+
+    fecha = models.DateField(unique=True, verbose_name='Fecha')
+    cerrado_en = models.DateTimeField(default=timezone.now, verbose_name='Cerrado el')
+    cerrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+        verbose_name='Cerrado por',
+    )
+    automatico = models.BooleanField(default=False, verbose_name='Cierre automático')
+    faltas = models.PositiveIntegerField(default=0, verbose_name='Faltas generadas')
+
+    def __str__(self):
+        return f"Cierre del {self.fecha}"
+
+    class Meta:
+        verbose_name = 'Cierre de día'
+        verbose_name_plural = 'Cierres de día'
+        ordering = ['-fecha']
 
 
 class Tutor(models.Model):
@@ -489,6 +673,17 @@ class Tutor(models.Model):
             f"{self.apellido_paterno} "
             f"{self.apellido_materno}"
         ).strip()
+
+    @property
+    def nombre_completo(self):
+        return str(self)
+
+    @property
+    def iniciales(self):
+        return (self.nombre[:1] + self.apellido_paterno[:1]).upper()
+
+    def get_absolute_url(self):
+        return reverse('tutores:detalle', args=[self.pk])
 
     class Meta:
         verbose_name = 'Tutor'
@@ -545,4 +740,60 @@ class TutorAlumno(models.Model):
                 ],
                 name='tutor_alumno_unico'
             )
+        ]
+
+
+class Profesor(models.Model):
+
+    ESTATUS_CHOICES = [
+        ('ACTIVO', 'Activo'),
+        ('INACTIVO', 'Inactivo'),
+    ]
+
+    nombre = models.CharField(max_length=80, verbose_name='Nombre')
+    apellido_paterno = models.CharField(max_length=60, verbose_name='Apellido paterno')
+    apellido_materno = models.CharField(max_length=60, blank=True, verbose_name='Apellido materno')
+    curp = models.CharField(max_length=18, unique=True, null=True, blank=True, verbose_name='CURP')
+    fecha_nacimiento = models.DateField(null=True, blank=True, verbose_name='Fecha de nacimiento')
+    telefono = models.CharField(max_length=20, verbose_name='Teléfono')
+    telefono_alternativo = models.CharField(max_length=20, blank=True, verbose_name='Teléfono alternativo')
+    correo_electronico = models.EmailField(max_length=254, blank=True, null=True, unique=True, verbose_name='Correo electrónico')
+    domicilio = models.CharField(max_length=200, blank=True, verbose_name='Domicilio')
+    colonia = models.CharField(max_length=100, blank=True, verbose_name='Colonia')
+    ciudad = models.CharField(max_length=100, blank=True, verbose_name='Ciudad')
+    estado = models.CharField(max_length=100, blank=True, verbose_name='Estado')
+    cp = models.CharField(
+        max_length=5, blank=True, verbose_name='Código postal',
+        validators=[RegexValidator(regex=r'^\d{5}$', message='El código postal debe contener exactamente 5 dígitos.')],
+    )
+    profesion = models.CharField(max_length=150, blank=True, verbose_name='Profesión o título')
+    cedula_profesional = models.CharField(max_length=20, blank=True, verbose_name='Cédula profesional')
+    especialidad = models.CharField(max_length=150, blank=True, verbose_name='Especialidad o áreas que imparte')
+    fecha_ingreso = models.DateField(null=True, blank=True, verbose_name='Fecha de ingreso al colegio')
+    observaciones = models.TextField(blank=True, verbose_name='Observaciones')
+    estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellido_paterno} {self.apellido_materno}".strip()
+
+    @property
+    def nombre_completo(self):
+        return str(self)
+
+    @property
+    def iniciales(self):
+        return (self.nombre[:1] + self.apellido_paterno[:1]).upper()
+
+    def get_absolute_url(self):
+        return reverse('profesores:detalle', args=[self.pk])
+
+    class Meta:
+        verbose_name = 'Profesor'
+        verbose_name_plural = 'Profesores'
+        ordering = [
+            'apellido_paterno',
+            'apellido_materno',
+            'nombre'
         ]

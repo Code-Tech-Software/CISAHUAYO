@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if es_edicion %}Editar el ciclo {{ ciclo }}{% else %}Nuevo ciclo escolar{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ciclos:lista' %}">Ciclos escolares</a></li>
+  {% if es_edicion %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ ciclo.get_absolute_url }}">{{ ciclo }}</a></li>
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Editar</span></li>
+  {% else %}
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nuevo ciclo</span></li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar ciclo escolar{% else %}Nuevo ciclo escolar{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Actualiza el nombre o las fechas del ciclo {{ ciclo }}.{% else %}Ya propusimos el nombre y las fechas del ciclo que sigue; ajústalos si hace falta.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-ciclo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="calendar-range" %}<h2 class="card__title" id="seccion-ciclo">Datos del ciclo</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.fecha_inicio %}
+        {% include "partials/field.html" with campo=form.fecha_fin %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-actual">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="check" %}<h2 class="card__title" id="seccion-actual">Ciclo en curso</h2>
+      </header>
+      <div class="card__body">
+        <div class="choice-group">{% include "partials/chip.html" with campo=form.activo %}</div>
+        <p class="field__hint">{{ form.activo.help_text }}</p>
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% if es_edicion %}{{ ciclo.get_absolute_url }}{% else %}{% url 'ciclos:lista' %}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Crear ciclo{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}

@@ -1,0 +1,4 @@
+{% load alumnos_extras %}{% comment %}
+  Foto o iniciales de una persona (Alumno o Tutor).
+  Parámetros: persona, tamano (sm, lg, xl; vacío = mediano), extra (clases adicionales, p. ej. "avatar--square avatar--soft").
+{% endcomment %}{% if persona.fotografia %}<span class="avatar{% if tamano %} avatar--{{ tamano }}{% endif %}{% if extra %} {{ extra }}{% endif %}"><img class="avatar__img" src="{{ persona.fotografia.url }}" alt="" loading="lazy"></span>{% else %}<span class="avatar avatar--tone-{{ persona.pk|tono }}{% if tamano %} avatar--{{ tamano }}{% endif %}{% if extra %} {{ extra }}{% endif %}" aria-hidden="true">{{ persona.iniciales }}</span>{% endif %}

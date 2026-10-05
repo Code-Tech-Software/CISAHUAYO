@@ -1,0 +1,1217 @@
+/* ==========================================================================
+   CISAHUAYO · Asistencias
+   Estilos propios de la sección: resumen del día, pase de lista, justificaciones, reportes y la
+   pantalla de la entrada. Se apoyan en los componentes de app.css (.stat, .table, .pills, .filters,
+   .modal, .tag, .meter, .choice...) y siguen sus mismas convenciones: colores de rol, sin !important.
+
+   Índice
+     1. Navegación de la sección y selector de día
+     2. Cifras y marcas de estado
+     3. Control segmentado (presente · retardo · falta) y lista de la clase
+     4. Reportes: cuadrícula por día, porcentajes y materias
+     5. Justificaciones y ajustes
+     6. Pantalla de la entrada (kiosco)
+     7. Responsive
+     8. Impresión
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. NAVEGACIÓN DE LA SECCIÓN Y SELECTOR DE DÍA
+   ========================================================================== */
+.pills--section {
+  margin-bottom: var(--space-4);
+}
+
+.day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.day-nav__current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.day-nav__input {
+  width: 10.5rem;
+}
+
+.day-nav__label {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+/* Solo la primera letra en mayúscula: «Lunes, 5 de octubre de 2026» */
+.day-nav__label::first-letter,
+.kiosk__date::first-letter {
+  text-transform: uppercase;
+}
+
+.day-nav__label .tag {
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
+/* Tablas con una persona o un grado en la primera columna: que su nombre no quede recortado */
+.table--people .table__cell--main {
+  min-width: 11rem;
+}
+
+.btn.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.page-header__person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.filters--pair {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.filters__field--date .field__control {
+  min-width: 0;
+}
+
+
+/* ==========================================================================
+   2. CIFRAS Y MARCAS DE ESTADO
+   ========================================================================== */
+.stat-grid--five {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+
+.stat__unit {
+  margin-left: 0.125rem;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.stat--ok .stat__value {
+  color: var(--color-success);
+}
+
+.stat--late .stat__value {
+  color: var(--color-warning);
+}
+
+.stat--miss .stat__value {
+  color: var(--color-danger);
+}
+
+/* Número con el color de su estado */
+.count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-bold);
+}
+
+.count--ok {
+  color: var(--color-success);
+}
+
+.count--late {
+  color: var(--color-warning);
+}
+
+.count--miss {
+  color: var(--color-danger);
+}
+
+.attendance-progress {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.attendance-progress__text {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.attendance-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.attendance-alert p {
+  margin: 0;
+}
+
+.attendance-closed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  color: var(--color-success);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.attendance-close {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.attendance-close__title {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.attendance-close p {
+  margin: 0;
+}
+
+.attendance-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+.attendance-strip__total {
+  color: var(--color-text-muted);
+}
+
+.attendance-hour {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-strong);
+}
+
+.attendance-hour--block {
+  display: block;
+  white-space: nowrap;
+}
+
+.attendance-origin {
+  display: block;
+  font-size: var(--text-xs);
+}
+
+.attendance-mini {
+  display: inline-flex;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.attendance-legend {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+}
+
+.attendance-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.tag-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.table__row.is-muted .table__cell {
+  color: var(--color-text-muted);
+}
+
+
+/* ==========================================================================
+   3. CONTROL SEGMENTADO Y LISTA DE LA CLASE
+   ========================================================================== */
+.segmented {
+  display: inline-flex;
+  gap: 0.125rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.1875rem;
+  border: var(--border-width) solid var(--color-border-control);
+  border-radius: var(--radius-full);
+  background: var(--color-field-bg);
+}
+
+.segmented__option {
+  position: relative;
+  display: inline-flex;
+}
+
+.segmented__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segmented__option > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.segmented__option:hover > span {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.segmented__option--ok .segmented__input:checked + span {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  box-shadow: inset 0 0 0 1px var(--color-success-border);
+}
+
+.segmented__option--late .segmented__input:checked + span {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  box-shadow: inset 0 0 0 1px var(--color-warning-border);
+}
+
+.segmented__option--miss .segmented__input:checked + span {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  box-shadow: inset 0 0 0 1px var(--color-danger-border);
+}
+
+.segmented__input:focus-visible + span {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.segmented--compact > .segmented__option > span {
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.field__control--compact {
+  min-height: var(--control-height-sm);
+  padding-block: 0;
+  font-size: var(--text-sm);
+}
+
+/* Fila de la lista cuyo estado cambió respecto a lo propuesto */
+.table__row.is-changed .table__cell:first-child {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.action-bar--roster {
+  flex-wrap: wrap;
+}
+
+.action-bar__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.roster-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+
+/* ==========================================================================
+   4. REPORTES
+   ========================================================================== */
+.report-title {
+  margin-bottom: var(--space-3);
+}
+
+.rate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 7rem;
+}
+
+.rate .meter {
+  width: 4.5rem;
+}
+
+.rate strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.rate--low .meter::-webkit-progress-value {
+  background: var(--color-danger);
+}
+
+.rate--low .meter::-moz-progress-bar {
+  background: var(--color-danger);
+}
+
+.rate--low strong {
+  color: var(--color-danger);
+}
+
+/* Cuadrícula alumno × día */
+.matrix-card {
+  overflow: hidden;
+}
+
+.matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+}
+
+.matrix th,
+.matrix td {
+  padding: var(--space-2);
+  border-bottom: var(--border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.matrix thead th {
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+}
+
+.matrix tbody tr:last-child th,
+.matrix tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.matrix__name {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 12rem;
+  border-right: var(--border);
+  background: var(--color-surface);
+  text-align: left;
+}
+
+.matrix thead .matrix__name {
+  background: var(--color-surface-2);
+}
+
+.matrix__day {
+  min-width: 2.5rem;
+}
+
+.matrix__num,
+.matrix__wd {
+  display: block;
+}
+
+.matrix__num {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-bold);
+}
+
+.matrix__wd {
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.matrix__cell {
+  color: var(--color-text-subtle);
+  font-weight: var(--weight-bold);
+}
+
+.matrix__cell--a,
+.matrix__key--a {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.matrix__cell--r,
+.matrix__key--r {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.matrix__cell--f,
+.matrix__key--f {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.matrix__cell--j,
+.matrix__key--j {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.matrix__key,
+.subject-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  padding: 0 0.375rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: 1.5rem;
+}
+
+.subject-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.subject-chip {
+  min-width: 2.25rem;
+  letter-spacing: 0.02em;
+}
+
+.subject-chip--a {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.subject-chip--r {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.subject-chip--f {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.subject-chip--j {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+
+/* ==========================================================================
+   5. JUSTIFICACIONES Y AJUSTES
+   ========================================================================== */
+.attendance-dates {
+  margin-top: var(--space-4);
+}
+
+.choice-group--stack {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.attendance-subjects {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.attendance-doc-current {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.attendance-help {
+  display: grid;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.attendance-help p {
+  margin: 0;
+}
+
+.attendance-help__list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-soft);
+}
+
+.attendance-days__form {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.attendance-days__action {
+  display: flex;
+  align-items: end;
+}
+
+.card__foot--actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+
+/* ==========================================================================
+   6. PANTALLA DE LA ENTRADA (KIOSCO)
+   Página aparte, sin menú, para dejarse abierta en la entrada. La ven los alumnos que esperan su turno: nunca
+   muestra quién entró antes, el resultado ocupa el centro un par de segundos y se quita solo. Letras grandes,
+   contraste alto y un solo mensaje a la vez; el color del panel dice si todo salió bien sin tener que leer.
+   ========================================================================== */
+.kiosk-page {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-bg);
+}
+
+.kiosk {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--aurora), var(--color-bg);
+}
+
+/* --- Barra superior: colegio y reloj --------------------------------------------------------------------------- */
+.kiosk__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-5) var(--space-5) var(--space-2);
+}
+
+.kiosk__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.kiosk__logo {
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: contain;
+}
+
+.kiosk__school,
+.kiosk__title {
+  margin: 0;
+}
+
+.kiosk__school {
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: 1.2;
+}
+
+.kiosk__title {
+  margin-top: 0.125rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.kiosk__clock {
+  text-align: right;
+}
+
+.kiosk__time {
+  display: block;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 4.25rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.kiosk__date {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-base);
+}
+
+/* --- Escenario: el panel de estado y, debajo, la referencia a mano ------------------------------------------ */
+.kiosk__stage {
+  display: grid;
+  gap: var(--space-4);
+  align-content: center;
+  justify-items: center;
+  padding: var(--space-4) var(--space-5) var(--space-6);
+}
+
+.kiosk__panel {
+  --kiosk-bg: var(--color-surface);
+  --kiosk-borde: var(--color-border);
+  --kiosk-fuerte: var(--color-primary);
+  display: grid;
+  width: min(100%, 56rem);
+  min-width: 0;
+}
+
+.kiosk__panel[data-tono="success"] {
+  --kiosk-bg: var(--color-success-bg);
+  --kiosk-borde: var(--color-success-border);
+  --kiosk-fuerte: var(--color-success);
+}
+
+.kiosk__panel[data-tono="late"] {
+  --kiosk-bg: var(--color-warning-bg);
+  --kiosk-borde: var(--color-warning-border);
+  --kiosk-fuerte: var(--color-warning);
+}
+
+.kiosk__panel[data-tono="info"] {
+  --kiosk-bg: var(--color-info-bg);
+  --kiosk-borde: var(--color-info-border);
+  --kiosk-fuerte: var(--color-info);
+}
+
+.kiosk__panel[data-tono="error"] {
+  --kiosk-bg: var(--color-danger-bg);
+  --kiosk-borde: var(--color-danger-border);
+  --kiosk-fuerte: var(--color-danger);
+}
+
+/* Un solo estado a la vez: lo decide data-vista del panel */
+.kiosk__state {
+  position: relative;
+  display: none;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-4);
+  min-height: clamp(17rem, 38vh, 24rem);
+  padding: var(--space-8) var(--space-6);
+  overflow: hidden;
+  border: var(--border-width) solid var(--kiosk-borde);
+  border-radius: var(--radius-xl);
+  background: var(--kiosk-bg);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.kiosk__panel[data-vista="espera"] > [data-estado-vista="espera"],
+.kiosk__panel[data-vista="sin-clases"] > [data-estado-vista="sin-clases"],
+.kiosk__panel[data-vista="resultado"] > [data-estado-vista="resultado"],
+.kiosk__panel[data-vista="sesion"] > [data-estado-vista="sesion"] {
+  display: grid;
+}
+
+.kiosk__rfid {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: var(--radius-xl);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.kiosk__rfid .icon {
+  width: 3rem;
+  height: 3rem;
+}
+
+.kiosk__headline {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  line-height: 1.15;
+}
+
+.kiosk__sub,
+.kiosk__message,
+.kiosk__grade,
+.kiosk__hour {
+  margin: 0;
+}
+
+.kiosk__sub {
+  max-width: 30rem;
+  color: var(--color-text-soft);
+  font-size: var(--text-lg);
+}
+
+.kiosk__state--blocked .kiosk__rfid {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.kiosk__state--session .kiosk__rfid {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* --- Resultado de un escaneo: foto a la izquierda y los datos a la derecha ---------------------------------- */
+.kiosk__state--result {
+  cursor: pointer;
+}
+
+.kiosk__avatar .avatar {
+  --avatar-size: clamp(7rem, 22vw, 10.5rem);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.kiosk__avatar .avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kiosk__result-text {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  min-width: 0;
+}
+
+.kiosk__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--kiosk-fuerte);
+  color: var(--color-surface);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+/* Cada estado muestra solo su icono */
+.kiosk__badge-icon {
+  display: none;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.kiosk__panel[data-tono="success"] .kiosk__badge-icon--success,
+.kiosk__panel[data-tono="late"] .kiosk__badge-icon--late,
+.kiosk__panel[data-tono="info"] .kiosk__badge-icon--info,
+.kiosk__panel[data-tono="error"] .kiosk__badge-icon--error {
+  display: block;
+}
+
+.kiosk__name {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.kiosk__grade {
+  color: var(--color-text-soft);
+  font-size: var(--text-xl);
+}
+
+.kiosk__message {
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.kiosk__hour {
+  color: var(--color-text-soft);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Barra que se va vaciando: lo que falta para que el aviso se quite solo */
+.kiosk__countdown {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 0.3125rem;
+  background: var(--kiosk-fuerte);
+  opacity: 0.6;
+  transform-origin: left center;
+}
+
+/* --- Referencia escrita a mano ----------------------------------------------------------------------------------------- */
+.kiosk__manual {
+  display: grid;
+  gap: var(--space-3);
+  width: min(100%, 56rem);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.kiosk__manual-title {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.kiosk__manual-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+}
+
+.kiosk__input {
+  min-height: 3.25rem;
+  font-size: var(--text-xl);
+  letter-spacing: 0.04em;
+}
+
+.kiosk__send {
+  min-height: 3.25rem;
+  padding-inline: var(--space-6);
+  font-size: var(--text-lg);
+}
+
+.kiosk__keys-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.kiosk__keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  width: min(100%, 22rem);
+}
+
+.kiosk__key {
+  min-height: 3.5rem;
+  border: var(--border-width) solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-field-bg);
+  color: var(--color-text-strong);
+  font: inherit;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.kiosk__key:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+.kiosk__key--aux {
+  font-size: var(--text-sm);
+}
+
+.kiosk__key--ok {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--text-base);
+}
+
+/* --- Pie: conexión, reglas, cuántos han entrado (solo la cifra) y herramientas ------------------------------------ */
+.kiosk__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border);
+  background: var(--color-surface-glass);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.kiosk__foot-start,
+.kiosk__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.kiosk__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.kiosk__link::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.kiosk__link.is-offline {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.kiosk__rules,
+.kiosk__count-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.kiosk__count {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.kiosk__count .meter {
+  width: 8rem;
+  height: 0.375rem;
+}
+
+.kiosk__count-text strong {
+  color: var(--color-text-strong);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .kiosk__panel[data-vista="espera"] .kiosk__rfid::before,
+  .kiosk__panel[data-vista="espera"] .kiosk__rfid::after {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--color-primary);
+    border-radius: inherit;
+    content: "";
+    opacity: 0;
+    animation: kiosk-onda 2.8s ease-out infinite;
+  }
+
+  .kiosk__panel[data-vista="espera"] .kiosk__rfid::after {
+    animation-delay: 1.4s;
+  }
+
+  .kiosk__panel[data-vista="resultado"] .kiosk__state--result {
+    animation: kiosk-aparece 180ms var(--ease-out);
+  }
+
+  .kiosk__countdown.is-running {
+    animation: kiosk-cuenta var(--duracion, 3s) linear forwards;
+  }
+
+  @keyframes kiosk-onda {
+    0% {
+      opacity: 0.45;
+      transform: scale(1);
+    }
+
+    100% {
+      opacity: 0;
+      transform: scale(1.55);
+    }
+  }
+
+  @keyframes kiosk-aparece {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes kiosk-cuenta {
+    from {
+      transform: scaleX(1);
+    }
+
+    to {
+      transform: scaleX(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiosk__countdown {
+    display: none;
+  }
+}
+
+
+/* ==========================================================================
+   7. RESPONSIVE
+   ========================================================================== */
+@media (min-width: 40rem) {
+  .attendance-days__form {
+    grid-template-columns: 11rem 11rem minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .filters--pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filters--pair .filters__actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 64rem) {
+  .filters--pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+
+  .filters--pair .filters__actions {
+    grid-column: auto;
+  }
+
+  .filters--report {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filters--report .filters__actions {
+    grid-column: 1 / -1;
+  }
+
+  .kiosk__bar {
+    padding: var(--space-6) var(--space-10) var(--space-3);
+  }
+
+  .kiosk__foot {
+    padding-inline: var(--space-10);
+  }
+}
+
+@media (min-width: 80rem) {
+  .filters--report {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+  }
+
+  .filters--report .filters__actions {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 40rem) {
+  .kiosk__state--result {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-10);
+    text-align: left;
+  }
+
+  .kiosk__state--result.kiosk__state--sin-foto {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kiosk__result-text {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .kiosk__bar {
+    padding-top: var(--space-4);
+  }
+
+  .kiosk__clock {
+    text-align: left;
+  }
+
+  .kiosk__manual-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kiosk__state {
+    min-height: 16rem;
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .kiosk__count .meter {
+    width: 5rem;
+  }
+}
+
+
+/* ==========================================================================
+   8. IMPRESIÓN
+   El reporte se imprime solo (lo que está dentro de .print-area, ver academico.css).
+   ========================================================================== */
+@media print {
+  .matrix__name {
+    position: static;
+  }
+
+  .matrix-card,
+  .matrix-card .scroll-x {
+    overflow: visible;
+  }
+
+  .matrix th,
+  .matrix td {
+    padding: 0.125rem 0.25rem;
+    font-size: 0.7rem;
+  }
+}

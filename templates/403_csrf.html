@@ -1,0 +1,11 @@
+{% extends "error_base.html" %}
+{% comment %}
+  Falla de la verificación CSRF: casi siempre es una página de formulario que estuvo abierta demasiado tiempo (la sesión
+  o el token vencieron) o cookies bloqueadas. No se muestra el motivo técnico, solo qué hacer.
+{% endcomment %}
+
+{% block titulo %}Página caducada{% endblock %}
+
+{% block contenido %}
+  {% include "partials/error_estado.html" with codigo="403" titulo="Esta página caducó" texto="Por seguridad, el formulario dejó de ser válido porque estuvo abierto mucho tiempo. Vuelve al sistema, abre la página otra vez y repite lo que estabas haciendo. Si pasa seguido, revisa que tu navegador acepte cookies." %}
+{% endblock %}

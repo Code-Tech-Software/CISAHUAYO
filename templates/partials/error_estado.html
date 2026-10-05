@@ -1,0 +1,19 @@
+{% comment %}
+  Contenido de las páginas de error. Parámetros: codigo (404, 403...), titulo, texto.
+  Los botones llevan al panel de control y, cuando hay una página anterior del sistema, regresan a ella.
+{% endcomment %}
+<section class="error-state" aria-labelledby="error-titulo">
+  <p class="error-state__code" aria-hidden="true">{{ codigo }}</p>
+  <h1 class="error-state__title" id="error-titulo">{{ titulo }}</h1>
+  <p class="error-state__text">{{ texto }}</p>
+  <div class="error-state__actions">
+    <a class="btn btn--primary" href="{% url 'inicio' %}">
+      {% include "partials/icon.html" with name="layout-dashboard" icon_class="icon--sm" %}
+      Ir al panel de control
+    </a>
+    <a class="btn" href="{% url 'inicio' %}" data-back>
+      {% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %}
+      Volver atrás
+    </a>
+  </div>
+</section>

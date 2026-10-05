@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Profesores | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Profesores</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Profesores</h1>
+      <p class="page-header__description">El personal docente del colegio: sus datos, las materias que imparte en cada ciclo y su horario semanal.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if pagina.paginator.count %}
+        <a class="btn" href="{% url 'profesores:exportar' %}{% querystring page=None %}">
+          {% include "partials/icon.html" with name="download" icon_class="icon--sm" %}
+          Exportar CSV
+        </a>
+      {% endif %}
+      {% if perms.Alumnos.add_profesor %}
+        <a class="btn btn--primary" href="{% url 'profesores:crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %}
+          Nuevo profesor
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {# Las bajas no se mezclan con los profesores vigentes: tienen su propio filtro #}
+  <nav class="pills" aria-label="Filtrar por estatus">
+    <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% querystring estatus=None page=None %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>
+      Activos <span class="pill__count">{{ total_activos }}</span>
+    </a>
+    <a class="pill{% if viendo_bajas %} is-active{% endif %}" href="{% querystring estatus='INACTIVO' page=None %}"{% if viendo_bajas %} aria-current="true"{% endif %}>
+      Bajas <span class="pill__count">{{ total_bajas }}</span>
+    </a>
+  </nav>
+
+  <form class="filters filters--compact" method="get" role="search" aria-label="Buscar y filtrar profesores" data-autosubmit>
+    {% if viendo_bajas %}<input type="hidden" name="estatus" value="INACTIVO">{% endif %}
+    {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar profesores</label>
+      {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+      {{ filtro.q }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.situacion.id_for_label }}">{{ filtro.situacion.label }}</label>
+      {{ filtro.situacion }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
+      {{ filtro.orden }}
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+      {% if filtros_activos %}
+        <a class="btn btn--ghost btn--sm" href="{% if viendo_bajas %}{% url 'profesores:lista' %}?estatus=INACTIVO{% else %}{% url 'profesores:lista' %}{% endif %}">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">
+      {{ pagina.paginator.count }} profesor{{ pagina.paginator.count|pluralize:",es" }}{% if filtros_activos %} con los filtros aplicados{% endif %}{% if viendo_bajas %} dado{{ pagina.paginator.count|pluralize }} de baja{% endif %}
+    </p>
+
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Lista de profesores</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Profesor</th>
+            <th class="table__th" scope="col">Contacto</th>
+            <th class="table__th" scope="col">{% if ciclo %}Materias en {{ ciclo }}{% else %}Materias{% endif %}</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for profesor in pagina %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">
+                <a class="person" href="{{ profesor.get_absolute_url }}">
+                  {% include "partials/avatar.html" with persona=profesor %}
+                  <span class="person__text">
+                    <span class="person__name">{{ profesor }}</span>
+                    <span class="person__meta">{{ profesor.especialidad|default:profesor.profesion|default:"Sin especialidad registrada" }}</span>
+                  </span>
+                </a>
+              </td>
+              <td class="table__cell" data-label="Contacto">
+                <span class="cell-stack">
+                  <span class="cell-stack__main"><a class="link-subtle" href="tel:{{ profesor.telefono }}">{{ profesor.telefono|telefono }}</a></span>
+                  {% if profesor.correo_electronico %}<span class="cell-stack__sub cell-stack__sub--truncate">{{ profesor.correo_electronico }}</span>{% endif %}
+                </span>
+              </td>
+              <td class="table__cell" data-label="Materias">
+                {% if viendo_bajas or not ciclo %}—
+                {% elif profesor.materias %}
+                  <span class="cell-stack">
+                    <span class="cell-stack__main">{{ profesor.materias }} materia{{ profesor.materias|pluralize }}</span>
+                    {% if profesor.duracion %}<span class="cell-stack__sub">{{ profesor.duracion }} por semana</span>{% endif %}
+                  </span>
+                {% else %}
+                  <span class="tag tag--warning">Sin materias</span>
+                {% endif %}
+              </td>
+              <td class="table__cell table__cell--actions">
+                <a class="btn btn--ghost btn--icon btn--sm" href="{{ profesor.get_absolute_url }}" aria-label="Ver el perfil de {{ profesor }}" data-tooltip="Ver perfil">
+                  {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                </a>
+                {% if perms.Alumnos.change_profesor %}
+                  {% if profesor.estatus == "INACTIVO" %}
+                    <form method="post" action="{% url 'profesores:reactivar' profesor.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn--sm">Reactivar</button>
+                    </form>
+                  {% else %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'profesores:editar' profesor.pk %}" aria-label="Editar a {{ profesor }}" data-tooltip="Editar" data-modal-form>
+                      {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                    </a>
+                  {% endif %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="profesores" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% elif filtros_activos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No encontramos profesores con esos filtros</p>
+        <p class="empty-state__text">
+          Prueba con otra búsqueda o quita algún filtro.
+          {% if total_bajas and not viendo_bajas %}¿Buscas a alguien dado de baja? Revisa el filtro «Bajas».{% endif %}
+        </p>
+        <a class="btn btn--sm" href="{% url 'profesores:lista' %}">Limpiar filtros</a>
+      </div>
+    </div>
+  {% elif viendo_bajas %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="presentation" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay profesores dados de baja</p>
+        <p class="empty-state__text">Los profesores que des de baja aparecerán aquí y podrás reactivarlos.</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="presentation" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay profesores registrados</p>
+        <p class="empty-state__text">Regístralos para poder asignarles las materias que imparten y armar sus horarios.</p>
+        {% if perms.Alumnos.add_profesor %}
+          <a class="btn btn--primary btn--sm" href="{% url 'profesores:crear' %}" data-modal-form>Registrar profesor</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

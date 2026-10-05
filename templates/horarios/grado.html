@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Horario de {{ grado }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:lista' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">Horarios</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ grado }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Horario de {{ grado }}</h1>
+      <p class="page-header__description">
+        {% if ciclo %}Ciclo {{ ciclo }} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}.{% else %}Aún no hay ciclos escolares.{% endif %}
+      </p>
+    </div>
+    <div class="page-header__actions">
+      {% if total_bloques %}
+        <button type="button" class="btn" data-print>
+          {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %}
+          Imprimir
+        </button>
+      {% endif %}
+      {% if perms.Alumnos.view_grado %}
+        <a class="btn" href="{{ grado.get_absolute_url }}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">
+          {% include "partials/icon.html" with name="layers" icon_class="icon--sm" %}
+          Ver grado
+        </a>
+      {% endif %}
+      {% if perms.Alumnos.add_horariomateria and editable and asignaciones %}
+        <a class="btn btn--primary" href="{% url 'horarios:crear' grado.pk %}?ciclo={{ ciclo.pk }}" data-modal-form>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+          Agregar horario
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}
+          <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  {% if ciclo and not editable %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">El ciclo {{ ciclo }} está cerrado: su horario se conserva tal como quedó y ya no se modifica.</p>
+    </div>
+  {% endif %}
+
+  {% if asignaciones %}
+    <div class="stat-grid">
+      <div class="stat">
+        <p class="stat__label">Materias</p>
+        <p class="stat__value">{{ asignaciones|length }}</p>
+        <p class="stat__hint">asignadas al grado</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Bloques</p>
+        <p class="stat__value">{{ total_bloques }}</p>
+        <p class="stat__hint">clases por semana</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Horas por semana</p>
+        <p class="stat__value">{{ horas_semanales|default:"—" }}</p>
+        <p class="stat__hint">de clase</p>
+      </div>
+      <div class="stat{% if sin_horario %} stat--attention{% endif %}">
+        <p class="stat__label">Sin horario</p>
+        <p class="stat__value">{{ sin_horario|length }}</p>
+        <p class="stat__hint">materia{{ sin_horario|length|pluralize }} por programar</p>
+      </div>
+      <div class="stat{% if sin_profesor %} stat--attention{% endif %}">
+        <p class="stat__label">Sin profesor</p>
+        <p class="stat__value">{{ sin_profesor|length }}</p>
+        <p class="stat__hint">
+          {% if sin_profesor and perms.Alumnos.view_grado %}<a href="{{ grado.get_absolute_url }}?ciclo={{ ciclo.pk }}#materias">asignar profesores</a>{% else %}materia{{ sin_profesor|length|pluralize }} sin asignar{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <section class="card print-area" aria-labelledby="titulo-horario">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">{{ grado }} · Ciclo {{ ciclo }}</h2>
+      </header>
+
+      {% if cuadricula.filas %}
+        {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta=etiqueta_horario modo="grado" editable=editable %}
+      {% else %}
+        <div class="card__body">
+          <div class="empty-state empty-state--inline">
+            <p class="empty-state__title">Todavía no hay horario</p>
+            <p class="empty-state__text">Agrega los días y las horas de cada materia para armar el horario semanal del grado.</p>
+            {% if perms.Alumnos.add_horariomateria and editable %}
+              <a class="btn btn--primary btn--sm" href="{% url 'horarios:crear' grado.pk %}?ciclo={{ ciclo.pk }}" data-modal-form>Agregar horario</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {% if sin_horario %}
+      <section class="card" aria-labelledby="titulo-sin-horario">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="triangle-alert" %}<h2 class="card__title" id="titulo-sin-horario">Materias sin horario</h2>
+        </header>
+        <ul class="shortcuts card__body">
+          {% for asignacion in sin_horario %}
+            <li>
+              {% if perms.Alumnos.add_horariomateria and editable %}
+                <a class="shortcut" href="{% url 'horarios:crear' grado.pk %}?ciclo={{ ciclo.pk }}&amp;materia={{ asignacion.pk }}" data-modal-form>
+                  <span class="shortcut__icon">{% include "partials/icon.html" with name="plus" %}</span>
+                  <span class="shortcut__text"><span class="shortcut__title">{{ asignacion.materia.nombre }}</span><span class="shortcut__hint">Agregar sus días y horas</span></span>
+                </a>
+              {% else %}
+                <span class="shortcut">
+                  <span class="shortcut__icon">{% include "partials/icon.html" with name="book-open" %}</span>
+                  <span class="shortcut__text"><span class="shortcut__title">{{ asignacion.materia.nombre }}</span></span>
+                </span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% elif ciclo %}
+    <div class="card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="book-open" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{{ grado }} no tiene materias en este ciclo</p>
+        <p class="empty-state__text">Primero asigna las materias que imparte; después armas su horario aquí.</p>
+        {% if perms.Alumnos.view_grado %}
+          <a class="btn btn--primary btn--sm" href="{{ grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">Asignar materias</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Crea un ciclo para asignar materias y armar el horario.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if editable and perms.Alumnos.delete_horariomateria %}
+    <dialog class="modal" id="modal-eliminar" aria-labelledby="modal-eliminar-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-eliminar-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-eliminar-titulo">Quitar del horario</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-eliminar-materia>La materia</strong> dejará de darse el <strong data-eliminar-detalle>ese día</strong>.</p>
+          <p class="text-muted">Solo se quita ese bloque del horario. La materia sigue asignada al grado y su asistencia no cambia.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Quitar del horario</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/horarios.js' %}" defer></script>
+{% endblock %}

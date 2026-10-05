@@ -1,0 +1,27 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Base de las páginas de error que se muestran solas, sin menú (token de seguridad vencido). Los errores del servidor
+  (500) llevan su propia hoja de estilos dentro de la página para no depender de nada que pueda estar fallando.
+  Bloques: titulo (pestaña), contenido.
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#245a62">
+  <title>{% block titulo %}Error{% endblock %} | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/acceso.css' %}">
+  <script src="{% static 'js/preload.js' %}"></script>
+</head>
+<body class="access-page">
+  <main class="error-page" id="contenido">
+    {% block contenido %}{% endblock %}
+  </main>
+  <script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>

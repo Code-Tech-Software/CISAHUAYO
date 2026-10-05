@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Lista de {{ asignacion.materia }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:clases' %}?fecha={{ fecha|date:'Y-m-d' }}">Pase de lista</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ asignacion.materia }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{{ asignacion.materia }} · {{ asignacion.grado }}</h1>
+      <p class="page-header__description">
+        {{ fecha|date:"l" }}, {{ fecha|date:"DATE_FORMAT"|lower }}
+        {% for bloque in bloques %}· {{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }} {% endfor %}
+        {% if asignacion.profesor %}· Profesor: {{ asignacion.profesor }}{% else %}· Sin profesor asignado{% endif %}
+      </p>
+    </div>
+    <div class="page-header__actions">
+      <a class="btn" href="{% url 'asistencias:clases' %}?fecha={{ fecha|date:'Y-m-d' }}">
+        {% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %}
+        Clases del día
+      </a>
+    </div>
+  </header>
+
+  <form id="filtros-dia" method="get" hidden></form>
+  {% include "asistencias/_fecha_nav.html" with formulario="filtros-dia" %}
+
+  {% if motivo %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">{{ motivo }} {% if not editable %}La lista se muestra solo para consulta.{% endif %}</p>
+    </div>
+  {% elif not asignacion.activa %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">Esta materia ya no se imparte en {{ asignacion.grado }}: su lista se muestra solo para consulta.</p>
+    </div>
+  {% elif not se_imparte %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">Según el horario, {{ asignacion.materia }} no se imparte los {{ fecha|date:"l"|lower }}. Puedes pasar lista de todos modos (por ejemplo, una reposición).</p>
+    </div>
+  {% endif %}
+
+  {% if confirmada %}
+    <p class="attendance-closed">
+      {% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %}
+      Lista tomada{% if confirmada_por %} por {{ confirmada_por.get_full_name|default:confirmada_por.username }}{% endif %}. Puedes corregirla cuando haga falta.
+    </p>
+  {% elif editable and filas %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">Quienes ya entraron al colegio aparecen presentes y quienes no han llegado, con falta. Corrige lo que haga falta y guarda para confirmar la lista.</p>
+    </div>
+  {% endif %}
+
+  {% if filas %}
+    <form method="post" data-roster novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+
+      <div class="table-card">
+        <table class="table table--people">
+          <caption class="visually-hidden">Lista de {{ asignacion.materia }} de {{ asignacion.grado }} del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Alumno</th>
+              <th class="table__th" scope="col">Entrada al colegio</th>
+              <th class="table__th" scope="col">En esta clase</th>
+              <th class="table__th table__col--wide" scope="col">Observaciones</th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for fila in filas %}
+              {% with alumno=fila.alumno general=fila.general registro=fila.registro %}
+                <tr class="table__row" data-roster-row>
+                  <td class="table__cell table__cell--main">
+                    <a class="person" href="{% url 'asistencias:alumno' alumno.pk %}">
+                      {% include "partials/avatar.html" with persona=alumno %}
+                      <span class="person__text">
+                        <span class="person__name">{{ alumno }}</span>
+                        <span class="person__meta">Ref. {{ alumno.referencia }}</span>
+                      </span>
+                    </a>
+                  </td>
+                  <td class="table__cell" data-label="Entrada al colegio">
+                    {% if general and general.hora_entrada %}
+                      <span class="attendance-hour">{{ general.hora_entrada|time:"H:i" }}</span>
+                      {% if general.estado == 'RETARDO' %}<span class="tag tag--warning">Retardo</span>{% endif %}
+                    {% elif general and general.estado != 'FALTA' %}
+                      <span class="text-muted">Sin hora</span>
+                    {% elif general %}
+                      <span class="tag tag--danger">Falta</span>
+                    {% else %}
+                      <span class="tag">Sin entrada</span>
+                    {% endif %}
+                  </td>
+                  <td class="table__cell" data-label="En esta clase">
+                    {% if editable %}
+                      <fieldset class="segmented segmented--compact">
+                        <legend class="visually-hidden">Asistencia de {{ alumno }} en {{ asignacion.materia }}</legend>
+                        {% for valor, etiqueta in estados %}
+                          <label class="segmented__option segmented__option--{% if valor == 'PRESENTE' %}ok{% elif valor == 'RETARDO' %}late{% else %}miss{% endif %}">
+                            <input class="segmented__input" type="radio" name="estado_{{ fila.inscripcion.pk }}" value="{{ valor }}" data-estado{% if valor == fila.sugerido %} checked{% endif %}>
+                            <span>{{ etiqueta }}</span>
+                          </label>
+                        {% endfor %}
+                      </fieldset>
+                    {% elif registro %}
+                      {% include "asistencias/_estado.html" with estado=registro.estado justificada=fila.justificada %}
+                    {% else %}<span class="tag">Sin registro</span>{% endif %}
+                    {% if fila.justificada and editable %}<span class="tag tag--info" title="Hay una justificación vigente que cubre esta clase">Justificada</span>{% endif %}
+                  </td>
+                  <td class="table__cell table__col--wide" data-label="Observaciones">
+                    {% if editable %}
+                      <label class="visually-hidden" for="obs-{{ fila.inscripcion.pk }}">Observaciones de {{ alumno }}</label>
+                      <input class="field__control field__control--compact" id="obs-{{ fila.inscripcion.pk }}" name="obs_{{ fila.inscripcion.pk }}" type="text" maxlength="250" autocomplete="off" value="{{ registro.observaciones }}" placeholder="Opcional">
+                    {% else %}{{ registro.observaciones|default:"—" }}{% endif %}
+                  </td>
+                </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if editable and perms.Alumnos.change_asistenciamateria %}
+        <footer class="action-bar action-bar--roster">
+          <p class="roster-counts" data-roster-counts role="status">
+            <span class="count count--ok"><strong data-conteo="PRESENTE">0</strong> presentes</span>
+            <span class="count count--late"><strong data-conteo="RETARDO">0</strong> retardos</span>
+            <span class="count count--miss"><strong data-conteo="FALTA">0</strong> faltas</span>
+          </p>
+          <div class="action-bar__buttons">
+            <button type="button" class="btn" data-todos-presentes>Todos presentes</button>
+            <button type="submit" class="btn btn--primary">
+              {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+              Guardar lista
+            </button>
+          </div>
+        </footer>
+      {% endif %}
+    </form>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay alumnos en la lista</p>
+        <p class="empty-state__text">{{ asignacion.grado }} no tiene alumnos inscritos vigentes ese día.</p>
+        {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

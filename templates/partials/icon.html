@@ -1,0 +1,4 @@
+{% load static %}{% comment %}
+  Icono del sprite static/img/icons.svg.
+  Parámetros: name (obligatorio), icon_class (opcional, p. ej. "icon--sm nav__icon").
+{% endcomment %}<svg class="icon{% if icon_class %} {{ icon_class }}{% endif %}" aria-hidden="true" focusable="false"><use href="{% static 'img/icons.svg' %}#{{ name }}"></use></svg>

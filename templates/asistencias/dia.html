@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Asistencia general | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Asistencia general</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Asistencia general</h1>
+      <p class="page-header__description">Quién entró al colegio ese día, a qué hora y cómo. Aquí se registra la entrada de quien olvidó su credencial y se corrigen los registros.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_asistenciageneral %}
+        <a class="btn" href="{% url 'asistencias:kiosco' %}">
+          {% include "partials/icon.html" with name="credit-card" icon_class="icon--sm" %}
+          Pantalla de entrada
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "asistencias/_subnav.html" %}
+  {% include "asistencias/_fecha_nav.html" with formulario="filtros-dia" %}
+
+  {% if not ciclo %}
+    <form id="filtros-dia" method="get" hidden></form>
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Ese día queda fuera de los ciclos escolares</p>
+        <p class="empty-state__text">Elige un día dentro de las fechas de un ciclo.</p>
+      </div>
+    </div>
+  {% elif motivo %}
+    <form id="filtros-dia" method="get" hidden></form>
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay clases este día</p>
+        <p class="empty-state__text">{{ motivo }}</p>
+      </div>
+    </div>
+  {% else %}
+    <form class="filters filters--compact" id="filtros-dia" method="get" role="search" aria-label="Filtrar la asistencia del día" data-autosubmit>
+      {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+      <div class="filters__search">
+        <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar alumnos</label>
+        {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+        {{ filtro.q }}
+      </div>
+      <div class="filters__field">
+        <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">Grado</label>
+        {{ filtro.grado }}
+      </div>
+      <div class="filters__field">
+        <label class="visually-hidden" for="{{ filtro.estado.id_for_label }}">Estado</label>
+        {{ filtro.estado }}
+      </div>
+      <div class="filters__actions">
+        <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Filtrar</button>
+        {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% querystring q=None grado=None estado=None page=None %}">Limpiar</a>{% endif %}
+      </div>
+    </form>
+
+    {% if total %}
+      <ul class="attendance-strip" aria-label="Resumen{% if filtros_activos.grado %} de {{ filtros_activos.grado }}{% endif %}">
+        <li><span class="count count--ok">{{ total.presentes }}</span> presentes</li>
+        <li><span class="count count--late">{{ total.retardos }}</span> con retardo</li>
+        <li><span class="count count--miss">{{ total.faltas }}</span> falta{{ total.faltas|pluralize }}{% if total.justificadas %} ({{ total.justificadas }} justificada{{ total.justificadas|pluralize }}){% endif %}</li>
+        <li><span class="count">{{ total.sin_registro }}</span> sin entrada</li>
+        <li class="attendance-strip__total">{{ total.inscritos }} inscritos{% if filtros_activos.grado %} en {{ filtros_activos.grado }}{% endif %}</li>
+      </ul>
+    {% endif %}
+
+    {% if pagina.paginator.count %}
+      <div class="table-card">
+        <table class="table table--people">
+          <caption class="visually-hidden">Asistencia general del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Alumno</th>
+              <th class="table__th" scope="col">Entrada</th>
+              <th class="table__th" scope="col">Asistencia</th>
+              <th class="table__th table__col--wide" scope="col">Materias del día</th>
+              <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for inscripcion in pagina %}
+              {% with general=inscripcion.general alumno=inscripcion.alumno %}
+                <tr class="table__row">
+                  <td class="table__cell table__cell--main">
+                    <a class="person" href="{% url 'asistencias:alumno' alumno.pk %}">
+                      {% include "partials/avatar.html" with persona=alumno %}
+                      <span class="person__text">
+                        <span class="person__name">{{ alumno }}</span>
+                        <span class="person__meta">{{ inscripcion.grado }} · Ref. {{ alumno.referencia }}</span>
+                      </span>
+                    </a>
+                  </td>
+                  <td class="table__cell" data-label="Entrada">
+                    {% if general and general.hora_entrada %}
+                      <span class="attendance-hour">{{ general.hora_entrada|time:"H:i" }}</span>
+                      <span class="text-muted attendance-origin">{{ general.get_origen_display }}</span>
+                    {% elif general %}
+                      <span class="text-muted">{{ general.get_origen_display }}</span>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Asistencia">
+                    {% if general %}
+                      {% include "asistencias/_estado.html" with estado=general.estado justificada=general.justificada %}
+                    {% else %}
+                      <span class="tag">{% if es_hoy %}Sin entrada{% else %}Sin registro{% endif %}</span>
+                    {% endif %}
+                  </td>
+                  <td class="table__cell table__col--wide" data-label="Materias del día">
+                    {% if inscripcion.materias %}
+                      {{ inscripcion.materias.asistidas }} de {{ inscripcion.materias.total }}
+                      {% if inscripcion.materias.faltas %}<span class="tag tag--danger">{{ inscripcion.materias.faltas }} falta{{ inscripcion.materias.faltas|pluralize }}</span>{% endif %}
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                  </td>
+                  <td class="table__cell table__cell--actions">
+                    {% if general.estado == 'FALTA' or inscripcion.materias.faltas %}
+                      {% if perms.Alumnos.add_justificacion and editable %}
+                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'asistencias:justificacion_crear' %}?alumno={{ alumno.pk }}&amp;fecha={{ fecha|date:'Y-m-d' }}" aria-label="Justificar la falta de {{ alumno }}" data-tooltip="Justificar falta" data-modal-form>
+                          {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %}
+                        </a>
+                      {% endif %}
+                    {% endif %}
+                    {% if editable and perms.Alumnos.change_asistenciageneral %}
+                      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asistencia" data-asistencia-editar
+                              data-inscripcion="{{ inscripcion.pk }}" data-alumno="{{ alumno }}" data-estado="{{ general.estado }}"
+                              data-hora="{{ general.hora_entrada|time:'H:i' }}" data-observaciones="{{ general.observaciones }}"
+                              aria-label="{% if general %}Corregir{% else %}Registrar{% endif %} la asistencia de {{ alumno }}" data-tooltip="{% if general %}Corregir asistencia{% else %}Registrar asistencia{% endif %}">
+                        {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                      </button>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="alumnos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+    {% elif filtros_activos %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">No encontramos alumnos con esos filtros</p>
+          <p class="empty-state__text">Prueba con otro nombre, grado o estado.</p>
+          <a class="btn btn--sm" href="{% querystring q=None grado=None estado=None page=None %}">Limpiar filtros</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">No hay alumnos inscritos este día</p>
+          <p class="empty-state__text">Inscribe a los alumnos en el ciclo {{ ciclo }} para registrar su asistencia.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if editable and perms.Alumnos.change_asistenciageneral %}
+      <dialog class="modal" id="modal-asistencia" aria-labelledby="modal-asistencia-titulo" data-modal>
+        <form class="modal__panel" method="post" action="{% url 'asistencias:dia_guardar' %}" data-asistencia-form>
+          {% csrf_token %}
+          <input type="hidden" name="inscripcion" value="">
+          <input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <header class="modal__header">
+            <h2 class="modal__title" id="modal-asistencia-titulo">Asistencia de <span data-asistencia-alumno>alumno</span></h2>
+            <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          </header>
+          <div class="modal__body">
+            <fieldset class="field">
+              <legend class="field__label">Estado del {{ fecha|date:"j \d\e F"|lower }}</legend>
+              <div class="segmented">
+                {% for valor, etiqueta in estados %}
+                  <label class="segmented__option segmented__option--{% if valor == 'PRESENTE' %}ok{% elif valor == 'RETARDO' %}late{% else %}miss{% endif %}">
+                    <input class="segmented__input" type="radio" name="estado" value="{{ valor }}"{% if valor == 'PRESENTE' %} checked{% endif %}>
+                    <span>{{ etiqueta }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </fieldset>
+            <div class="field">
+              <label class="field__label" for="asistencia-hora">Hora de entrada</label>
+              <input class="field__control" id="asistencia-hora" name="hora" type="time">
+              <p class="field__hint">Opcional. Si registras una entrada de hoy sin hora, se guarda la hora actual.</p>
+            </div>
+            <div class="field">
+              <label class="field__label" for="asistencia-observaciones">Observaciones</label>
+              <input class="field__control" id="asistencia-observaciones" name="observaciones" type="text" maxlength="250" autocomplete="off" placeholder="Opcional">
+            </div>
+            <label class="choice choice--check" for="asistencia-propagar">
+              <input class="choice__input" type="checkbox" name="propagar" id="asistencia-propagar" checked>
+              <span class="choice__box">Aplicar también a las materias de ese día</span>
+            </label>
+            <p class="field__hint">Una falta pasa a todas sus materias; una entrada crea las materias que falten y recalcula las que generó el sistema. Lo que ya capturó un profesor no se toca.</p>
+          </div>
+          <footer class="modal__footer">
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+            <button type="submit" class="btn btn--primary">Guardar</button>
+          </footer>
+        </form>
+      </dialog>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

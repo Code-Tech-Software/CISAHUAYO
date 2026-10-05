@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Horarios | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Horarios</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Horarios</h1>
+      <p class="page-header__description">El horario semanal de cada grado. Como hay un solo grupo por grado, es el horario de su salón: una materia no puede empalmarse con otra.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_materiagrado %}
+        <a class="btn" href="{% url 'materias:copiar' %}{% if ciclo %}?destino={{ ciclo.pk }}{% endif %}">
+          {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
+          Copiar plan de otro ciclo
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}
+          <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  {% if ciclo and not editable %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">El ciclo {{ ciclo }} está cerrado: sus horarios se conservan tal como quedaron y ya no se modifican.</p>
+    </div>
+  {% endif %}
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Crea un ciclo para asignar materias a los grados y armar sus horarios.</p>
+        {% if perms.Alumnos.add_cicloescolar %}
+          <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% for nivel in niveles %}
+    <section class="level" aria-labelledby="nivel-{{ forloop.counter }}">
+      <header class="level__header">
+        <h2 class="level__title" id="nivel-{{ forloop.counter }}">{{ nivel.nombre }}</h2>
+      </header>
+      <ul class="grade-grid">
+        {% for fila in nivel.filas %}
+          <li>
+            <article class="grade-card grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
+              <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}°</span>
+              <div class="grade-card__body">
+                <h3 class="grade-card__name"><a class="grade-card__link" href="{% url 'horarios:grado' fila.grado.pk %}?ciclo={{ ciclo.pk }}">{{ fila.grado }}</a></h3>
+                {% if fila.materias %}
+                  <p class="grade-card__meta">{{ fila.materias }} materia{{ fila.materias|pluralize }}{% if fila.duracion %} · {{ fila.duracion }} por semana{% endif %}</p>
+                  {% if fila.sin_horario or fila.sin_profesor %}
+                    <p class="grade-card__meta">
+                      {% if fila.sin_horario %}<span class="tag tag--warning">{{ fila.sin_horario }} sin horario</span>{% endif %}
+                      {% if fila.sin_profesor %}<span class="tag tag--warning">{{ fila.sin_profesor }} sin profesor</span>{% endif %}
+                    </p>
+                  {% endif %}
+                {% else %}
+                  <p class="grade-card__meta">Sin materias asignadas</p>
+                {% endif %}
+              </div>
+            </article>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endfor %}
+
+  {% if profesores and perms.Alumnos.view_profesor %}
+    <section class="level" aria-labelledby="nivel-profesores">
+      <header class="level__header">
+        <h2 class="level__title" id="nivel-profesores">Por profesor</h2>
+        <p class="level__count">{{ profesores|length }} profesor{{ profesores|length|pluralize:",es" }} con clases</p>
+      </header>
+      <ul class="grade-grid">
+        {% for profesor in profesores %}
+          <li>
+            <article class="grade-card{% if profesor.estatus != 'ACTIVO' %} is-inactive{% endif %}">
+              {% include "partials/avatar.html" with persona=profesor tamano="lg" extra="avatar--soft avatar--square" %}
+              <div class="grade-card__body">
+                <h3 class="grade-card__name"><a class="grade-card__link" href="{{ profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}#horario">{{ profesor }}</a></h3>
+                <p class="grade-card__meta">{{ profesor.materias }} materia{{ profesor.materias|pluralize }}{% if profesor.duracion %} · {{ profesor.duracion }} por semana{% endif %}</p>
+              </div>
+            </article>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

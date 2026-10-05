@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{{ materia }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'materias:lista' %}">Materias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ materia }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with tono=materia.activa|yesno:"success,danger" %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        <span class="identity__badge" aria-hidden="true">{% include "partials/icon.html" with name="book-open" icon_class="icon--lg" %}</span>
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Materia</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ materia }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{{ materia.activa|yesno:"Activa,Dada de baja" }}</span>
+            <code class="code">{{ materia.clave }}</code>
+            {% if ciclo %}<span class="text-muted">{{ total_grados }} grado{{ total_grados|pluralize }} en el ciclo {{ ciclo }}</span>{% endif %}
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if perms.Alumnos.change_materia %}
+            <a class="btn btn--primary" href="{% url 'materias:editar' materia.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
+            </a>
+          {% endif %}
+          {% if perms.Alumnos.delete_materia and not esta_de_baja %}
+            <div class="menu" data-menu>
+              <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
+                {% include "partials/icon.html" with name="more-horizontal" %}
+              </button>
+              <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
+                <ul class="menu__list">
+                  <li>
+                    <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-baja">
+                      {% include "partials/icon.html" with name="trash" %} Dar de baja
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact identity__fact--mono"><dt>Clave</dt><dd>{{ materia.clave }}</dd></div>
+        <div class="identity__fact"><dt>Ciclo consultado</dt><dd>{{ ciclo|default:"—" }}</dd></div>
+        <div class="identity__fact"><dt>Grados</dt><dd>{{ total_grados }}</dd></div>
+        <div class="identity__fact"><dt>Horas por semana</dt><dd>{{ horas_semanales|default:"—" }}</dd></div>
+        <div class="identity__fact"><dt>Estado</dt><dd>{{ materia.activa|yesno:"Activa,Dada de baja" }}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if esta_de_baja %}
+    <div class="alert alert--error alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Materia dada de baja.</strong> Ya no se ofrece al asignarla a un grado. Su historial se conserva.</p>
+      {% if perms.Alumnos.change_materia %}
+        <form method="post" action="{% url 'materias:reactivar' materia.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm">Reactivar materia</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}
+          <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  <section class="card" aria-labelledby="titulo-grados">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="titulo-grados">Grados que la imparten{% if ciclo %} en {{ ciclo }}{% endif %}</h2>
+      {% if perms.Alumnos.add_materiagrado and grupos_por_asignar %}
+        <button type="button" class="btn btn--sm card__header-action" data-modal-open="modal-asignar">
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Asignar a grados
+        </button>
+      {% endif %}
+    </header>
+
+    {% if not editable and ciclo %}
+      <div class="card__body">
+        <div class="alert alert--info" role="note">
+          {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+          <p class="alert__body">El ciclo {{ ciclo }} está cerrado: su plan de materias se conserva tal como quedó y ya no se modifica.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if asignaciones %}
+      <div class="table-card table-card--flush">
+        <table class="table">
+          <caption class="visually-hidden">Grados en los que se imparte {{ materia }} durante el ciclo {{ ciclo }}</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Grado</th>
+              <th class="table__th" scope="col">Profesor</th>
+              <th class="table__th" scope="col">Horario</th>
+              <th class="table__th table__col--wide" scope="col">Por semana</th>
+              <th class="table__th" scope="col">Estado</th>
+              <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for mg in asignaciones %}
+              <tr class="table__row{% if not mg.activa %} is-inactive{% endif %}">
+                <td class="table__cell table__cell--main">
+                  {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ mg.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ mg.grado }}</a>{% else %}{{ mg.grado }}{% endif %}
+                </td>
+                <td class="table__cell" data-label="Profesor">
+                  {% if mg.profesor %}
+                    {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ mg.profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ mg.profesor }}</a>{% else %}{{ mg.profesor }}{% endif %}
+                  {% elif mg.activa %}
+                    <span class="tag tag--warning">Sin profesor</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="table__cell" data-label="Horario">
+                  {% if mg.lineas %}
+                    <span class="cell-stack">{% for linea in mg.lineas %}<span class="cell-stack__main">{{ linea }}</span>{% endfor %}</span>
+                  {% elif mg.activa %}
+                    <span class="tag tag--warning">Sin horario</span>
+                  {% else %}—{% endif %}
+                </td>
+                <td class="table__cell table__col--wide" data-label="Por semana">{{ mg.duracion|default:"—" }}</td>
+                <td class="table__cell" data-label="Estado">
+                  <span class="tag tag--{{ mg.activa|yesno:'success,neutral' }}">{{ mg.activa|yesno:"Impartida,Quitada" }}</span>
+                </td>
+                <td class="table__cell table__cell--actions">
+                  {% if editable and mg.activa and perms.Alumnos.change_materiagrado %}
+                    <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
+                            data-asignacion="{{ mg.pk }}" data-descripcion="{{ materia }} de {{ mg.grado }}" data-profesor="{{ mg.profesor_id|default_if_none:'' }}"
+                            aria-label="{% if mg.profesor %}Cambiar al profesor de {{ mg.grado }}{% else %}Asignar profesor en {{ mg.grado }}{% endif %}"
+                            data-tooltip="{% if mg.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
+                      {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
+                    </button>
+                  {% endif %}
+                  {% if mg.activa and perms.Alumnos.view_horariomateria %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grado' mg.grado_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ mg.grado }}" data-tooltip="Ver horario">
+                      {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
+                    </a>
+                  {% endif %}
+                  {% if editable %}
+                    {% if mg.activa %}
+                      {% if perms.Alumnos.delete_materiagrado %}
+                        <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-quitar" data-quitar
+                                data-action="{% url 'materias:quitar' mg.pk %}" data-materia="{{ materia }}" data-grado="{{ mg.grado }}"
+                                aria-label="Quitar {{ materia }} de {{ mg.grado }}" data-tooltip="Quitar del grado">
+                          {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+                        </button>
+                      {% endif %}
+                    {% elif perms.Alumnos.change_materiagrado %}
+                      <form method="post" action="{% url 'materias:reactivar_asignacion' mg.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="btn btn--sm">Volver a asignar</button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="card__body">
+        <div class="empty-state empty-state--inline">
+          <p class="empty-state__title">{% if ciclo %}No se imparte en ningún grado de este ciclo{% else %}Aún no hay ciclos escolares{% endif %}</p>
+          <p class="empty-state__text">
+            {% if ciclo %}Asígnala a los grados que la imparten para poder armar su horario.{% else %}Crea un ciclo escolar para poder asignar materias a los grados.{% endif %}
+          </p>
+          {% if perms.Alumnos.add_materiagrado and grupos_por_asignar %}
+            <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-asignar">Asignar a grados</button>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  {# --- Ventanas modales -------------------------------------------------------- #}
+  {% if perms.Alumnos.add_materiagrado and grupos_por_asignar %}
+    <dialog class="modal modal--wide" id="modal-asignar" aria-labelledby="modal-asignar-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'materias:asignar' %}">
+        {% csrf_token %}
+        <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+        <input type="hidden" name="materia" value="{{ materia.pk }}">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-asignar-titulo">Asignar {{ materia }} a grados</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>Elige los grados donde se imparte <strong>{{ materia }}</strong> en el ciclo <strong>{{ ciclo }}</strong>.</p>
+          {% for grupo in grupos_por_asignar %}
+            <fieldset class="field">
+              <legend class="field__label">{{ grupo.nombre }}</legend>
+              <div class="choice-group">
+                {% for grado in grupo.grados %}
+                  <label class="choice choice--check" for="asignar-grado-{{ grado.pk }}">
+                    <input class="choice__input" type="checkbox" name="grado" value="{{ grado.pk }}" id="asignar-grado-{{ grado.pk }}">
+                    <span class="choice__box">{{ grado }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </fieldset>
+          {% endfor %}
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Asignar</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if editable and perms.Alumnos.change_materiagrado %}
+    {% include "profesores/_modal_asignar.html" with ancla="" %}
+  {% endif %}
+
+  {% if editable and perms.Alumnos.delete_materiagrado %}
+    <dialog class="modal" id="modal-quitar" aria-labelledby="modal-quitar-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-quitar-form>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-quitar-titulo">Quitar la materia del grado</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-quitar-materia>La materia</strong> dejará de impartirse en <strong data-quitar-grado>este grado</strong> durante el ciclo {{ ciclo }}.</p>
+          <p class="text-muted">Es lógico: su horario y su asistencia se conservan, y puedes volver a asignarla cuando quieras.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Quitar</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if perms.Alumnos.delete_materia and not esta_de_baja %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'materias:baja' materia.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja {{ materia }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong>{{ materia }}</strong> dejará de ofrecerse al asignar materias a los grados y de aparecer entre las materias activas.</p>
+          {% if asignaciones_actuales %}
+            <div class="choice-group">
+              <label class="choice choice--check" for="quitar-del-ciclo">
+                <input class="choice__input" type="checkbox" name="quitar_del_ciclo" id="quitar-del-ciclo" checked>
+                <span class="choice__box">También quitarla de los {{ asignaciones_actuales }} grado{{ asignaciones_actuales|pluralize }} del ciclo actual</span>
+              </label>
+            </div>
+          {% endif %}
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su historial, su horario y su asistencia se conservan y podrás reactivarla desde el filtro «Bajas».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/materias.js' %}" defer></script>
+  <script src="{% static 'js/profesores.js' %}" defer></script>
+{% endblock %}

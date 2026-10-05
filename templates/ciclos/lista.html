@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Ciclos escolares | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Ciclos escolares</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ciclos escolares</h1>
+      <p class="page-header__description">Los periodos del colegio. Solo hay un ciclo actual: en él se inscribe a los alumnos y se toma asistencia.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_cicloescolar %}
+        <a class="btn btn--primary" href="{% url 'ciclos:crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+          Nuevo ciclo
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if actual %}
+    <section class="cycle-now" aria-labelledby="ciclo-actual-titulo">
+      <div class="cycle-now__main">
+        <div class="cycle-now__head">
+          <span class="tag tag--success">Ciclo actual</span>
+          <h2 class="cycle-now__title" id="ciclo-actual-titulo"><a class="link-subtle" href="{{ actual.get_absolute_url }}">{{ actual }}</a></h2>
+          <p class="cycle-now__dates">{{ actual.fecha_inicio|date:"j M Y" }} – {{ actual.fecha_fin|date:"j M Y" }} · {{ actual.duracion_dias }} días</p>
+        </div>
+        <div class="cycle-now__progress">
+          <progress class="meter" max="100" value="{{ actual.avance }}" aria-label="Avance del ciclo">{{ actual.avance }}%</progress>
+          <p class="cycle-now__progress-label">{{ actual.avance }}% del ciclo transcurrido</p>
+        </div>
+      </div>
+      <dl class="cycle-now__stats">
+        <div><dt>Inscritos</dt><dd>{{ actual.inscritos }}</dd></div>
+        <div><dt>Bajas</dt><dd>{{ actual.bajas }}</dd></div>
+      </dl>
+      <div class="cycle-now__actions">
+        <a class="btn btn--sm" href="{{ actual.get_absolute_url }}">Ver ciclo</a>
+        {% if perms.Alumnos.view_inscripcion %}
+          <a class="btn btn--sm" href="{% url 'inscripciones:lista' %}?ciclo={{ actual.pk }}">Ver inscripciones</a>
+        {% endif %}
+      </div>
+      {% if actual.fuera_de_fechas %}
+        <div class="alert alert--warning cycle-now__alert" role="note">
+          {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+          <p class="alert__body">Hoy queda fuera de las fechas de este ciclo. Revisa sus fechas o marca otro ciclo como actual.</p>
+        </div>
+      {% endif %}
+    </section>
+  {% elif conteos.total and not estado %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>No hay un ciclo actual.</strong> Mientras no marques uno, no se puede saber en qué ciclo está cada alumno. Elige uno de la lista y márcalo como actual.</p>
+    </div>
+  {% endif %}
+
+  <nav class="pills" aria-label="Filtrar por estado">
+    <a class="pill{% if not estado %} is-active{% endif %}" href="{% querystring estado=None page=None %}"{% if not estado %} aria-current="true"{% endif %}>
+      Todos <span class="pill__count">{{ conteos.total }}</span>
+    </a>
+    <a class="pill{% if estado == 'ACTUAL' %} is-active{% endif %}" href="{% querystring estado='ACTUAL' page=None %}"{% if estado == 'ACTUAL' %} aria-current="true"{% endif %}>
+      Actual <span class="pill__count">{{ conteos.actual }}</span>
+    </a>
+    <a class="pill{% if estado == 'PROXIMO' %} is-active{% endif %}" href="{% querystring estado='PROXIMO' page=None %}"{% if estado == 'PROXIMO' %} aria-current="true"{% endif %}>
+      Próximos <span class="pill__count">{{ conteos.proximo }}</span>
+    </a>
+    <a class="pill{% if estado == 'CERRADO' %} is-active{% endif %}" href="{% querystring estado='CERRADO' page=None %}"{% if estado == 'CERRADO' %} aria-current="true"{% endif %}>
+      Cerrados <span class="pill__count">{{ conteos.cerrado }}</span>
+    </a>
+  </nav>
+
+  {% if pagina.paginator.count %}
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Lista de ciclos escolares</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Ciclo</th>
+            <th class="table__th" scope="col">Periodo</th>
+            <th class="table__th" scope="col">Inscritos</th>
+            <th class="table__th" scope="col">Estado</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for ciclo in pagina %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">
+                <a class="person" href="{{ ciclo.get_absolute_url }}">
+                  <span class="avatar avatar--soft avatar--square avatar--tone-{{ ciclo.pk|tono }}" aria-hidden="true">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %}</span>
+                  <span class="person__text">
+                    <span class="person__name">{{ ciclo }}</span>
+                    <span class="person__meta">{{ ciclo.duracion_dias }} días</span>
+                  </span>
+                </a>
+              </td>
+              <td class="table__cell" data-label="Periodo">
+                <span class="cell-stack">
+                  <span class="cell-stack__main">{{ ciclo.fecha_inicio|date:"j M Y" }} – {{ ciclo.fecha_fin|date:"j M Y" }}</span>
+                  {% if ciclo.fuera_de_fechas %}<span class="cell-stack__sub"><span class="tag tag--warning">Hoy queda fuera de sus fechas</span></span>{% endif %}
+                </span>
+              </td>
+              <td class="table__cell" data-label="Inscritos">
+                <span class="cell-stack">
+                  <span class="cell-stack__main">{{ ciclo.inscritos }} alumno{{ ciclo.inscritos|pluralize }}</span>
+                  {% if ciclo.bajas %}<span class="cell-stack__sub">{{ ciclo.bajas }} baja{{ ciclo.bajas|pluralize }}</span>{% endif %}
+                </span>
+              </td>
+              <td class="table__cell" data-label="Estado">
+                <span class="tag tag--{{ ciclo.estado|tono_estatus }}">{{ ciclo.estado_display }}</span>
+              </td>
+              <td class="table__cell table__cell--actions">
+                <a class="btn btn--ghost btn--icon btn--sm" href="{{ ciclo.get_absolute_url }}" aria-label="Ver el ciclo {{ ciclo }}" data-tooltip="Ver ciclo">
+                  {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                </a>
+                {% if perms.Alumnos.change_cicloescolar %}
+                  <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'ciclos:editar' ciclo.pk %}" aria-label="Editar el ciclo {{ ciclo }}" data-tooltip="Editar" data-modal-form>
+                    {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="ciclos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% elif estado %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay ciclos en este estado</p>
+        <p class="empty-state__text">Prueba con otro filtro.</p>
+        <a class="btn btn--sm" href="{% url 'ciclos:lista' %}">Ver todos</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Crea el primero para poder inscribir alumnos.</p>
+        {% if perms.Alumnos.add_cicloescolar %}
+          <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

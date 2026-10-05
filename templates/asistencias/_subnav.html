@@ -1,0 +1,22 @@
+{% comment %}
+  Secciones de asistencias. Parámetro: seccion (inicio, dia, clases, justificaciones, reporte o ajustes).
+  Cada una aparece solo si la persona tiene permiso para verla.
+{% endcomment %}
+<nav class="pills pills--section" aria-label="Secciones de asistencias">
+  {% if perms.Alumnos.view_asistenciageneral %}
+    <a class="pill{% if seccion == 'inicio' %} is-active{% endif %}" href="{% url 'asistencias:inicio' %}"{% if seccion == 'inicio' %} aria-current="page"{% endif %}>Resumen del día</a>
+    <a class="pill{% if seccion == 'dia' %} is-active{% endif %}" href="{% url 'asistencias:dia' %}"{% if seccion == 'dia' %} aria-current="page"{% endif %}>Asistencia general</a>
+  {% endif %}
+  {% if perms.Alumnos.view_asistenciamateria %}
+    <a class="pill{% if seccion == 'clases' %} is-active{% endif %}" href="{% url 'asistencias:clases' %}"{% if seccion == 'clases' %} aria-current="page"{% endif %}>Pase de lista</a>
+  {% endif %}
+  {% if perms.Alumnos.view_justificacion %}
+    <a class="pill{% if seccion == 'justificaciones' %} is-active{% endif %}" href="{% url 'asistencias:justificaciones' %}"{% if seccion == 'justificaciones' %} aria-current="page"{% endif %}>Justificaciones</a>
+  {% endif %}
+  {% if perms.Alumnos.view_asistenciageneral %}
+    <a class="pill{% if seccion == 'reporte' %} is-active{% endif %}" href="{% url 'asistencias:reporte' %}"{% if seccion == 'reporte' %} aria-current="page"{% endif %}>Reportes</a>
+  {% endif %}
+  {% if perms.Alumnos.view_configuracionasistencia %}
+    <a class="pill{% if seccion == 'ajustes' %} is-active{% endif %}" href="{% url 'asistencias:ajustes' %}"{% if seccion == 'ajustes' %} aria-current="page"{% endif %}>Ajustes</a>
+  {% endif %}
+</nav>

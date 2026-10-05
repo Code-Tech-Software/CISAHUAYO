@@ -1,0 +1,130 @@
+{% load static alumnos_extras %}<!DOCTYPE html>
+{% comment %}
+  Pantalla de la entrada del colegio: el alumno acerca su credencial al lector RFID (que escribe el UID como un teclado)
+  o teclea su número de referencia. Es una página aparte, sin menú, pensada para dejarse abierta en una pantalla que
+  ven los alumnos que esperan su turno: por eso nunca muestra quién entró antes, solo el resultado de quien acaba de
+  escanear, y ese aviso se quita solo en pocos segundos (o al tocar, teclear o escanear de nuevo).
+  Comportamiento en static/js/asistencias-kiosco.js; estilos en static/css/asistencias.css (sección «Pantalla de la entrada»).
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#245a62">
+  <title>Registro de entrada | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <script src="{% static 'js/preload.js' %}"></script>
+</head>
+<body class="kiosk-page">
+  <div class="kiosk" data-kiosk
+       data-registrar-url="{% url 'asistencias:registrar_entrada' %}"
+       data-estado-url="{% url 'asistencias:kiosco_estado' %}"
+       data-fecha="{{ hoy|date:'Y-m-d' }}"
+       data-ahora="{{ estado.ahora }}"
+       data-sin-clases="{% if motivo %}1{% endif %}">
+    {% csrf_token %}
+
+    <header class="kiosk__bar">
+      <div class="kiosk__brand">
+        <img class="kiosk__logo" src="{% static 'img/logointer.svg' %}" alt="">
+        <div>
+          <p class="kiosk__school">Colegio Interamericano de Sahuayo</p>
+          <p class="kiosk__title">Registro de entrada</p>
+        </div>
+      </div>
+      <div class="kiosk__clock" aria-label="Fecha y hora">
+        <time class="kiosk__time" data-reloj>--:--</time>
+        <p class="kiosk__date" data-fecha-texto>{{ hoy|date:"l" }}, {{ hoy|date:"DATE_FORMAT"|lower }}</p>
+      </div>
+    </header>
+
+    <main class="kiosk__stage">
+      <section class="kiosk__panel" data-panel data-vista="{% if motivo %}sin-clases{% else %}espera{% endif %}" data-tono="" aria-live="assertive" aria-atomic="true">
+        <div class="kiosk__state kiosk__state--idle" data-estado-vista="espera">
+          <span class="kiosk__rfid" aria-hidden="true">{% include "partials/icon.html" with name="credit-card" icon_class="icon--lg" %}</span>
+          <h1 class="kiosk__headline">Acerca tu credencial</h1>
+          <p class="kiosk__sub">Pásala por el lector y espera la confirmación en pantalla.</p>
+        </div>
+
+        <div class="kiosk__state kiosk__state--blocked" data-estado-vista="sin-clases">
+          <span class="kiosk__rfid" aria-hidden="true">{% include "partials/icon.html" with name="calendar" icon_class="icon--lg" %}</span>
+          <h1 class="kiosk__headline">Hoy no se registra entrada</h1>
+          <p class="kiosk__sub">{{ motivo }}</p>
+        </div>
+
+        <div class="kiosk__state kiosk__state--result" data-estado-vista="resultado" data-descartar>
+          <div class="kiosk__avatar" data-avatar aria-hidden="true"></div>
+          <div class="kiosk__result-text">
+            <p class="kiosk__badge">
+              {% include "partials/icon.html" with name="circle-check" icon_class="kiosk__badge-icon kiosk__badge-icon--success" %}
+              {% include "partials/icon.html" with name="clock" icon_class="kiosk__badge-icon kiosk__badge-icon--late" %}
+              {% include "partials/icon.html" with name="info" icon_class="kiosk__badge-icon kiosk__badge-icon--info" %}
+              {% include "partials/icon.html" with name="circle-x" icon_class="kiosk__badge-icon kiosk__badge-icon--error" %}
+              <span data-etiqueta></span>
+            </p>
+            <h2 class="kiosk__name" data-nombre></h2>
+            <p class="kiosk__grade" data-grado></p>
+            <p class="kiosk__message" data-mensaje></p>
+            <p class="kiosk__hour" data-hora></p>
+          </div>
+          <span class="kiosk__countdown" data-cuenta aria-hidden="true"></span>
+        </div>
+
+        <div class="kiosk__state kiosk__state--session" data-estado-vista="sesion">
+          <span class="kiosk__rfid" aria-hidden="true">{% include "partials/icon.html" with name="lock" icon_class="icon--lg" %}</span>
+          <h1 class="kiosk__headline">Sesión terminada</h1>
+          <p class="kiosk__sub" data-mensaje-sesion></p>
+          <a class="btn btn--primary" href="{% url 'admin:login' %}?next={{ request.path|urlencode }}">Iniciar sesión</a>
+        </div>
+      </section>
+
+      <form class="kiosk__manual" data-manual novalidate autocomplete="off">
+        <p class="kiosk__manual-title" id="referencia-titulo">¿No traes tu credencial? Escribe tu número de referencia</p>
+        <div class="kiosk__manual-row">
+          <input class="field__control kiosk__input" id="referencia" name="referencia" type="text" inputmode="numeric" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Número de referencia" aria-labelledby="referencia-titulo" data-referencia>
+          <button type="submit" class="btn btn--primary kiosk__send">Registrar</button>
+        </div>
+        <button type="button" class="kiosk__keys-toggle" data-teclado-alternar aria-expanded="false" aria-controls="teclado">Mostrar teclado en pantalla</button>
+        <div class="kiosk__keypad" id="teclado" data-teclado hidden>
+          {% for tecla in "123456789" %}<button type="button" class="kiosk__key" data-tecla="{{ tecla }}">{{ tecla }}</button>{% endfor %}
+          <button type="button" class="kiosk__key kiosk__key--aux" data-tecla-borrar aria-label="Borrar el último dígito">Borrar</button>
+          <button type="button" class="kiosk__key" data-tecla="0">0</button>
+          <button type="submit" class="kiosk__key kiosk__key--ok">Entrar</button>
+        </div>
+      </form>
+    </main>
+
+    <footer class="kiosk__foot">
+      <div class="kiosk__foot-start">
+        <span class="kiosk__link" data-conexion role="status">En línea</span>
+        <p class="kiosk__rules">Entrada a las {{ configuracion.hora_entrada|time:"H:i" }} · tolerancia de {{ configuracion.tolerancia_minutos }} min</p>
+      </div>
+      <div class="kiosk__count">
+        <progress class="meter" max="{{ estado.inscritos|default:1 }}" value="{{ estado.entraron }}" data-progreso aria-label="Alumnos que han entrado">{{ estado.entraron }}</progress>
+        <p class="kiosk__count-text"><strong data-entraron>{{ estado.entraron }}</strong> de <span data-inscritos>{{ estado.inscritos }}</span> han entrado</p>
+      </div>
+      <div class="kiosk__tools">
+        <button type="button" class="btn btn--sm btn--ghost" data-sonido aria-pressed="true">
+          {% include "partials/icon.html" with name="bell" icon_class="icon--sm" %}
+          <span data-sonido-texto>Sonido activado</span>
+        </button>
+        <button type="button" class="btn btn--sm btn--ghost" data-pantalla-completa>
+          {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+          <span data-pantalla-completa-texto>Pantalla completa</span>
+        </button>
+        <a class="btn btn--sm btn--ghost" href="{% url 'asistencias:inicio' %}">Salir</a>
+      </div>
+    </footer>
+
+    {# El lector escribe aquí: se mantiene enfocado para recibir el UID aunque nadie toque la pantalla #}
+    <input class="visually-hidden" type="text" data-escaner inputmode="none" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Lector de credenciales" tabindex="-1">
+  </div>
+
+  <script src="{% static 'js/asistencias-kiosco.js' %}" defer></script>
+</body>
+</html>

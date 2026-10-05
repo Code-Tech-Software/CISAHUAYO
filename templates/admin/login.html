@@ -1,0 +1,78 @@
+{% extends "acceso_base.html" %}
+{% comment %}
+  Pantalla de inicio de sesión. Reemplaza a la del admin de Django (misma ruta, mismo formulario, mismas reglas: solo
+  entra personal con cuenta activa de staff). Recibe del admin: form, next y, si ya hay sesión, user.
+{% endcomment %}
+
+{% block titulo %}Iniciar sesión{% endblock %}
+
+{% block tarjeta %}
+  {% url 'admin_password_reset' as restablecer_url %}
+  <header class="access__head">
+    <h1 class="access__title">Iniciar sesión</h1>
+    <p class="access__lead">Ingresa con tu usuario y contraseña del colegio.</p>
+  </header>
+
+  {% if user.is_authenticated %}
+    <div class="alert alert--warning" role="alert">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p>Ya iniciaste sesión como <strong>{{ user.get_username }}</strong>, pero esa cuenta no tiene permiso para entrar al sistema. Entra con otra cuenta o pide que revisen tus permisos.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert--error" role="alert">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <div class="alert__body">
+        {% for error in form.non_field_errors.as_data %}
+          {% if error.code == 'invalid_login' %}
+            <p>El usuario o la contraseña no son correctos, o tu cuenta no tiene acceso al sistema. Revisa que estén bien escritos (importan las mayúsculas).</p>
+          {% else %}
+            <p>{{ error.message }}</p>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <form class="access__form" method="post" data-access-form>
+    {% csrf_token %}
+    {# Sin destino pedido, el admin propone su propio panel: aquí se entra al sistema (inicio) #}
+    <input type="hidden" name="next" value="{% if request.GET.next or request.POST.next %}{{ next }}{% else %}{% url 'inicio' %}{% endif %}">
+
+    <div class="field{% if form.username.errors %} is-invalid{% endif %}">
+      <label class="field__label" for="id_username">Usuario</label>
+      <input class="field__control" type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}"
+             autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="150" required autofocus>
+      {% for error in form.username.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="field{% if form.password.errors %} is-invalid{% endif %}">
+      <label class="field__label" for="id_password">Contraseña</label>
+      <div class="password-field">
+        <input class="field__control" type="password" name="password" id="id_password" autocomplete="current-password" required>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm password-field__toggle" data-password-toggle aria-controls="id_password" aria-pressed="false" aria-label="Mostrar la contraseña">
+          {% include "partials/icon.html" with name="eye" icon_class="password-field__eye" %}
+          {% include "partials/icon.html" with name="eye-off" icon_class="password-field__eye-off" %}
+        </button>
+      </div>
+      <p class="field__hint access__caps" data-caps-aviso hidden>
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %}
+        Tienes activado el bloqueo de mayúsculas.
+      </p>
+      {% for error in form.password.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn--primary btn--block access__submit">
+      Entrar
+      {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+    </button>
+  </form>
+
+  <p class="access__help">
+    {% if restablecer_url %}<a class="access__link" href="{{ restablecer_url }}">¿Olvidaste tu contraseña?</a> · {% endif %}
+    ¿No puedes entrar? Pide a la dirección del colegio que revise tu cuenta.
+  </p>
+{% endblock %}

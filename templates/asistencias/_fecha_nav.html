@@ -1,0 +1,23 @@
+{% comment %}
+  Selector de día: anterior, fecha y siguiente (solo días hábiles) y volver a hoy.
+  Parámetro: formulario (id del <form method="get"> de la página: ahí viaja la fecha elegida junto con sus filtros).
+  Contexto: fecha, hoy, es_hoy, anterior, siguiente.
+{% endcomment %}
+<div class="day-nav" role="group" aria-label="Elegir el día">
+  <a class="btn btn--icon btn--sm" href="{% querystring fecha=anterior|date:'Y-m-d' page=None %}" aria-label="Día anterior" data-tooltip="Día anterior">
+    {% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}
+  </a>
+  <div class="day-nav__current">
+    <label class="visually-hidden" for="campo-fecha">Fecha</label>
+    <input class="field__control day-nav__input" type="date" id="campo-fecha" name="fecha" form="{{ formulario }}" value="{{ fecha|date:'Y-m-d' }}" max="{{ hoy|date:'Y-m-d' }}" data-fecha-input>
+    <p class="day-nav__label">{{ fecha|date:"l" }}, {{ fecha|date:"DATE_FORMAT"|lower }}{% if es_hoy %} <span class="tag tag--info">Hoy</span>{% endif %}</p>
+  </div>
+  {% if siguiente %}
+    <a class="btn btn--icon btn--sm" href="{% querystring fecha=siguiente|date:'Y-m-d' page=None %}" aria-label="Día siguiente" data-tooltip="Día siguiente">
+      {% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}
+    </a>
+  {% else %}
+    <span class="btn btn--icon btn--sm is-disabled" aria-hidden="true">{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</span>
+  {% endif %}
+  {% if not es_hoy %}<a class="btn btn--sm" href="{% querystring fecha=None page=None %}">Hoy</a>{% endif %}
+</div>

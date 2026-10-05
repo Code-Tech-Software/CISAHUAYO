@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Justificaciones | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Justificaciones</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Justificaciones</h1>
+      <p class="page-header__description">Los justificantes de las faltas: del día completo, de la asistencia general o solo de algunas materias. Una falta justificada se sigue contando como falta, pero queda marcada como justificada.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_justificacion %}
+        <a class="btn btn--primary" href="{% url 'asistencias:justificacion_crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+          Nueva justificación
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "asistencias/_subnav.html" %}
+
+  <nav class="pills" aria-label="Filtrar por estado">
+    <a class="pill{% if not viendo_anuladas %} is-active{% endif %}" href="{% querystring estado=None page=None %}"{% if not viendo_anuladas %} aria-current="true"{% endif %}>
+      Vigentes <span class="pill__count">{{ conteo.vigentes }}</span>
+    </a>
+    <a class="pill{% if viendo_anuladas %} is-active{% endif %}" href="{% querystring estado='ANULADA' page=None %}"{% if viendo_anuladas %} aria-current="true"{% endif %}>
+      Anuladas <span class="pill__count">{{ conteo.anuladas }}</span>
+    </a>
+  </nav>
+
+  <form class="filters" method="get" role="search" aria-label="Buscar justificaciones" data-autosubmit>
+    {% if viendo_anuladas %}<input type="hidden" name="estado" value="ANULADA">{% endif %}
+    {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar justificaciones</label>
+      {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+      {{ filtro.q }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">Grado</label>
+      {{ filtro.grado }}
+    </div>
+    <div class="filters__field filters__field--date">
+      <label class="visually-hidden" for="{{ filtro.desde.id_for_label }}">Desde</label>
+      {{ filtro.desde }}
+    </div>
+    <div class="filters__field filters__field--date">
+      <label class="visually-hidden" for="{{ filtro.hasta.id_for_label }}">Hasta</label>
+      {{ filtro.hasta }}
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+      {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% querystring q=None grado=None desde=None hasta=None page=None %}">Limpiar</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">
+      {{ pagina.paginator.count }} justificaci{{ pagina.paginator.count|pluralize:"ón,ones" }}{% if filtros_activos %} con los filtros aplicados{% endif %}{% if viendo_anuladas %} anulada{{ pagina.paginator.count|pluralize }}{% endif %}
+    </p>
+
+    <div class="table-card">
+      <table class="table table--people">
+        <caption class="visually-hidden">Lista de justificaciones</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Alumno</th>
+            <th class="table__th" scope="col">Día</th>
+            <th class="table__th" scope="col">Justifica</th>
+            <th class="table__th table__col--wide" scope="col">Motivo</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for justificacion in pagina %}
+            {% with alumno=justificacion.inscripcion.alumno %}
+              <tr class="table__row{% if not justificacion.activa %} is-muted{% endif %}">
+                <td class="table__cell table__cell--main">
+                  <a class="person" href="{% url 'asistencias:alumno' alumno.pk %}">
+                    {% include "partials/avatar.html" with persona=alumno %}
+                    <span class="person__text">
+                      <span class="person__name">{{ alumno }}</span>
+                      <span class="person__meta">{{ justificacion.inscripcion.grado }} · {{ justificacion.inscripcion.ciclo }}</span>
+                    </span>
+                  </a>
+                </td>
+                <td class="table__cell" data-label="Día">{{ justificacion.fecha|date:"D j M Y" }}</td>
+                <td class="table__cell" data-label="Justifica">
+                  <span class="tag-list">
+                    {% for parte in justificacion.alcance %}<span class="tag tag--info">{{ parte }}</span>{% endfor %}
+                    {% if justificacion.materias.all %}
+                      <span class="visually-hidden">: {% for m in justificacion.materias.all %}{{ m.materia }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                    {% endif %}
+                  </span>
+                  {% if justificacion.materias.all and not justificacion.todas_materias %}
+                    <span class="text-muted attendance-origin">{% for m in justificacion.materias.all %}{{ m.materia.clave }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                  {% endif %}
+                </td>
+                <td class="table__cell table__col--wide" data-label="Motivo">
+                  <span title="{{ justificacion.motivo }}">{{ justificacion.motivo|truncatechars:80 }}</span>
+                  {% if justificacion.documento %}
+                    <a class="link-subtle attendance-doc" href="{{ justificacion.documento.url }}" target="_blank" rel="noopener">
+                      {% include "partials/icon.html" with name="link" icon_class="icon--sm" %} Comprobante
+                    </a>
+                  {% endif %}
+                </td>
+                <td class="table__cell table__cell--actions">
+                  {% if justificacion.activa %}
+                    {% if perms.Alumnos.change_justificacion %}
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'asistencias:justificacion_editar' justificacion.pk %}" aria-label="Editar la justificación de {{ alumno }} del {{ justificacion.fecha|date:'j M' }}" data-tooltip="Editar" data-modal-form>
+                        {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                      </a>
+                    {% endif %}
+                    {% if perms.Alumnos.delete_justificacion %}
+                      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-anular" data-anular-justificacion
+                              data-action="{% url 'asistencias:justificacion_anular' justificacion.pk %}" data-alumno="{{ alumno }}" data-dia="{{ justificacion.fecha|date:'j \d\e F' }}"
+                              aria-label="Anular la justificación de {{ alumno }} del {{ justificacion.fecha|date:'j M' }}" data-tooltip="Anular">
+                        {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+                      </button>
+                    {% endif %}
+                  {% elif perms.Alumnos.change_justificacion %}
+                    <form method="post" action="{% url 'asistencias:justificacion_reactivar' justificacion.pk %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                      <button type="submit" class="btn btn--sm">Reactivar</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="justificaciones" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% elif filtros_activos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No encontramos justificaciones con esos filtros</p>
+        <p class="empty-state__text">Prueba con otro alumno, grado o rango de fechas.</p>
+        <a class="btn btn--sm" href="{% querystring q=None grado=None desde=None hasta=None page=None %}">Limpiar filtros</a>
+      </div>
+    </div>
+  {% elif viendo_anuladas %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay justificaciones anuladas</p>
+        <p class="empty-state__text">Las que anules aparecerán aquí y podrás reactivarlas.</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay justificaciones</p>
+        <p class="empty-state__text">Cuando un alumno falte con causa justificada, registra aquí su justificante: del día completo o solo de algunas materias.</p>
+        {% if perms.Alumnos.add_justificacion %}<a class="btn btn--primary btn--sm" href="{% url 'asistencias:justificacion_crear' %}" data-modal-form>Nueva justificación</a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if perms.Alumnos.delete_justificacion %}
+    <dialog class="modal" id="modal-anular" aria-labelledby="modal-anular-titulo" data-modal>
+      <form class="modal__panel" method="post" data-anular-form>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-anular-titulo">Anular justificación</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>¿Anular la justificación de <strong data-anular-alumno>este alumno</strong> del <strong data-anular-dia>día</strong>?</p>
+          <p class="text-muted">Es una anulación lógica: la justificación se conserva en el historial y puedes reactivarla desde el filtro «Anuladas». Sus faltas vuelven a contar sin justificar.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Anular justificación</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Alumnos | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Alumnos</span></li>
+{% endblock %}
+
+{% block content %}
+  {% if credenciales %}
+    {% include "alumnos/_credenciales.html" %}
+  {% endif %}
+
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Alumnos</h1>
+      <p class="page-header__description">
+        Consulta, busca y administra el padrón de alumnos{% if ciclo_actual %} · Ciclo escolar {{ ciclo_actual }}{% endif %}.
+      </p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.view_alumno and pagina.paginator.count %}
+        <a class="btn" href="{% url 'alumnos:exportar' %}{% querystring page=None %}">
+          {% include "partials/icon.html" with name="download" icon_class="icon--sm" %}
+          Exportar CSV
+        </a>
+      {% endif %}
+      {% if perms.Alumnos.add_alumno %}
+        <a class="btn btn--primary" href="{% url 'alumnos:crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %}
+          Nuevo alumno
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {# Estatus: funcionan como filtros rápidos y muestran cuántos alumnos hay en cada uno #}
+  <nav class="pills" aria-label="Filtrar por estatus">
+    <a class="pill{% if not filtros_activos.estatus %} is-active{% endif %}" href="{% querystring estatus=None page=None %}"{% if not filtros_activos.estatus %} aria-current="true"{% endif %} title="Todos los alumnos, sin contar las bajas">
+      Todos <span class="pill__count">{{ total_alumnos }}</span>
+    </a>
+    {% for opcion in estatus_filtros %}
+      <a class="pill{% if filtros_activos.estatus == opcion.valor %} is-active{% endif %}" href="{% querystring estatus=opcion.valor page=None %}"{% if filtros_activos.estatus == opcion.valor %} aria-current="true"{% endif %}>
+        {{ opcion.etiqueta }}s <span class="pill__count">{{ opcion.total }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <form class="filters" method="get" role="search" aria-label="Buscar y filtrar alumnos" data-autosubmit>
+    {% if filtros_activos.estatus %}<input type="hidden" name="estatus" value="{{ filtros_activos.estatus }}">{% endif %}
+    {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar alumnos</label>
+      {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+      {{ filtro.q }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">{{ filtro.grado.label }}</label>
+      {{ filtro.grado }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.situacion.id_for_label }}">{{ filtro.situacion.label }}</label>
+      {{ filtro.situacion }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
+      {{ filtro.orden }}
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+      {% if filtros_activos %}
+        <a class="btn btn--ghost btn--sm" href="{% url 'alumnos:lista' %}">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">
+      {{ pagina.paginator.count }} alumno{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}
+    </p>
+
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Lista de alumnos</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Alumno</th>
+            <th class="table__th" scope="col">Grado actual</th>
+            <th class="table__th table__col--wide" scope="col">Tutor principal</th>
+            <th class="table__th" scope="col">Edad</th>
+            <th class="table__th" scope="col">Estatus</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for alumno in pagina %}
+            {% with inscripcion=alumno.inscripciones_actuales.0 vinculo=alumno.vinculos_activos.0 %}
+              <tr class="table__row">
+                <td class="table__cell table__cell--main">
+                  <a class="person" href="{{ alumno.get_absolute_url }}">
+                    {% include "partials/avatar.html" with persona=alumno %}
+                    <span class="person__text">
+                      <span class="person__name">{{ alumno }}</span>
+                      <span class="person__meta">Ref. {{ alumno.referencia }}</span>
+                    </span>
+                  </a>
+                </td>
+                <td class="table__cell" data-label="Grado actual">
+                  {% if inscripcion %}
+                    <span class="cell-stack"><span class="cell-stack__main">{{ inscripcion.grado }}</span><span class="cell-stack__sub">{{ inscripcion.ciclo }}</span></span>
+                  {% else %}
+                    <span class="text-muted">Sin inscripción</span>
+                  {% endif %}
+                </td>
+                <td class="table__cell table__col--wide" data-label="Tutor principal">
+                  {% if vinculo %}
+                    <span class="cell-stack">
+                      <span class="cell-stack__main">{{ vinculo.tutor }}</span>
+                      <span class="cell-stack__sub"><a class="link-subtle" href="tel:{{ vinculo.tutor.telefono }}">{{ vinculo.tutor.telefono|telefono }}</a></span>
+                    </span>
+                  {% else %}
+                    <span class="tag tag--warning">Sin tutor</span>
+                  {% endif %}
+                </td>
+                <td class="table__cell" data-label="Edad">{{ alumno.edad }} año{{ alumno.edad|pluralize }}</td>
+                <td class="table__cell" data-label="Estatus">
+                  <span class="tag tag--{{ alumno.estatus|tono_estatus }}">{{ alumno.get_estatus_display }}</span>
+                </td>
+                <td class="table__cell table__cell--actions">
+                  <a class="btn btn--ghost btn--icon btn--sm" href="{{ alumno.get_absolute_url }}" aria-label="Ver perfil de {{ alumno }}" data-tooltip="Ver perfil">
+                    {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                  </a>
+                  {% if perms.Alumnos.change_alumno %}
+                    {% if alumno.estatus == "BAJA" %}
+                      <form method="post" action="{% url 'alumnos:reactivar' alumno.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn--sm">Reactivar</button>
+                      </form>
+                    {% else %}
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'alumnos:editar' alumno.pk %}" aria-label="Editar a {{ alumno }}" data-tooltip="Editar" data-modal-form>
+                        {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                      </a>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="alumnos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% elif filtros_activos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No encontramos alumnos con esos filtros</p>
+        <p class="empty-state__text">
+          Prueba con otra búsqueda o quita algún filtro.
+          {% if total_bajas and not filtros_activos.estatus %}¿Buscas a alguien dado de baja? Revisa el filtro «Bajas».{% endif %}
+        </p>
+        <a class="btn btn--sm" href="{% url 'alumnos:lista' %}">Limpiar filtros</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay alumnos registrados</p>
+        <p class="empty-state__text">Registra al primero: te guiaremos paso a paso, incluidos sus tutores.</p>
+        {% if perms.Alumnos.add_alumno %}
+          <a class="btn btn--primary btn--sm" href="{% url 'alumnos:crear' %}" data-modal-form>Registrar alumno</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

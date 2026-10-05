@@ -1,0 +1,70 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Base de las pantallas de acceso (iniciar y cerrar sesión). Son páginas aparte, sin menú: a la izquierda la marca del
+  colegio (solo en pantallas anchas) y a la derecha la tarjeta con el formulario o el mensaje.
+  Las usan las plantillas que reemplazan a las del admin de Django (admin/login.html y registration/logged_out.html);
+  las rutas y el comportamiento siguen siendo los del admin. Estilos: static/css/acceso.css · script: static/js/acceso.js.
+  Bloques: titulo (pestaña), tarjeta (contenido de la columna del formulario).
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#245a62">
+  <title>{% block titulo %}Acceso{% endblock %} | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/acceso.css' %}">
+  <script src="{% static 'js/preload.js' %}"></script>
+</head>
+<body class="access-page">
+  <div class="access">
+    <aside class="access__brand">
+      <div class="access__shapes" aria-hidden="true">
+        <span class="access__disc"></span>
+        <span class="access__ring"></span>
+        <span class="access__bubble"></span>
+        <span class="access__dot"></span>
+      </div>
+
+      <div class="access__brand-top">
+        <span class="access__logo"><img src="{% static 'img/logointer.svg' %}" alt=""></span>
+        <p class="access__school">Colegio Interamericano<br>de Sahuayo</p>
+      </div>
+
+      <div class="access__pitch">
+        <p class="access__eyebrow">Administración escolar</p>
+        <h2 class="access__pitch-title">Todo el colegio, en un solo lugar.</h2>
+        <ul class="access__points">
+          <li class="access__point">
+            <span class="access__point-icon">{% include "partials/icon.html" with name="graduation-cap" %}</span>
+            Alumnos, tutores y profesores
+          </li>
+          <li class="access__point">
+            <span class="access__point-icon">{% include "partials/icon.html" with name="calendar-range" %}</span>
+            Ciclos, grados, materias y horarios
+          </li>
+          <li class="access__point">
+            <span class="access__point-icon">{% include "partials/icon.html" with name="user-check" %}</span>
+            Asistencia desde la entrada hasta cada clase
+          </li>
+        </ul>
+      </div>
+
+      <p class="access__legal">© {% now "Y" %} Colegio Interamericano de Sahuayo</p>
+    </aside>
+
+    <main class="access__main" id="contenido">
+      <div class="access__card">
+        <span class="access__logo access__logo--compact"><img src="{% static 'img/logointer.svg' %}" alt=""></span>
+        {% block tarjeta %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script src="{% static 'js/acceso.js' %}" defer></script>
+</body>
+</html>

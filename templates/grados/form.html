@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if es_edicion %}Editar {{ grado }}{% else %}Nuevo grado{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'grados:lista' %}">Grados</a></li>
+  {% if es_edicion %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ grado.get_absolute_url }}">{{ grado }}</a></li>
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Editar</span></li>
+  {% else %}
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nuevo grado</span></li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Corrige el nivel o el número de {{ grado }}.{% else %}Elige el nivel y el número del grado. Después podrás inscribir alumnos en él.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    {% if es_edicion and total_inscripciones %}
+      <div class="alert alert--warning" role="note">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <p class="alert__body">Este grado tiene {{ total_inscripciones }} inscripci{{ total_inscripciones|pluralize:"ón,ones" }} en su historial. Si cambias el nivel o el número, así aparecerá en todas ellas. Úsalo solo para corregir un error.</p>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-grado">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grado">Datos del grado</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nivel %}
+        {% include "partials/field.html" with campo=form.numero %}
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% if es_edicion %}{{ grado.get_absolute_url }}{% else %}{% url 'grados:lista' %}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Crear grado{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}

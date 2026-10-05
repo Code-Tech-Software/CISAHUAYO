@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Pase de lista | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asistencias:inicio' %}">Asistencias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Pase de lista</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Pase de lista</h1>
+      <p class="page-header__description">Las clases del día. Quien ya entró al colegio aparece presente en cada materia; el profesor solo corrige faltas, retardos o lo que haya pasado.</p>
+    </div>
+  </header>
+
+  {% include "asistencias/_subnav.html" %}
+  {% include "asistencias/_fecha_nav.html" with formulario="filtros-dia" %}
+
+  <form class="filters filters--pair" id="filtros-dia" method="get" role="search" aria-label="Filtrar las clases del día" data-autosubmit>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.profesor.id_for_label }}">Profesor</label>
+      {{ filtro.profesor }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">Grado</label>
+      {{ filtro.grado }}
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Filtrar</button>
+      {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% querystring profesor=None grado=None page=None %}">Limpiar</a>{% endif %}
+    </div>
+  </form>
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Ese día queda fuera de los ciclos escolares</p>
+        <p class="empty-state__text">Elige un día dentro de las fechas de un ciclo.</p>
+      </div>
+    </div>
+  {% elif motivo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay clases este día</p>
+        <p class="empty-state__text">{{ motivo }}</p>
+      </div>
+    </div>
+  {% elif filas %}
+    <p class="results-summary" role="status">{{ filas|length }} clase{{ filas|length|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}</p>
+    <div class="table-card">
+      <table class="table table--people">
+        <caption class="visually-hidden">Clases del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Hora</th>
+            <th class="table__th" scope="col">Materia</th>
+            <th class="table__th" scope="col">Grado</th>
+            <th class="table__th table__col--wide" scope="col">Profesor</th>
+            <th class="table__th" scope="col">Lista</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for fila in filas %}
+            {% with asignacion=fila.asignacion clase=fila.clase %}
+              <tr class="table__row">
+                <td class="table__cell" data-label="Hora">{% for inicio, fin in clase.bloques %}<span class="attendance-hour attendance-hour--block">{{ inicio|time:"H:i" }}–{{ fin|time:"H:i" }}</span>{% endfor %}</td>
+                <td class="table__cell table__cell--main">
+                  <a class="person" href="{% url 'asistencias:clase' asignacion.pk %}?fecha={{ fecha|date:'Y-m-d' }}">
+                    <span class="avatar avatar--soft avatar--square avatar--tone-{{ asignacion.materia.pk|tono }}" aria-hidden="true">{{ asignacion.materia.clave|slice:":3" }}</span>
+                    <span class="person__text"><span class="person__name">{{ asignacion.materia }}</span></span>
+                  </a>
+                </td>
+                <td class="table__cell" data-label="Grado">{{ asignacion.grado }}</td>
+                <td class="table__cell table__col--wide" data-label="Profesor">
+                  {% if asignacion.profesor %}
+                    {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ asignacion.profesor.get_absolute_url }}">{{ asignacion.profesor }}</a>{% else %}{{ asignacion.profesor }}{% endif %}
+                  {% else %}<span class="tag tag--warning">Sin profesor</span>{% endif %}
+                </td>
+                <td class="table__cell" data-label="Lista">
+                  {% if fila.confirmada %}<span class="tag tag--success">Lista tomada</span>
+                  {% elif fila.presentes or fila.retardos or fila.faltas %}<span class="tag tag--warning">Por confirmar</span>
+                  {% else %}<span class="tag">Sin registros</span>{% endif %}
+                  <span class="attendance-mini">
+                    <span class="count count--ok" title="Presentes">{{ fila.presentes }}</span>
+                    <span class="count count--late" title="Retardos">{{ fila.retardos }}</span>
+                    <span class="count count--miss" title="Faltas">{{ fila.faltas }}</span>
+                    {% if fila.sin_registro %}<span class="count" title="Sin registro">{{ fila.sin_registro }}</span>{% endif %}
+                  </span>
+                </td>
+                <td class="table__cell table__cell--actions">
+                  <a class="btn btn--sm{% if editable and not fila.confirmada %} btn--primary{% endif %}" href="{% url 'asistencias:clase' asignacion.pk %}?fecha={{ fecha|date:'Y-m-d' }}">
+                    {% if editable %}Pasar lista{% else %}Ver lista{% endif %}
+                  </a>
+                </td>
+              </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted attendance-legend">
+      <span class="count count--ok">0</span> presentes · <span class="count count--late">0</span> retardos · <span class="count count--miss">0</span> faltas · <span class="count">0</span> sin registro
+    </p>
+  {% elif filtros_activos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay clases con esos filtros</p>
+        <p class="empty-state__text">Prueba con otro profesor o grado.</p>
+        <a class="btn btn--sm" href="{% querystring profesor=None grado=None page=None %}">Limpiar filtros</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clock" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay clases en el horario de este día</p>
+        <p class="empty-state__text">Las clases salen de los horarios de cada grado. Arma el horario para poder pasar lista.</p>
+        {% if perms.Alumnos.view_horariomateria %}<a class="btn btn--sm" href="{% url 'horarios:lista' %}">Ver horarios</a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asistencias.js' %}" defer></script>
+{% endblock %}

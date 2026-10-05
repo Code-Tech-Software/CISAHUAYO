@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{% if es_edicion %}Editar inscripción{% else %}Nueva inscripción{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inscripciones:lista' %}">Inscripciones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar{% else %}Nueva inscripción{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar inscripción{% else %}Nueva inscripción{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Cambia el grado o la fecha de inscripción de {{ alumno }}. El alumno y el ciclo no cambian: eso sería otra inscripción.{% else %}Elige al alumno, el ciclo y el grado en el que se inscribe.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate data-inscripcion-form{% if not es_edicion %} data-search-url="{{ url_alumnos }}"{% endif %}>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    {% if existente and not existente.activa %}
+      <div class="alert alert--info" role="note">
+        {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+        <p class="alert__body">
+          Esa inscripción ya existe y está dada de baja.
+          <a href="{% url 'inscripciones:lista' %}?ciclo={{ existente.ciclo_id }}&amp;estado=BAJA&amp;q={{ existente.alumno.referencia }}">Ir a reactivarla</a>.
+        </p>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-alumno">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="seccion-alumno">Alumno</h2>
+      </header>
+      <div class="card__body">
+        {% if es_edicion %}
+          <div class="chosen chosen--static">
+            {% include "partials/avatar.html" with persona=alumno %}
+            <div class="chosen__text">
+              <p class="chosen__name"><a class="link-subtle" href="{{ alumno.get_absolute_url }}">{{ alumno }}</a></p>
+              <p class="chosen__meta">Ref. {{ alumno.referencia }} · {{ alumno.get_estatus_display }}</p>
+            </div>
+          </div>
+        {% else %}
+          <div class="field{% if form.alumno.errors %} is-invalid{% endif %}">
+            {{ form.alumno }}
+
+            <div class="live-search" data-picker-search{% if alumno %} hidden{% endif %}>
+              <label class="field__label field__label--required" for="buscar-alumno">Buscar alumno</label>
+              <div class="live-search__field">
+                {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
+                <input class="field__control live-search__input" id="buscar-alumno" type="text" role="combobox" aria-expanded="false"
+                       aria-controls="resultados-alumno" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+                       placeholder="Nombre, referencia o CURP…" data-picker-input>
+                <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Alumnos encontrados" data-picker-results hidden></div>
+              </div>
+            </div>
+
+            <div class="chosen" data-picker-chosen{% if not alumno %} hidden{% endif %}>
+              <span class="avatar avatar--tone-{{ alumno.pk|tono }}" data-picker-avatar aria-hidden="true">{{ alumno.iniciales }}</span>
+              <div class="chosen__text">
+                <p class="chosen__name" data-picker-name>{{ alumno }}</p>
+                <p class="chosen__meta">Alumno seleccionado</p>
+              </div>
+              <button type="button" class="btn btn--sm" data-picker-change>Cambiar</button>
+            </div>
+
+            {% for error in form.alumno.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            <p class="field__error" data-picker-error hidden>Busca y elige un alumno.</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-inscripcion">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="seccion-inscripcion">Inscripción</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% if es_edicion %}
+          <div class="field">
+            <span class="field__label">Ciclo escolar</span>
+            <p class="field__static">{{ inscripcion.ciclo }} <span class="tag tag--{{ inscripcion.ciclo.estado|tono_estatus }}">{{ inscripcion.ciclo.estado_display }}</span></p>
+          </div>
+        {% else %}
+          {% include "partials/field.html" with campo=form.ciclo %}
+        {% endif %}
+        {% include "partials/field.html" with campo=form.grado %}
+        {% include "partials/field.html" with campo=form.fecha_inscripcion %}
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'inscripciones:lista' %}{% if es_edicion %}?ciclo={{ inscripcion.ciclo_id }}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Inscribir alumno{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  {% if not es_edicion %}<script src="{% static 'js/inscripciones-form.js' %}" defer></script>{% endif %}
+{% endblock %}

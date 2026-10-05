@@ -1,0 +1,78 @@
+{% comment %}
+  Buscador de comandos (Ctrl+K / Cmd+K): <dialog> modal con filtro y navegación por teclado.
+  Muestra las páginas del menú que ya existen, las acciones rápidas disponibles y
+  las preferencias. Lo controla static/js/app.js (initPalette).
+  Las opciones son <a> (navegan) o <button> con data-palette-action (ejecutan algo).
+{% endcomment %}
+<dialog class="palette" id="palette" data-palette aria-label="Buscar y navegar">
+  <div class="palette__panel">
+    <div class="palette__search">
+      {% include "partials/icon.html" with name="search" %}
+      <input class="palette__input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list"
+             aria-autocomplete="list" aria-label="Buscar páginas y acciones" placeholder="Buscar páginas y acciones…"
+             autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" data-palette-input>
+      <kbd class="kbd" aria-hidden="true">Esc</kbd>
+    </div>
+
+    <div class="palette__list" id="palette-list" role="listbox" aria-label="Resultados" data-palette-list>
+      <p class="palette__group" role="presentation" data-palette-group>Ir a</p>
+      {% for seccion in navegacion %}
+        {% for elemento in seccion.elementos %}
+          {% if elemento.disponible %}
+            <a class="palette__item" role="option" aria-selected="false" id="palette-nav-{{ forloop.parentloop.counter }}-{{ forloop.counter }}"
+               href="{{ elemento.url }}" data-palette-item data-keywords="{{ seccion.titulo|default:'' }}">
+              <span class="palette__chip">{% include "partials/icon.html" with name=elemento.icono icon_class="icon--sm" %}</span>
+              <span class="palette__label">{{ elemento.etiqueta }}</span>
+              <span class="palette__hint">{{ seccion.titulo|default:"General" }}</span>
+              {% include "partials/icon.html" with name="corner-down-left" icon_class="icon--sm palette__enter" %}
+            </a>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+
+      {% if acciones_rapidas %}
+        <p class="palette__group" role="presentation" data-palette-group>Acciones rápidas</p>
+        {% for accion in acciones_rapidas %}
+          <a class="palette__item" role="option" aria-selected="false" id="palette-accion-{{ forloop.counter }}"
+             href="{{ accion.url }}" data-palette-item data-keywords="crear nuevo agregar registrar">
+            <span class="palette__chip">{% include "partials/icon.html" with name=accion.icono icon_class="icon--sm" %}</span>
+            <span class="palette__label">{{ accion.etiqueta }}</span>
+            {% include "partials/icon.html" with name="corner-down-left" icon_class="icon--sm palette__enter" %}
+          </a>
+        {% endfor %}
+      {% endif %}
+
+      <p class="palette__group" role="presentation" data-palette-group>Preferencias</p>
+      <button type="button" class="palette__item" role="option" aria-selected="false" id="palette-tema"
+              data-palette-item data-palette-action="toggle-theme" data-keywords="tema oscuro claro modo apariencia noche">
+        <span class="palette__chip">{% include "partials/icon.html" with name="moon" icon_class="icon--sm" %}</span>
+        <span class="palette__label">Cambiar entre tema claro y oscuro</span>
+        {% include "partials/icon.html" with name="corner-down-left" icon_class="icon--sm palette__enter" %}
+      </button>
+      <button type="button" class="palette__item" role="option" aria-selected="false" id="palette-menu"
+              data-palette-item data-palette-action="toggle-sidebar" data-keywords="menu lateral barra navegacion contraer expandir">
+        <span class="palette__chip">{% include "partials/icon.html" with name="panel-left" icon_class="icon--sm" %}</span>
+        <span class="palette__label">Mostrar u ocultar el menú lateral</span>
+        {% include "partials/icon.html" with name="corner-down-left" icon_class="icon--sm palette__enter" %}
+      </button>
+
+      {% if busqueda_url %}
+        <a class="palette__item" role="option" aria-selected="false" id="palette-busqueda" href="{{ busqueda_url }}" data-palette-search hidden>
+          <span class="palette__chip">{% include "partials/icon.html" with name="search" icon_class="icon--sm" %}</span>
+          <span class="palette__label">Buscar «<span data-palette-query></span>» en todo el sistema</span>
+          {% include "partials/icon.html" with name="corner-down-left" icon_class="icon--sm palette__enter" %}
+        </a>
+      {% endif %}
+    </div>
+
+    <p class="palette__empty" role="status" data-palette-empty hidden>
+      No hay resultados para «<span data-palette-empty-query></span>».
+    </p>
+
+    <div class="palette__footer" aria-hidden="true">
+      <span class="palette__footer-item"><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> navegar</span>
+      <span class="palette__footer-item"><kbd class="kbd">↵</kbd> abrir</span>
+      <span class="palette__footer-item"><kbd class="kbd">Esc</kbd> cerrar</span>
+    </div>
+  </div>
+</dialog>

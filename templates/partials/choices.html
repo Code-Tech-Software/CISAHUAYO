@@ -1,0 +1,16 @@
+{% comment %}
+  Grupo de opciones tipo "chip" para un campo de radios (p. ej. sexo).
+  Parámetros: campo (BoundField con RadioSelect), clase (opcional).
+{% endcomment %}
+<fieldset class="field{% if clase %} {{ clase }}{% endif %}{% if campo.errors %} is-invalid{% endif %}">
+  <legend class="field__label{% if campo.field.required %} field__label--required{% endif %}">{{ campo.label }}</legend>
+  <div class="choice-group">
+    {% for radio in campo %}
+      <label class="choice" for="{{ radio.id_for_label }}">
+        {{ radio.tag }}
+        <span class="choice__box">{{ radio.choice_label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+  {% for error in campo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+</fieldset>

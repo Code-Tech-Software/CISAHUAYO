@@ -1,64 +1,131 @@
-{% load static %}
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Plantilla base de CISAHUAYO: sidebar + topbar + contenido + footer.
 
-<!DOCTYPE html>
+  Bloques disponibles para las páginas que extienden esta plantilla:
+    title           Texto de <title>.
+    extra_head      Hojas de estilo o metadatos adicionales dentro de <head>.
+    breadcrumbs     Elementos <li class="breadcrumb__item"> de la ruta de navegación.
+                    El último lleva <span class="breadcrumb__current" aria-current="page">;
+                    los anteriores, <a class="breadcrumb__link" href="...">.
+    topbar_actions  Botones adicionales junto al buscador (en móvil el espacio es
+                    poco: conviene usar botones de icono, p. ej. btn btn--ghost btn--icon).
+    notifications   Contenido del panel de notificaciones.
+    content         Contenido de la página.
+    extra_js        Scripts adicionales al final del <body>.
+
+  Variables opcionales:
+    notificaciones_no_leidas   Número: muestra el contador en la campana.
+
+  Sin configurar nada más:
+    - Mensajes: django.contrib.messages se muestra como avisos flotantes.
+    - Buscador de comandos (Ctrl+K / Cmd+K): lista las páginas del menú y las acciones
+      de CISAHUAYO/context_processors.py que ya tengan URL. Si existe una URL llamada
+      'buscar', ofrece además buscar «texto» en todo el sistema (?q=texto).
+    - Tema claro/oscuro: botón en la barra superior; se recuerda en el navegador.
+  Estilos y comportamiento: static/css/app.css y static/js/app.js.
+{% endcomment %}
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#245a62">
   <title>{% block title %}CISAHUAYO{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'js/preload.js' %}"></script>
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <header>
-    <p>
-      <img src="{% static 'img/logointer.svg' %}" alt="Logo Colegio Interamericano de Sahuayo" width="40" height="40">
-      <strong>CISAHUAYO</strong>
-    </p>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
-    <nav aria-label="Navegación principal">
-      <a href="#">Dashboard</a> |
-      <a href="#">Alumnos</a> |
-      <a href="#">Tutores</a> |
-      <a href="#">Inscripciones</a> |
-      <a href="#">Grados</a> |
-      <a href="#">Materias</a> |
-      <a href="#">Asistencias</a> |
-      <a href="#">Calificaciones</a> |
-      <a href="#">Configuración</a> |
-      <a href="/admin/">Django Admin</a>
-    </nav>
+  <div class="app">
+    {% include "partials/sidebar.html" %}
 
-    <form action="#" method="get">
-      <label for="global-search">Buscar:</label>
-      <input id="global-search" name="q" type="search" placeholder="Buscar en CISAHUAYO" autocomplete="off">
-    </form>
+    <div class="app__main" data-app-main>
+      <header class="topbar" data-topbar>
+        <div class="topbar__start">
+          <button type="button" class="btn btn--ghost btn--icon" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Menú lateral" data-tooltip="Menú lateral">
+            {% include "partials/icon.html" with name="panel-left" %}
+          </button>
 
-    {% block topbar_actions %}{% endblock %}
-  </header>
+          <nav class="breadcrumb" aria-label="Ruta de navegación">
+            <ol class="breadcrumb__list">
+              {% block breadcrumbs %}
+                <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Panel de control</span></li>
+              {% endblock %}
+            </ol>
+          </nav>
+        </div>
 
-  <main>
-    {% block page_actions %}{% endblock %}
+        <div class="topbar__end">
+          <button type="button" class="palette-trigger" data-palette-open aria-haspopup="dialog" aria-controls="palette"
+                  aria-label="Buscar o ir a…" aria-keyshortcuts="Control+K Meta+K">
+            {% include "partials/icon.html" with name="search" %}
+            <span class="palette-trigger__label">Buscar o ir a…</span>
+            <kbd class="kbd palette-trigger__kbd" aria-hidden="true" data-shortcut-kbd>Ctrl K</kbd>
+          </button>
 
-    {% if messages %}
-      {% for message in messages %}
-        <p role="alert">{{ message }}</p>
-      {% endfor %}
-    {% endif %}
+          {% block topbar_actions %}{% endblock %}
 
-    {% block content %}{% endblock %}
-  </main>
+          <button type="button" class="btn btn--ghost btn--icon theme-toggle" data-theme-toggle aria-pressed="false" aria-label="Tema oscuro" data-tooltip="Tema oscuro">
+            {% include "partials/icon.html" with name="moon" icon_class="theme-toggle__moon" %}
+            {% include "partials/icon.html" with name="sun" icon_class="theme-toggle__sun" %}
+          </button>
 
-  <footer>
-    <hr>
-    <p>© {% now "Y" %} Colegio Interamericano de Sahuayo</p>
-  </footer>
+          <div class="menu menu--wide" data-menu>
+            <button type="button" class="btn btn--ghost btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-notificaciones" data-tooltip="Notificaciones"
+                    aria-label="Notificaciones{% if notificaciones_no_leidas %}, {{ notificaciones_no_leidas }} sin leer{% endif %}">
+              {% include "partials/icon.html" with name="bell" %}
+              {% if notificaciones_no_leidas %}
+                <span class="badge topbar__badge" aria-hidden="true">{{ notificaciones_no_leidas }}</span>
+              {% endif %}
+            </button>
+            <div class="menu__panel" id="menu-notificaciones" data-menu-panel hidden>
+              <div class="menu__header">
+                <p class="menu__title">Notificaciones</p>
+              </div>
+              <div class="menu__separator"></div>
+              {% block notifications %}
+                <div class="empty-state">
+                  {% include "partials/icon.html" with name="inbox" icon_class="icon--lg empty-state__icon" %}
+                  <p class="empty-state__title">Estás al día</p>
+                  <p class="empty-state__text">No tienes notificaciones nuevas.</p>
+                </div>
+              {% endblock %}
+            </div>
+          </div>
 
-  <script>
-    document.addEventListener('keydown', (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        document.getElementById('global-search').focus();
-      }
-    });
-  </script>
+          {% include "partials/user_menu.html" %}
+        </div>
+      </header>
+
+      <main class="app__content" id="contenido" tabindex="-1">
+        <div class="page">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+
+      <footer class="app__footer">
+        <div class="page app__footer-inner">
+          <p class="app__footer-text">© {% now "Y" %} Colegio Interamericano de Sahuayo</p>
+          <p class="app__footer-text">CISAHUAYO · Sistema de administración escolar</p>
+        </div>
+      </footer>
+    </div>
+
+    <div class="app__backdrop" data-sidebar-backdrop aria-hidden="true"></div>
+  </div>
+
+  {% include "partials/messages.html" %}
+  {% include "partials/palette.html" %}
+  {% include "partials/modal_formulario.html" %}
+
+  <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/modal-form.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

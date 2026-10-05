@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Grados | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Grados</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Grados</h1>
+      <p class="page-header__description">Los grados del colegio, por nivel. Hay un solo grupo por grado, así que cada grado es una sola lista de alumnos.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_grado %}
+        <a class="btn btn--primary" href="{% url 'grados:crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+          Nuevo grado
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {# Los grados dados de baja no se mezclan con los vigentes: tienen su propio filtro #}
+  <nav class="pills" aria-label="Filtrar por estatus">
+    <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% url 'grados:lista' %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>
+      Activos <span class="pill__count">{{ total_activos }}</span>
+    </a>
+    <a class="pill{% if viendo_bajas %} is-active{% endif %}" href="{% url 'grados:lista' %}?estado=BAJA"{% if viendo_bajas %} aria-current="true"{% endif %}>
+      Bajas <span class="pill__count">{{ total_bajas }}</span>
+    </a>
+  </nav>
+
+  {% if not viendo_bajas and niveles %}
+    {% if ciclo %}
+      <p class="results-summary" role="status">{{ total_inscritos }} alumno{{ total_inscritos|pluralize }} inscrito{{ total_inscritos|pluralize }} en el ciclo {{ ciclo }}</p>
+    {% else %}
+      <div class="alert alert--warning alert--spaced" role="note">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <p class="alert__body">No hay un ciclo actual, por eso no se muestran alumnos inscritos. Marca un ciclo como actual desde <a href="{% url 'ciclos:lista' %}">Ciclos escolares</a>.</p>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {% for nivel in niveles %}
+    <section class="level" aria-labelledby="nivel-{{ forloop.counter }}">
+      <header class="level__header">
+        <h2 class="level__title" id="nivel-{{ forloop.counter }}">{{ nivel.nombre }}</h2>
+        {% if not viendo_bajas and ciclo %}<p class="level__count">{{ nivel.inscritos }} alumno{{ nivel.inscritos|pluralize }}</p>{% endif %}
+      </header>
+      <ul class="grade-grid">
+        {% for fila in nivel.filas %}
+          <li>
+            <article class="grade-card grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
+              <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}°</span>
+              <div class="grade-card__body">
+                <h3 class="grade-card__name"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado }}</a></h3>
+                {% if viendo_bajas %}
+                  <p class="grade-card__meta">Dado de baja</p>
+                {% elif ciclo %}
+                  <p class="grade-card__meta">{{ fila.inscritos }} alumno{{ fila.inscritos|pluralize }}{% if fila.materias %} · {{ fila.materias }} materia{{ fila.materias|pluralize }}{% endif %}</p>
+                {% endif %}
+              </div>
+              {% if perms.Alumnos.change_grado %}
+                <div class="grade-card__actions">
+                  {% if viendo_bajas %}
+                    <form method="post" action="{% url 'grados:reactivar' fila.grado.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn--sm">Reactivar</button>
+                    </form>
+                  {% else %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'grados:editar' fila.grado.pk %}" aria-label="Editar {{ fila.grado }}" data-tooltip="Editar" data-modal-form>
+                      {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                    </a>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </article>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% empty %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="layers" icon_class="icon--lg empty-state__icon" %}
+        {% if viendo_bajas %}
+          <p class="empty-state__title">No hay grados dados de baja</p>
+          <p class="empty-state__text">Los grados que des de baja aparecerán aquí y podrás reactivarlos.</p>
+        {% else %}
+          <p class="empty-state__title">Aún no hay grados</p>
+          <p class="empty-state__text">Crea los grados de cada nivel que ofrece el colegio para poder inscribir alumnos.</p>
+          {% if perms.Alumnos.add_grado %}
+            <a class="btn btn--primary btn--sm" href="{% url 'grados:crear' %}" data-modal-form>Crear grado</a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+{% endblock %}

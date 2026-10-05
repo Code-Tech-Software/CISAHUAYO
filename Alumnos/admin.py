@@ -7,9 +7,13 @@ from .models import (
     Inscripcion,
     Materia,
     MateriaGrado,
+    Profesor,
     HorarioMateria,
     AsistenciaGeneral,
     AsistenciaMateria,
+    CierreDia,
+    ConfiguracionAsistencia,
+    DiaNoLectivo,
     Justificacion,
 )
 
@@ -71,10 +75,12 @@ class GradoAdmin(admin.ModelAdmin):
     list_display = (
         'numero',
         'nivel',
+        'activo',
     )
 
     list_filter = (
         'nivel',
+        'activo',
     )
 
     ordering = (
@@ -138,12 +144,36 @@ class MateriaAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(Profesor)
+class ProfesorAdmin(admin.ModelAdmin):
+    list_display = (
+        'apellido_paterno',
+        'apellido_materno',
+        'nombre',
+        'telefono',
+        'estatus',
+    )
+
+    search_fields = (
+        'nombre',
+        'apellido_paterno',
+        'apellido_materno',
+        'curp',
+        'correo_electronico',
+    )
+
+    list_filter = (
+        'estatus',
+    )
+
+
 @admin.register(MateriaGrado)
 class MateriaGradoAdmin(admin.ModelAdmin):
     list_display = (
         'materia',
         'grado',
         'ciclo',
+        'profesor',
         'activa',
     )
 
@@ -201,12 +231,15 @@ class AsistenciaGeneralAdmin(admin.ModelAdmin):
         'inscripcion',
         'fecha',
         'estado',
+        'hora_entrada',
+        'origen',
         'creado',
     )
 
     list_filter = (
         'fecha',
         'estado',
+        'origen',
         'inscripcion__grado',
         'inscripcion__ciclo',
     )
@@ -234,12 +267,14 @@ class AsistenciaMateriaAdmin(admin.ModelAdmin):
         'materia_grado',
         'fecha',
         'estado',
+        'origen',
         'creado',
     )
 
     list_filter = (
         'fecha',
         'estado',
+        'origen',
         'materia_grado__materia',
         'materia_grado__grado',
         'materia_grado__ciclo',
@@ -270,11 +305,13 @@ class JustificacionAdmin(admin.ModelAdmin):
         'fecha',
         'justifica_general',
         'todas_materias',
+        'activa',
         'creado',
     )
 
     list_filter = (
         'fecha',
+        'activa',
         'justifica_general',
         'todas_materias',
         'inscripcion__grado',
@@ -382,3 +419,50 @@ class TutorAlumnoAdmin(admin.ModelAdmin):
         'creado',
         'modificado',
     )
+
+
+@admin.register(ConfiguracionAsistencia)
+class ConfiguracionAsistenciaAdmin(admin.ModelAdmin):
+    list_display = (
+        'hora_entrada',
+        'tolerancia_minutos',
+        'cierre_automatico',
+    )
+
+    def has_add_permission(self, request):
+        # Es un solo registro de reglas: se edita, no se agregan más
+        return not ConfiguracionAsistencia.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(DiaNoLectivo)
+class DiaNoLectivoAdmin(admin.ModelAdmin):
+    list_display = (
+        'fecha',
+        'motivo',
+    )
+
+    search_fields = (
+        'motivo',
+    )
+
+    date_hierarchy = 'fecha'
+
+
+@admin.register(CierreDia)
+class CierreDiaAdmin(admin.ModelAdmin):
+    list_display = (
+        'fecha',
+        'faltas',
+        'automatico',
+        'cerrado_por',
+        'cerrado_en',
+    )
+
+    list_filter = (
+        'automatico',
+    )
+
+    date_hierarchy = 'fecha'

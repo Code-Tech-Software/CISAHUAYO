@@ -46,7 +46,14 @@ INSTALLED_APPS = [
     'cloudinary',
     'cloudinary_storage',
     'Alumnos',
-    'Tutores'
+    'Tutores',
+    'Ciclos',
+    'Grados',
+    'Inscripciones',
+    'Materias',
+    'Horarios',
+    'Profesores',
+    'Asistencias',
 ]
 
 MIDDLEWARE = [
@@ -58,6 +65,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'CISAHUAYO.modal.FormularioModalMiddleware',
 ]
 
 STORAGES = {
@@ -87,12 +95,18 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'CISAHUAYO.context_processors.navegacion',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'CISAHUAYO.wsgi.application'
+
+# Las vistas protegidas redirigen aquí cuando no hay sesión. Cámbialo por tu propio login cuando exista.
+LOGIN_URL = 'admin:login'
+# Destino al iniciar sesión cuando no se pidió una página concreta (el admin de Django no lo usa: ver CISAHUAYO/acceso.py)
+LOGIN_REDIRECT_URL = 'inicio'
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases

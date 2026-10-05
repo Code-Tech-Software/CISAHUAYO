@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% comment %}Página que no existe (con DEBUG desactivado). Se muestra dentro del diseño normal, con el menú.{% endcomment %}
+
+{% block title %}Página no encontrada | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">No encontrada</span></li>
+{% endblock %}
+
+{% block content %}
+  {% include "partials/error_estado.html" with codigo="404" titulo="No encontramos esa página" texto="La dirección puede estar mal escrita, o el registro que buscas ya no existe." %}
+{% endblock %}

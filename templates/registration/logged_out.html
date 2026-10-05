@@ -1,0 +1,18 @@
+{% extends "acceso_base.html" %}
+{% comment %}
+  Pantalla que se muestra al cerrar sesión (la del admin de Django, con el diseño del sistema).
+{% endcomment %}
+
+{% block titulo %}Sesión cerrada{% endblock %}
+
+{% block tarjeta %}
+  <div class="access__done">
+    <span class="access__done-icon">{% include "partials/icon.html" with name="circle-check" icon_class="icon--lg" %}</span>
+    <h1 class="access__title">Cerraste tu sesión</h1>
+    <p class="access__lead">Gracias por tu trabajo. Para volver a entrar, inicia sesión de nuevo.</p>
+  </div>
+  <a class="btn btn--primary btn--block access__submit" href="{% url 'admin:login' %}">
+    {% include "partials/icon.html" with name="log-in" icon_class="icon--sm" %}
+    Iniciar sesión
+  </a>
+{% endblock %}

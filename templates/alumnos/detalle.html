@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{{ alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Alumnos</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% if credenciales %}
+    {% include "alumnos/_credenciales.html" %}
+  {% endif %}
+
+  {% with tono=alumno.estatus|tono_estatus %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        {% include "partials/avatar.html" with persona=alumno tamano="xl" extra="avatar--square avatar--soft" %}
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Alumno · Ref. {{ alumno.referencia }}</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ alumno }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{{ alumno.get_estatus_display }}</span>
+            {% if inscripcion_actual %}
+              <span>{{ inscripcion_actual.grado }} · Ciclo {{ inscripcion_actual.ciclo }}</span>
+            {% else %}
+              <span class="text-muted">Sin inscripción en el ciclo actual</span>
+            {% endif %}
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if perms.Alumnos.change_alumno %}
+            <a class="btn btn--primary" href="{% url 'alumnos:editar' alumno.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
+            </a>
+            <div class="menu" data-menu>
+              <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
+                {% include "partials/icon.html" with name="more-horizontal" %}
+              </button>
+              <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
+                {% if not esta_de_baja %}
+                  <div class="menu__header"><p class="menu__title">Cambiar estatus</p></div>
+                  <ul class="menu__list">
+                    {% for valor, etiqueta in estatus_opciones %}
+                      <li>
+                        <form method="post" action="{% url 'alumnos:estatus' alumno.pk %}">
+                          {% csrf_token %}
+                          <input type="hidden" name="estatus" value="{{ valor }}">
+                          <button type="submit" class="menu__item"{% if alumno.estatus == valor %} disabled aria-current="true"{% endif %}>
+                            <span class="dot dot--{{ valor|tono_estatus }}" aria-hidden="true"></span>
+                            {{ etiqueta }}
+                            {% if alumno.estatus == valor %}<span class="menu__check">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>{% endif %}
+                          </button>
+                        </form>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                  <div class="menu__separator"></div>
+                {% endif %}
+                <ul class="menu__list">
+                  <li>
+                    <button type="button" class="menu__item" data-modal-open="modal-contrasena">
+                      {% include "partials/icon.html" with name="key" %} Restablecer contraseña
+                    </button>
+                  </li>
+                  {% if perms.Alumnos.delete_alumno and not esta_de_baja %}
+                    <li>
+                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-baja">
+                        {% include "partials/icon.html" with name="trash" %} Dar de baja
+                      </button>
+                    </li>
+                  {% endif %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact"><dt>Edad</dt><dd>{{ alumno.edad }} año{{ alumno.edad|pluralize }}</dd></div>
+        <div class="identity__fact"><dt>Nacimiento</dt><dd>{{ alumno.fecha_nacimiento|date:"j M Y" }}</dd></div>
+        <div class="identity__fact"><dt>Grupo sanguíneo</dt><dd>{{ alumno.grupo_sanguineo }}</dd></div>
+        <div class="identity__fact identity__fact--mono"><dt>CURP</dt><dd>{{ alumno.curp }}</dd></div>
+        <div class="identity__fact">
+          <dt>Tutor principal</dt>
+          <dd>
+            {% if tutor_principal %}
+              {{ tutor_principal.tutor }}<br>
+              <a href="tel:{{ tutor_principal.tutor.telefono }}">{{ tutor_principal.tutor.telefono|telefono }}</a>
+            {% else %}
+              <span class="text-muted">Sin tutor vigente</span>
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if esta_de_baja %}
+    <div class="alert alert--error alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Alumno dado de baja.</strong> No aparece en el listado principal ni puede registrarse su asistencia. Su historial se conserva.</p>
+      {% if perms.Alumnos.change_alumno %}
+        <form method="post" action="{% url 'alumnos:reactivar' alumno.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm">Reactivar alumno</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="tabs" data-tabs>
+    <div class="tabs__list" role="tablist" aria-label="Secciones del perfil">
+      <button type="button" class="tabs__tab" role="tab" id="tab-resumen" aria-controls="resumen" aria-selected="true">Resumen</button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-tutores" aria-controls="tutores" aria-selected="false">
+        Tutores <span class="tabs__count">{{ vinculos|length }}</span>
+      </button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-academico" aria-controls="academico" aria-selected="false">Académico</button>
+    </div>
+
+    {# --- Resumen ---------------------------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="resumen" aria-labelledby="tab-resumen">
+      <div class="info-grid">
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="user" %}<h2 class="card__title">Datos personales</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Nombre completo" valor=alumno.nombre_completo ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="CURP" valor=alumno.curp %}
+            {% include "alumnos/_dato.html" with etiqueta="Fecha de nacimiento" valor=alumno.fecha_nacimiento|date:"j \d\e F \d\e Y"|lower %}
+            {% include "alumnos/_dato.html" with etiqueta="Sexo" valor=alumno.get_sexo_display %}
+            {% include "alumnos/_dato.html" with etiqueta="Nacionalidad" valor=alumno.nacionalidad %}
+            {% include "alumnos/_dato.html" with etiqueta="Religión" valor=alumno.religion %}
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="map-pin" %}<h2 class="card__title">Domicilio</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Domicilio" valor=alumno.domicilio ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="Colonia" valor=alumno.colonia %}
+            {% include "alumnos/_dato.html" with etiqueta="Código postal" valor=alumno.cp %}
+            {% include "alumnos/_dato.html" with etiqueta="Ciudad" valor=alumno.ciudad %}
+            {% include "alumnos/_dato.html" with etiqueta="Estado" valor=alumno.estado %}
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="heart" %}<h2 class="card__title">Salud</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Grupo sanguíneo" valor=alumno.grupo_sanguineo %}
+            {% include "alumnos/_dato.html" with etiqueta="Alergias" valor=alumno.alergias ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="Observaciones" valor=alumno.observaciones_generales ancho=True %}
+          </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title">Escolar y acceso</h2>
+          </header>
+          <dl class="details card__body">
+            {% include "alumnos/_dato.html" with etiqueta="Fecha de ingreso" valor=alumno.fecha_ingreso|date:"j \d\e F \d\e Y"|lower %}
+            {% include "alumnos/_dato.html" with etiqueta="Escuela de procedencia" valor=alumno.escuela_procedencia %}
+            {% include "alumnos/_dato.html" with etiqueta="Referencia" valor=alumno.referencia %}
+            {% include "alumnos/_dato.html" with etiqueta="UID de tarjeta" valor=alumno.uid %}
+            {% include "alumnos/_dato.html" with etiqueta="Correo electrónico" valor=alumno.correo_electronico ancho=True %}
+            <div class="details__item details__item--wide">
+              <dt class="details__label">Contraseña</dt>
+              <dd class="details__value">••••••••
+                <span class="text-muted details__note">Guardada cifrada; solo puede restablecerse.</span>
+              </dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+    </section>
+
+    {# --- Tutores ------------------------------------------------------------ #}
+    <section class="tabs__panel" role="tabpanel" id="tutores" aria-labelledby="tab-tutores">
+      {% if vinculos %}
+        {% if perms.Alumnos.change_alumno %}
+          <div class="panel-actions">
+            <a class="btn btn--sm" href="{% url 'alumnos:editar' alumno.pk %}?paso=tutores" data-modal-form>
+              {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %} Administrar tutores
+            </a>
+          </div>
+        {% endif %}
+        <div class="tutor-grid">
+          {% for vinculo in vinculos %}
+            {% with tutor=vinculo.tutor %}
+              <article class="tutor-card{% if not vinculo.activo or tutor.estatus != "ACTIVO" %} is-inactive{% endif %}">
+                <header class="tutor-card__header">
+                  {% include "partials/avatar.html" with persona=tutor tamano="lg" %}
+                  <div class="tutor-card__title">
+                    <h3 class="tutor-card__name">
+                      {% if perms.Alumnos.view_tutor %}<a class="link-subtle" href="{{ tutor.get_absolute_url }}">{{ tutor }}</a>{% else %}{{ tutor }}{% endif %}
+                    </h3>
+                    <p class="tutor-card__tags">
+                      <span class="tag tag--info">{{ vinculo.get_parentesco_display }}</span>
+                      {% if vinculo.tutor_principal %}<span class="tag tag--primary">Principal</span>{% endif %}
+                      {% if not vinculo.activo %}<span class="tag">Vínculo inactivo</span>{% endif %}
+                      {% if tutor.estatus != "ACTIVO" %}<span class="tag tag--danger">Tutor dado de baja</span>{% endif %}
+                    </p>
+                  </div>
+                </header>
+
+                <ul class="tutor-card__contact">
+                  <li>{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %}
+                    <a class="link-subtle" href="tel:{{ tutor.telefono }}">{{ tutor.telefono|telefono }}</a></li>
+                  {% if tutor.telefono_alternativo %}
+                    <li>{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %}
+                      <a class="link-subtle" href="tel:{{ tutor.telefono_alternativo }}">{{ tutor.telefono_alternativo|telefono }}</a>
+                      <span class="text-muted">alterno</span></li>
+                  {% endif %}
+                  {% if tutor.correo_electronico %}
+                    <li>{% include "partials/icon.html" with name="mail" icon_class="icon--sm" %}
+                      <a class="link-subtle" href="mailto:{{ tutor.correo_electronico }}">{{ tutor.correo_electronico }}</a></li>
+                  {% endif %}
+                  {% if tutor.ocupacion %}
+                    <li>{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} {{ tutor.ocupacion }}</li>
+                  {% endif %}
+                </ul>
+
+                <ul class="tutor-card__roles" aria-label="Permisos">
+                  <li class="role{% if vinculo.contacto_emergencia %} is-on{% endif %}">Emergencia</li>
+                  <li class="role{% if vinculo.autorizado_recoger %} is-on{% endif %}">Puede recoger</li>
+                  <li class="role{% if vinculo.recibe_notificaciones %} is-on{% endif %}">Notificaciones</li>
+                  <li class="role{% if vinculo.responsable_pagos %} is-on{% endif %}">Pagos</li>
+                </ul>
+                {% if vinculo.observaciones %}<p class="tutor-card__note">{{ vinculo.observaciones }}</p>{% endif %}
+              </article>
+            {% endwith %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">Este alumno no tiene tutores</p>
+            <p class="empty-state__text">Agrega al menos un tutor para tener a quién contactar.</p>
+            {% if perms.Alumnos.change_alumno %}
+              <a class="btn btn--primary btn--sm" href="{% url 'alumnos:editar' alumno.pk %}?paso=tutores" data-modal-form>Agregar tutor</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {# --- Académico ------------------------------------------------------------ #}
+    <section class="tabs__panel" role="tabpanel" id="academico" aria-labelledby="tab-academico">
+      <div class="info-grid">
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title">Asistencia del ciclo actual</h2>
+            {% if asistencia and perms.Alumnos.view_asistenciageneral %}
+              <a class="btn btn--sm card__header-action" href="{% url 'asistencias:alumno' alumno.pk %}">Ver historial</a>
+            {% endif %}
+          </header>
+          <div class="card__body">
+            {% if asistencia and asistencia.total %}
+              <div class="attendance">
+                <div class="attendance__rate">
+                  <p class="attendance__value">{{ asistencia.porcentaje }}<span>%</span></p>
+                  <progress class="meter" max="100" value="{{ asistencia.porcentaje }}" aria-label="Porcentaje de asistencia">{{ asistencia.porcentaje }}%</progress>
+                  <p class="attendance__caption">de asistencia (incluye retardos)</p>
+                </div>
+                <dl class="attendance__counts">
+                  <div><dt>Presentes</dt><dd class="attendance__count attendance__count--ok">{{ asistencia.presentes }}</dd></div>
+                  <div><dt>Retardos</dt><dd class="attendance__count attendance__count--late">{{ asistencia.retardos }}</dd></div>
+                  <div><dt>Faltas</dt><dd class="attendance__count attendance__count--miss">{{ asistencia.faltas }}</dd></div>
+                  {% if asistencia.justificadas %}<div><dt>Justificadas</dt><dd class="attendance__count">{{ asistencia.justificadas }}</dd></div>{% endif %}
+                </dl>
+              </div>
+              <h3 class="subsection-title">Últimos registros</h3>
+              <ul class="timeline">
+                {% for registro in asistencia.recientes %}
+                  <li class="timeline__item">
+                    <span class="timeline__date">{{ registro.fecha|date:"D j M" }}</span>
+                    <span class="tag tag--{% if registro.estado == 'FALTA' and registro.justificada %}info{% elif registro.estado == 'PRESENTE' %}success{% elif registro.estado == 'RETARDO' %}warning{% else %}danger{% endif %}">{% if registro.estado == 'FALTA' and registro.justificada %}Falta justificada{% else %}{{ registro.get_estado_display }}{% endif %}</span>
+                    {% if registro.observaciones %}<span class="text-muted">{{ registro.observaciones }}</span>{% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+              {% if justificaciones %}<p class="text-muted card__foot">{{ justificaciones }} justificante{{ justificaciones|pluralize }} registrado{{ justificaciones|pluralize }}.</p>{% endif %}
+            {% elif inscripcion_actual %}
+              <div class="empty-state empty-state--inline">
+                <p class="empty-state__title">Sin registros de asistencia</p>
+                <p class="empty-state__text">Aún no se ha tomado asistencia a este alumno en el ciclo actual.</p>
+              </div>
+            {% else %}
+              <div class="empty-state empty-state--inline">
+                <p class="empty-state__title">Sin inscripción en el ciclo actual</p>
+                <p class="empty-state__text">Inscríbelo para comenzar a registrar su asistencia.</p>
+              </div>
+            {% endif %}
+          </div>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title">Inscripciones</h2>
+            {% if perms.Alumnos.add_inscripcion %}
+              <button type="button" class="btn btn--sm card__header-action" data-modal-open="modal-inscribir">
+                {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Inscribir
+              </button>
+            {% endif %}
+          </header>
+          <div class="card__body">
+            {% if inscripciones %}
+              <ul class="timeline">
+                {% for inscripcion in inscripciones %}
+                  <li class="timeline__item timeline__item--stack">
+                    <span class="timeline__main">
+                      {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ inscripcion.grado.get_absolute_url }}?ciclo={{ inscripcion.ciclo_id }}">{{ inscripcion.grado }}</a>{% else %}{{ inscripcion.grado }}{% endif %}
+                      {% if inscripcion.activa and perms.Alumnos.view_horariomateria %}
+                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grado' inscripcion.grado_id %}?ciclo={{ inscripcion.ciclo_id }}" aria-label="Ver el horario de {{ inscripcion.grado }}" data-tooltip="Ver horario">
+                          {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
+                        </a>
+                      {% endif %}
+                      {% if inscripcion.activa and perms.Alumnos.change_inscripcion %}
+                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'inscripciones:editar' inscripcion.pk %}" aria-label="Editar la inscripción de {{ inscripcion.ciclo }}" data-tooltip="Editar inscripción" data-modal-form>
+                          {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                        </a>
+                      {% endif %}
+                    </span>
+                    <span class="text-muted">Ciclo {{ inscripcion.ciclo }} · inscrito el {{ inscripcion.fecha_inscripcion|date:"j M Y" }}</span>
+                    <span class="timeline__tags">
+                      {% if inscripcion.activa %}<span class="tag tag--success">Activa</span>{% else %}<span class="tag">Inactiva</span>{% endif %}
+                      {% if inscripcion.ciclo.activo %}<span class="tag tag--primary">Ciclo actual</span>{% endif %}
+                    </span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="empty-state empty-state--inline">
+                <p class="empty-state__title">Sin inscripciones</p>
+                <p class="empty-state__text">Este alumno todavía no está inscrito en ningún ciclo escolar.</p>
+              </div>
+            {% endif %}
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  {# --- Ventanas modales -------------------------------------------------------- #}
+  {% if perms.Alumnos.change_alumno %}
+    <dialog class="modal" id="modal-contrasena" aria-labelledby="modal-contrasena-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'alumnos:contrasena' alumno.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-contrasena-titulo">Restablecer contraseña</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>Se generará una contraseña nueva para <strong>{{ alumno }}</strong> y la anterior dejará de funcionar. Podrás verla una sola vez al terminar.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Generar contraseña</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if perms.Alumnos.delete_alumno and not esta_de_baja %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'alumnos:baja' alumno.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja a {{ alumno.nombre }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong>{{ alumno }}</strong> dejará de aparecer en el listado principal y no se registrará su asistencia.</p>
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su expediente, tutores e inscripciones se conservan y podrás reactivarlo desde el filtro «Bajas».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if perms.Alumnos.add_inscripcion %}
+    <dialog class="modal" id="modal-inscribir" aria-labelledby="modal-inscribir-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'alumnos:inscribir' alumno.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-inscribir-titulo">Inscribir a {{ alumno.nombre }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body form-grid">
+          {% include "partials/field.html" with campo=inscribir_form.ciclo clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=inscribir_form.grado %}
+          {% include "partials/field.html" with campo=inscribir_form.fecha_inscripcion %}
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Inscribir</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}

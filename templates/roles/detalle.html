@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static alumnos_extras usuarios_extras %}
+
+{% block title %}{{ rol.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'roles:lista' %}">Roles y permisos</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ rol.nombre }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with tono=rol.activo|yesno:"ACTIVO,INACTIVO"|tono_estatus %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        <span class="role-badge role-badge--tone-{{ rol.tono }}" aria-hidden="true">{% include "partials/icon.html" with name="shield-check" icon_class="icon--lg" %}</span>
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Rol</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ rol.nombre }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{% if rol.activo %}Activo{% else %}Desactivado{% endif %}</span>
+            {% if rol.es_sistema %}<span class="tag tag--primary">Rol del sistema</span>{% endif %}
+            {% if rol.acceso_total %}<span class="tag tag--warning">Acceso total</span>{% endif %}
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if puede_editar and rol.activo %}
+            <a class="btn btn--primary" href="{% url 'roles:editar' rol.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
+            </a>
+          {% endif %}
+          {% if puede_copiar or puede_desactivar %}
+            <div class="menu" data-menu>
+              <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
+                {% include "partials/icon.html" with name="more-horizontal" %}
+              </button>
+              <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
+                <ul class="menu__list">
+                  {% if puede_copiar %}
+                    <li>
+                      <form method="post" action="{% url 'roles:copiar' rol.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="menu__item">{% include "partials/icon.html" with name="copy" %} Copiar rol</button>
+                      </form>
+                    </li>
+                  {% endif %}
+                  {% if puede_desactivar %}
+                    <li>
+                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-baja">
+                        {% include "partials/icon.html" with name="trash" %} Desactivar rol
+                      </button>
+                    </li>
+                  {% endif %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact identity__fact--wide"><dt>Descripción</dt><dd>{{ rol.descripcion|default:"Sin descripción" }}</dd></div>
+        <div class="identity__fact"><dt>Permisos</dt><dd>{% if rol.acceso_total %}Todos{% else %}{{ total_permisos }} de {{ total_posibles }}{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Usuarios activos</dt><dd>{{ rol.usuarios }}</dd></div>
+        <div class="identity__fact"><dt>Creado</dt><dd>{{ rol.creado|date:"j M Y" }}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if rol.es_sistema %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">Este es un rol del sistema: tiene acceso a todo y no se puede modificar ni desactivar, para que siempre haya quien administre el sistema.</p>
+    </div>
+  {% endif %}
+
+  {% if not rol.activo %}
+    <div class="alert alert--error alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Rol desactivado.</strong> Ya no se puede asignar a cuentas nuevas. Su historial se conserva.</p>
+      {% if perms.Usuarios.change_rol %}
+        <form method="post" action="{% url 'roles:reactivar' rol.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm">Reactivar rol</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="security-layout">
+    <section class="card" aria-labelledby="permisos-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="key" %}
+        <h2 class="card__title" id="permisos-titulo">Lo que permite este rol</h2>
+        <span class="card__header-action text-muted">{{ total_permisos }} permiso{{ total_permisos|pluralize }}</span>
+      </header>
+      <div class="card__body">
+        {% include "usuarios/_permisos.html" with matriz=matriz %}
+      </div>
+    </section>
+
+    <div class="security-side">
+      <section class="card" aria-labelledby="usuarios-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="users" %}<h2 class="card__title" id="usuarios-titulo">Usuarios con este rol</h2>
+        </header>
+        <div class="card__body">
+          {% if usuarios %}
+            <ul class="mini-list">
+              {% for u in usuarios %}
+                <li class="mini-list__item">
+                  {% include "usuarios/_avatar.html" with usuario=u tamano="sm" %}
+                  {% if perms.auth.view_user %}
+                    <a class="mini-list__name" href="{% url 'usuarios:detalle' u.pk %}">{{ u|nombre_visible }}</a>
+                  {% else %}
+                    <span class="mini-list__name">{{ u|nombre_visible }}</span>
+                  {% endif %}
+                  {% if not u.is_active %}<span class="tag tag--neutral">Desactivado</span>{% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Ninguna cuenta tiene este rol todavía.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="actividad-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="actividad-titulo">Actividad del rol</h2>
+        </header>
+        <div class="card__body">
+          {% include "usuarios/_actividad.html" with historial=historial %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  {% if puede_desactivar %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'roles:baja' rol.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="volver" value="detalle">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Desactivar el rol «{{ rol.nombre }}»</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          {% if rol.usuarios %}
+            <div class="alert alert--warning" role="note">
+              {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+              <p class="alert__body">Lo tienen {{ rol.usuarios }} usuario{{ rol.usuarios|pluralize }} activo{{ rol.usuarios|pluralize }}. Cámbiales el rol antes de desactivarlo: mientras tanto no se podrá.</p>
+            </div>
+          {% else %}
+            <p>El rol ya no se podrá asignar a cuentas nuevas.</p>
+          {% endif %}
+          <p class="text-muted">Es una baja lógica: no se borra nada. El rol y su historial se conservan y podrás reactivarlo desde el filtro «Desactivados».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Desactivar rol</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}

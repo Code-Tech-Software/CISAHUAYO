@@ -1689,6 +1689,16 @@ body {
   padding: var(--space-5);
 }
 
+.card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--border);
+  border-radius: 0 0 calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px);
+  background: var(--color-surface-2);
+}
+
 /* --- Page header (título de página) ------------------------------------------------ */
 .page-header {
   display: flex;
@@ -3227,6 +3237,87 @@ body {
   box-shadow: 0 0 0 2px var(--color-surface);
 }
 
+/* --- Credenciales de acceso ---------------------------------------------------------------------------------
+   Tarjeta que se muestra una sola vez al crear una cuenta (alumno o usuario) o restablecer su contraseña. */
+.credentials {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-primary-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-soft);
+  animation: credentials-in var(--duration-base) var(--ease-out);
+}
+
+@keyframes credentials-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.credentials__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.credentials__title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.credentials__text {
+  margin: var(--space-1) 0 var(--space-4);
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.credentials__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.credentials__list > div {
+  min-width: 10rem;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.credentials__label {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.credentials__value {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-strong);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+
+.credentials__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
 /* --- Estado de error (404, 403...) -------------------------------------------------------------------------
    Bloque centrado con un número grande en turquesa suave y el filete tricolor de la identidad. Las páginas de error
    lo usan dentro del diseño normal (con menú) o solas (errores del servidor y token vencido). */
@@ -4089,6 +4180,14 @@ body {
   }
 }
 
+/* Credenciales de acceso · Tableta (≥ 640 px): icono, datos y botones en una fila */
+@media (min-width: 40rem) {
+  .credentials {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+
 /* Ventana de formularios · Móvil (< 640 px): hoja que sube desde abajo, a todo el ancho */
 @media (max-width: 39.99rem) {
   .modal--form {
@@ -4182,6 +4281,30 @@ body {
 
   .is-theme-transition::view-transition-new(root) {
     z-index: 1;
+  }
+}
+
+/* Al imprimir una página con credenciales solo sale la tarjeta (las demás páginas se imprimen completas) */
+@media print {
+  body:has(.credentials) * {
+    visibility: hidden;
+  }
+
+  .credentials,
+  .credentials * {
+    visibility: visible;
+  }
+
+  .credentials {
+    position: absolute;
+    inset: 0 0 auto;
+    border: var(--border);
+    box-shadow: none;
+    animation: none;
+  }
+
+  .credentials__actions {
+    display: none;
   }
 }
 

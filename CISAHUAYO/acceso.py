@@ -1,17 +1,29 @@
-"""Inicio de sesión: la pantalla y las reglas son las del admin de Django (misma ruta, /admin/login/), pero al entrar sin
-un destino concreto se llega al sistema del colegio y no al panel de administración de Django.
+"""Inicio de sesión del sistema.
 
-El admin decide el destino por su cuenta: sin `?next=` manda siempre a `admin:index`. Aquí solo se corrige eso; si hay un
-`next` (una página protegida que mandó a iniciar sesión, o el propio /admin/) se respeta tal cual.
+Antes se usaba el del admin de Django, que solo deja entrar a personal «staff» y manda siempre a su propio panel. Las
+cuentas del sistema (módulo Usuarios) no son de staff: su acceso lo define el rol. Aquí la pantalla es la misma de
+siempre (misma ruta, /admin/login/, que los demás módulos usan como `LOGIN_URL`), pero entra cualquier cuenta activa y
+se llega a la página que se pidió o, si no hubo ninguna, al inicio del sistema.
 """
-from django.contrib import admin
-from django.contrib.auth import REDIRECT_FIELD_NAME
+from django.conf import settings
+from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect
 
 
-def acceso(request, extra_context=None):
-    sin_destino = REDIRECT_FIELD_NAME not in request.GET and REDIRECT_FIELD_NAME not in request.POST
-    # Quien ya tiene sesión y acceso, al abrir la pantalla de acceso, pasa directo al sistema
-    if sin_destino and request.method == 'GET' and admin.site.has_permission(request):
-        return redirect('inicio')
-    return admin.site.login(request, extra_context)
+class VistaDeAcceso(LoginView):
+    template_name = 'registration/login.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        # Quien ya tiene sesión y abre esta pantalla pasa directo, salvo que pida el panel de Django sin ser de staff
+        # (el admin lo manda aquí: si lo dejáramos pasar, daría vueltas sin fin).
+        if request.user.is_authenticated and request.method == 'GET':
+            destino = self.get_redirect_url()
+            if not destino:
+                return redirect(settings.LOGIN_REDIRECT_URL)
+            if destino != request.path and not (destino.startswith('/admin/') and not request.user.is_staff):
+                return redirect(destino)
+        return super().dispatch(request, *args, **kwargs)
+
+
+acceso = VistaDeAcceso.as_view()
+salir = LogoutView.as_view()

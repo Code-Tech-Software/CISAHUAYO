@@ -1,0 +1,21 @@
+{% comment %}
+  Historial de cambios de una cuenta o de un rol (la bitácora del admin de Django).
+  Parámetro: historial (lista de LogEntry, la más reciente primero).
+{% endcomment %}
+{% if historial %}
+  <ol class="activity">
+    {% for entrada in historial %}
+      <li class="activity__item activity__item--{% if entrada.is_addition %}alta{% elif entrada.is_deletion %}baja{% else %}cambio{% endif %}">
+        <span class="activity__dot" aria-hidden="true"></span>
+        <div class="activity__body">
+          <p class="activity__text">{{ entrada.get_change_message }}</p>
+          <p class="activity__meta">
+            {{ entrada.user.get_full_name|default:entrada.user.get_username }} · <time datetime="{{ entrada.action_time|date:'c' }}">{{ entrada.action_time|date:"j M Y, H:i" }}</time>
+          </p>
+        </div>
+      </li>
+    {% endfor %}
+  </ol>
+{% else %}
+  <p class="text-muted">Todavía no hay cambios registrados.</p>
+{% endif %}

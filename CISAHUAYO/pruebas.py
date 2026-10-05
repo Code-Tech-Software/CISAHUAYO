@@ -180,3 +180,25 @@ class BaseAsistenciaTestCase(BaseTestCase):
 
         registros = AsistenciaMateria.objects.filter(inscripcion=inscripcion or self.inscripcion, fecha=fecha or lunes())
         return {r.materia_grado.materia.clave: r.estado for r in registros}
+
+
+# ---------------------------------------------------------------------------
+# Usuarios y roles
+# ---------------------------------------------------------------------------
+def crear_rol(nombre, permisos=(), **extra):
+    """Un rol nuevo con esos permisos («app.codename»; se añade lo que cada uno necesita, como al guardarlo desde la matriz)."""
+    from Usuarios.iniciales import _crear_rol
+    return _crear_rol(nombre, extra.pop('descripcion', ''), extra.pop('tono', 1), set(permisos), **extra)
+
+
+def crear_usuario(username, rol=None, contrasena='x', **cambios):
+    """Una cuenta con ese rol (sin ser de staff), lista para iniciar sesión."""
+    from Usuarios.models import PerfilUsuario
+    from Usuarios.seguridad import asignar_rol
+    cambios.setdefault('first_name', username.capitalize())
+    cambios.setdefault('last_name', 'Prueba')
+    usuario = get_user_model().objects.create_user(username, password=contrasena, **cambios)
+    PerfilUsuario.de(usuario)
+    if rol is not None:
+        asignar_rol(usuario, rol)
+    return usuario

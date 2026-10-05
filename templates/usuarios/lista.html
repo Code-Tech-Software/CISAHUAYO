@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% load static alumnos_extras usuarios_extras %}
+
+{% block title %}Usuarios | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Usuarios</span></li>
+{% endblock %}
+
+{% block content %}
+  {% if credenciales %}
+    {% include "usuarios/_credenciales.html" %}
+  {% endif %}
+
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Usuarios</h1>
+      <p class="page-header__description">Las cuentas de quienes usan el sistema. Lo que cada una puede ver y hacer lo define su rol.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Usuarios.view_rol %}
+        <a class="btn" href="{% url 'roles:lista' %}">
+          {% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %}
+          Roles y permisos
+        </a>
+      {% endif %}
+      {% if perms.auth.add_user %}
+        <a class="btn btn--primary" href="{% url 'usuarios:crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %}
+          Nuevo usuario
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {# Las cuentas desactivadas no se mezclan con las activas: tienen su propio filtro #}
+  <nav class="pills" aria-label="Filtrar por estado">
+    <a class="pill{% if not viendo_inactivos %} is-active{% endif %}" href="{% querystring estado=None page=None %}"{% if not viendo_inactivos %} aria-current="true"{% endif %}>
+      Activos <span class="pill__count">{{ total_activos }}</span>
+    </a>
+    <a class="pill{% if viendo_inactivos %} is-active{% endif %}" href="{% querystring estado='INACTIVO' page=None %}"{% if viendo_inactivos %} aria-current="true"{% endif %}>
+      Desactivados <span class="pill__count">{{ total_inactivos }}</span>
+    </a>
+  </nav>
+
+  <form class="filters filters--compact" method="get" role="search" aria-label="Buscar y filtrar usuarios" data-autosubmit>
+    {% if viendo_inactivos %}<input type="hidden" name="estado" value="INACTIVO">{% endif %}
+    {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar usuarios</label>
+      {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+      {{ filtro.q }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.rol.id_for_label }}">{{ filtro.rol.label }}</label>
+      {{ filtro.rol }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
+      {{ filtro.orden }}
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+      {% if filtros_activos %}
+        <a class="btn btn--ghost btn--sm" href="{% if viendo_inactivos %}{% url 'usuarios:lista' %}?estado=INACTIVO{% else %}{% url 'usuarios:lista' %}{% endif %}">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">
+      {{ pagina.paginator.count }} usuario{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}{% if viendo_inactivos %} desactivado{{ pagina.paginator.count|pluralize }}{% endif %}
+    </p>
+
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Lista de usuarios</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Usuario</th>
+            <th class="table__th" scope="col">Rol</th>
+            <th class="table__th table__col--wide" scope="col">Contacto</th>
+            <th class="table__th table__col--wide" scope="col">Último acceso</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for usuario in pagina %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">
+                <a class="person" href="{% url 'usuarios:detalle' usuario.pk %}">
+                  {% include "usuarios/_avatar.html" %}
+                  <span class="person__text">
+                    <span class="person__name">{{ usuario|nombre_visible }}{% if usuario.es_yo %} <span class="tag tag--primary">Tú</span>{% endif %}</span>
+                    <span class="person__meta">@{{ usuario.username }}{% if usuario.perfil.cargo %} · {{ usuario.perfil.cargo }}{% endif %}</span>
+                  </span>
+                </a>
+              </td>
+              <td class="table__cell" data-label="Rol">{% include "usuarios/_rol.html" with rol=usuario.rol_actual %}</td>
+              <td class="table__cell table__col--wide" data-label="Contacto">
+                {% if usuario.email or usuario.perfil.telefono %}
+                  <span class="cell-stack">
+                    {% if usuario.perfil.telefono %}<span class="cell-stack__main">{{ usuario.perfil.telefono|telefono }}</span>{% endif %}
+                    {% if usuario.email %}<span class="cell-stack__sub cell-stack__sub--truncate">{{ usuario.email }}</span>{% endif %}
+                  </span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="table__cell table__col--wide" data-label="Último acceso">
+                {% if usuario.last_login %}
+                  <span class="cell-stack">
+                    <span class="cell-stack__main">{{ usuario.last_login|date:"j M Y" }}</span>
+                    <span class="cell-stack__sub">{{ usuario.last_login|date:"H:i" }}</span>
+                  </span>
+                {% else %}<span class="text-muted">Aún no entra</span>{% endif %}
+              </td>
+              <td class="table__cell table__cell--actions">
+                <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'usuarios:detalle' usuario.pk %}" aria-label="Ver la cuenta de {{ usuario|nombre_visible }}" data-tooltip="Ver cuenta">
+                  {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                </a>
+                {% if perms.auth.change_user and usuario.gestionable %}
+                  {% if not usuario.is_active %}
+                    <form method="post" action="{% url 'usuarios:reactivar' usuario.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn--sm">Reactivar</button>
+                    </form>
+                  {% else %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'usuarios:editar' usuario.pk %}" aria-label="Editar a {{ usuario|nombre_visible }}" data-tooltip="Editar" data-modal-form>
+                      {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                    </a>
+                  {% endif %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="usuarios" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% elif filtros_activos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No encontramos usuarios con esos filtros</p>
+        <p class="empty-state__text">
+          Prueba con otra búsqueda o quita algún filtro.
+          {% if total_inactivos and not viendo_inactivos %}¿Buscas una cuenta desactivada? Revisa el filtro «Desactivados».{% endif %}
+        </p>
+        <a class="btn btn--sm" href="{% url 'usuarios:lista' %}">Limpiar filtros</a>
+      </div>
+    </div>
+  {% elif viendo_inactivos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="user" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay cuentas desactivadas</p>
+        <p class="empty-state__text">Las cuentas que desactives aparecerán aquí y podrás reactivarlas.</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="user" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay usuarios</p>
+        <p class="empty-state__text">Crea cuentas para quienes usarán el sistema y asígnales un rol.</p>
+        {% if perms.auth.add_user %}
+          <a class="btn btn--primary btn--sm" href="{% url 'usuarios:crear' %}" data-modal-form>Crear usuario</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

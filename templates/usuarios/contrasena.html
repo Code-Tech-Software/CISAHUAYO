@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Cambiar contraseña | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'cuenta:perfil' %}">Mi cuenta</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Cambiar contraseña</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Cambiar contraseña</h1>
+      <p class="page-header__description">
+        {% if obligatorio %}Entraste con una contraseña temporal. Elige una propia para continuar.{% else %}Elige una contraseña nueva. Tu sesión actual seguirá abierta.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  {% if obligatorio %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="key" icon_class="alert__icon" %}
+      <p class="alert__body">Hasta que cambies la contraseña temporal no podrás usar el resto del sistema.</p>
+    </div>
+  {% endif %}
+
+  <form class="form-page form-page--narrow" method="post" novalidate>
+    {% csrf_token %}
+    <section class="card" aria-labelledby="seccion-contrasena">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="lock" %}<h2 class="card__title" id="seccion-contrasena">Nueva contraseña</h2>
+      </header>
+      <div class="card__body form-stack">
+        {% if form.non_field_errors %}
+          <div class="alert alert--error" role="alert">
+            {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+            <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+          </div>
+        {% endif %}
+        {% include "partials/field.html" with campo=form.old_password %}
+        {% include "partials/field.html" with campo=form.new_password1 %}
+        {% include "partials/field.html" with campo=form.new_password2 %}
+      </div>
+    </section>
+    <footer class="action-bar">
+      {% if obligatorio %}
+        <span></span>
+      {% else %}
+        <a class="btn btn--ghost" href="{% url 'cuenta:perfil' %}">Cancelar</a>
+      {% endif %}
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Cambiar contraseña
+      </button>
+    </footer>
+  </form>
+{% endblock %}

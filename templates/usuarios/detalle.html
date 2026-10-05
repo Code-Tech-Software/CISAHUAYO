@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% load static alumnos_extras usuarios_extras %}
+
+{% block title %}{{ usuario|nombre_visible }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'usuarios:lista' %}">Usuarios</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ usuario|nombre_visible }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% if credenciales %}
+    {% include "usuarios/_credenciales.html" %}
+  {% endif %}
+
+  {% with tono=usuario.is_active|yesno:"ACTIVO,INACTIVO"|tono_estatus %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        {% include "usuarios/_avatar.html" with tamano="xl" extra="avatar--square avatar--soft" %}
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Usuario{% if es_yo %} · Tú{% endif %}</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ usuario|nombre_visible }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{% if usuario.is_active %}Activo{% else %}Desactivado{% endif %}</span>
+            {% include "usuarios/_rol.html" with rol=rol enlace=perms.Usuarios.view_rol %}
+            <span class="text-muted">@{{ usuario.username }}</span>
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if puede_editar and usuario.is_active %}
+            <a class="btn btn--primary" href="{% url 'usuarios:editar' usuario.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
+            </a>
+          {% endif %}
+          {% if puede_restablecer or puede_desactivar %}
+            <div class="menu" data-menu>
+              <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
+                {% include "partials/icon.html" with name="more-horizontal" %}
+              </button>
+              <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
+                <ul class="menu__list">
+                  {% if puede_restablecer %}
+                    <li>
+                      <button type="button" class="menu__item" data-modal-open="modal-restablecer">
+                        {% include "partials/icon.html" with name="key" %} Restablecer contraseña
+                      </button>
+                    </li>
+                  {% endif %}
+                  {% if puede_desactivar %}
+                    <li>
+                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-baja">
+                        {% include "partials/icon.html" with name="trash" %} Desactivar cuenta
+                      </button>
+                    </li>
+                  {% endif %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact identity__fact--clip">
+          <dt>Correo</dt>
+          <dd>{% if usuario.email %}<a href="mailto:{{ usuario.email }}" title="{{ usuario.email }}">{{ usuario.email }}</a>{% else %}<span class="text-muted">No registrado</span>{% endif %}</dd>
+        </div>
+        <div class="identity__fact"><dt>Teléfono</dt><dd>{% if perfil.telefono %}<a href="tel:{{ perfil.telefono }}">{{ perfil.telefono|telefono }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Cargo</dt><dd>{{ perfil.cargo|default:"—" }}</dd></div>
+        <div class="identity__fact"><dt>Último acceso</dt><dd>{% if usuario.last_login %}{{ usuario.last_login|date:"j M Y, H:i" }}{% else %}Aún no entra{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Cuenta creada</dt><dd>{{ usuario.date_joined|date:"j M Y" }}</dd></div>
+        <div class="identity__fact"><dt>Contraseña</dt><dd>{% if perfil.debe_cambiar_contrasena %}<span class="tag tag--warning">Temporal</span>{% else %}Propia{% endif %}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if not usuario.is_active %}
+    <div class="alert alert--error alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Cuenta desactivada.</strong> No puede iniciar sesión. Su registro y su historial se conservan.</p>
+      {% if puede_editar %}
+        <form method="post" action="{% url 'usuarios:reactivar' usuario.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm">Reactivar cuenta</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if motivo_no_desactivar and perms.auth.delete_user and not es_yo %}
+    <p class="text-muted"><small>No se puede desactivar: {{ motivo_no_desactivar|lower }}</small></p>
+  {% endif %}
+
+  <div class="security-layout">
+    <section class="card" aria-labelledby="permisos-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="shield-check" %}
+        <h2 class="card__title" id="permisos-titulo">Lo que puede hacer</h2>
+        <span class="card__header-action text-muted">{{ total_permisos }} permiso{{ total_permisos|pluralize }}</span>
+      </header>
+      <div class="card__body">
+        {% if rol %}
+          <p class="text-muted perm-origin">
+            Vienen del rol
+            {% include "usuarios/_rol.html" with rol=rol enlace=perms.Usuarios.view_rol %}.
+            Si se cambian los permisos del rol, cambian aquí también.
+          </p>
+        {% endif %}
+        {% if not rol and not usuario.is_superuser %}
+          <div class="alert alert--warning alert--spaced" role="note">
+            {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+            <p class="alert__body">Esta cuenta no tiene un rol: solo conserva los permisos que se le dieron de forma individual{% if perms.auth.change_user and puede_editar %}. Asígnale un rol con «Editar»{% endif %}.</p>
+          </div>
+        {% endif %}
+        {% include "usuarios/_permisos.html" with matriz=resumen %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="actividad-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="actividad-titulo">Actividad de la cuenta</h2>
+      </header>
+      <div class="card__body">
+        {% include "usuarios/_actividad.html" with historial=historial %}
+      </div>
+    </section>
+  </div>
+
+  {% if puede_restablecer %}
+    <dialog class="modal" id="modal-restablecer" aria-labelledby="modal-restablecer-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'usuarios:restablecer' usuario.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-restablecer-titulo">Restablecer la contraseña de {{ usuario.first_name|default:usuario.username }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>Se generará una <strong>contraseña temporal nueva</strong> y la que tenía dejará de servir. Verás la nueva una sola vez para entregarla.</p>
+          <p class="text-muted">Al entrar, el sistema le pedirá elegir una contraseña propia. Si tiene una sesión abierta, se cerrará.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Restablecer contraseña</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if puede_desactivar %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'usuarios:baja' usuario.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="volver" value="detalle">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Desactivar la cuenta de {{ usuario.first_name|default:usuario.username }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong>{{ usuario|nombre_visible }}</strong> ya no podrá iniciar sesión, y si tiene una sesión abierta se cerrará en su siguiente acción.</p>
+          <p class="text-muted">Es una baja lógica: no se borra nada. La cuenta, su rol y su historial se conservan y podrás reactivarla desde el filtro «Desactivados».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Desactivar cuenta</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}

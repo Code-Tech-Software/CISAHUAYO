@@ -110,7 +110,12 @@ class NavegacionTests(SimpleTestCase):
 
 @override_settings(ROOT_URLCONF=__name__, STORAGES=STORAGES_DE_PRUEBA)
 class PlantillaBaseTests(TestCase):
+    def entrar_con_acceso_total(self):
+        """El menú solo muestra lo que el rol permite: para ver todo se entra con una cuenta de acceso total."""
+        self.client.force_login(get_user_model().objects.create_superuser('jefa', 'jefa@example.com', 'x'))
+
     def test_estructura_basica(self):
+        self.entrar_con_acceso_total()
         html = self.client.get('/').content.decode()
         for fragmento in (
             'class="sidebar"',
@@ -128,6 +133,7 @@ class PlantillaBaseTests(TestCase):
             self.assertIn(fragmento, html)
 
     def test_buscador_de_comandos(self):
+        self.entrar_con_acceso_total()
         html = self.client.get('/').content.decode()
         self.assertIn('<dialog class="palette"', html)
         self.assertIn('data-palette-open', html)
@@ -139,6 +145,7 @@ class PlantillaBaseTests(TestCase):
         self.assertNotIn('data-palette-search', html)
 
     def test_buscador_ofrece_busqueda_global_si_existe_la_ruta(self):
+        self.entrar_con_acceso_total()
         with override_settings(ROOT_URLCONF=URLCONF_CON_BUSQUEDA):
             html = self.client.get('/').content.decode()
         self.assertIn('data-palette-search', html)

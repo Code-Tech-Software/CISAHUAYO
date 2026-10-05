@@ -4,6 +4,7 @@
 {% endcomment %}
 {% url 'login' as login_url %}
 {% url 'logout' as logout_url %}
+{% url 'cuenta:perfil' as cuenta_url %}
 {% if user.is_authenticated %}
   {% with nombre=user.get_full_name|default:user.get_username %}
     <div class="menu" data-menu>
@@ -15,10 +16,18 @@
       <div class="menu__panel" id="menu-usuario" data-menu-panel hidden>
         <div class="menu__header">
           <p class="menu__title">{{ nombre }}</p>
-          <p class="menu__subtitle">{{ user.email|default:user.get_username }}</p>
+          <p class="menu__subtitle">{% if rol_usuario %}{{ rol_usuario.nombre }}{% else %}{{ user.email|default:user.get_username }}{% endif %}</p>
         </div>
         <div class="menu__separator"></div>
         <ul class="menu__list">
+          {% if cuenta_url %}
+            <li>
+              <a class="menu__item" href="{{ cuenta_url }}">
+                {% include "partials/icon.html" with name="user" %}
+                Mi cuenta
+              </a>
+            </li>
+          {% endif %}
           {% if user.is_staff %}
             <li>
               <a class="menu__item" href="{% url 'admin:index' %}">

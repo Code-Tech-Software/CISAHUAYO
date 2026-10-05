@@ -1,23 +1,23 @@
 {% extends "acceso_base.html" %}
 {% comment %}
-  Pantalla de inicio de sesión. Reemplaza a la del admin de Django (misma ruta, mismo formulario, mismas reglas: solo
-  entra personal con cuenta activa de staff). Recibe del admin: form, next y, si ya hay sesión, user.
+  Pantalla de inicio de sesión (vista CISAHUAYO/acceso.py, ruta /admin/login/). Entra cualquier cuenta activa: lo que
+  puede hacer cada una lo define su rol. Recibe: form (usuario y contraseña) y next (la página que se pidió, si la hubo).
 {% endcomment %}
 
 {% block titulo %}Iniciar sesión{% endblock %}
 
 {% block tarjeta %}
-  {% url 'admin_password_reset' as restablecer_url %}
   <header class="access__head">
     <h1 class="access__title">Iniciar sesión</h1>
     <p class="access__lead">Ingresa con tu usuario y contraseña del colegio.</p>
   </header>
 
+  {# Solo se llega aquí con sesión iniciada al pedir el panel de administración de Django sin ser de staff #}
   {% if user.is_authenticated %}
     <div class="alert alert--warning" role="alert">
       {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
       <div class="alert__body">
-        <p>Ya iniciaste sesión como <strong>{{ user.get_username }}</strong>, pero esa cuenta no tiene permiso para entrar al sistema. Entra con otra cuenta o pide que revisen tus permisos.</p>
+        <p>Ya iniciaste sesión como <strong>{{ user.get_username }}</strong>, pero esa cuenta no puede entrar a la administración de Django. Entra con otra cuenta o vuelve al <a href="{% url 'inicio' %}">inicio del sistema</a>.</p>
       </div>
     </div>
   {% endif %}
@@ -28,7 +28,7 @@
       <div class="alert__body">
         {% for error in form.non_field_errors.as_data %}
           {% if error.code == 'invalid_login' %}
-            <p>El usuario o la contraseña no son correctos, o tu cuenta no tiene acceso al sistema. Revisa que estén bien escritos (importan las mayúsculas).</p>
+            <p>El usuario o la contraseña no son correctos, o la cuenta está desactivada. Revisa que estén bien escritos (importan las mayúsculas).</p>
           {% else %}
             <p>{{ error.message }}</p>
           {% endif %}
@@ -39,8 +39,7 @@
 
   <form class="access__form" method="post" data-access-form>
     {% csrf_token %}
-    {# Sin destino pedido, el admin propone su propio panel: aquí se entra al sistema (inicio) #}
-    <input type="hidden" name="next" value="{% if request.GET.next or request.POST.next %}{{ next }}{% else %}{% url 'inicio' %}{% endif %}">
+    <input type="hidden" name="next" value="{{ next }}">
 
     <div class="field{% if form.username.errors %} is-invalid{% endif %}">
       <label class="field__label" for="id_username">Usuario</label>
@@ -71,8 +70,5 @@
     </button>
   </form>
 
-  <p class="access__help">
-    {% if restablecer_url %}<a class="access__link" href="{{ restablecer_url }}">¿Olvidaste tu contraseña?</a> · {% endif %}
-    ¿No puedes entrar? Pide a la dirección del colegio que revise tu cuenta.
-  </p>
+  <p class="access__help">¿No puedes entrar? Pide a la dirección del colegio que revise tu cuenta.</p>
 {% endblock %}

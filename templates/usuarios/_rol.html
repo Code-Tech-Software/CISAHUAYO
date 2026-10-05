@@ -1,0 +1,4 @@
+{% comment %}
+  Ficha con el nombre de un rol y su color. Parámetros: rol (objeto Rol), enlace (si se pasa, la ficha lleva al rol).
+  Sin rol (rol vacío) muestra «Sin rol».
+{% endcomment %}{% if rol %}{% if enlace %}<a class="role-chip role-chip--tone-{{ rol.tono }}" href="{{ rol.get_absolute_url }}"><span class="role-chip__dot" aria-hidden="true"></span>{{ rol.nombre }}</a>{% else %}<span class="role-chip role-chip--tone-{{ rol.tono }}"><span class="role-chip__dot" aria-hidden="true"></span>{{ rol.nombre }}</span>{% endif %}{% else %}<span class="role-chip role-chip--none">Sin rol</span>{% endif %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Roles y permisos | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Roles y permisos</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Roles y permisos</h1>
+      <p class="page-header__description">Un rol define a qué secciones entra una persona y qué puede hacer en ellas. Cambia un rol y el cambio llega a todos los usuarios que lo tienen.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.auth.view_user %}
+        <a class="btn" href="{% url 'usuarios:lista' %}">
+          {% include "partials/icon.html" with name="users" icon_class="icon--sm" %}
+          Usuarios
+        </a>
+      {% endif %}
+      {% if perms.Usuarios.add_rol %}
+        <a class="btn btn--primary" href="{% url 'roles:crear' %}" data-modal-form>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+          Nuevo rol
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  <nav class="pills" aria-label="Filtrar por estado">
+    <a class="pill{% if not viendo_inactivos %} is-active{% endif %}" href="{% url 'roles:lista' %}"{% if not viendo_inactivos %} aria-current="true"{% endif %}>
+      Activos <span class="pill__count">{{ total_activos }}</span>
+    </a>
+    <a class="pill{% if viendo_inactivos %} is-active{% endif %}" href="{% url 'roles:lista' %}?estado=INACTIVO"{% if viendo_inactivos %} aria-current="true"{% endif %}>
+      Desactivados <span class="pill__count">{{ total_inactivos }}</span>
+    </a>
+  </nav>
+
+  {% if roles %}
+    <div class="role-grid">
+      {% for rol in roles %}
+        <article class="role-card role-card--tone-{{ rol.tono }}" aria-labelledby="rol-{{ rol.pk }}">
+          <header class="role-card__header">
+            <h2 class="role-card__title" id="rol-{{ rol.pk }}"><a href="{{ rol.get_absolute_url }}">{{ rol.nombre }}</a></h2>
+            {% if rol.es_sistema %}<span class="tag tag--primary" title="Rol del sistema: no se puede modificar">Sistema</span>{% endif %}
+          </header>
+          <p class="role-card__text">{{ rol.descripcion|default:"Sin descripción." }}</p>
+
+          <div class="role-card__meter">
+            <progress class="meter" max="{{ total_posibles }}" value="{{ rol.total_permisos }}" aria-label="Permisos que concede">{{ rol.total_permisos }}</progress>
+            <p class="role-card__count">
+              {% if rol.acceso_total %}<strong>Acceso total</strong>{% else %}<strong>{{ rol.total_permisos }}</strong> de {{ total_posibles }} permisos{% endif %}
+            </p>
+          </div>
+
+          {% if rol.modulos %}
+            <ul class="role-card__modules" aria-label="Módulos a los que tiene acceso">
+              {% for modulo in rol.modulos %}
+                <li class="role-card__module" title="{{ modulo.nombre }}">
+                  {% include "partials/icon.html" with name=modulo.icono icon_class="icon--sm" %}
+                  <span class="visually-hidden">{{ modulo.nombre }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="role-card__empty">Sin acceso a ningún módulo.</p>
+          {% endif %}
+
+          <footer class="role-card__footer">
+            {% if perms.auth.view_user %}
+              <a class="role-card__users" href="{% url 'usuarios:lista' %}?rol={{ rol.pk }}">{{ rol.usuarios }} usuario{{ rol.usuarios|pluralize }}</a>
+            {% else %}
+              <span class="role-card__users">{{ rol.usuarios }} usuario{{ rol.usuarios|pluralize }}</span>
+            {% endif %}
+            <span class="role-card__actions">
+              <a class="btn btn--ghost btn--icon btn--sm" href="{{ rol.get_absolute_url }}" aria-label="Ver el rol {{ rol.nombre }}" data-tooltip="Ver">
+                {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+              </a>
+              {% if rol.puede_editar and rol.activo %}
+                <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'roles:editar' rol.pk %}" aria-label="Editar el rol {{ rol.nombre }}" data-tooltip="Editar" data-modal-form>
+                  {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                </a>
+              {% endif %}
+              {% if not rol.activo and perms.Usuarios.change_rol %}
+                <form method="post" action="{% url 'roles:reactivar' rol.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn--sm">Reactivar</button>
+                </form>
+              {% endif %}
+            </span>
+          </footer>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="shield-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{% if viendo_inactivos %}No hay roles desactivados{% else %}Aún no hay roles{% endif %}</p>
+        <p class="empty-state__text">{% if viendo_inactivos %}Los roles que desactives aparecerán aquí y podrás reactivarlos.{% else %}Crea un rol para definir qué puede hacer cada persona.{% endif %}</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

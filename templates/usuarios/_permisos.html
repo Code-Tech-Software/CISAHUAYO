@@ -1,0 +1,37 @@
+{% load usuarios_extras %}{% comment %}
+  Resumen de solo lectura de lo que concede un conjunto de permisos (de un rol o de una cuenta).
+  Parámetros: matriz (Usuarios.catalogo.resumen). Muestra solo los módulos con acceso y nombra los que no.
+{% endcomment %}
+<div class="perm-summary">
+  {% for modulo in matriz %}
+    {% if modulo.concedidos %}
+      <article class="perm-card">
+        <header class="perm-card__header">
+          <span class="perm-card__icon">{% include "partials/icon.html" with name=modulo.modulo.icono %}</span>
+          <h3 class="perm-card__title">{{ modulo.modulo.nombre }}</h3>
+          <span class="perm-card__count" title="{{ modulo.concedidos }} de {{ modulo.posibles }} permisos de este módulo">{{ modulo.concedidos }}/{{ modulo.posibles }}</span>
+        </header>
+        <ul class="perm-card__list">
+          {% for fila in modulo.filas %}
+            {% if fila.concedidas %}
+              <li class="perm-card__item">
+                <span class="perm-card__fn">{{ fila.funcion.nombre }}</span>
+                <span class="perm-card__chips">
+                  {% for celda in fila.concedidas %}<span class="perm-chip perm-chip--{{ celda.accion }}" title="{{ celda.ayuda }}">{{ celda.nombre }}</span>{% endfor %}
+                </span>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </article>
+    {% endif %}
+  {% endfor %}
+</div>
+{% with sin_acceso=matriz|modulos_sin_acceso %}
+  {% if sin_acceso %}
+    <p class="perm-none">
+      {% include "partials/icon.html" with name="lock" icon_class="icon--sm" %}
+      <span><strong>Sin acceso a:</strong> {{ sin_acceso|join:", " }}.</span>
+    </p>
+  {% endif %}
+{% endwith %}

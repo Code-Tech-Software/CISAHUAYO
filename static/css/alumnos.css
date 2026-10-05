@@ -5,99 +5,14 @@
    sus mismas convenciones: BEM, estados con is-* y ARIA, colores de rol.
 
    Índice
-     1. Credenciales de acceso
      2. Tutores (vista del perfil)
      3. Académico (asistencia e inscripciones)
      4. Asistente de registro (foto, tutores, revisión, inscripción)
      5. Responsive
-     6. Impresión
 
-   La cabecera de perfil (.identity) y la búsqueda en vivo (.live-search) son genéricas
-   y viven en app.css.
+   La cabecera de perfil (.identity), la búsqueda en vivo (.live-search) y la tarjeta de credenciales de acceso
+   (.credentials, que usan alumnos y usuarios) son genéricas y viven en app.css.
    ========================================================================== */
-
-
-/* ==========================================================================
-   1. CREDENCIALES DE ACCESO
-   ========================================================================== */
-.credentials {
-  display: grid;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-  padding: var(--space-5);
-  border: var(--border-width) solid var(--color-primary-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-primary-soft);
-  animation: credentials-in var(--duration-base) var(--ease-out);
-}
-
-@keyframes credentials-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}
-
-.credentials__icon {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: var(--radius-md);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.credentials__title {
-  margin: 0;
-  font-size: var(--text-lg);
-}
-
-.credentials__text {
-  margin: var(--space-1) 0 var(--space-4);
-  color: var(--color-text-soft);
-  font-size: var(--text-sm);
-}
-
-.credentials__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.credentials__list > div {
-  min-width: 10rem;
-  padding: var(--space-3) var(--space-4);
-  border: var(--border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-
-.credentials__label {
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-}
-
-.credentials__value {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-strong);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: var(--text-xl);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.08em;
-  overflow-wrap: anywhere;
-}
-
-.credentials__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
 
 
 /* ==========================================================================
@@ -557,38 +472,5 @@
 @media (min-width: 40rem) {
   .tutor-grid {
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  }
-
-  .credentials {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: start;
-  }
-}
-
-
-/* ==========================================================================
-   6. IMPRESIÓN
-   Al imprimir desde el perfil solo sale la tarjeta de credenciales.
-   ========================================================================== */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-
-  .credentials,
-  .credentials * {
-    visibility: visible;
-  }
-
-  .credentials {
-    position: absolute;
-    inset: 0 0 auto;
-    border: var(--border);
-    box-shadow: none;
-    animation: none;
-  }
-
-  .credentials__actions {
-    display: none;
   }
 }

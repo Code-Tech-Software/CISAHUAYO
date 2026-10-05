@@ -1,0 +1,29 @@
+{% comment %}
+  Credenciales temporales de una cuenta. Se muestran una sola vez: la contraseña se guarda cifrada y no puede
+  recuperarse después (si se pierde, se restablece). Parámetro: credenciales (nombre, url, usuario, contrasena, titulo).
+{% endcomment %}
+<section class="credentials" aria-labelledby="credenciales-titulo">
+  <span class="credentials__icon">{% include "partials/icon.html" with name="key" icon_class="icon--lg" %}</span>
+  <div class="credentials__body">
+    <h2 class="credentials__title" id="credenciales-titulo">{{ credenciales.titulo|default:"Credenciales de acceso" }}</h2>
+    <p class="credentials__text">
+      Para <strong>{{ credenciales.nombre }}</strong>. Entrégalas ahora: por seguridad la contraseña <strong>no se volverá a mostrar</strong>.
+      Es temporal: al entrar por primera vez el sistema le pedirá elegir una propia.
+    </p>
+    <dl class="credentials__list">
+      <div><dt class="credentials__label">Usuario</dt><dd class="credentials__value">{{ credenciales.usuario }}</dd></div>
+      <div><dt class="credentials__label">Contraseña temporal</dt><dd class="credentials__value" id="credencial-contrasena">{{ credenciales.contrasena }}</dd></div>
+    </dl>
+  </div>
+  <div class="credentials__actions">
+    <button type="button" class="btn btn--sm" data-copy="#credencial-contrasena">
+      {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar contraseña
+    </button>
+    <button type="button" class="btn btn--sm" data-print>
+      {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir
+    </button>
+    {% if credenciales.url and request.path != credenciales.url %}
+      <a class="btn btn--sm" href="{{ credenciales.url }}">Ver perfil</a>
+    {% endif %}
+  </div>
+</section>

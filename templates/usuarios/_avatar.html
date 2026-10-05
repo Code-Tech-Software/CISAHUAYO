@@ -1,0 +1,3 @@
+{% load usuarios_extras %}{% comment %}
+  Iniciales de una cuenta de usuario. Parámetros: usuario, tamano (sm, lg, xl; vacío = mediano), extra (clases adicionales).
+{% endcomment %}<span class="avatar avatar--tone-{{ usuario|tono_de_usuario }}{% if tamano %} avatar--{{ tamano }}{% endif %}{% if extra %} {{ extra }}{% endif %}" aria-hidden="true">{{ usuario|iniciales }}</span>

@@ -22,6 +22,7 @@ from CISAHUAYO.pruebas import (
     crear_ciclo,
     crear_grado,
     crear_profesor,
+    crear_rol,
     crear_tutor,
     inscribir,
 )
@@ -137,6 +138,7 @@ class EstructuraDeLasPaginasDeFormularioTests(BaseTestCase):
         cls.tutor = crear_tutor()
         cls.profesor = crear_profesor()
         cls.inscripcion = inscribir(cls.alumno, cls.ciclo, cls.grado)
+        cls.rol_editable = crear_rol('Rol de prueba para la ventana', {'Alumnos.view_alumno'})
 
     def paginas(self):
         from Alumnos.models import Materia
@@ -157,6 +159,10 @@ class EstructuraDeLasPaginasDeFormularioTests(BaseTestCase):
             'inscripciones:crear': reverse('inscripciones:crear'),
             'inscripciones:editar': reverse('inscripciones:editar', args=[self.inscripcion.pk]),
             'asistencias:justificacion_crear': reverse('asistencias:justificacion_crear'),
+            'usuarios:crear': reverse('usuarios:crear'),
+            'usuarios:editar': reverse('usuarios:editar', args=[self.admin.pk]),
+            'roles:crear': reverse('roles:crear'),
+            'roles:editar': reverse('roles:editar', args=[self.rol_editable.pk]),
         }
 
     def test_cada_pagina_de_formulario_tiene_titulo_y_un_formulario_que_el_script_reconoce(self):
@@ -201,7 +207,7 @@ class EstructuraDeLasPaginasDeFormularioTests(BaseTestCase):
 class EnlacesQueAbrenLaVentanaTests(BaseTestCase):
     def test_los_botones_de_alta_de_cada_listado_abren_la_ventana(self):
         for nombre in ('alumnos:crear', 'tutores:crear', 'profesores:crear', 'materias:crear', 'ciclos:crear',
-                       'grados:crear', 'inscripciones:crear', 'asistencias:justificacion_crear'):
+                       'grados:crear', 'inscripciones:crear', 'asistencias:justificacion_crear', 'usuarios:crear', 'roles:crear'):
             app, _ = nombre.split(':')
             lista = reverse({'asistencias': 'asistencias:justificaciones'}.get(app, f'{app}:lista'))
             with self.subTest(boton=nombre):
@@ -221,7 +227,7 @@ class EnlacesQueAbrenLaVentanaTests(BaseTestCase):
         """Revisa las plantillas: todo <a> hacia una ruta crear/editar lleva data-modal-form (salvo dentro de otras ventanas)."""
         etiqueta = re.compile(r"<a\b(?:[^>{]|\{%[^%]*%\}|\{\{[^}]*\}\}|\{#[^#]*#\})*>")
         ruta = re.compile(
-            r"\{%\s*url\s+'(?:alumnos|tutores|profesores|materias|ciclos|grados|inscripciones|horarios):(?:crear|editar)'"
+            r"\{%\s*url\s+'(?:alumnos|tutores|profesores|materias|ciclos|grados|inscripciones|horarios|usuarios|roles):(?:crear|editar)'"
             r"|\{%\s*url\s+'asistencias:justificacion_(?:crear|editar)'"
         )
         excepciones = {'_modal_asignar.html'}

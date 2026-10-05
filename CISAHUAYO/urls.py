@@ -4,13 +4,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from Alumnos.views import inicio
-from CISAHUAYO.acceso import acceso
+from CISAHUAYO.acceso import acceso, salir
 
 urlpatterns = [
     path('', inicio, name='inicio'),
-    # Misma ruta que la del admin (reverse('admin:login') no cambia), pero al entrar lleva al sistema; va antes que admin/
-    path('admin/login/', acceso),
+    # Inicio y cierre de sesión del sistema (cualquier cuenta activa, no solo staff). El inicio conserva la ruta del
+    # admin (reverse('admin:login') no cambia) y va antes que admin/ para tomar su lugar
+    path('admin/login/', acceso, name='login'),
+    path('salir/', salir, name='logout'),
     path('admin/', admin.site.urls),
+    path('usuarios/', include('Usuarios.urls')),
+    path('roles/', include('Roles.urls')),
+    path('cuenta/', include('Usuarios.urls_cuenta')),
     path('alumnos/', include('Alumnos.urls')),
     path('tutores/', include('Tutores.urls')),
     path('ciclos/', include('Ciclos.urls')),

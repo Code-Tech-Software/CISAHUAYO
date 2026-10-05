@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static alumnos_extras usuarios_extras %}
+
+{% block title %}Mi cuenta | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Mi cuenta</span></li>
+{% endblock %}
+
+{% block content %}
+  <section class="identity identity--success" aria-labelledby="perfil-nombre">
+    <div class="identity__main">
+      {% include "usuarios/_avatar.html" with usuario=user tamano="xl" extra="avatar--square avatar--soft" %}
+      <div class="identity__text">
+        <p class="identity__eyebrow">Mi cuenta</p>
+        <h1 class="identity__name" id="perfil-nombre">{{ user|nombre_visible }}</h1>
+        <p class="identity__line">
+          {% include "usuarios/_rol.html" with rol=rol %}
+          <span class="text-muted">@{{ user.username }}</span>
+          {% if perfil.cargo %}<span class="text-muted">{{ perfil.cargo }}</span>{% endif %}
+        </p>
+      </div>
+      <div class="identity__actions">
+        <a class="btn" href="{% url 'cuenta:contrasena' %}">
+          {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Cambiar contraseña
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="security-layout">
+    <section class="card" aria-labelledby="datos-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="user" %}<h2 class="card__title" id="datos-titulo">Mis datos</h2>
+      </header>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="card__body form-grid">
+          {% if form.non_field_errors %}
+            <div class="alert alert--error form-grid__full" role="alert">
+              {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+              <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+            </div>
+          {% endif %}
+          {% include "partials/field.html" with campo=form.first_name %}
+          {% include "partials/field.html" with campo=form.last_name %}
+          {% include "partials/field.html" with campo=form.email %}
+          {% include "partials/field.html" with campo=form.telefono %}
+          <p class="text-muted form-grid__full"><small>Tu usuario, tu rol y tu cargo los define quien administra el sistema.</small></p>
+        </div>
+        <footer class="card__footer">
+          <button type="submit" class="btn btn--primary">
+            {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar cambios
+          </button>
+        </footer>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="permisos-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="shield-check" %}
+        <h2 class="card__title" id="permisos-titulo">Lo que puedo hacer</h2>
+        <span class="card__header-action text-muted">{{ total_permisos }} permiso{{ total_permisos|pluralize }}</span>
+      </header>
+      <div class="card__body">
+        {% include "usuarios/_permisos.html" with matriz=resumen %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

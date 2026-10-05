@@ -1,0 +1,51 @@
+{% comment %}
+  Matriz editable de permisos: un bloque por módulo con sus funciones y, por cada una, casillas de ver, crear, editar y
+  dar de baja. Las casillas llevan `data-requiere` (lo que necesitan) para que static/js/roles.js marque o desmarque
+  lo que depende de ellas; el servidor aplica las mismas dependencias. Parámetro: matriz (Usuarios.catalogo.resumen,
+  con `bloqueada` en las celdas que quien edita no puede cambiar).
+{% endcomment %}
+<div class="perm-matrix" data-matriz>
+  {% for modulo in matriz %}
+    <section class="perm-module" data-modulo aria-label="{{ modulo.modulo.nombre }}">
+      <header class="perm-module__header">
+        <span class="perm-module__icon">{% include "partials/icon.html" with name=modulo.modulo.icono %}</span>
+        <div class="perm-module__text">
+          <h3 class="perm-module__name">{{ modulo.modulo.nombre }}</h3>
+          <p class="perm-module__desc">{{ modulo.modulo.descripcion }}</p>
+        </div>
+        <span class="perm-module__tools">
+          <span class="perm-module__count"><span data-modulo-marcados>{{ modulo.concedidos }}</span>/{{ modulo.posibles }}</span>
+          <button type="button" class="btn btn--ghost btn--sm" data-modulo-todo>Todo</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-modulo-nada>Nada</button>
+        </span>
+      </header>
+
+      <div class="perm-table">
+        <div class="perm-row perm-row--head" aria-hidden="true">
+          <span class="perm-row__name">Función</span>
+          <span class="perm-head">Ver</span>
+          <span class="perm-head">Crear</span>
+          <span class="perm-head">Editar</span>
+          <span class="perm-head">Baja</span>
+        </div>
+        {% for fila in modulo.filas %}
+          <div class="perm-row" role="group" aria-label="{{ fila.funcion.nombre }}">
+            <span class="perm-row__name">{{ fila.funcion.nombre }}</span>
+            {% for celda in fila.celdas %}
+              {% if celda %}
+                <label class="perm-cell{% if celda.bloqueada %} is-locked{% endif %}" title="{{ celda.ayuda|default:celda.nombre }}{% if celda.bloqueada %} (No puedes cambiarlo: tú no tienes este permiso.){% endif %}">
+                  <input class="perm-cell__input" type="checkbox" name="permisos" value="{{ celda.permiso }}" data-accion="{{ celda.accion }}"{% if celda.requiere %} data-requiere="{{ celda.requiere }}"{% endif %}{% if celda.tiene %} checked{% endif %}{% if celda.bloqueada %} disabled{% endif %}>
+                  <span class="perm-cell__box" aria-hidden="true"></span>
+                  <span class="perm-cell__label{% if celda.etiqueta_propia %} perm-cell__label--propia{% endif %}">{{ celda.nombre }}</span>
+                  <span class="visually-hidden"> de {{ fila.funcion.nombre }}</span>
+                </label>
+              {% else %}
+                <span class="perm-cell perm-cell--empty" aria-hidden="true">—</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endfor %}
+</div>

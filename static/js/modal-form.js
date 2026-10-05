@@ -198,7 +198,8 @@
     cuerpo.replaceChildren(...[...pagina.childNodes].map((nodo) => document.importNode(nodo, true)));
     const formulario = qs(FORMULARIO, cuerpo);
     formulario.action = destino;       /* sin action enviaría a la página donde está abierta la ventana */
-    dialogo.dataset.tam = formulario.classList.contains('wizard') ? 'lg' : 'md';
+    /* El formulario pide su tamaño con data-modal-tam (la matriz de permisos); el asistente de alumnos siempre es ancho */
+    dialogo.dataset.tam = formulario.dataset.modalTam || (formulario.classList.contains('wizard') ? 'lg' : 'md');
     evitarIdsRepetidos(cuerpo);
     adaptarCancelar(formulario);
 

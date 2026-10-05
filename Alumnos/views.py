@@ -1,8 +1,8 @@
 import csv
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
-from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
-from CISAHUAYO.permisos import requiere_permisos
+from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 
 from .academico import prefetch_inscripciones_actuales
 from .asistencias import con_justificada_general
@@ -40,7 +40,9 @@ PASOS_FORMULARIO = (
 )
 
 
+@login_required
 def inicio(request):
+    """Panel de control: cualquier cuenta con sesión; cada quien ve solo los accesos a lo que su rol permite."""
     return render(request, 'index.html')
 
 
@@ -357,13 +359,9 @@ def alumno_buscar(request):
 
 
 @require_GET
+@requiere_alguno('Alumnos.add_alumno', 'Alumnos.change_alumno')
 def tutor_buscar(request):
     """Búsqueda de tutores existentes para vincularlos desde el asistente (JSON). No incluye las bajas."""
-    if not request.user.is_authenticated:
-        raise PermissionDenied
-    if not (request.user.has_perm('Alumnos.add_alumno') or request.user.has_perm('Alumnos.change_alumno')):
-        raise PermissionDenied
-
     palabras = request.GET.get('q', '').split()
     if not palabras or sum(len(p) for p in palabras) < 2:
         return JsonResponse({'resultados': []})

@@ -1,0 +1,773 @@
+/* ==========================================================================
+   CISAHUAYO · Usuarios, roles y permisos
+   Se apoya en los tokens y componentes de app.css. Orden: 1. Fichas de rol · 2. Tarjetas de rol · 3. Resumen de
+   permisos · 4. Matriz editable · 5. Color del rol · 6. Actividad y listas · 7. Estructura de las páginas.
+   Color plano, sin degradados. Cada rol lleva uno de los seis tonos del sistema (--color-tone-N).
+   ========================================================================== */
+
+/* --- 1. Fichas de rol ------------------------------------------------------------------------------------ */
+.role-chip,
+.role-card,
+.role-badge,
+.swatch {
+  --role-ink: var(--color-tone-1);
+  --role-base: var(--color-tone-1-base);
+  --role-tint: var(--color-tone-1-tint);
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.5rem;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--role-tint);
+  color: var(--role-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.role-chip:hover {
+  box-shadow: 0 0 0 1px var(--role-base);
+}
+
+.role-chip__dot {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--role-base);
+}
+
+.role-chip--none {
+  padding-left: var(--space-3);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+/* Icono grande del rol en su perfil */
+.role-badge {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--role-tint);
+  color: var(--role-ink);
+}
+
+/* --- 2. Tarjetas de rol (listado) -------------------------------------------------------------------------- */
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--space-4);
+}
+
+.role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  overflow: hidden;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-base);
+}
+
+.role-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--role-base);
+}
+
+.role-card:hover {
+  border-color: color-mix(in srgb, var(--role-base) 40%, var(--color-border));
+  box-shadow: var(--shadow-sm);
+}
+
+.role-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.role-card__title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.role-card__title a {
+  color: var(--color-text-strong);
+  text-decoration: none;
+}
+
+.role-card__title a:hover {
+  color: var(--role-ink);
+}
+
+.role-card__text {
+  display: -webkit-box;
+  min-height: 2.6em;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.role-card__meter .meter::-webkit-progress-value {
+  background: var(--role-base);
+}
+
+.role-card__meter .meter::-moz-progress-bar {
+  background: var(--role-base);
+}
+
+.role-card__count {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.role-card__count strong {
+  color: var(--color-text-strong);
+}
+
+.role-card__modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-card__module {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--role-tint);
+  color: var(--role-ink);
+}
+
+.role-card__empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.role-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: var(--border);
+}
+
+.role-card__users {
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+a.role-card__users:hover {
+  color: var(--color-primary-text);
+}
+
+.role-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* --- 3. Resumen de permisos (solo lectura) ------------------------------------------------------------------- */
+.perm-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-3);
+}
+
+.perm-card {
+  overflow: hidden;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.perm-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border);
+  background: var(--color-surface-2);
+}
+
+.perm-card__icon {
+  display: grid;
+  color: var(--color-primary-text);
+}
+
+.perm-card__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.perm-card__count {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+}
+
+.perm-card__list {
+  display: grid;
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  list-style: none;
+}
+
+.perm-card__item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+}
+
+.perm-card__item + .perm-card__item {
+  border-top: var(--border);
+}
+
+.perm-card__fn {
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.perm-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.perm-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.perm-chip--ver {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.perm-chip--crear {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.perm-chip--editar {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.perm-chip--baja {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.perm-origin {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.perm-none {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.perm-none .icon {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+/* --- 4. Matriz editable de permisos --------------------------------------------------------------------------- */
+.perm-body {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.perm-intro {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.perm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.perm-toolbar__total {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.perm-toolbar__presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.perm-matrix {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.perm-module {
+  min-width: 0;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.perm-module__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border);
+  border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+  background: var(--color-surface-2);
+}
+
+.perm-module__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft-hover);
+  color: var(--color-primary-text);
+}
+
+.perm-module__text {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.perm-module__name {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.perm-module__desc {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.perm-module__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.perm-module__count {
+  margin-right: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+}
+
+.perm-table {
+  display: grid;
+}
+
+.perm-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+}
+
+.perm-row + .perm-row {
+  border-top: var(--border);
+}
+
+.perm-row--head {
+  display: none;
+}
+
+.perm-row__name {
+  grid-column: 1 / -1;
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.perm-head {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.perm-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.perm-cell--empty {
+  justify-content: center;
+  color: var(--color-text-muted);
+  cursor: default;
+  opacity: 0.45;
+}
+
+.perm-cell__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.perm-cell__box {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--color-border-control);
+  border-radius: 0.375rem;
+  background: var(--color-field-bg);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.perm-cell__box::after {
+  content: "";
+  width: 0.3125rem;
+  height: 0.5625rem;
+  margin-top: -0.125rem;
+  border: solid var(--color-on-primary);
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg);
+  transition: opacity var(--transition-fast);
+}
+
+.perm-cell:hover .perm-cell__box {
+  border-color: var(--color-primary);
+}
+
+.perm-cell__input:checked + .perm-cell__box {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.perm-cell__input:checked + .perm-cell__box::after {
+  opacity: 1;
+}
+
+.perm-cell__input:focus-visible + .perm-cell__box {
+  box-shadow: var(--ring-focus);
+}
+
+.perm-cell.is-locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.perm-cell.is-locked .perm-cell__box {
+  border-style: dashed;
+}
+
+.perm-cell__label {
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+}
+
+/* Color del rol (selector de la ficha) */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.swatch__input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.swatch__dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-full);
+  background: var(--role-base);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px transparent;
+  transition: box-shadow var(--transition-fast);
+}
+
+.swatch__input:checked + .swatch__dot {
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--role-ink);
+}
+
+.swatch__input:focus-visible + .swatch__dot {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 5px;
+}
+
+/* --- 5. Color del rol: uno de los seis tonos del sistema ----------------------------------------------------- */
+.role-chip--tone-1, .role-card--tone-1, .role-badge--tone-1, .swatch--tone-1 {
+  --role-ink: var(--color-tone-1);
+  --role-base: var(--color-tone-1-base);
+  --role-tint: var(--color-tone-1-tint);
+}
+
+.role-chip--tone-2, .role-card--tone-2, .role-badge--tone-2, .swatch--tone-2 {
+  --role-ink: var(--color-tone-2);
+  --role-base: var(--color-tone-2-base);
+  --role-tint: var(--color-tone-2-tint);
+}
+
+.role-chip--tone-3, .role-card--tone-3, .role-badge--tone-3, .swatch--tone-3 {
+  --role-ink: var(--color-tone-3);
+  --role-base: var(--color-tone-3-base);
+  --role-tint: var(--color-tone-3-tint);
+}
+
+.role-chip--tone-4, .role-card--tone-4, .role-badge--tone-4, .swatch--tone-4 {
+  --role-ink: var(--color-tone-4);
+  --role-base: var(--color-tone-4-base);
+  --role-tint: var(--color-tone-4-tint);
+}
+
+.role-chip--tone-5, .role-card--tone-5, .role-badge--tone-5, .swatch--tone-5 {
+  --role-ink: var(--color-tone-5);
+  --role-base: var(--color-tone-5-base);
+  --role-tint: var(--color-tone-5-tint);
+}
+
+.role-chip--tone-6, .role-card--tone-6, .role-badge--tone-6, .swatch--tone-6 {
+  --role-ink: var(--color-tone-6);
+  --role-base: var(--color-tone-6-base);
+  --role-tint: var(--color-tone-6-tint);
+}
+
+/* --- 6. Actividad y listas pequeñas -------------------------------------------------------------------------- */
+.activity {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity__item {
+  --activity-color: var(--color-tone-1-base);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+}
+
+.activity__item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  bottom: 0;
+  left: 0.3125rem;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.activity__item--alta {
+  --activity-color: var(--color-tone-5-base);
+}
+
+.activity__item--baja {
+  --activity-color: var(--color-tone-3-base);
+}
+
+.activity__dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-top: 0.3125rem;
+  border-radius: var(--radius-full);
+  background: var(--activity-color);
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+
+.activity__text {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.activity__meta {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.mini-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mini-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mini-list__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.mini-list__name:hover {
+  color: var(--color-primary-text);
+}
+
+/* --- 7. Estructura de las páginas ------------------------------------------------------------------------------ */
+.security-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+}
+
+.security-side {
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+}
+
+.identity__fact--wide {
+  grid-column: 1 / -1;
+}
+
+.form-page--narrow {
+  max-width: 34rem;
+}
+
+.form-stack {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* Pantallas ≥ 640 px: la matriz pasa a ser una tabla */
+@media (min-width: 40rem) {
+  .perm-row {
+    grid-template-columns: minmax(0, 1fr) repeat(4, 4.75rem);
+  }
+
+  .perm-row--head {
+    display: grid;
+    padding-block: var(--space-2);
+    background: var(--color-surface);
+  }
+
+  .perm-row__name {
+    grid-column: auto;
+  }
+
+  .perm-cell {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.125rem;
+  }
+
+  .perm-cell__label {
+    display: none;
+  }
+
+  /* Las acciones con nombre propio («Usar», «Pasar lista») sí lo muestran, bajo la casilla */
+  .perm-cell__label--propia {
+    display: block;
+    max-width: 100%;
+    font-size: var(--text-2xs);
+    line-height: 1.1;
+    text-align: center;
+  }
+}
+
+/* Escritorio (≥ 1024 px): permisos a la izquierda y actividad a la derecha */
+@media (min-width: 64rem) {
+  .security-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}

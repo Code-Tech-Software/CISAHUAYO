@@ -24,20 +24,58 @@
     </div>
   </section>
 
-  <h2 class="section-title">Accesos rápidos</h2>
-  <div class="tile-grid">
+  {% if mis_clases %}
+    <section class="card agenda-card" aria-labelledby="titulo-mis-clases">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="presentation" %}<h2 class="card__title" id="titulo-mis-clases">Mis clases de hoy</h2>
+        {% if perms.Alumnos.view_profesor %}
+          <a class="btn btn--ghost btn--sm card__header-action" href="{{ mis_clases.profesor.get_absolute_url }}#horario">Ver mi horario</a>
+        {% endif %}
+      </header>
+      {% if mis_clases.clases %}
+        <ol class="agenda">
+          {% for fila in mis_clases.clases %}
+            <li class="agenda__item{% if fila.en_curso %} is-now{% elif fila.terminada %} is-done{% endif %}">
+              <span class="agenda__time">{{ fila.clase.inicio|time:"H:i" }}–{{ fila.clase.fin|time:"H:i" }}</span>
+              <span class="agenda__body">
+                <span class="agenda__title">{{ fila.clase.asignacion.materia.nombre }}</span>
+                <span class="agenda__meta">{{ fila.clase.asignacion.grado }}{% if fila.en_curso %} · En curso{% endif %}</span>
+              </span>
+              {% if perms.Alumnos.view_asistenciamateria %}
+                <a class="btn btn--sm{% if fila.en_curso %} btn--primary{% endif %}" href="{% url 'asistencias:clase' fila.clase.pk %}">Pasar lista</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <div class="card__body">
+          <p class="text-muted card__lead">{% if mis_clases.motivo %}{{ mis_clases.motivo }}{% else %}Hoy no tienes clases asignadas.{% endif %}</p>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <h2 class="section-title">Módulos</h2>
+  <div class="module-grid">
     {% for seccion in navegacion %}
       {% if seccion.titulo %}
-        {% for elemento in seccion.elementos %}
-          <a class="tile{% if forloop.parentloop.counter == 3 %} tile--tone-2{% endif %}" href="{{ elemento.url }}">
-            <span class="tile__chip">{% include "partials/icon.html" with name=elemento.icono icon_class="icon--lg" %}</span>
-            <div class="tile__body">
-              <p class="tile__title">{{ elemento.etiqueta }}</p>
-              <p class="tile__text">{{ seccion.titulo }}</p>
-            </div>
-            {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm tile__arrow" %}
-          </a>
-        {% endfor %}
+        <section class="module module--tone-{{ seccion.tono|default:1 }}" aria-labelledby="modulo-{{ seccion.clave }}">
+          <header class="module__header">
+            <span class="module__chip">{% include "partials/icon.html" with name=seccion.icono %}</span>
+            <h3 class="module__title" id="modulo-{{ seccion.clave }}">{{ seccion.titulo }}</h3>
+          </header>
+          <ul class="module__links">
+            {% for elemento in seccion.elementos %}
+              <li>
+                <a class="module__link" href="{{ elemento.url }}">
+                  {% include "partials/icon.html" with name=elemento.icono icon_class="icon--sm module__icon" %}
+                  <span class="module__label">{{ elemento.etiqueta }}</span>
+                  {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm module__arrow" %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
       {% endif %}
     {% endfor %}
   </div>

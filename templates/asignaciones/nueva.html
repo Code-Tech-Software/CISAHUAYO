@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Nueva asignación | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:mapa' %}">Asignaciones académicas</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nueva asignación</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Nueva asignación</h1>
+      <p class="page-header__description">Elige la materia (o créala aquí mismo), los grados donde se imparte y quién la da. Todo se guarda de una vez.</p>
+    </div>
+  </header>
+
+  <form class="form-page" id="asignacion-form" method="post" novalidate data-asignacion-form>
+    {% csrf_token %}
+    {{ datos|json_script:"asignacion-datos" }}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-materia">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="book-open" %}<h2 class="card__title" id="seccion-materia">Materia y ciclo</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.ciclo clase="form-grid__full" %}
+        {% if form.fields.origen.choices|length > 1 %}
+          <fieldset class="field form-grid__full" data-origenes>
+            <legend class="field__label">{{ form.origen.label }}</legend>
+            <div class="choice-group">
+              {% for radio in form.origen %}
+                <label class="choice" for="{{ radio.id_for_label }}">
+                  <input class="choice__input" type="radio" name="{{ radio.data.name }}" value="{{ radio.data.value }}" id="{{ radio.id_for_label }}"{% if radio.data.value == form.origen_actual %} checked{% endif %}>
+                  <span class="choice__box">{{ radio.choice_label }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% else %}
+          <input type="hidden" name="{{ form.origen.html_name }}" value="existente">
+        {% endif %}
+        <div class="form-grid__full" data-origen-panel="existente"{% if form.origen_actual != 'existente' %} hidden{% endif %}>
+          {% include "partials/field.html" with campo=form.materia %}
+        </div>
+        {% if form.puede_crear_materias %}
+          <div class="form-grid form-grid__full" data-origen-panel="nueva"{% if form.origen_actual != 'nueva' %} hidden{% endif %}>
+            {% include "partials/field.html" with campo=form.nueva_nombre %}
+            {% include "partials/field.html" with campo=form.nueva_clave %}
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="seccion-grados">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grados">Grados donde se imparte</h2>
+      </header>
+      <div class="card__body grade-picker{% if form.grados.errors %} is-invalid{% endif %}">
+        {% for nivel in form.grados_por_nivel %}
+          <fieldset class="grade-picker__level" data-nivel="{{ nivel.clave }}">
+            <div class="grade-picker__head">
+              <legend class="field__label">{{ nivel.nombre }}</legend>
+              <button type="button" class="btn btn--ghost btn--sm" data-nivel-todos>Todos</button>
+            </div>
+            <div class="choice-group">
+              {% for fila in nivel.filas %}
+                {% if fila.casilla %}
+                  <label class="choice choice--check" for="{{ fila.casilla.id_for_label }}" data-grado="{{ fila.grado.pk }}">
+                    {{ fila.casilla.tag }}
+                    <span class="choice__box">{{ fila.grado.numero }}°{% if fila.grado.equivalencia_distinta %} <span class="grade-picker__eq">{{ fila.grado.equivalencia_distinta }}</span>{% endif %}<span class="grade-picker__note" data-ya hidden></span></span>
+                  </label>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% empty %}
+          <p class="text-muted">No hay grados activos. Regístralos en «Grados».</p>
+        {% endfor %}
+        {% for error in form.grados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        <p class="field__hint">Los grados que ya tienen esta materia en el ciclo aparecen bloqueados: su profesor se cambia desde el mapa.</p>
+      </div>
+    </section>
+
+    {% if form.puede_asignar_profesores %}
+      <section class="card" aria-labelledby="seccion-profesor">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="presentation" %}<h2 class="card__title" id="seccion-profesor">Quién la imparte</h2>
+        </header>
+        <div class="card__body form-grid">
+          <div class="field form-grid__full{% if form.profesor.errors %} is-invalid{% endif %}" data-profesor-general>
+            <label class="field__label" for="{{ form.profesor.id_for_label }}">Profesor para los grados elegidos</label>
+            {{ form.profesor }}
+            <p class="field__hint" data-pista-habilitados hidden>Arriba van los profesores que pueden impartir esta materia.</p>
+            {% for error in form.profesor.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          <label class="switch-row form-grid__full" for="{{ form.por_grado.id_for_label }}">
+            <span class="switch-row__text">
+              <span class="switch-row__title">Un profesor distinto en cada grado</span>
+              <span class="switch-row__hint">Para cuando la misma materia la dan varias personas según el grado.</span>
+            </span>
+            <input class="switch" type="checkbox" name="{{ form.por_grado.html_name }}" id="{{ form.por_grado.id_for_label }}"{% if form.por_grado.value %} checked{% endif %} data-por-grado>
+          </label>
+          <div class="form-grid form-grid__full" data-profesores-por-grado{% if not form.por_grado.value %} hidden{% endif %}>
+            {% for nivel in form.grados_por_nivel %}
+              {% for fila in nivel.filas %}
+                <div class="field" data-fila-grado="{{ fila.grado.pk }}" hidden>
+                  <label class="field__label" for="{{ fila.profesor.id_for_label }}">{{ fila.grado }}</label>
+                  {{ fila.profesor }}
+                </div>
+              {% endfor %}
+            {% endfor %}
+          </div>
+          <p class="field__hint form-grid__full">Si una materia ya tiene horario y se empalma con otra clase del profesor, esa se queda sin profesor y se te avisa. Quien la imparta queda además en su lista de materias que puede dar.</p>
+        </div>
+      </section>
+    {% endif %}
+
+    <p class="form-summary" data-resumen aria-live="polite"></p>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'asignaciones:mapa' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary" data-submit>
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar asignación
+      </button>
+    </footer>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asignacion-form.js' %}" defer></script>
+{% endblock %}

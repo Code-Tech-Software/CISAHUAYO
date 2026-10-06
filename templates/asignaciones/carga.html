@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
 
-{% block title %}Carga por profesor | CISAHUAYO{% endblock %}
+{% block title %}Carga docente | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -9,14 +9,14 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:tablero' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">Asignaciones</a></li>
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Carga por profesor</span></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:mapa' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">Asignaciones académicas</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Carga docente</span></li>
 {% endblock %}
 
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Carga por profesor</h1>
+      <h1 class="page-header__title">Carga docente</h1>
       <p class="page-header__description">Cuántas materias y horas por semana tiene cada profesor en el ciclo, frente al máximo que le corresponde. Desde aquí puedes pasar sus clases a otra persona.</p>
     </div>
   </header>

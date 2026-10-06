@@ -40,6 +40,7 @@ class BaseUsuariosTestCase(BaseTestCase):
         super().setUpTestData()
         cls.docente = Rol.objects.get(grupo__name='Docente')
         cls.direccion = Rol.objects.get(grupo__name='Dirección')
+        cls.recepcion = Rol.objects.get(grupo__name='Recepción')
         cls.administrador = Rol.objects.get(acceso_total=True)
 
     def entrar_como(self, usuario):
@@ -154,20 +155,20 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
         self.assertFalse(Usuario.objects.filter(username='maria.nunez').exists())
 
     def test_crea_la_cuenta_con_rol_y_contrasena_temporal(self):
-        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente))
+        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion))
         self.assertRedirects(respuesta, reverse('usuarios:lista'), fetch_redirect_response=False)
         usuario = Usuario.objects.get(username='maria.nunez')
         self.assertEqual((usuario.first_name, usuario.last_name, usuario.email), ('María José', 'Núñez Ruiz', 'maria@example.com'))
         self.assertTrue(usuario.is_active)
         self.assertFalse(usuario.is_staff)
         self.assertFalse(usuario.is_superuser)
-        self.assertEqual(rol_de(usuario), self.docente)
+        self.assertEqual(rol_de(usuario), self.recepcion)
         perfil = usuario.perfil
         self.assertEqual((perfil.telefono, perfil.cargo), ('3531234567', 'Secretaria'))
         self.assertTrue(perfil.debe_cambiar_contrasena)
 
     def test_la_contrasena_temporal_se_muestra_una_sola_vez_y_funciona(self):
-        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente))
+        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion))
         temporal = self.client.session['credenciales_usuario']['contrasena']
         self.assertGreaterEqual(len(temporal), 8)
         usuario = Usuario.objects.get(username='maria.nunez')
@@ -181,19 +182,19 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
         self.assertNotIn(temporal, segunda)
 
     def test_avisa_con_un_mensaje_y_deja_bitacora(self):
-        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente), follow=True)
+        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion), follow=True)
         self.assertContains(respuesta, 'fue creada con el rol')
         usuario = Usuario.objects.get(username='maria.nunez')
         entrada = bitacora(usuario, ADDITION).get()
         self.assertEqual(entrada.user, self.admin)
-        self.assertIn('Docente', entrada.change_message)
+        self.assertIn('Recepción', entrada.change_message)
 
     def test_el_usuario_se_guarda_en_minusculas(self):
-        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente, username='Maria.Nunez'))
+        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion, username='Maria.Nunez'))
         self.assertTrue(Usuario.objects.filter(username='maria.nunez').exists())
 
     def test_responde_con_json_cuando_se_envia_desde_la_ventana(self):
-        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente), HTTP_X_MODAL_FORM='1')
+        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion), HTTP_X_MODAL_FORM='1')
         self.assertEqual(respuesta.json(), {'redirect': reverse('usuarios:lista')})
 
     def test_rechaza_datos_incorrectos(self):
@@ -210,7 +211,7 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
         }
         for nombre, (cambios, texto) in casos.items():
             with self.subTest(caso=nombre):
-                respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente, **cambios))
+                respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion, **cambios))
                 self.assertEqual(respuesta.status_code, 200)
                 self.assertContains(respuesta, texto)
         self.assertFalse(Usuario.objects.filter(username='maria.nunez').exists())
@@ -334,7 +335,7 @@ class EdicionDeUsuariosTests(BaseUsuariosTestCase):
     def test_pasar_de_administrador_a_otro_rol_quita_el_acceso_total(self):
         otra_admin = crear_usuario('otra_admin', self.administrador)
         self.assertTrue(otra_admin.is_superuser)
-        self.client.post(reverse('usuarios:editar', args=[otra_admin.pk]), self.datos(username='otra_admin', rol=self.docente.pk, email='', first_name='Otra_admin', last_name='Prueba'))
+        self.client.post(reverse('usuarios:editar', args=[otra_admin.pk]), self.datos(username='otra_admin', rol=self.recepcion.pk, email='', first_name='Otra_admin', last_name='Prueba'))
         otra_admin.refresh_from_db()
         self.assertFalse(otra_admin.is_superuser)
         self.assertFalse(otra_admin.is_staff)
@@ -364,9 +365,9 @@ class EdicionDeUsuariosTests(BaseUsuariosTestCase):
     def test_otro_administrador_si_puede_cambiarle_el_rol_al_segundo(self):
         segundo = crear_usuario('segundo', self.administrador)
         self.assertFalse(es_ultimo_administrador(segundo))
-        self.client.post(reverse('usuarios:editar', args=[segundo.pk]), self.datos(username='segundo', first_name='Segundo', last_name='Prueba', email='', rol=self.docente.pk))
+        self.client.post(reverse('usuarios:editar', args=[segundo.pk]), self.datos(username='segundo', first_name='Segundo', last_name='Prueba', email='', rol=self.recepcion.pk))
         segundo.refresh_from_db()
-        self.assertEqual(rol_de(segundo), self.docente)
+        self.assertEqual(rol_de(segundo), self.recepcion)
 
     def test_una_cuenta_antigua_con_usuario_en_mayusculas_se_puede_editar(self):
         antigua = Usuario.objects.create_user('Antigua', password='x', first_name='A', last_name='B')
@@ -747,13 +748,14 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         etiquetas = self.enlaces_del_menu(self.html_de(self.admin))
         self.assertEqual(etiquetas[0], 'Panel de control')
         for esperado in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias',
-                         'Asignaciones', 'Horarios', 'Asistencias', 'Usuarios', 'Roles y permisos'):
+                         'Asignaciones académicas', 'Carga docente', 'Horarios', 'Resumen del día', 'Pase de lista',
+                         'Pantalla de entrada', 'Usuarios', 'Roles y permisos', 'Ajustes de asistencia'):
             self.assertIn(esperado, etiquetas)
 
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
-            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias'},
-            'Recepción': {'Estudiantes', 'Asistencias'},
+            'Docente': {'Estudiantes', 'Tutores', 'Asignaciones académicas', 'Materias', 'Grados', 'Horarios', 'Pase de lista', 'Justificaciones'},
+            'Recepción': {'Estudiantes', 'Resumen del día', 'Justificaciones', 'Reportes', 'Pantalla de entrada'},
         }
         for nombre_rol, esperados in casos.items():
             with self.subTest(rol=nombre_rol):
@@ -765,20 +767,27 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         etiquetas = self.enlaces_del_menu(self.html_de(self.sin_permisos))
         self.assertEqual(etiquetas, ['Panel de control'])
 
+    def grupos_del_menu(self, html):
+        import re
+        return [t.strip() for t in re.findall(r'nav__label nav__label--group">([^<]+)<', html)]
+
     def test_las_secciones_vacias_no_se_dibujan(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
-        self.assertIn('Gestión escolar', html)
-        self.assertNotIn('Sistema', self.enlaces_del_menu(html))
-        import re
-        titulos = re.findall(r'nav__title[^>]*>([^<]+)<', html)
-        self.assertNotIn('Sistema', [t.strip() for t in titulos])
-        self.assertNotIn('Académico', [t.strip() for t in titulos])
+        self.assertIn('Estudiantes', self.enlaces_del_menu(html))
+        # Un grupo con una sola opción visible se dibuja como enlace directo; los grupos vacíos no aparecen
+        self.assertEqual(self.grupos_del_menu(html), [])
+
+    def test_los_grupos_con_varias_opciones_se_despliegan(self):
+        html = self.html_de(crear_usuario('lupita', crear_rol('Escolar', {'Alumnos.view_alumno', 'Alumnos.view_tutor'})))
+        self.assertEqual(self.grupos_del_menu(html), ['Control escolar'])
+        self.assertNotIn('Configuración', self.grupos_del_menu(html))
+        self.assertIn('data-nav-toggle', html)
 
     def test_el_tablero_ofrece_solo_accesos_permitidos(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
-        self.assertIn('tile__title">Estudiantes', html)
-        self.assertNotIn('tile__title">Tutores', html)
-        self.assertNotIn('tile__title">Usuarios', html)
+        self.assertIn('module__label">Estudiantes', html)
+        self.assertNotIn('module__label">Tutores', html)
+        self.assertNotIn('module__label">Usuarios', html)
 
     def test_asistencias_lleva_a_la_primera_pantalla_a_la_que_se_tiene_acceso(self):
         casos = [
@@ -818,7 +827,9 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_el_elemento_activo_sigue_marcandose(self):
         self.client.force_login(self.admin)
         html = self.client.get(reverse('usuarios:lista')).content.decode()
-        self.assertRegex(html, r'<a class="nav__link" href="/usuarios/" aria-current="page"')
+        self.assertRegex(html, r'<a class="nav__sublink" href="/usuarios/" aria-current="page"')
+        # y su grupo llega abierto
+        self.assertRegex(html, r'data-nav-group="configuracion">\s*<details class="nav__details" open>')
 
 
 # ---------------------------------------------------------------------------

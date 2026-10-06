@@ -195,7 +195,7 @@ class TableroTests(AsignacionesTestCase):
     def test_la_barra_de_asignacion_masiva_envia_a_asignar_con_la_pagina_de_regreso(self):
         respuesta = self.client.get(reverse('asignaciones:tablero'), {'estado': 'sin_profesor'})
         self.assertContains(respuesta, f'action="{reverse("profesores:asignar")}"')
-        self.assertContains(respuesta, 'value="/asignaciones/?estado=sin_profesor"')
+        self.assertContains(respuesta, 'value="/asignaciones/lista/?estado=sin_profesor"')
         self.assertContains(respuesta, 'data-masiva-fila', count=2)   # una casilla por materia que sigue en la lista filtrada
 
     def test_asignar_en_bloque_con_la_vista_de_asignar(self):

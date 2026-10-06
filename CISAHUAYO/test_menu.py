@@ -22,16 +22,41 @@ class MenuConRutasRealesTests(SimpleTestCase):
 
     def test_el_orden_del_menu(self):
         self.assertEqual(list(self.items), [
-            'Panel de control', 'Estudiantes', 'Tutores', 'Profesores', 'Inscripciones',
-            'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias', 'Usuarios', 'Roles y permisos',
+            'Panel de control',
+            'Estudiantes', 'Tutores', 'Inscripciones',
+            'Asignaciones académicas', 'Materias', 'Grados', 'Ciclos escolares', 'Horarios',
+            'Profesores', 'Carga docente',
+            'Resumen del día', 'Pase de lista', 'Justificaciones', 'Reportes', 'Pantalla de entrada',
+            'Usuarios', 'Roles y permisos', 'Ajustes de asistencia',
         ])
+
+    def test_los_grupos_del_menu(self):
+        grupos = [(s['titulo'], s['clave'], s['desplegable']) for s in self.contexto['navegacion']]
+        self.assertEqual(grupos, [
+            (None, '', False),
+            ('Control escolar', 'control', True),
+            ('Académico', 'academico', True),
+            ('Personal docente', 'personal', True),
+            ('Asistencias', 'asistencias', True),
+            ('Configuración', 'configuracion', True),
+        ])
+
+    def test_el_grupo_de_la_pagina_actual_queda_abierto(self):
+        contexto = navegacion(RequestFactory().get('/materias/3/'))
+        abiertos = [s['titulo'] for s in contexto['navegacion'] if s['activo']]
+        self.assertEqual(abiertos, ['Académico'])
+        self.assertEqual([s['titulo'] for s in self.contexto['navegacion'] if s['activo']], [None])   # en el panel, ninguno
 
     def test_urls_de_las_secciones(self):
         self.assertEqual(
-            {k: self.items[k]['url'] for k in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias')},
+            {k: self.items[k]['url'] for k in (
+                'Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias',
+                'Asignaciones académicas', 'Carga docente', 'Horarios', 'Resumen del día', 'Pase de lista', 'Ajustes de asistencia',
+            )},
             {'Estudiantes': '/alumnos/', 'Tutores': '/tutores/', 'Profesores': '/profesores/', 'Inscripciones': '/inscripciones/',
-             'Ciclos escolares': '/ciclos/', 'Grados': '/grados/', 'Materias': '/materias/', 'Asignaciones': '/asignaciones/',
-             'Horarios': '/horarios/', 'Asistencias': '/asistencias/'},
+             'Ciclos escolares': '/ciclos/', 'Grados': '/grados/', 'Materias': '/materias/', 'Asignaciones académicas': '/asignaciones/',
+             'Carga docente': '/asignaciones/profesores/', 'Horarios': '/horarios/', 'Resumen del día': '/asistencias/',
+             'Pase de lista': '/asistencias/clases/', 'Ajustes de asistencia': '/asistencias/ajustes/'},
         )
 
     def test_las_acciones_rapidas_existen_todas(self):
@@ -45,7 +70,11 @@ class MenuConRutasRealesTests(SimpleTestCase):
     def test_cada_seccion_se_activa_en_su_ruta(self):
         for ruta, etiqueta in (('/materias/3/', 'Materias'), ('/horarios/grado/2/', 'Horarios'), ('/ciclos/', 'Ciclos escolares'),
                                ('/grados/1/', 'Grados'), ('/inscripciones/promocion/', 'Inscripciones'), ('/profesores/4/', 'Profesores'),
-                               ('/asistencias/', 'Asistencias'), ('/asistencias/clases/3/', 'Asistencias'), ('/asistencias/entrada/', 'Asistencias')):
+                               ('/asistencias/', 'Resumen del día'), ('/asistencias/dia/', 'Resumen del día'),
+                               ('/asistencias/clases/3/', 'Pase de lista'), ('/asistencias/entrada/', 'Pantalla de entrada'),
+                               ('/asistencias/ajustes/', 'Ajustes de asistencia'), ('/asignaciones/', 'Asignaciones académicas'),
+                               ('/asignaciones/lista/', 'Asignaciones académicas'), ('/asignaciones/nueva/', 'Asignaciones académicas'),
+                               ('/asignaciones/profesores/', 'Carga docente')):
             contexto = navegacion(RequestFactory().get(ruta))
             activos = [el['etiqueta'] for s in contexto['navegacion'] for el in s['elementos'] if el['activo']]
             self.assertEqual(activos, [etiqueta], ruta)

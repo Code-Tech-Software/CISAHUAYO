@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Asignaciones académicas | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Asignaciones académicas</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Asignaciones académicas</h1>
+      <p class="page-header__description">Qué profesor imparte cada materia, en qué grado y en qué ciclo. Toca una celda para elegir al profesor o para agregar la materia a ese grado.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if ciclo and perms.Alumnos.add_materiagrado %}
+        <a class="btn" href="{% url 'materias:copiar' %}?destino={{ ciclo.pk }}">
+          {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar plan de otro ciclo
+        </a>
+      {% endif %}
+      {% if editable and perms.Alumnos.add_materiagrado %}
+        <a class="btn btn--primary" href="{% url 'asignaciones:nueva' %}?ciclo={{ ciclo.pk }}" data-modal-form data-modal-tam="lg">
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Nueva asignación
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "asignaciones/_pestanas.html" %}
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Crea un ciclo para armar su plan de materias y elegir quién imparte cada una.</p>
+        {% if perms.Alumnos.add_cicloescolar %}
+          <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% if not editable %}
+      <div class="alert alert--info alert--spaced" role="note">
+        {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+        <p class="alert__body">El ciclo {{ ciclo }} está cerrado: su plan y sus profesores se conservan tal como quedaron.</p>
+      </div>
+    {% endif %}
+
+    <div class="stat-grid">
+      <div class="stat">
+        <p class="stat__label">Materias con profesor</p>
+        <p class="stat__value">{{ resumen.avance }}%</p>
+        <progress class="meter" max="100" value="{{ resumen.avance }}" aria-label="Materias del ciclo que ya tienen profesor">{{ resumen.avance }}%</progress>
+        <p class="stat__hint">{{ resumen.con_profesor }} de {{ resumen.materias }} en {{ ciclo }}</p>
+      </div>
+      <div class="stat{% if resumen.sin_profesor %} stat--attention{% endif %}">
+        <p class="stat__label">Sin profesor</p>
+        <p class="stat__value">{{ resumen.sin_profesor }}</p>
+        <p class="stat__hint">{% if resumen.sin_profesor %}<a class="link-subtle" href="{% url 'asignaciones:tablero' %}?ciclo={{ ciclo.pk }}&amp;estado=sin_profesor">Ver cuáles</a>{% else %}Todo asignado{% endif %}</p>
+      </div>
+      <div class="stat{% if resumen.sin_horario %} stat--attention{% endif %}">
+        <p class="stat__label">Sin horario</p>
+        <p class="stat__value">{{ resumen.sin_horario }}</p>
+        <p class="stat__hint">{% if resumen.sin_horario %}<a class="link-subtle" href="{% url 'asignaciones:tablero' %}?ciclo={{ ciclo.pk }}&amp;estado=sin_horario">Ver cuáles</a>{% else %}Todo con horario{% endif %}</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Profesores sin clases</p>
+        <p class="stat__value">{{ resumen.profesores_libres }}</p>
+        <p class="stat__hint">de {{ resumen.profesores }} activo{{ resumen.profesores|pluralize }}</p>
+      </div>
+    </div>
+
+    <form class="filters filters--compact" method="get" role="search" aria-label="Filtrar el mapa" data-autosubmit>
+      <div class="filters__search">
+        <label class="visually-hidden" for="mapa-buscar">Buscar materia</label>
+        {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+        <input class="field__control" type="search" id="mapa-buscar" name="q" value="{{ buscar }}" placeholder="Buscar materia o clave…" autocomplete="off">
+      </div>
+      {% if ciclos|length > 1 %}
+        <div class="filters__field">
+          <label class="visually-hidden" for="mapa-ciclo">Ciclo escolar</label>
+          <select class="field__control field__control--select" id="mapa-ciclo" name="ciclo">
+            {% for c in ciclos %}
+              <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% else %}
+        <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+      {% endif %}
+      <div class="filters__field">
+        <label class="visually-hidden" for="mapa-nivel">Nivel</label>
+        <select class="field__control field__control--select" id="mapa-nivel" name="nivel">
+          <option value="">Todos los niveles</option>
+          {% for clave, nombre in niveles %}
+            <option value="{{ clave }}"{% if clave == nivel %} selected{% endif %}>{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filters__actions">
+        <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Ver</button>
+        {% if buscar or nivel %}<a class="btn btn--ghost btn--sm" href="{% url 'asignaciones:mapa' %}?ciclo={{ ciclo.pk }}">Limpiar</a>{% endif %}
+      </div>
+    </form>
+
+    {% if filas and columnas %}
+      <div class="plan-map" role="region" aria-label="Mapa de asignaciones del ciclo {{ ciclo }}" tabindex="0">
+        <table class="plan-map__table">
+          <caption class="visually-hidden">Profesor de cada materia en cada grado durante el ciclo {{ ciclo }}</caption>
+          <thead>
+            <tr>
+              <th class="plan-map__corner" scope="col" rowspan="2">Materia</th>
+              {% for grupo in grupos_de_nivel %}
+                <th class="plan-map__level" scope="colgroup" colspan="{{ grupo.total }}">{{ grupo.nombre }}</th>
+              {% endfor %}
+            </tr>
+            <tr>
+              {% for columna in columnas %}
+                <th class="plan-map__grade{% if not columna.grado.activo %} is-inactive{% endif %}" scope="col">
+                  {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ columna.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ columna.grado.numero }}°</a>{% else %}{{ columna.grado.numero }}°{% endif %}
+                  {% if columna.grado.equivalencia_distinta %}<span class="plan-map__eq">{{ columna.grado.equivalencia_distinta }}</span>{% endif %}
+                </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in filas %}
+              <tr>
+                <th class="plan-map__subject" scope="row">
+                  <div class="plan-map__subject-inner">
+                  <span class="plan-map__subject-text">
+                    {% if perms.Alumnos.view_materia %}<a class="link-subtle" href="{{ fila.materia.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.materia.nombre }}</a>{% else %}{{ fila.materia.nombre }}{% endif %}
+                    <span class="plan-map__code">{{ fila.materia.clave }} · {{ fila.en_plan }} grado{{ fila.en_plan|pluralize }}</span>
+                  </span>
+                  {% if editable and perms.Alumnos.add_materiagrado and fila.materia.activa %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'asignaciones:nueva' %}?ciclo={{ ciclo.pk }}&amp;materia={{ fila.materia.pk }}"
+                       data-modal-form data-modal-tam="lg" aria-label="Agregar {{ fila.materia.nombre }} a varios grados" data-tooltip="Agregar a varios grados">
+                      {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+                    </a>
+                  {% endif %}
+                  </div>
+                </th>
+                {% for celda in fila.celdas %}
+                  {% with asignacion=celda.asignacion %}
+                    <td class="plan-map__cell">
+                      {% if asignacion %}
+                        {% if editable and perms.Alumnos.change_materiagrado %}
+                          <button type="button" class="plan-chip{% if asignacion.profesor %} plan-chip--tone-{{ asignacion.tono }}{% else %} is-pending{% endif %}"
+                                  data-modal-open="modal-asignar-profesor" data-asignar-profesor
+                                  data-asignacion="{{ asignacion.pk }}" data-descripcion="{{ asignacion.materia }} de {{ asignacion.grado }}"
+                                  data-profesor="{{ asignacion.profesor_id|default_if_none:'' }}" data-habilitados="{{ asignacion.habilitados }}"
+                                  aria-label="{{ asignacion.materia.nombre }} de {{ asignacion.grado }}: {% if asignacion.profesor %}{{ asignacion.profesor }}. Cambiar profesor{% else %}sin profesor. Asignar profesor{% endif %}"
+                                  data-tooltip="{% if asignacion.profesor %}{{ asignacion.profesor }}{% else %}Sin profesor{% endif %}{% if asignacion.duracion %} · {{ asignacion.duracion }} por semana{% else %} · sin horario{% endif %}">
+                            {% if asignacion.profesor %}{{ asignacion.profesor.nombre_corto }}{% else %}Sin profesor{% endif %}
+                          </button>
+                        {% else %}
+                          <span class="plan-chip{% if asignacion.profesor %} plan-chip--tone-{{ asignacion.tono }}{% else %} is-pending{% endif %}"
+                                title="{% if asignacion.profesor %}{{ asignacion.profesor }}{% else %}Sin profesor{% endif %}">
+                            {% if asignacion.profesor %}{{ asignacion.profesor.nombre_corto }}{% else %}Sin profesor{% endif %}
+                          </span>
+                        {% endif %}
+                      {% elif editable and perms.Alumnos.add_materiagrado and celda.grado.activo and fila.materia.activa %}
+                        <a class="plan-map__add" href="{% url 'asignaciones:nueva' %}?ciclo={{ ciclo.pk }}&amp;materia={{ fila.materia.pk }}&amp;grado={{ celda.grado.pk }}"
+                           data-modal-form data-modal-tam="lg" aria-label="Agregar {{ fila.materia.nombre }} a {{ celda.grado }}">
+                          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+                        </a>
+                      {% else %}
+                        <span class="plan-map__none" aria-label="No se imparte">—</span>
+                      {% endif %}
+                    </td>
+                  {% endwith %}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th class="plan-map__subject" scope="row">Por grado</th>
+              {% for columna in columnas %}
+                <td class="plan-map__total">
+                  <span>{{ columna.materias }} materia{{ columna.materias|pluralize }}</span>
+                  {% if columna.sin_profesor %}<span class="plan-map__warn">{{ columna.sin_profesor }} sin profesor</span>{% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {% if leyenda %}
+        <ul class="plan-legend" aria-label="Profesores en el mapa">
+          {% for entrada in leyenda %}
+            <li class="plan-legend__item">
+              <span class="plan-chip plan-chip--tone-{{ entrada.tono }} plan-chip--dot" aria-hidden="true"></span>
+              {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ entrada.profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ entrada.profesor }}</a>{% else %}{{ entrada.profesor }}{% endif %}
+            </li>
+          {% endfor %}
+          <li class="plan-legend__item"><span class="plan-chip is-pending plan-chip--dot" aria-hidden="true"></span> Sin profesor</li>
+        </ul>
+      {% endif %}
+    {% elif buscar or nivel %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">No hay materias con ese filtro</p>
+          <a class="btn btn--sm" href="{% url 'asignaciones:mapa' %}?ciclo={{ ciclo.pk }}">Limpiar filtros</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="book-open" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">Faltan materias o grados</p>
+          <p class="empty-state__text">Registra las materias y los grados del colegio; después aquí armas el plan y eliges quién imparte cada una.</p>
+          {% if editable and perms.Alumnos.add_materiagrado %}
+            <a class="btn btn--primary btn--sm" href="{% url 'asignaciones:nueva' %}?ciclo={{ ciclo.pk }}" data-modal-form data-modal-tam="lg">Nueva asignación</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if editable and perms.Alumnos.change_materiagrado %}
+      {% include "profesores/_modal_asignar.html" with ancla="" %}
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/profesores.js' %}" defer></script>
+{% endblock %}

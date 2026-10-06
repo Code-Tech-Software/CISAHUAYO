@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
 
-{% block title %}Asignaciones | CISAHUAYO{% endblock %}
+{% block title %}Lista de asignaciones | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -9,20 +9,26 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Asignaciones</span></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:mapa' %}">Asignaciones académicas</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Lista</span></li>
 {% endblock %}
 
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Asignaciones</h1>
-      <p class="page-header__description">Qué profesor imparte cada materia en cada grado. Asigna de una en una o marca varias y asígnalas de golpe.</p>
+      <h1 class="page-header__title">Asignaciones académicas</h1>
+      <p class="page-header__description">Todas las materias del ciclo en una lista con filtros. Asigna de una en una o marca varias y asígnalas de golpe.</p>
     </div>
     <div class="page-header__actions">
       {% if pagina.paginator.count %}
         <a class="btn" href="{% url 'asignaciones:exportar' %}{% querystring page=None por_pagina=None %}">
           {% include "partials/icon.html" with name="download" icon_class="icon--sm" %}
           Exportar CSV
+        </a>
+      {% endif %}
+      {% if editable and perms.Alumnos.add_materiagrado %}
+        <a class="btn btn--primary" href="{% url 'asignaciones:nueva' %}?ciclo={{ ciclo.pk }}" data-modal-form data-modal-tam="lg">
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Nueva asignación
         </a>
       {% endif %}
     </div>

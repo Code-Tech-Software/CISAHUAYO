@@ -31,6 +31,10 @@ class Rol(models.Model):
         default=False,
         help_text='Quien tiene este rol puede hacer todo en el sistema (y entrar a la administración de Django).',
     )
+    es_docente = models.BooleanField(
+        'rol para docentes', default=False,
+        help_text='Las cuentas con este rol son de profesores: al crearlas se registra o se vincula su ficha de profesor.',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

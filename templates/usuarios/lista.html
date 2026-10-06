@@ -101,7 +101,12 @@
                   </span>
                 </a>
               </td>
-              <td class="table__cell" data-label="Rol">{% include "usuarios/_rol.html" with rol=usuario.rol_actual %}</td>
+              <td class="table__cell" data-label="Rol">
+                <span class="cell-stack">
+                  <span class="cell-stack__main">{% include "usuarios/_rol.html" with rol=usuario.rol_actual %}</span>
+                  {% if usuario.profesor %}<span class="cell-stack__sub">Ficha de profesor vinculada</span>{% elif usuario.rol_actual.es_docente %}<span class="cell-stack__sub">Sin ficha de profesor</span>{% endif %}
+                </span>
+              </td>
               <td class="table__cell table__col--wide" data-label="Contacto">
                 {% if usuario.email or usuario.perfil.telefono %}
                   <span class="cell-stack">

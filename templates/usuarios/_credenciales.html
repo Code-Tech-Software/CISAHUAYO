@@ -1,6 +1,6 @@
 {% comment %}
   Credenciales temporales de una cuenta. Se muestran una sola vez: la contraseña se guarda cifrada y no puede
-  recuperarse después (si se pierde, se restablece). Parámetro: credenciales (nombre, url, usuario, contrasena, titulo).
+  recuperarse después (si se pierde, se restablece). Parámetro: credenciales (nombre, url, usuario, contrasena, titulo, etiqueta).
 {% endcomment %}
 <section class="credentials" aria-labelledby="credenciales-titulo">
   <span class="credentials__icon">{% include "partials/icon.html" with name="key" icon_class="icon--lg" %}</span>
@@ -8,11 +8,11 @@
     <h2 class="credentials__title" id="credenciales-titulo">{{ credenciales.titulo|default:"Credenciales de acceso" }}</h2>
     <p class="credentials__text">
       Para <strong>{{ credenciales.nombre }}</strong>. Entrégalas ahora: por seguridad la contraseña <strong>no se volverá a mostrar</strong>.
-      Es temporal: al entrar por primera vez el sistema le pedirá elegir una propia.
+      Al entrar por primera vez el sistema le pedirá elegir una propia.
     </p>
     <dl class="credentials__list">
       <div><dt class="credentials__label">Usuario</dt><dd class="credentials__value">{{ credenciales.usuario }}</dd></div>
-      <div><dt class="credentials__label">Contraseña temporal</dt><dd class="credentials__value" id="credencial-contrasena">{{ credenciales.contrasena }}</dd></div>
+      <div><dt class="credentials__label">{{ credenciales.etiqueta|default:"Contraseña temporal" }}</dt><dd class="credentials__value" id="credencial-contrasena">{{ credenciales.contrasena }}</dd></div>
     </dl>
   </div>
   <div class="credentials__actions">

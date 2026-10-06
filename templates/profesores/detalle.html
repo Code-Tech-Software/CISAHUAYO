@@ -62,6 +62,7 @@
         </div>
         <div class="identity__fact"><dt>Cédula</dt><dd>{{ profesor.cedula_profesional|default:"—" }}</dd></div>
         <div class="identity__fact"><dt>Ingreso</dt><dd>{% if profesor.fecha_ingreso %}{{ profesor.fecha_ingreso|date:"j M Y" }}{% else %}—{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Acceso</dt><dd>{% if cuenta %}{{ cuenta.username }}{% if not cuenta.is_active %} <span class="text-muted">(desactivada)</span>{% endif %}{% else %}<span class="text-muted">Sin cuenta</span>{% endif %}</dd></div>
         <div class="identity__fact"><dt>Horas por semana</dt><dd>{{ horas_semanales|default:"—" }}{% if profesor.horas_maximas %} <span class="text-muted">de {{ profesor.horas_maximas }} h</span>{% endif %}</dd></div>
       </dl>
     </section>
@@ -152,6 +153,37 @@
             {% include "alumnos/_dato.html" with etiqueta="Ingreso al colegio" valor=profesor.fecha_ingreso|date:"j \d\e F \d\e Y" %}
             {% include "alumnos/_dato.html" with etiqueta="Especialidad" valor=profesor.especialidad ancho=True %}
           </dl>
+        </article>
+
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="key" %}<h2 class="card__title">Acceso al sistema</h2>
+          </header>
+          {% if cuenta %}
+            <dl class="details card__body">
+              {% include "alumnos/_dato.html" with etiqueta="Usuario" valor=cuenta.username %}
+              {% include "alumnos/_dato.html" with etiqueta="Rol" valor=rol_cuenta.nombre|default:"Sin rol" %}
+              {% include "alumnos/_dato.html" with etiqueta="Estado" valor=cuenta.is_active|yesno:"Activa,Desactivada" %}
+              {% include "alumnos/_dato.html" with etiqueta="Último acceso" valor=cuenta.last_login|date:"j \d\e F \d\e Y, H:i"|default:"Nunca ha entrado" %}
+            </dl>
+            {% if perms.auth.view_user or puede_desvincular %}
+              <div class="card__body card__actions">
+                {% if perms.auth.view_user %}<a class="btn btn--sm" href="{% url 'usuarios:detalle' cuenta.pk %}">Ver su cuenta</a>{% endif %}
+                {% if puede_desvincular %}
+                  <button type="button" class="btn btn--ghost btn--sm" data-modal-open="modal-desvincular">Desvincular cuenta</button>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="card__body">
+              <p class="text-muted card__lead">No tiene cuenta: no puede entrar al sistema. Con una cuenta propia podría, por ejemplo, pasar lista en sus clases.</p>
+              {% if puede_dar_acceso %}
+                <a class="btn btn--primary btn--sm" href="{% url 'profesores:editar' profesor.pk %}?acceso=1" data-modal-form>
+                  {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Dar acceso al sistema
+                </a>
+              {% endif %}
+            </div>
+          {% endif %}
         </article>
 
         {% if profesor.observaciones %}
@@ -477,11 +509,39 @@
               </label>
             </div>
           {% endif %}
+          {% if puede_desactivar_cuenta %}
+            <div class="choice-group">
+              <label class="choice choice--check" for="desactivar-cuenta">
+                <input class="choice__input" type="checkbox" name="desactivar_cuenta" id="desactivar-cuenta" checked>
+                <span class="choice__box">También desactivar su cuenta «{{ cuenta.username }}»</span>
+              </label>
+            </div>
+          {% endif %}
           <p class="text-muted">Es una baja lógica: no se borra nada. Su registro y el historial de los ciclos cerrados se conservan y podrás reactivarlo desde el filtro «Bajas».</p>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>
           <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
+  {% if puede_desvincular %}
+    <dialog class="modal" id="modal-desvincular" aria-labelledby="modal-desvincular-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'profesores:desvincular_cuenta' profesor.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-desvincular-titulo">Desvincular su cuenta</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>La cuenta <strong>{{ cuenta.username }}</strong> dejará de estar unida a la ficha de <strong>{{ profesor }}</strong>.</p>
+          <p class="text-muted">No se borra ni se desactiva nada: sirve para corregir una vinculación equivocada. Si ya no se usará, desactívala en «Usuarios».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Desvincular</button>
         </footer>
       </form>
     </dialog>

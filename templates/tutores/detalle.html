@@ -25,7 +25,7 @@
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ tutor.get_estatus_display }}</span>
             {% if tutor.ocupacion %}<span>{{ tutor.ocupacion }}</span>{% endif %}
-            <span class="text-muted">{{ total_vigentes }} alumno{{ total_vigentes|pluralize }} vigente{{ total_vigentes|pluralize }}</span>
+            <span class="text-muted">{{ total_vigentes }} estudiante{{ total_vigentes|pluralize }} vigente{{ total_vigentes|pluralize }}</span>
           </p>
         </div>
 
@@ -70,7 +70,7 @@
   {% if esta_de_baja %}
     <div class="alert alert--error alert--spaced" role="note">
       {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
-      <p class="alert__body"><strong>Tutor dado de baja.</strong> No aparece en el listado principal ni se ofrece al vincular alumnos. Su registro y sus vínculos se conservan.</p>
+      <p class="alert__body"><strong>Tutor dado de baja.</strong> No aparece en el listado principal ni se ofrece al vincular estudiantes. Su registro y sus vínculos se conservan.</p>
       {% if perms.Alumnos.change_tutor %}
         <form method="post" action="{% url 'tutores:reactivar' tutor.pk %}">
           {% csrf_token %}
@@ -84,7 +84,7 @@
     <div class="tabs__list" role="tablist" aria-label="Secciones del perfil">
       <button type="button" class="tabs__tab" role="tab" id="tab-resumen" aria-controls="resumen" aria-selected="true">Resumen</button>
       <button type="button" class="tabs__tab" role="tab" id="tab-alumnos" aria-controls="alumnos" aria-selected="false">
-        Alumnos <span class="tabs__count">{{ vinculos|length }}</span>
+        Estudiantes <span class="tabs__count">{{ vinculos|length }}</span>
       </button>
     </div>
 
@@ -155,7 +155,7 @@
       {% if perms.Alumnos.change_tutor and not esta_de_baja %}
         <div class="panel-actions">
           <button type="button" class="btn btn--sm" data-modal-open="modal-vincular" data-link-new>
-            {% include "partials/icon.html" with name="link" icon_class="icon--sm" %} Vincular alumno
+            {% include "partials/icon.html" with name="link" icon_class="icon--sm" %} Vincular estudiante
           </button>
         </div>
       {% endif %}
@@ -226,10 +226,10 @@
         <div class="card">
           <div class="empty-state">
             {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-            <p class="empty-state__title">Este tutor aún no tiene alumnos</p>
-            <p class="empty-state__text">Vincúlalo con los alumnos que tiene a su cargo para que reciba sus avisos.</p>
+            <p class="empty-state__title">Este tutor aún no tiene estudiantes</p>
+            <p class="empty-state__text">Vincúlalo con los estudiantes que tiene a su cargo para que reciba sus avisos.</p>
             {% if perms.Alumnos.change_tutor and not esta_de_baja %}
-              <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-vincular" data-link-new>Vincular alumno</button>
+              <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-vincular" data-link-new>Vincular estudiante</button>
             {% endif %}
           </div>
         </div>
@@ -247,14 +247,14 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p><strong>{{ tutor }}</strong> dejará de aparecer en el listado principal y no se ofrecerá al vincular alumnos.</p>
+          <p><strong>{{ tutor }}</strong> dejará de aparecer en el listado principal y no se ofrecerá al vincular estudiantes.</p>
           {% if sin_otro_tutor %}
             <div class="alert alert--warning" role="note">
               {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-              <p class="alert__body">{{ sin_otro_tutor }} alumno{{ sin_otro_tutor|pluralize }} se quedar{{ sin_otro_tutor|pluralize:"á,án" }} sin ningún tutor vigente. Conviene vincularles otro tutor.</p>
+              <p class="alert__body">{{ sin_otro_tutor }} estudiante{{ sin_otro_tutor|pluralize }} se quedar{{ sin_otro_tutor|pluralize:"á,án" }} sin ningún tutor vigente. Conviene vincularles otro tutor.</p>
             </div>
           {% endif %}
-          <p class="text-muted">Es una baja lógica: no se borra nada. Su registro y sus vínculos se conservan y podrás reactivarlo desde el filtro «Bajas». Si era el tutor principal de algún alumno, otro tutor vigente tomará su lugar.</p>
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su registro y sus vínculos se conservan y podrás reactivarlo desde el filtro «Bajas». Si era el tutor principal de algún estudiante, otro tutor vigente tomará su lugar.</p>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>
@@ -269,20 +269,20 @@
       <form class="modal__panel" method="post" action="{% url 'tutores:vincular' tutor.pk %}" novalidate>
         {% csrf_token %}
         <header class="modal__header">
-          <h2 class="modal__title" id="modal-vincular-titulo" data-link-title>Vincular alumno</h2>
+          <h2 class="modal__title" id="modal-vincular-titulo" data-link-title>Vincular estudiante</h2>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
           {{ vinculo_form.alumno }}
 
           <div class="live-search" data-link-search>
-            <label class="field__label field__label--required" for="buscar-alumno">Alumno</label>
+            <label class="field__label field__label--required" for="buscar-alumno">Estudiante</label>
             <div class="live-search__field">
               {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
               <input class="field__control live-search__input" id="buscar-alumno" type="text" role="combobox" aria-expanded="false"
                      aria-controls="resultados-alumno" aria-autocomplete="list" autocomplete="off" spellcheck="false"
                      placeholder="Buscar por nombre, referencia o CURP…" data-link-search-input>
-              <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Alumnos encontrados" data-link-results hidden></div>
+              <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Estudiantes encontrados" data-link-results hidden></div>
             </div>
           </div>
 
@@ -290,11 +290,11 @@
             <span class="avatar avatar--tone-1" data-link-chosen-avatar aria-hidden="true"></span>
             <div class="chosen__text">
               <p class="chosen__name" data-link-chosen-name></p>
-              <p class="chosen__meta">Alumno seleccionado</p>
+              <p class="chosen__meta">Estudiante seleccionado</p>
             </div>
             <button type="button" class="btn btn--sm" data-link-change>Cambiar</button>
           </div>
-          <p class="field__error" data-link-alumno-error hidden>Busca y elige un alumno.</p>
+          <p class="field__error" data-link-alumno-error hidden>Busca y elige un estudiante.</p>
 
           <div class="form-grid">
             {% include "partials/field.html" with campo=vinculo_form.parentesco clase="form-grid__full" %}
@@ -309,7 +309,7 @@
               {% include "partials/chip.html" with campo=vinculo_form.responsable_pagos %}
               {% include "partials/chip.html" with campo=vinculo_form.activo %}
             </div>
-            <p class="field__hint">Si el alumno no tiene otro tutor principal vigente, este quedará como principal.</p>
+            <p class="field__hint">Si el estudiante no tiene otro tutor principal vigente, este quedará como principal.</p>
           </fieldset>
           {% include "partials/field.html" with campo=vinculo_form.observaciones %}
         </div>
@@ -325,11 +325,11 @@
         {% csrf_token %}
         <input type="hidden" name="vinculo" data-unlink-id>
         <header class="modal__header">
-          <h2 class="modal__title" id="modal-desvincular-titulo">Desvincular alumno</h2>
+          <h2 class="modal__title" id="modal-desvincular-titulo">Desvincular estudiante</h2>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p><strong>{{ tutor }}</strong> dejará de ser tutor vigente de <strong data-unlink-name>este alumno</strong>.</p>
+          <p><strong>{{ tutor }}</strong> dejará de ser tutor vigente de <strong data-unlink-name>este estudiante</strong>.</p>
           <p class="text-muted">El vínculo se conserva como inactivo y puedes reactivarlo cuando quieras. Si era el tutor principal, otro tutor vigente tomará su lugar.</p>
         </div>
         <footer class="modal__footer">

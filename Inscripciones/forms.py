@@ -19,7 +19,7 @@ class InscripcionForm(EstiloCamposMixin, forms.ModelForm):
     alumno = forms.ModelChoiceField(
         Alumno.objects.all(),
         widget=forms.HiddenInput,
-        error_messages={'required': 'Busca y elige un alumno.', 'invalid_choice': 'Elige un alumno de la lista.'},
+        error_messages={'required': 'Busca y elige un estudiante.', 'invalid_choice': 'Elige un estudiante de la lista.'},
     )
 
     class Meta:
@@ -83,15 +83,15 @@ class InscripcionForm(EstiloCamposMixin, forms.ModelForm):
 class FiltroInscripcionesForm(EstiloCamposMixin, forms.Form):
     ORDEN_ALUMNO = ('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')
     ORDEN_CHOICES = [
-        ('alumno', 'Alumno (A-Z)'),
-        ('-alumno', 'Alumno (Z-A)'),
+        ('alumno', 'Estudiante (A-Z)'),
+        ('-alumno', 'Estudiante (Z-A)'),
         ('grado', 'Grado'),
         ('-reciente', 'Inscripción más reciente'),
         ('antigua', 'Inscripción más antigua'),
     ]
 
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
-        'type': 'search', 'placeholder': 'Nombre, referencia o CURP del alumno…', 'autocomplete': 'off',
+        'type': 'search', 'placeholder': 'Nombre, referencia o CURP del estudiante…', 'autocomplete': 'off',
     }))
     ciclo = CicloChoiceField(CicloEscolar.objects.all(), required=False, empty_label='Todos los ciclos', label='Ciclo escolar')
     grado = GradoChoiceField(Grado.objects.academicos(), required=False, empty_label='Todos los grados', label='Grado')

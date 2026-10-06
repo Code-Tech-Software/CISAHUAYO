@@ -207,7 +207,7 @@ class InicioTests(BaseAsistenciaTestCase):
         self.inscripcion.activa = self.a2.activa = self.a3.activa = self.otro.activa = False
         for i in (self.inscripcion, self.a2, self.a3, self.otro):
             i.save()
-        self.assertContains(self.inicio(), 'No hay alumnos inscritos este día')
+        self.assertContains(self.inicio(), 'No hay estudiantes inscritos este día')
 
     def test_un_dia_fuera_de_los_ciclos(self):
         self.assertContains(self.inicio(fecha=(lunes() - timedelta(days=700)).isoformat()), 'fuera de los ciclos escolares')

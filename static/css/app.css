@@ -1675,6 +1675,11 @@ body {
   box-shadow: var(--shadow-xs);
 }
 
+/* Una tarjeta que sigue a otra en la misma página: deja aire entre las dos */
+.card--stacked {
+  margin-top: var(--space-6);
+}
+
 .card__header {
   padding: var(--space-4) var(--space-5);
   border-bottom: var(--border);
@@ -2341,6 +2346,10 @@ body {
   display: flex;
   justify-content: flex-end;
   margin-bottom: var(--space-4);
+}
+
+.panel-intro {
+  margin: 0 0 var(--space-4);
 }
 
 .card__foot {
@@ -3212,6 +3221,22 @@ body {
 .meter::-moz-progress-bar {
   border-radius: var(--radius-full);
   background: var(--color-primary);
+}
+
+.meter--warning::-webkit-progress-value {
+  background: var(--color-warning);
+}
+
+.meter--warning::-moz-progress-bar {
+  background: var(--color-warning);
+}
+
+.meter--danger::-webkit-progress-value {
+  background: var(--color-danger);
+}
+
+.meter--danger::-moz-progress-bar {
+  background: var(--color-danger);
 }
 
 /* --- Card: encabezado con icono ---------------------------------------------------------------------------- */

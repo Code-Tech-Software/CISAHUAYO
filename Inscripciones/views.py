@@ -308,7 +308,7 @@ def _ejecutar_promocion(request):
         messages.error(request, 'Alguno de los grados de destino ya no está disponible. Revisa la vista previa y vuelve a intentarlo.')
         return _volver_a_promocion(request, origen, destino)
     if 'egresar' in decisiones.values() and not request.user.has_perm('Alumnos.change_alumno'):
-        messages.error(request, 'No tienes permiso para marcar alumnos como egresados.')
+        messages.error(request, 'No tienes permiso para marcar estudiantes como egresados.')
         return _volver_a_promocion(request, origen, destino)
 
     nuevas, egresan = [], []
@@ -330,16 +330,16 @@ def _ejecutar_promocion(request):
             if egresan:
                 Alumno.objects.filter(pk__in=egresan, estatus='ACTIVO').update(estatus='EGRESADO')
     except IntegrityError:  # alguien inscribió a uno de ellos mientras tanto
-        messages.error(request, 'Mientras revisabas, otra persona inscribió a alguno de estos alumnos. No se guardó nada: vuelve a revisar.')
+        messages.error(request, 'Mientras revisabas, otra persona inscribió a alguno de estos estudiantes. No se guardó nada: vuelve a revisar.')
         return _volver_a_promocion(request, origen, destino)
 
     partes = []
     if nuevas:
-        partes.append(f'Se reinscribió a {len(nuevas)} alumno{"s" if len(nuevas) != 1 else ""} en {destino}.')
+        partes.append(f'Se reinscribió a {len(nuevas)} estudiante{"s" if len(nuevas) != 1 else ""} en {destino}.')
     if egresan:
-        partes.append(f'{len(egresan)} alumno{"s" if len(egresan) != 1 else ""} pasó{"" if len(egresan) == 1 else "aron"} a estatus «Egresado».')
+        partes.append(f'{len(egresan)} estudiante{"s" if len(egresan) != 1 else ""} pasó{"" if len(egresan) == 1 else "aron"} a estatus «Egresado».')
     if partes:
         messages.success(request, ' '.join(partes))
     else:
-        messages.info(request, 'No había alumnos por reinscribir con esas opciones.')
+        messages.info(request, 'No había estudiantes por reinscribir con esas opciones.')
     return redirect(_url_de_lista(destino.pk))

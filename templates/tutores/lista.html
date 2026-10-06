@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Tutores</h1>
-      <p class="page-header__description">Padres, madres y responsables de los alumnos: consulta sus datos de contacto y los alumnos que tienen a cargo.</p>
+      <p class="page-header__description">Padres, madres y responsables de los estudiantes: consulta sus datos de contacto y los estudiantes que tienen a cargo.</p>
     </div>
     <div class="page-header__actions">
       {% if pagina.paginator.count %}
@@ -80,7 +80,7 @@
           <tr>
             <th class="table__th" scope="col">Tutor</th>
             <th class="table__th" scope="col">Contacto</th>
-            <th class="table__th" scope="col">Alumnos</th>
+            <th class="table__th" scope="col">Estudiantes</th>
             <th class="table__th table__col--wide" scope="col">Estatus</th>
             <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
           </tr>
@@ -103,7 +103,7 @@
                   {% if tutor.correo_electronico %}<span class="cell-stack__sub cell-stack__sub--truncate">{{ tutor.correo_electronico }}</span>{% endif %}
                 </span>
               </td>
-              <td class="table__cell" data-label="Alumnos">
+              <td class="table__cell" data-label="Estudiantes">
                 {% with vinculos=tutor.vinculos_vigentes %}
                   {% if vinculos %}
                     <span class="cell-stack">
@@ -111,11 +111,11 @@
                         {% for v in vinculos|slice:":2" %}{{ v.alumno.nombre }} {{ v.alumno.apellido_paterno }}{% if not forloop.last %}, {% endif %}{% endfor %}
                       </span>
                       <span class="cell-stack__sub">
-                        {{ vinculos|length }} alumno{{ vinculos|length|pluralize }}{% if vinculos|length > 2 %} · +{{ vinculos|length|add:"-2" }} más{% endif %}
+                        {{ vinculos|length }} estudiante{{ vinculos|length|pluralize }}{% if vinculos|length > 2 %} · +{{ vinculos|length|add:"-2" }} más{% endif %}
                       </span>
                     </span>
                   {% else %}
-                    <span class="tag tag--warning">Sin alumnos vigentes</span>
+                    <span class="tag tag--warning">Sin estudiantes vigentes</span>
                   {% endif %}
                 {% endwith %}
               </td>
@@ -171,7 +171,7 @@
       <div class="empty-state">
         {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">Aún no hay tutores registrados</p>
-        <p class="empty-state__text">Regístralos aquí o desde el alta de un alumno.</p>
+        <p class="empty-state__text">Regístralos aquí o desde el alta de un estudiante.</p>
         {% if perms.Alumnos.add_tutor %}
           <a class="btn btn--primary btn--sm" href="{% url 'tutores:crear' %}" data-modal-form>Registrar tutor</a>
         {% endif %}

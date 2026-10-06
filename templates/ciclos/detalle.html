@@ -25,7 +25,7 @@
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ ciclo.estado_display }}</span>
             <span>{{ ciclo.fecha_inicio|date:"j M Y" }} – {{ ciclo.fecha_fin|date:"j M Y" }}</span>
-            <span class="text-muted">{{ total_activas }} alumno{{ total_activas|pluralize }} inscrito{{ total_activas|pluralize }}</span>
+            <span class="text-muted">{{ total_activas }} estudiante{{ total_activas|pluralize }} inscrito{{ total_activas|pluralize }}</span>
           </p>
         </div>
 
@@ -91,19 +91,19 @@
     <div class="stat">
       <p class="stat__label">Por inscribir</p>
       <p class="stat__value">{{ sin_inscribir }}</p>
-      <p class="stat__hint">alumnos activos sin inscripción aquí</p>
+      <p class="stat__hint">estudiantes activos sin inscripción aquí</p>
     </div>
   </div>
 
   <div class="info-grid">
     <article class="card info-grid__wide">
       <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title">Alumnos por grado</h2>
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title">Estudiantes por grado</h2>
       </header>
       {% if filas %}
         <div class="table-card table-card--flush">
           <table class="table">
-            <caption class="visually-hidden">Alumnos inscritos en cada grado del ciclo {{ ciclo }}</caption>
+            <caption class="visually-hidden">Estudiantes inscritos en cada grado del ciclo {{ ciclo }}</caption>
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Grado</th>
@@ -122,7 +122,7 @@
                     {% if not fila.grado.activo %}<span class="tag">Grado dado de baja</span>{% endif %}
                   </td>
                   <td class="table__cell" data-label="Proporción">
-                    <progress class="meter" max="100" value="{{ fila.porcentaje }}" aria-label="Proporción de alumnos en {{ fila.grado }}">{{ fila.porcentaje }}%</progress>
+                    <progress class="meter" max="100" value="{{ fila.porcentaje }}" aria-label="Proporción de estudiantes en {{ fila.grado }}">{{ fila.porcentaje }}%</progress>
                   </td>
                   <td class="table__cell" data-label="Inscritos">{{ fila.activas }}</td>
                   <td class="table__cell" data-label="Bajas">{{ fila.bajas|default:"—" }}</td>
@@ -135,7 +135,7 @@
         <div class="card__body">
           <div class="empty-state empty-state--inline">
             <p class="empty-state__title">Todavía no hay grados</p>
-            <p class="empty-state__text">Crea los grados del colegio para poder inscribir alumnos.</p>
+            <p class="empty-state__text">Crea los grados del colegio para poder inscribir estudiantes.</p>
           </div>
         </div>
       {% endif %}
@@ -149,12 +149,12 @@
         {% if perms.Alumnos.add_inscripcion %}
           <li><a class="shortcut" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}" data-modal-form>
             <span class="shortcut__icon">{% include "partials/icon.html" with name="user-plus" %}</span>
-            <span class="shortcut__text"><span class="shortcut__title">Inscribir a un alumno</span><span class="shortcut__hint">Elige el grado y la fecha de inscripción.</span></span>
+            <span class="shortcut__text"><span class="shortcut__title">Inscribir a un estudiante</span><span class="shortcut__hint">Elige el grado y la fecha de inscripción.</span></span>
           </a></li>
           {% if origen_sugerido %}
             <li><a class="shortcut" href="{% url 'inscripciones:promocion' %}?origen={{ origen_sugerido.pk }}&amp;destino={{ ciclo.pk }}">
               <span class="shortcut__icon">{% include "partials/icon.html" with name="trending-up" %}</span>
-              <span class="shortcut__text"><span class="shortcut__title">Reinscribir desde {{ origen_sugerido }}</span><span class="shortcut__hint">Pasa a los alumnos de ese ciclo a su siguiente grado, de una sola vez.</span></span>
+              <span class="shortcut__text"><span class="shortcut__title">Reinscribir desde {{ origen_sugerido }}</span><span class="shortcut__hint">Pasa a los estudiantes de ese ciclo a su siguiente grado, de una sola vez.</span></span>
             </a></li>
           {% endif %}
         {% endif %}
@@ -173,7 +173,7 @@
         {% if perms.Alumnos.view_inscripcion %}
           <li><a class="shortcut" href="{% url 'inscripciones:lista' %}?ciclo={{ ciclo.pk }}">
             <span class="shortcut__icon">{% include "partials/icon.html" with name="clipboard-list" %}</span>
-            <span class="shortcut__text"><span class="shortcut__title">Ver las inscripciones</span><span class="shortcut__hint">Busca, filtra y exporta los alumnos de este ciclo.</span></span>
+            <span class="shortcut__text"><span class="shortcut__title">Ver las inscripciones</span><span class="shortcut__hint">Busca, filtra y exporta los estudiantes de este ciclo.</span></span>
           </a></li>
         {% endif %}
       </ul>
@@ -194,7 +194,7 @@
             <p>El ciclo <strong>{{ ciclo }}</strong> dejará de ser el ciclo actual.</p>
             <div class="alert alert--warning" role="note">
               {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-              <p class="alert__body">Mientras no haya un ciclo actual, los alumnos aparecerán sin inscripción actual y no se podrá tomar asistencia. Marca otro ciclo como actual cuando comience.</p>
+              <p class="alert__body">Mientras no haya un ciclo actual, los estudiantes aparecerán sin inscripción actual y no se podrá tomar asistencia. Marca otro ciclo como actual cuando comience.</p>
             </div>
             <p class="text-muted">Cerrar es lógico: las inscripciones y el historial del ciclo se conservan.</p>
           </div>
@@ -213,7 +213,7 @@
             <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
           </header>
           <div class="modal__body">
-            <p>A partir de ahora las inscripciones, la asistencia y el grado que se muestra de cada alumno serán los del ciclo <strong>{{ ciclo }}</strong>.</p>
+            <p>A partir de ahora las inscripciones, la asistencia y el grado que se muestra de cada estudiante serán los del ciclo <strong>{{ ciclo }}</strong>.</p>
             {% if otro_actual %}
               <p class="text-muted">El ciclo {{ otro_actual }} dejará de ser el actual; sus inscripciones y su historial se conservan.</p>
             {% endif %}

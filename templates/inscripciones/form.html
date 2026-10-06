@@ -18,7 +18,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar inscripción{% else %}Nueva inscripción{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Cambia el grado o la fecha de inscripción de {{ alumno }}. El alumno y el ciclo no cambian: eso sería otra inscripción.{% else %}Elige al alumno, el ciclo y el grado en el que se inscribe.{% endif %}
+        {% if es_edicion %}Cambia el grado o la fecha de inscripción de {{ alumno }}. El estudiante y el ciclo no cambian: eso sería otra inscripción.{% else %}Elige al estudiante, el ciclo y el grado en el que se inscribe.{% endif %}
       </p>
     </div>
   </header>
@@ -45,7 +45,7 @@
 
     <section class="card" aria-labelledby="seccion-alumno">
       <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="seccion-alumno">Alumno</h2>
+        {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="seccion-alumno">Estudiante</h2>
       </header>
       <div class="card__body">
         {% if es_edicion %}
@@ -61,13 +61,13 @@
             {{ form.alumno }}
 
             <div class="live-search" data-picker-search{% if alumno %} hidden{% endif %}>
-              <label class="field__label field__label--required" for="buscar-alumno">Buscar alumno</label>
+              <label class="field__label field__label--required" for="buscar-alumno">Buscar estudiante</label>
               <div class="live-search__field">
                 {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
                 <input class="field__control live-search__input" id="buscar-alumno" type="text" role="combobox" aria-expanded="false"
                        aria-controls="resultados-alumno" aria-autocomplete="list" autocomplete="off" spellcheck="false"
                        placeholder="Nombre, referencia o CURP…" data-picker-input>
-                <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Alumnos encontrados" data-picker-results hidden></div>
+                <div class="live-search__results" id="resultados-alumno" role="listbox" aria-label="Estudiantes encontrados" data-picker-results hidden></div>
               </div>
             </div>
 
@@ -75,13 +75,13 @@
               <span class="avatar avatar--tone-{{ alumno.pk|tono }}" data-picker-avatar aria-hidden="true">{{ alumno.iniciales }}</span>
               <div class="chosen__text">
                 <p class="chosen__name" data-picker-name>{{ alumno }}</p>
-                <p class="chosen__meta">Alumno seleccionado</p>
+                <p class="chosen__meta">Estudiante seleccionado</p>
               </div>
               <button type="button" class="btn btn--sm" data-picker-change>Cambiar</button>
             </div>
 
             {% for error in form.alumno.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
-            <p class="field__error" data-picker-error hidden>Busca y elige un alumno.</p>
+            <p class="field__error" data-picker-error hidden>Busca y elige un estudiante.</p>
           </div>
         {% endif %}
       </div>
@@ -109,7 +109,7 @@
       <a class="btn btn--ghost" href="{% url 'inscripciones:lista' %}{% if es_edicion %}?ciclo={{ inscripcion.ciclo_id }}{% endif %}">Cancelar</a>
       <button type="submit" class="btn btn--primary">
         {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
-        {% if es_edicion %}Guardar cambios{% else %}Inscribir alumno{% endif %}
+        {% if es_edicion %}Guardar cambios{% else %}Inscribir estudiante{% endif %}
       </button>
     </footer>
   </form>

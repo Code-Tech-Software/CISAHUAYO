@@ -105,7 +105,7 @@
         <p class="kiosk__rules">Entrada a las {{ configuracion.hora_entrada|time:"H:i" }} · tolerancia de {{ configuracion.tolerancia_minutos }} min</p>
       </div>
       <div class="kiosk__count">
-        <progress class="meter" max="{{ estado.inscritos|default:1 }}" value="{{ estado.entraron }}" data-progreso aria-label="Alumnos que han entrado">{{ estado.entraron }}</progress>
+        <progress class="meter" max="{{ estado.inscritos|default:1 }}" value="{{ estado.entraron }}" data-progreso aria-label="Estudiantes que han entrado">{{ estado.entraron }}</progress>
         <p class="kiosk__count-text"><strong data-entraron>{{ estado.entraron }}</strong> de <span data-inscritos>{{ estado.inscritos }}</span> han entrado</p>
       </div>
       <div class="kiosk__tools">

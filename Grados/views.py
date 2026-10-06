@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from Alumnos.academico import ciclo_actual, ciclo_editable, elegir_ciclo, materias_por_asignar, siguiente_grado
+from Alumnos.docentes import con_habilitados
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion
 from Alumnos.models import CicloEscolar, Grado, Inscripcion, MateriaGrado, Profesor
 from Alumnos.utils import proteger_celda_csv
@@ -125,11 +126,11 @@ def grado_detalle(request, pk):
     inscripciones = list(_alumnos_del_grado(grado, ciclo).prefetch_related(prefetch_vinculos_activos('alumno__')))
 
     # Plan de materias del grado en el ciclo (con las quitadas, marcadas) y su resumen de horario
-    materias = con_resumen_de_horario(
+    materias = con_habilitados(con_resumen_de_horario(
         MateriaGrado.objects.filter(grado=grado, ciclo=ciclo).select_related('materia', 'profesor')
         .prefetch_related('horarios').order_by('materia__nombre')
         if ciclo else MateriaGrado.objects.none()
-    )
+    ))
     materias_vigentes = [asignacion for asignacion in materias if asignacion.activa]
     minutos = sum(asignacion.minutos for asignacion in materias_vigentes)
     editable = ciclo_editable(ciclo)
@@ -189,6 +190,18 @@ def grado_baja(request, pk):
 def grado_reactivar(request, pk):
     grado = get_object_or_404(Grado, pk=pk)
     if not grado.activo:
+        # Mientras estuvo de baja, otro grado vigente pudo tomar su equivalencia
+        otro = (
+            Grado.objects.filter(activo=True, equivalencia=grado.equivalencia).exclude(pk=grado.pk).first()
+            if grado.equivalencia else None
+        )
+        if otro:
+            messages.error(
+                request,
+                f'No se puede reactivar {grado}: su equivalencia ({grado.equivalencia_texto}) ya la tiene {otro}. '
+                f'Cambia primero la equivalencia de {otro} y vuelve a intentarlo.',
+            )
+            return redirect('grados:lista')
         grado.activo = True
         grado.save(update_fields=['activo'])
         messages.success(request, f'El grado {grado} fue reactivado.')

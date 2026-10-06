@@ -211,7 +211,7 @@ class ClaseTests(BaseAsistenciaTestCase):
         self.assertFalse(AsistenciaMateria.objects.filter(inscripcion=otro).exists())
 
     def test_sin_alumnos_que_guardar_avisa(self):
-        self.assertContains(self.guardar({}), 'No había alumnos a quienes pasar lista')
+        self.assertContains(self.guardar({}), 'No había estudiantes a quienes pasar lista')
 
     def test_no_se_guarda_en_un_ciclo_cerrado_ni_en_una_materia_quitada_ni_en_un_dia_sin_clases(self):
         self.mat.activa = False

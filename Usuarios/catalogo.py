@@ -44,19 +44,19 @@ class Modulo:
 
 
 MODULOS = (
-    Modulo('alumnos', 'Alumnos', 'graduation-cap', 'El padrón de alumnos, sus perfiles y sus credenciales.', (
-        Funcion('Alumnos', _permisos('alumno'), ayuda={
+    Modulo('alumnos', 'Estudiantes', 'graduation-cap', 'El padrón de estudiantes, sus perfiles y sus credenciales.', (
+        Funcion('Estudiantes', _permisos('alumno'), ayuda={
             'ver': 'Consultar el padrón y los perfiles, y exportarlos a CSV.',
-            'crear': 'Registrar alumnos nuevos.',
+            'crear': 'Registrar estudiantes nuevos.',
             'editar': 'Editar sus datos y tutores, cambiar su estatus y restablecer su contraseña.',
-            'baja': 'Dar de baja a un alumno (se conserva su historial).',
+            'baja': 'Dar de baja a un estudiante (se conserva su historial).',
         }),
     )),
-    Modulo('tutores', 'Tutores', 'users', 'Padres, madres y responsables, y su vínculo con los alumnos.', (
+    Modulo('tutores', 'Tutores', 'users', 'Padres, madres y responsables, y su vínculo con los estudiantes.', (
         Funcion('Tutores', _permisos('tutor'), ayuda={
             'ver': 'Consultar tutores y exportarlos a CSV.',
             'crear': 'Registrar tutores nuevos.',
-            'editar': 'Editar sus datos y sus vínculos con los alumnos.',
+            'editar': 'Editar sus datos y sus vínculos con los estudiantes.',
             'baja': 'Dar de baja a un tutor (se conserva su historial).',
         }),
     )),
@@ -68,10 +68,10 @@ MODULOS = (
             'baja': 'Dar de baja a un profesor.',
         }),
     )),
-    Modulo('inscripciones', 'Inscripciones', 'clipboard-list', 'En qué grado está cada alumno en cada ciclo escolar.', (
+    Modulo('inscripciones', 'Inscripciones', 'clipboard-list', 'En qué grado está cada estudiante en cada ciclo escolar.', (
         Funcion('Inscripciones', _permisos('inscripcion'), ayuda={
             'ver': 'Consultar las inscripciones y exportarlas a CSV.',
-            'crear': 'Inscribir alumnos, también de forma masiva (reinscripción).',
+            'crear': 'Inscribir estudiantes, también de forma masiva (reinscripción).',
             'editar': 'Cambiar el grado o el estatus de una inscripción.',
             'baja': 'Dar de baja una inscripción.',
         }),
@@ -85,22 +85,23 @@ MODULOS = (
     )),
     Modulo('grados', 'Grados', 'layers', 'Los grados del colegio (hay un solo grupo por grado).', (
         Funcion('Grados', _permisos('grado'), ayuda={
-            'ver': 'Consultar los grados, sus alumnos y materias, y exportar la lista.',
+            'ver': 'Consultar los grados, sus estudiantes y materias, y exportar la lista.',
             'crear': 'Crear grados.',
             'editar': 'Editar un grado.',
             'baja': 'Dar de baja un grado.',
         }),
     )),
-    Modulo('materias', 'Materias', 'book-open', 'El catálogo de materias y su plan por grado.', (
+    Modulo('materias', 'Materias', 'book-open', 'El catálogo de materias, su plan por grado y qué profesor imparte cada una.', (
         Funcion('Catálogo de materias', _permisos('materia'), ayuda={
             'ver': 'Consultar las materias, y exportarlas a CSV.',
             'crear': 'Registrar materias nuevas.',
             'editar': 'Editar una materia y reactivarla.',
             'baja': 'Dar de baja una materia.',
         }),
-        Funcion('Plan de materias por grado', _permisos('materiagrado', ('crear', 'editar', 'baja')), requiere=('Alumnos.view_materia',), ayuda={
+        Funcion('Plan de materias y asignaciones', _permisos('materiagrado'), requiere=('Alumnos.view_materia',), ayuda={
+            'ver': 'Consultar el tablero de asignaciones (qué profesor imparte cada materia), la carga de cada profesor y los movimientos, y exportarlos a CSV.',
             'crear': 'Asignar materias a un grado en un ciclo, o copiar el plan de otro ciclo.',
-            'editar': 'Cambiar la asignación y elegir el profesor que imparte cada materia.',
+            'editar': 'Elegir el profesor que imparte cada materia, asignar varias a la vez y pasar las clases de un profesor a otro.',
             'baja': 'Quitar una materia de un grado.',
         }),
     )),
@@ -114,11 +115,11 @@ MODULOS = (
     )),
     Modulo('asistencias', 'Asistencias', 'user-check', 'La entrada al colegio, el pase de lista y las justificaciones.', (
         Funcion('Pantalla de entrada', {'crear': 'Alumnos.add_asistenciageneral'}, etiquetas={'crear': 'Usar'}, ayuda={
-            'crear': 'Usar la pantalla de la entrada: registrar la asistencia con la credencial o la referencia del alumno.',
+            'crear': 'Usar la pantalla de la entrada: registrar la asistencia con la credencial o la referencia del estudiante.',
         }),
         Funcion('Asistencia del día y reportes', {'ver': 'Alumnos.view_asistenciageneral', 'editar': 'Alumnos.change_asistenciageneral'}, ayuda={
-            'ver': 'Consultar la asistencia del día, los reportes y el historial de cada alumno, y exportarlos.',
-            'editar': 'Corregir la asistencia general de un alumno.',
+            'ver': 'Consultar la asistencia del día, los reportes y el historial de cada estudiante, y exportarlos.',
+            'editar': 'Corregir la asistencia general de un estudiante.',
         }),
         Funcion('Cierre del día', {'crear': 'Alumnos.add_cierredia'}, etiquetas={'crear': 'Cerrar'}, requiere=('Alumnos.view_asistenciageneral',), ayuda={
             'crear': 'Cerrar el día: quien no entró queda con falta.',

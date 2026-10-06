@@ -434,7 +434,7 @@ class PerfilTests(BaseTestCase):
         with CaptureQueriesContext(connection) as pocas:
             self.client.get(self.tutor.get_absolute_url())
         for i in range(10):
-            alumno = crear_alumno(referencia=f'R{i}', nombre=f'Alumno{i}', apellido_paterno='Relleno', curp=f'XXXX{i:06d}HMNXXXA8')
+            alumno = crear_alumno(referencia=f'R{i}', nombre=f'Estudiante{i}', apellido_paterno='Relleno', curp=f'XXXX{i:06d}HMNXXXA8')
             vincular(self.tutor, alumno)
             Inscripcion.objects.create(alumno=alumno, ciclo=self.ciclo, grado=self.grado)
         with CaptureQueriesContext(connection) as muchas:
@@ -595,7 +595,7 @@ class VinculosTests(BaseTestCase):
 
     def test_exige_alumno_y_parentesco(self):
         respuesta = self.vincular(alumno='', follow=True)
-        self.assertContains(respuesta, 'Busca y elige un alumno')
+        self.assertContains(respuesta, 'Busca y elige un estudiante')
         respuesta = self.vincular(parentesco='', follow=True)
         self.assertContains(respuesta, 'Indica el parentesco')
         self.assertContains(self.vincular(alumno=9999, follow=True), 'No se pudo guardar el vínculo')

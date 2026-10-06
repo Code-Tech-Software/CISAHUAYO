@@ -12,20 +12,20 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from Alumnos.academico import ciclo_actual, ciclo_editable, elegir_ciclo
+from Alumnos.docentes import asignar_profesor, deshabilitar, descripcion_del_cambio, habilitar
 from Alumnos.horarios import (
     con_resumen_de_horario,
-    conflictos_de_asignacion,
     cuadricula,
     formatear_duracion,
-    mensaje_de_empalme_profesor,
     minutos_por_profesor,
     minutos_semanales,
 )
-from Alumnos.models import CicloEscolar, MateriaGrado, Profesor, orden_de_nivel
+from Alumnos.models import CicloEscolar, Materia, MateriaGrado, Profesor, ProfesorMateria, orden_de_nivel
 from Alumnos.utils import ESTADOS_MX, proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
+from Usuarios.seguridad import ACCION_CAMBIO, registrar
 
 from .forms import FiltroProfesoresForm, ProfesorForm
 
@@ -137,8 +137,26 @@ def profesor_detalle(request, pk):
             for grado, grupo in groupby(sin_profesor, key=lambda asignacion: asignacion.grado)
         ]
 
+    # Habilitación: las materias que puede impartir, y cuáles da de hecho en el ciclo consultado
+    habilitaciones = list(ProfesorMateria.objects.filter(profesor=profesor).select_related('materia').order_by('materia__nombre'))
+    imparte = defaultdict(list)
+    for asignacion in asignaciones:
+        imparte[asignacion.materia_id].append(asignacion.grado)
+    habilitadas = [
+        {'materia': h.materia, 'grados': imparte.get(h.materia_id, [])} for h in habilitaciones
+    ]
+    ids_habilitadas = {h.materia_id for h in habilitaciones}
+    sin_habilitar = [m for m in {a.materia_id: a.materia for a in asignaciones}.values() if m.pk not in ids_habilitadas]
+    por_habilitar = (
+        list(Materia.objects.filter(activa=True).exclude(pk__in=ids_habilitadas).order_by('nombre'))
+        if request.user.has_perm('Alumnos.change_profesor') and profesor.estatus == 'ACTIVO' else []
+    )
+
     return render(request, 'profesores/detalle.html', {
         'profesor': profesor,
+        'habilitadas': habilitadas,
+        'sin_habilitar': sin_habilitar,
+        'materias_por_habilitar': por_habilitar,
         'ciclos': ciclos,
         'ciclo': ciclo,
         'asignaciones': asignaciones,
@@ -198,6 +216,61 @@ def profesor_reactivar(request, pk):
 
 
 # ---------------------------------------------------------------------------
+# Habilitación: qué materias puede impartir el profesor (independiente del ciclo)
+# ---------------------------------------------------------------------------
+def _volver_al_perfil(request, profesor):
+    return redirect(destino_seguro(request, f'{profesor.get_absolute_url()}#habilitado'))
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_profesor')
+def profesor_habilitar(request, pk):
+    """Agrega materias a las que el profesor puede impartir. Sirve para sugerirlo al asignar; no asigna nada."""
+    profesor = get_object_or_404(Profesor, pk=pk)
+    if profesor.estatus == 'INACTIVO':
+        messages.error(request, f'{profesor} está dado de baja. Reactívalo antes de cambiar sus materias.')
+        return _volver_al_perfil(request, profesor)
+
+    materias = list(Materia.objects.filter(pk__in=solo_numeros(request.POST.getlist('materia')), activa=True))
+    if not materias:
+        messages.error(request, 'Elige al menos una materia.')
+        return _volver_al_perfil(request, profesor)
+
+    nuevas = habilitar(profesor, materias)
+    if nuevas:
+        nombres = ', '.join(materia.nombre for materia in nuevas)
+        registrar(request.user, profesor, ACCION_CAMBIO, f'Habilitado para impartir: {nombres}.')
+        messages.success(request, f'{profesor} puede impartir ahora {nombres}.')
+    else:
+        messages.info(request, 'Esas materias ya estaban en su lista.')
+    return _volver_al_perfil(request, profesor)
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_profesor')
+def profesor_deshabilitar(request, pk):
+    """Quita materias de las que el profesor puede impartir. No toca lo que ya imparte: eso se quita en las asignaciones."""
+    profesor = get_object_or_404(Profesor, pk=pk)
+    materias = deshabilitar(profesor, solo_numeros(request.POST.getlist('materia')))
+    if not materias:
+        messages.error(request, 'Elige al menos una materia.')
+        return _volver_al_perfil(request, profesor)
+
+    nombres = ', '.join(materia.nombre for materia in materias)
+    registrar(request.user, profesor, ACCION_CAMBIO, f'Ya no está habilitado para impartir: {nombres}.')
+    messages.success(request, f'{profesor} ya no tiene {nombres} en su lista de materias que puede impartir.')
+
+    sigue = MateriaGrado.objects.filter(profesor=profesor, materia__in=materias, ciclo__activo=True, activa=True).count()
+    if sigue:
+        messages.info(
+            request,
+            f'Sigue impartiendo {sigue} grupo{"s" if sigue != 1 else ""} de esas materias en el ciclo actual: '
+            'quítalo de ahí desde «Materias» si ya no las dará.',
+        )
+    return _volver_al_perfil(request, profesor)
+
+
+# ---------------------------------------------------------------------------
 # Asignar (o quitar) al profesor de una o varias materias de un grado
 # ---------------------------------------------------------------------------
 @require_POST
@@ -225,20 +298,10 @@ def asignar(request):
             messages.error(request, 'Elige un profesor activo.')
             return redirect(destino)
 
-    hechas, omitidas = 0, []
-    with transaction.atomic():
-        for asignacion in asignaciones:
-            etiqueta = f'{asignacion.materia} de {asignacion.grado}'
-            if not ciclo_editable(asignacion.ciclo):
-                omitidas.append(f'{etiqueta}: el ciclo {asignacion.ciclo} está cerrado.')
-            elif not asignacion.activa:
-                omitidas.append(f'{etiqueta}: ya no se imparte en ese grado.')
-            elif profesor and (empalmes := conflictos_de_asignacion(profesor, asignacion)):
-                omitidas.append(f'{etiqueta}: {mensaje_de_empalme_profesor(profesor, empalmes)}')
-            elif asignacion.profesor_id != (profesor.pk if profesor else None):
-                asignacion.profesor = profesor
-                asignacion.save(update_fields=['profesor'])
-                hechas += 1
+    cambios, omitidas = asignar_profesor(asignaciones, profesor)
+    for asignacion, anterior in cambios:
+        registrar(request.user, asignacion, ACCION_CAMBIO, descripcion_del_cambio(asignacion, anterior))
+    hechas = len(cambios)
 
     if hechas:
         if profesor:
@@ -274,6 +337,13 @@ def profesor_exportar(request):
         for asignacion in asignaciones:
             materias[asignacion.profesor_id].append(f'{asignacion.materia} ({asignacion.grado})')
 
+    habilitadas = defaultdict(list)
+    for profesor_id, nombre in (
+        ProfesorMateria.objects.filter(profesor__in=[p.pk for p in profesores]).order_by('materia__nombre')
+        .values_list('profesor_id', 'materia__nombre')
+    ):
+        habilitadas[profesor_id].append(nombre)
+
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="profesores-{timezone.localdate():%Y-%m-%d}.csv"'
     respuesta.write('﻿')  # para que Excel reconozca los acentos
@@ -281,7 +351,7 @@ def profesor_exportar(request):
     escritor.writerow([
         'Nombre', 'Apellido paterno', 'Apellido materno', 'CURP', 'Teléfono', 'Teléfono alternativo', 'Correo electrónico',
         'Profesión', 'Cédula profesional', 'Especialidad', 'Fecha de ingreso', 'Estatus',
-        f'Materias en el ciclo actual{f" ({ciclo})" if ciclo else ""}',
+        f'Materias en el ciclo actual{f" ({ciclo})" if ciclo else ""}', 'Materias que puede impartir', 'Horas máximas por semana',
     ])
     for profesor in profesores:
         escritor.writerow([proteger_celda_csv(valor) for valor in [
@@ -289,5 +359,6 @@ def profesor_exportar(request):
             profesor.telefono_alternativo, profesor.correo_electronico or '', profesor.profesion, profesor.cedula_profesional,
             profesor.especialidad, f'{profesor.fecha_ingreso:%d/%m/%Y}' if profesor.fecha_ingreso else '',
             profesor.get_estatus_display(), '; '.join(materias.get(profesor.pk, [])),
+            '; '.join(habilitadas.get(profesor.pk, [])), profesor.horas_maximas or '',
         ]])
     return respuesta

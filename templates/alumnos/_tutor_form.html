@@ -15,7 +15,7 @@
         <p class="tutor-form__name" data-tutor-name>{% if existente %}{{ existente }}{% else %}Tutor nuevo{% endif %}</p>
         <p class="tutor-form__sub" data-tutor-sub>{% if existente %}{% if existente.estatus != "ACTIVO" %}Tutor dado de baja{% else %}Tutor ya registrado{% endif %}{% else %}Completa sus datos de contacto{% endif %}</p>
       </div>
-      <button type="button" class="btn btn--ghost btn--icon btn--sm tutor-form__remove" data-tutor-remove aria-label="Quitar este tutor del alumno" data-tooltip="Quitar (se conserva como inactivo)">
+      <button type="button" class="btn btn--ghost btn--icon btn--sm tutor-form__remove" data-tutor-remove aria-label="Quitar este tutor del estudiante" data-tooltip="Quitar (se conserva como inactivo)">
         {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
       </button>
     </header>

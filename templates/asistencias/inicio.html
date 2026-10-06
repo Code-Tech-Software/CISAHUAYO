@@ -17,7 +17,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Asistencias</h1>
-      <p class="page-header__description">La entrada de los alumnos al colegio, el pase de lista de cada materia y las justificaciones de las faltas.</p>
+      <p class="page-header__description">La entrada de los estudiantes al colegio, el pase de lista de cada materia y las justificaciones de las faltas.</p>
     </div>
     <div class="page-header__actions">
       {% if perms.Alumnos.add_asistenciageneral %}
@@ -73,8 +73,8 @@
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No hay alumnos inscritos este día</p>
-        <p class="empty-state__text">Inscribe a los alumnos en el ciclo {{ ciclo }} para poder registrar su asistencia.</p>
+        <p class="empty-state__title">No hay estudiantes inscritos este día</p>
+        <p class="empty-state__text">Inscribe a los estudiantes en el ciclo {{ ciclo }} para poder registrar su asistencia.</p>
         {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
       </div>
     </div>
@@ -108,8 +108,8 @@
     </section>
 
     <div class="attendance-progress">
-      <progress class="meter" max="100" value="{{ porcentaje_entrada }}" aria-label="Alumnos que han entrado">{{ porcentaje_entrada }}%</progress>
-      <p class="attendance-progress__text"><strong>{{ total.entraron }}</strong> de {{ total.inscritos }} alumnos entraron al colegio ({{ porcentaje_entrada }}%)</p>
+      <progress class="meter" max="100" value="{{ porcentaje_entrada }}" aria-label="Estudiantes que han entrado">{{ porcentaje_entrada }}%</progress>
+      <p class="attendance-progress__text"><strong>{{ total.entraron }}</strong> de {{ total.inscritos }} estudiantes entraron al colegio ({{ porcentaje_entrada }}%)</p>
     </div>
 
     <div class="table-card">
@@ -183,7 +183,7 @@
                 <p class="alert__body"><strong>Nadie registró entrada este día.</strong> Si fue un día sin clases, regístralo en Ajustes en lugar de cerrarlo; de lo contrario todos quedarán con falta.</p>
               </div>
             {% endif %}
-            <p>Se marcará <strong>falta</strong> a {{ total.sin_registro }} alumno{{ total.sin_registro|pluralize }} que no registr{{ total.sin_registro|pluralize:"ó,aron" }} entrada, en la asistencia general y en cada una de sus materias de ese día.</p>
+            <p>Se marcará <strong>falta</strong> a {{ total.sin_registro }} estudiante{{ total.sin_registro|pluralize }} que no registr{{ total.sin_registro|pluralize:"ó,aron" }} entrada, en la asistencia general y en cada una de sus materias de ese día.</p>
             {% if es_hoy %}<p class="text-muted">Es el día de hoy: quien llegue después de cerrar tendrá que pasar por dirección.</p>{% endif %}
           </div>
           <footer class="modal__footer">

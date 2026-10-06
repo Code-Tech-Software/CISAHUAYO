@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
 
-{% block title %}Alumnos | CISAHUAYO{% endblock %}
+{% block title %}Estudiantes | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
@@ -9,7 +9,7 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Alumnos</span></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Estudiantes</span></li>
 {% endblock %}
 
 {% block content %}
@@ -19,9 +19,9 @@
 
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Alumnos</h1>
+      <h1 class="page-header__title">Estudiantes</h1>
       <p class="page-header__description">
-        Consulta, busca y administra el padrón de alumnos{% if ciclo_actual %} · Ciclo escolar {{ ciclo_actual }}{% endif %}.
+        Consulta, busca y administra el padrón de estudiantes{% if ciclo_actual %} · Ciclo escolar {{ ciclo_actual }}{% endif %}.
       </p>
     </div>
     <div class="page-header__actions">
@@ -34,7 +34,7 @@
       {% if perms.Alumnos.add_alumno %}
         <a class="btn btn--primary" href="{% url 'alumnos:crear' %}" data-modal-form>
           {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %}
-          Nuevo alumno
+          Nuevo estudiante
         </a>
       {% endif %}
     </div>
@@ -42,7 +42,7 @@
 
   {# Estatus: funcionan como filtros rápidos y muestran cuántos alumnos hay en cada uno #}
   <nav class="pills" aria-label="Filtrar por estatus">
-    <a class="pill{% if not filtros_activos.estatus %} is-active{% endif %}" href="{% querystring estatus=None page=None %}"{% if not filtros_activos.estatus %} aria-current="true"{% endif %} title="Todos los alumnos, sin contar las bajas">
+    <a class="pill{% if not filtros_activos.estatus %} is-active{% endif %}" href="{% querystring estatus=None page=None %}"{% if not filtros_activos.estatus %} aria-current="true"{% endif %} title="Todos los estudiantes, sin contar las bajas">
       Todos <span class="pill__count">{{ total_alumnos }}</span>
     </a>
     {% for opcion in estatus_filtros %}
@@ -52,11 +52,11 @@
     {% endfor %}
   </nav>
 
-  <form class="filters" method="get" role="search" aria-label="Buscar y filtrar alumnos" data-autosubmit>
+  <form class="filters" method="get" role="search" aria-label="Buscar y filtrar estudiantes" data-autosubmit>
     {% if filtros_activos.estatus %}<input type="hidden" name="estatus" value="{{ filtros_activos.estatus }}">{% endif %}
     {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
     <div class="filters__search">
-      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar alumnos</label>
+      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar estudiantes</label>
       {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
       {{ filtro.q }}
     </div>
@@ -82,15 +82,15 @@
 
   {% if pagina.paginator.count %}
     <p class="results-summary" role="status">
-      {{ pagina.paginator.count }} alumno{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}
+      {{ pagina.paginator.count }} estudiante{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}
     </p>
 
     <div class="table-card">
       <table class="table">
-        <caption class="visually-hidden">Lista de alumnos</caption>
+        <caption class="visually-hidden">Lista de estudiantes</caption>
         <thead class="table__head">
           <tr>
-            <th class="table__th" scope="col">Alumno</th>
+            <th class="table__th" scope="col">Estudiante</th>
             <th class="table__th" scope="col">Grado actual</th>
             <th class="table__th table__col--wide" scope="col">Tutor principal</th>
             <th class="table__th" scope="col">Edad</th>
@@ -122,6 +122,7 @@
                   {% if vinculo %}
                     <span class="cell-stack">
                       <span class="cell-stack__main">{{ vinculo.tutor }}</span>
+                      <span class="cell-stack__sub">{{ vinculo.get_parentesco_display }}</span>
                       <span class="cell-stack__sub"><a class="link-subtle" href="tel:{{ vinculo.tutor.telefono }}">{{ vinculo.tutor.telefono|telefono }}</a></span>
                     </span>
                   {% else %}
@@ -156,12 +157,12 @@
       </table>
     </div>
 
-    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="alumnos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="estudiantes" por_pagina=por_pagina opciones=opciones_por_pagina %}
   {% elif filtros_activos %}
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No encontramos alumnos con esos filtros</p>
+        <p class="empty-state__title">No encontramos estudiantes con esos filtros</p>
         <p class="empty-state__text">
           Prueba con otra búsqueda o quita algún filtro.
           {% if total_bajas and not filtros_activos.estatus %}¿Buscas a alguien dado de baja? Revisa el filtro «Bajas».{% endif %}
@@ -173,10 +174,10 @@
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">Aún no hay alumnos registrados</p>
+        <p class="empty-state__title">Aún no hay estudiantes registrados</p>
         <p class="empty-state__text">Registra al primero: te guiaremos paso a paso, incluidos sus tutores.</p>
         {% if perms.Alumnos.add_alumno %}
-          <a class="btn btn--primary btn--sm" href="{% url 'alumnos:crear' %}" data-modal-form>Registrar alumno</a>
+          <a class="btn btn--primary btn--sm" href="{% url 'alumnos:crear' %}" data-modal-form>Registrar estudiante</a>
         {% endif %}
       </div>
     </div>

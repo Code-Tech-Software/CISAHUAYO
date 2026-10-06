@@ -143,7 +143,7 @@ class CrearTests(BaseTestCase):
     def test_el_formulario_no_ofrece_el_estado_activo(self):
         respuesta = self.client.get(self.url)
         self.assertEqual(respuesta.status_code, 200)
-        self.assertEqual(list(respuesta.context['form'].fields), ['nivel', 'numero'])
+        self.assertEqual(list(respuesta.context['form'].fields), ['nivel', 'numero', 'equivalencia'])
 
     def test_registra_y_redirige_al_listado_con_mensaje(self):
         respuesta = self.client.post(self.url, {'nivel': 'PRIMARIA', 'numero': 3}, follow=True)
@@ -336,11 +336,11 @@ class DetalleTests(BaseTestCase):
         self.assertTrue(respuesta.context['esta_de_baja'])
         self.assertContains(respuesta, 'Grado dado de baja')
         self.assertContains(respuesta, 'Reactivar grado')
-        self.assertNotContains(respuesta, 'Inscribir alumno')
+        self.assertNotContains(respuesta, 'Inscribir estudiante')
 
     def test_el_aviso_de_baja_cuenta_los_inscritos_actuales(self):
         self.assertEqual(self.detalle().context['inscritos_actuales'], 2)
-        self.assertContains(self.detalle(), 'Tiene 2 alumnos inscritos en el ciclo actual')
+        self.assertContains(self.detalle(), 'Tiene 2 estudiantes inscritos en el ciclo actual')
 
     def test_grado_inexistente_da_404(self):
         self.assertEqual(self.client.get(reverse('grados:detalle', args=[9999])).status_code, 404)

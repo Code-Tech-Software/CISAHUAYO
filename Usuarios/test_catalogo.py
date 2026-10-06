@@ -77,6 +77,13 @@ class DependenciasTests(SimpleTestCase):
         resultado = catalogo.con_requisitos({'Alumnos.change_materiagrado'})
         self.assertIn('Alumnos.view_materia', resultado)
 
+    def test_ver_las_asignaciones_es_un_permiso_propio_que_necesita_ver_materias(self):
+        self.assertEqual(
+            catalogo.con_requisitos({'Alumnos.view_materiagrado'}), {'Alumnos.view_materiagrado', 'Alumnos.view_materia'},
+        )
+        self.assertIn('Alumnos.view_materiagrado', catalogo.con_requisitos({'Alumnos.change_materiagrado'}))
+        self.assertIn('Alumnos.change_materiagrado', catalogo.dependientes('Alumnos.view_materiagrado'))
+
     def test_ver_no_arrastra_nada(self):
         self.assertEqual(catalogo.con_requisitos({'Alumnos.view_alumno'}), {'Alumnos.view_alumno'})
 
@@ -151,6 +158,16 @@ class RolesInicialesTests(TestCase):
         for rol in Rol.objects.filter(acceso_total=False):
             permisos = permisos_de_rol(rol)
             self.assertEqual(catalogo.con_requisitos(permisos), permisos, f'{rol.nombre} tiene permisos sin lo que necesitan')
+
+    def test_los_roles_academicos_ven_las_asignaciones_y_recepcion_no(self):
+        for nombre in ('Dirección', 'Control escolar', 'Docente'):
+            self.assertIn('Alumnos.view_materiagrado', permisos_de_rol(Rol.objects.get(grupo__name=nombre)), nombre)
+        self.assertNotIn('Alumnos.view_materiagrado', permisos_de_rol(Rol.objects.get(grupo__name='Recepción')))
+
+    def test_solo_direccion_cambia_las_asignaciones(self):
+        self.assertIn('Alumnos.change_materiagrado', permisos_de_rol(Rol.objects.get(grupo__name='Dirección')))
+        for nombre in ('Control escolar', 'Docente', 'Recepción'):
+            self.assertNotIn('Alumnos.change_materiagrado', permisos_de_rol(Rol.objects.get(grupo__name=nombre)), nombre)
 
     def test_recepcion_solo_registra_entradas_y_consulta(self):
         permisos = permisos_de_rol(Rol.objects.get(grupo__name='Recepción'))

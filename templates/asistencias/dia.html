@@ -55,7 +55,7 @@
     <form class="filters filters--compact" id="filtros-dia" method="get" role="search" aria-label="Filtrar la asistencia del día" data-autosubmit>
       {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
       <div class="filters__search">
-        <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar alumnos</label>
+        <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar estudiantes</label>
         {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
         {{ filtro.q }}
       </div>
@@ -89,7 +89,7 @@
           <caption class="visually-hidden">Asistencia general del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
           <thead class="table__head">
             <tr>
-              <th class="table__th" scope="col">Alumno</th>
+              <th class="table__th" scope="col">Estudiante</th>
               <th class="table__th" scope="col">Entrada</th>
               <th class="table__th" scope="col">Asistencia</th>
               <th class="table__th table__col--wide" scope="col">Materias del día</th>
@@ -154,12 +154,12 @@
         </table>
       </div>
 
-      {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="alumnos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+      {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="estudiantes" por_pagina=por_pagina opciones=opciones_por_pagina %}
     {% elif filtros_activos %}
       <div class="table-card">
         <div class="empty-state">
           {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
-          <p class="empty-state__title">No encontramos alumnos con esos filtros</p>
+          <p class="empty-state__title">No encontramos estudiantes con esos filtros</p>
           <p class="empty-state__text">Prueba con otro nombre, grado o estado.</p>
           <a class="btn btn--sm" href="{% querystring q=None grado=None estado=None page=None %}">Limpiar filtros</a>
         </div>
@@ -168,8 +168,8 @@
       <div class="table-card">
         <div class="empty-state">
           {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-          <p class="empty-state__title">No hay alumnos inscritos este día</p>
-          <p class="empty-state__text">Inscribe a los alumnos en el ciclo {{ ciclo }} para registrar su asistencia.</p>
+          <p class="empty-state__title">No hay estudiantes inscritos este día</p>
+          <p class="empty-state__text">Inscribe a los estudiantes en el ciclo {{ ciclo }} para registrar su asistencia.</p>
         </div>
       </div>
     {% endif %}
@@ -182,7 +182,7 @@
           <input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           <header class="modal__header">
-            <h2 class="modal__title" id="modal-asistencia-titulo">Asistencia de <span data-asistencia-alumno>alumno</span></h2>
+            <h2 class="modal__title" id="modal-asistencia-titulo">Asistencia de <span data-asistencia-alumno>estudiante</span></h2>
             <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
           </header>
           <div class="modal__body">

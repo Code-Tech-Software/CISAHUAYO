@@ -268,7 +268,7 @@ class CrearTests(BaseTestCase):
     def test_exige_alumno_ciclo_y_grado(self):
         respuesta = self.client.post(self.url, {})
         self.assertEqual(set(respuesta.context['form'].errors), {'alumno', 'ciclo', 'grado', 'fecha_inscripcion'})
-        self.assertContains(respuesta, 'Busca y elige un alumno')
+        self.assertContains(respuesta, 'Busca y elige un estudiante')
         self.assertFalse(Inscripcion.objects.exists())
 
     def test_alumno_inexistente(self):
@@ -591,7 +591,7 @@ class PromocionTests(BaseTestCase):
     def test_origen_sin_alumnos(self):
         respuesta = self.client.get(self.url, self.parametros())
         self.assertEqual(respuesta.context['plan'], [])
-        self.assertContains(respuesta, 'no tiene alumnos inscritos')
+        self.assertContains(respuesta, 'no tiene estudiantes inscritos')
 
     def test_la_vista_previa_usa_consultas_constantes(self):
         self.preparar()
@@ -620,7 +620,7 @@ class PromocionTests(BaseTestCase):
         ayer = hoy() - timedelta(days=1)
         respuesta = self.post({self.g1: str(self.g2.pk)}, fecha=ayer.isoformat())
         self.assertEqual(Inscripcion.objects.get(alumno=self.a, ciclo=self.destino).fecha_inscripcion, ayer)
-        self.assertContains(self.client.get(respuesta['Location']), 'Se reinscribió a 1 alumno en 2027-2028')
+        self.assertContains(self.client.get(respuesta['Location']), 'Se reinscribió a 1 estudiante en 2027-2028')
 
     def test_no_toca_las_inscripciones_del_ciclo_de_origen(self):
         self.preparar()
@@ -632,7 +632,7 @@ class PromocionTests(BaseTestCase):
         self.preparar()
         respuesta = self.post({self.g1: 'omitir', self.g2: 'omitir', self.g6: 'omitir'}, follow=True)
         self.assertEqual(Inscripcion.objects.filter(ciclo=self.destino).count(), 1)       # solo la que ya existía
-        self.assertContains(respuesta, 'No había alumnos por reinscribir')
+        self.assertContains(respuesta, 'No había estudiantes por reinscribir')
 
     def test_lo_que_no_se_envia_se_omite(self):
         self.preparar()
@@ -645,7 +645,7 @@ class PromocionTests(BaseTestCase):
         cantidad = Inscripcion.objects.count()
         respuesta = self.post({self.g1: str(self.g2.pk), self.g6: str(self.s1.pk)}, follow=True)
         self.assertEqual(Inscripcion.objects.count(), cantidad)
-        self.assertContains(respuesta, 'No había alumnos por reinscribir')
+        self.assertContains(respuesta, 'No había estudiantes por reinscribir')
 
     def test_egresar_cambia_el_estatus_sin_inscribir(self):
         self.preparar()
@@ -660,7 +660,7 @@ class PromocionTests(BaseTestCase):
         self.preparar()
         self.con_permisos('view_inscripcion', 'add_inscripcion')
         respuesta = self.post({self.g1: str(self.g2.pk), self.g6: 'egresar'}, follow=True)
-        self.assertContains(respuesta, 'No tienes permiso para marcar alumnos como egresados')
+        self.assertContains(respuesta, 'No tienes permiso para marcar estudiantes como egresados')
         self.sexto.refresh_from_db()
         self.assertEqual(self.sexto.estatus, 'ACTIVO')
         self.assertEqual(Inscripcion.objects.filter(ciclo=self.destino).count(), 1)             # no se hizo nada

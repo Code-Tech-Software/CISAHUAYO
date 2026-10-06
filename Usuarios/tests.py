@@ -746,14 +746,14 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_el_administrador_ve_todo_el_menu(self):
         etiquetas = self.enlaces_del_menu(self.html_de(self.admin))
         self.assertEqual(etiquetas[0], 'Panel de control')
-        for esperado in ('Alumnos', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias',
-                         'Horarios', 'Asistencias', 'Usuarios', 'Roles y permisos'):
+        for esperado in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias',
+                         'Asignaciones', 'Horarios', 'Asistencias', 'Usuarios', 'Roles y permisos'):
             self.assertIn(esperado, etiquetas)
 
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
-            'Docente': {'Alumnos', 'Tutores', 'Grados', 'Materias', 'Horarios', 'Asistencias'},
-            'Recepción': {'Alumnos', 'Asistencias'},
+            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias'},
+            'Recepción': {'Estudiantes', 'Asistencias'},
         }
         for nombre_rol, esperados in casos.items():
             with self.subTest(rol=nombre_rol):
@@ -766,7 +766,7 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         self.assertEqual(etiquetas, ['Panel de control'])
 
     def test_las_secciones_vacias_no_se_dibujan(self):
-        html = self.html_de(crear_usuario('lupita', crear_rol('Solo alumnos', {'Alumnos.view_alumno'})))
+        html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
         self.assertIn('Gestión escolar', html)
         self.assertNotIn('Sistema', self.enlaces_del_menu(html))
         import re
@@ -775,8 +775,8 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         self.assertNotIn('Académico', [t.strip() for t in titulos])
 
     def test_el_tablero_ofrece_solo_accesos_permitidos(self):
-        html = self.html_de(crear_usuario('lupita', crear_rol('Solo alumnos', {'Alumnos.view_alumno'})))
-        self.assertIn('tile__title">Alumnos', html)
+        html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
+        self.assertIn('tile__title">Estudiantes', html)
         self.assertNotIn('tile__title">Tutores', html)
         self.assertNotIn('tile__title">Usuarios', html)
 
@@ -798,11 +798,11 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
 
     def test_el_buscador_de_comandos_solo_ofrece_acciones_permitidas(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Altas', {'Alumnos.add_alumno'})))
-        self.assertIn('Nuevo alumno', html)
+        self.assertIn('Nuevo estudiante', html)
         self.assertNotIn('Nuevo tutor', html)
         self.assertNotIn('Nuevo usuario', html)
         completo = self.html_de(self.admin)
-        for accion in ('Nuevo alumno', 'Nuevo usuario', 'Nuevo rol', 'Pantalla de entrada'):
+        for accion in ('Nuevo estudiante', 'Nuevo usuario', 'Nuevo rol', 'Pantalla de entrada'):
             self.assertIn(accion, completo)
 
     def test_el_menu_de_usuario_muestra_el_rol_y_mi_cuenta(self):

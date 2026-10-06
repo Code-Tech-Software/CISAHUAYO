@@ -329,7 +329,7 @@ class ListaTests(BaseTestCase):
 
     def rellenar(self, cantidad):
         for i in range(cantidad):
-            crear_alumno(referencia=f'9{i:03d}', nombre=f'Alumno{i}', apellido_paterno='Relleno', curp=f'XXXX{i:06d}HMNXXXA8')
+            crear_alumno(referencia=f'9{i:03d}', nombre=f'Estudiante{i}', apellido_paterno='Relleno', curp=f'XXXX{i:06d}HMNXXXA8')
 
     def test_pagina(self):
         self.rellenar(25)   # 27 visibles con Ana y Sara; Luis está de baja
@@ -375,12 +375,12 @@ class ListaTests(BaseTestCase):
 
     def test_sin_resultados_ofrece_limpiar(self):
         respuesta = self.client.get(reverse('alumnos:lista'), {'q': 'nadie existe'})
-        self.assertContains(respuesta, 'No encontramos alumnos')
+        self.assertContains(respuesta, 'No encontramos estudiantes')
 
     def test_sin_alumnos_invita_a_registrar(self):
         Inscripcion.objects.all().delete()
         Alumno.objects.all().delete()
-        self.assertContains(self.client.get(reverse('alumnos:lista')), 'Aún no hay alumnos registrados')
+        self.assertContains(self.client.get(reverse('alumnos:lista')), 'Aún no hay estudiantes registrados')
 
 
 # ---------------------------------------------------------------------------
@@ -872,7 +872,7 @@ class ExportarYBuscarTests(BaseTestCase):
         respuesta = self.client.get(reverse('alumnos:exportar'), {'estatus': 'ACTIVO'})
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn('text/csv', respuesta['Content-Type'])
-        self.assertIn('attachment; filename="alumnos-', respuesta['Content-Disposition'])
+        self.assertIn('attachment; filename="estudiantes-', respuesta['Content-Disposition'])
         contenido = respuesta.content.decode('utf-8')
         self.assertTrue(contenido.startswith('﻿'))
         filas = list(csv.reader(io.StringIO(contenido.lstrip('﻿'))))

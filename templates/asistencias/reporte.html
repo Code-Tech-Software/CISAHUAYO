@@ -18,7 +18,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Reportes de asistencia</h1>
-      <p class="page-header__description">La asistencia de un grado en un periodo: resumen por alumno o cuadrícula día por día, de la asistencia general o de una materia.</p>
+      <p class="page-header__description">La asistencia de un grado en un periodo: resumen por estudiante o cuadrícula día por día, de la asistencia general o de una materia.</p>
     </div>
     <div class="page-header__actions">
       {% if grado %}
@@ -86,7 +86,7 @@
     </div>
   {% else %}
     <nav class="pills" aria-label="Vista del reporte">
-      <a class="pill{% if vista != 'cuadricula' %} is-active{% endif %}" href="{% querystring vista='resumen' %}"{% if vista != 'cuadricula' %} aria-current="true"{% endif %}>Resumen por alumno</a>
+      <a class="pill{% if vista != 'cuadricula' %} is-active{% endif %}" href="{% querystring vista='resumen' %}"{% if vista != 'cuadricula' %} aria-current="true"{% endif %}>Resumen por estudiante</a>
       <a class="pill{% if vista == 'cuadricula' %} is-active{% endif %}" href="{% querystring vista='cuadricula' %}"{% if vista == 'cuadricula' %} aria-current="true"{% endif %}>Cuadrícula por día</a>
     </nav>
 
@@ -100,15 +100,15 @@
       <div class="table-card">
         <div class="empty-state">
           {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-          <p class="empty-state__title">{{ grado }} no tiene alumnos inscritos en {{ ciclo }}</p>
-          <p class="empty-state__text">Inscribe alumnos en este grado para ver su asistencia.</p>
+          <p class="empty-state__title">{{ grado }} no tiene estudiantes inscritos en {{ ciclo }}</p>
+          <p class="empty-state__text">Inscribe estudiantes en este grado para ver su asistencia.</p>
         </div>
       </div>
     {% elif vista == 'cuadricula' %}
       {% if not cuadricula_posible %}
         <div class="alert alert--info alert--spaced" role="note">
           {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
-          <p class="alert__body">La cuadrícula muestra hasta 31 días. Elige un periodo más corto (por ejemplo, un mes) o usa el resumen por alumno.</p>
+          <p class="alert__body">La cuadrícula muestra hasta 31 días. Elige un periodo más corto (por ejemplo, un mes) o usa el resumen por estudiante.</p>
         </div>
       {% elif not dias %}
         <div class="table-card">
@@ -125,7 +125,7 @@
               <caption class="visually-hidden">Asistencia de {{ grado }} del {{ desde|date:"j M" }} al {{ hasta|date:"j M" }}</caption>
               <thead>
                 <tr>
-                  <th class="matrix__name" scope="col">Alumno</th>
+                  <th class="matrix__name" scope="col">Estudiante</th>
                   {% for dia in dias %}
                     <th class="matrix__day" scope="col"><span class="matrix__num">{{ dia|date:"j" }}</span><span class="matrix__wd">{{ dia|date:"D" }}</span></th>
                   {% endfor %}
@@ -175,7 +175,7 @@
           <p class="stat__hint">{{ total.justificadas }} justificada{{ total.justificadas|pluralize }}</p>
         </div>
         <div class="stat">
-          <p class="stat__label">Alumnos</p>
+          <p class="stat__label">Estudiantes</p>
           <p class="stat__value">{{ filas|length }}</p>
           <p class="stat__hint">en {{ grado }}</p>
         </div>
@@ -183,10 +183,10 @@
 
       <div class="table-card">
         <table class="table table--people">
-          <caption class="visually-hidden">Resumen de asistencia por alumno</caption>
+          <caption class="visually-hidden">Resumen de asistencia por estudiante</caption>
           <thead class="table__head">
             <tr>
-              <th class="table__th" scope="col">Alumno</th>
+              <th class="table__th" scope="col">Estudiante</th>
               <th class="table__th" scope="col">Registros</th>
               <th class="table__th" scope="col">Presentes</th>
               <th class="table__th" scope="col">Retardos</th>

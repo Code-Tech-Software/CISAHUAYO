@@ -45,8 +45,8 @@ def _recepcion():
 # nombre, descripción, color, permisos
 PREDETERMINADOS = (
     ('Dirección', 'Todos los módulos escolares. Consulta usuarios y roles, pero no los administra.', 1, _direccion),
-    ('Control escolar', 'Altas y cambios de alumnos, tutores e inscripciones; consulta del resto y justificaciones.', 2, _control_escolar),
-    ('Docente', 'Consulta alumnos, grados, materias y horarios, y pasa lista en sus clases.', 4, _docente),
+    ('Control escolar', 'Altas y cambios de estudiantes, tutores e inscripciones; consulta del resto y justificaciones.', 2, _control_escolar),
+    ('Docente', 'Consulta estudiantes, grados, materias y horarios, y pasa lista en sus clases.', 4, _docente),
     ('Recepción', 'Pantalla de entrada, asistencia del día y justificaciones.', 5, _recepcion),
 )
 

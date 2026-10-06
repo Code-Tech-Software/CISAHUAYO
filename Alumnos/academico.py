@@ -14,6 +14,32 @@ from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion, Mat
 # Número máximo de grado por nivel (en preparatoria caben semestres o años).
 LIMITE_GRADOS = {'PREESCOLAR': 3, 'PRIMARIA': 6, 'SECUNDARIA': 3, 'PREPARATORIA': 6}
 
+# Equivalencia habitual de cada grado en la continuidad escolar, sin importar el nivel: primaria 1.° a 6.°, secundaria
+# 7.° a 9.° (1.° de secundaria se nombra «7.°») y preparatoria del 10.° en adelante; preescolar usa un código con letra
+# (K1, K2, K3). La equivalencia es un número o un código corto de letras y números. Es solo la propuesta: cada grado
+# guarda la suya y se puede cambiar desde el formulario del grado.
+BASE_DE_EQUIVALENCIA = {'PRIMARIA': 0, 'SECUNDARIA': 6, 'PREPARATORIA': 9}
+PREFIJO_DE_EQUIVALENCIA = {'PREESCOLAR': 'K'}
+LARGO_EQUIVALENCIA = 8
+FORMATO_EQUIVALENCIA = re.compile(r'^[A-Z0-9]+$')
+
+
+def equivalencia_sugerida(nivel, numero):
+    """La equivalencia habitual de ese grado («7», «K1»), o '' si el nivel no tiene una o falta el número."""
+    if not numero:
+        return ''
+    if nivel in PREFIJO_DE_EQUIVALENCIA:
+        return f'{PREFIJO_DE_EQUIVALENCIA[nivel]}{numero}'
+    base = BASE_DE_EQUIVALENCIA.get(nivel)
+    return '' if base is None else str(base + numero)
+
+
+def normalizar_equivalencia(valor):
+    """Lo que se guarda de lo que se escribió: sin espacios, «°» ni puntos y en mayúsculas («k 1» → «K1», «7°» → «7»)."""
+    valor = re.sub(r'[\s°º.]', '', valor or '').upper()
+    return str(int(valor)) if valor.isdigit() else valor   # «07» → «7»
+
+
 # Un ciclo dura, normalmente, de finales de agosto a mediados de julio.
 INICIO_TIPICO = (8, 24)
 FIN_TIPICO = (7, 10)
@@ -123,9 +149,16 @@ def sugerir_ciclo():
 def siguiente_grado(grado, grados):
     """Grado al que pasa normalmente quien cursa `grado`.
 
-    `grados` es la lista de grados disponibles. Es el siguiente número del mismo nivel o, al terminar el
-    nivel, el primer grado del siguiente nivel que exista. None si ya no hay un grado que siga.
+    `grados` es la lista de grados disponibles. Si la equivalencia del grado es un número y existe el que sigue en la
+    continuidad escolar (equivalencia + 1), ese es el siguiente, aunque cambie de nivel (6.° de primaria → 7.°, 1.° de
+    secundaria). Los códigos con letras (K1) no se pueden contar: ahí y si no existe el que sigue, es el siguiente número
+    del mismo nivel o, al terminar el nivel, el primer grado del siguiente nivel que exista. None si ya no hay un grado
+    que siga.
     """
+    if grado.equivalencia_numero is not None:
+        por_equivalencia = [g for g in grados if g.equivalencia_numero == grado.equivalencia_numero + 1]
+        if por_equivalencia:
+            return por_equivalencia[0]
     mismo_nivel = [g for g in grados if g.nivel == grado.nivel and g.numero > grado.numero]
     if mismo_nivel:
         return min(mismo_nivel, key=lambda g: g.numero)

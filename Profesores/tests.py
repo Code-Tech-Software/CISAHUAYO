@@ -700,10 +700,20 @@ class ExportarTests(BaseTestCase):
     def test_exporta_los_activos_con_sus_materias_en_orden_escolar(self):
         filas = self.filas()
         self.assertEqual(filas[0][:3], ['Nombre', 'Apellido paterno', 'Apellido materno'])
-        self.assertIn('2026-2027', filas[0][-1])
+        self.assertIn('2026-2027', filas[0][-3])
+        self.assertEqual(filas[0][-2:], ['Materias que puede impartir', 'Horas máximas por semana'])
         self.assertEqual([f[0] for f in filas[1:]], ['Beto', "'=Marta"])                 # neutraliza fórmulas de Excel
-        self.assertEqual(filas[2][-1], 'Español (1° Primaria); Matemáticas (2° Primaria)')
-        self.assertEqual(filas[1][-1], '')
+        self.assertEqual(filas[2][-3], 'Español (1° Primaria); Matemáticas (2° Primaria)')
+        self.assertEqual(filas[1][-3], '')
+
+    def test_incluye_lo_que_puede_impartir_y_su_tope_de_horas(self):
+        from Alumnos.docentes import habilitar
+        habilitar(self.marta, [Materia.objects.get(clave='MAT'), Materia.objects.get(clave='ESP')])
+        self.marta.horas_maximas = 25
+        self.marta.save()
+        filas = self.filas()
+        self.assertEqual(filas[2][-2:], ['Español; Matemáticas', '25'])
+        self.assertEqual(filas[1][-2:], ['', ''])
 
     def test_respeta_los_filtros(self):
         self.assertEqual([f[0] for f in self.filas(estatus='INACTIVO')[1:]], ['Vieja'])

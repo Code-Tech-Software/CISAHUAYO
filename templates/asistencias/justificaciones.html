@@ -77,7 +77,7 @@
         <caption class="visually-hidden">Lista de justificaciones</caption>
         <thead class="table__head">
           <tr>
-            <th class="table__th" scope="col">Alumno</th>
+            <th class="table__th" scope="col">Estudiante</th>
             <th class="table__th" scope="col">Día</th>
             <th class="table__th" scope="col">Justifica</th>
             <th class="table__th table__col--wide" scope="col">Motivo</th>
@@ -152,7 +152,7 @@
       <div class="empty-state">
         {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">No encontramos justificaciones con esos filtros</p>
-        <p class="empty-state__text">Prueba con otro alumno, grado o rango de fechas.</p>
+        <p class="empty-state__text">Prueba con otro estudiante, grado o rango de fechas.</p>
         <a class="btn btn--sm" href="{% querystring q=None grado=None desde=None hasta=None page=None %}">Limpiar filtros</a>
       </div>
     </div>
@@ -169,7 +169,7 @@
       <div class="empty-state">
         {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">Aún no hay justificaciones</p>
-        <p class="empty-state__text">Cuando un alumno falte con causa justificada, registra aquí su justificante: del día completo o solo de algunas materias.</p>
+        <p class="empty-state__text">Cuando un estudiante falte con causa justificada, registra aquí su justificante: del día completo o solo de algunas materias.</p>
         {% if perms.Alumnos.add_justificacion %}<a class="btn btn--primary btn--sm" href="{% url 'asistencias:justificacion_crear' %}" data-modal-form>Nueva justificación</a>{% endif %}
       </div>
     </div>
@@ -185,7 +185,7 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p>¿Anular la justificación de <strong data-anular-alumno>este alumno</strong> del <strong data-anular-dia>día</strong>?</p>
+          <p>¿Anular la justificación de <strong data-anular-alumno>este estudiante</strong> del <strong data-anular-dia>día</strong>?</p>
           <p class="text-muted">Es una anulación lógica: la justificación se conserva en el historial y puedes reactivarla desde el filtro «Anuladas». Sus faltas vuelven a contar sin justificar.</p>
         </div>
         <footer class="modal__footer">

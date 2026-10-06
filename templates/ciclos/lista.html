@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Ciclos escolares</h1>
-      <p class="page-header__description">Los periodos del colegio. Solo hay un ciclo actual: en él se inscribe a los alumnos y se toma asistencia.</p>
+      <p class="page-header__description">Los periodos del colegio. Solo hay un ciclo actual: en él se inscribe a los estudiantes y se toma asistencia.</p>
     </div>
     <div class="page-header__actions">
       {% if perms.Alumnos.add_cicloescolar %}
@@ -61,7 +61,7 @@
   {% elif conteos.total and not estado %}
     <div class="alert alert--warning alert--spaced" role="note">
       {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-      <p class="alert__body"><strong>No hay un ciclo actual.</strong> Mientras no marques uno, no se puede saber en qué ciclo está cada alumno. Elige uno de la lista y márcalo como actual.</p>
+      <p class="alert__body"><strong>No hay un ciclo actual.</strong> Mientras no marques uno, no se puede saber en qué ciclo está cada estudiante. Elige uno de la lista y márcalo como actual.</p>
     </div>
   {% endif %}
 
@@ -113,7 +113,7 @@
               </td>
               <td class="table__cell" data-label="Inscritos">
                 <span class="cell-stack">
-                  <span class="cell-stack__main">{{ ciclo.inscritos }} alumno{{ ciclo.inscritos|pluralize }}</span>
+                  <span class="cell-stack__main">{{ ciclo.inscritos }} estudiante{{ ciclo.inscritos|pluralize }}</span>
                   {% if ciclo.bajas %}<span class="cell-stack__sub">{{ ciclo.bajas }} baja{{ ciclo.bajas|pluralize }}</span>{% endif %}
                 </span>
               </td>
@@ -151,7 +151,7 @@
       <div class="empty-state">
         {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">Aún no hay ciclos escolares</p>
-        <p class="empty-state__text">Crea el primero para poder inscribir alumnos.</p>
+        <p class="empty-state__text">Crea el primero para poder inscribir estudiantes.</p>
         {% if perms.Alumnos.add_cicloescolar %}
           <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
         {% endif %}

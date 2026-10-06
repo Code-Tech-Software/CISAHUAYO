@@ -56,7 +56,7 @@
       input: searchInput,
       box: results,
       url: modal.dataset.searchUrl,
-      emptyText: 'No hay alumnos con ese dato.',
+      emptyText: 'No hay estudiantes con ese dato.',
       render: alumnoResult,
       onPick(alumno) {
         searchInput.value = '';
@@ -90,7 +90,7 @@
 
       if (opener.hasAttribute('data-link-new')) {
         changeButton.hidden = false;
-        title.textContent = 'Vincular alumno';
+        title.textContent = 'Vincular estudiante';
         submit.textContent = 'Guardar vínculo';
         window.setTimeout(() => searchInput.focus(), 60);
         return;

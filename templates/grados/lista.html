@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Grados</h1>
-      <p class="page-header__description">Los grados del colegio, por nivel. Hay un solo grupo por grado, así que cada grado es una sola lista de alumnos.</p>
+      <p class="page-header__description">Los grados del colegio, por nivel. Hay un solo grupo por grado, así que cada grado es una sola lista de estudiantes.</p>
     </div>
     <div class="page-header__actions">
       {% if perms.Alumnos.add_grado %}
@@ -40,11 +40,11 @@
 
   {% if not viendo_bajas and niveles %}
     {% if ciclo %}
-      <p class="results-summary" role="status">{{ total_inscritos }} alumno{{ total_inscritos|pluralize }} inscrito{{ total_inscritos|pluralize }} en el ciclo {{ ciclo }}</p>
+      <p class="results-summary" role="status">{{ total_inscritos }} estudiante{{ total_inscritos|pluralize }} inscrito{{ total_inscritos|pluralize }} en el ciclo {{ ciclo }}</p>
     {% else %}
       <div class="alert alert--warning alert--spaced" role="note">
         {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-        <p class="alert__body">No hay un ciclo actual, por eso no se muestran alumnos inscritos. Marca un ciclo como actual desde <a href="{% url 'ciclos:lista' %}">Ciclos escolares</a>.</p>
+        <p class="alert__body">No hay un ciclo actual, por eso no se muestran estudiantes inscritos. Marca un ciclo como actual desde <a href="{% url 'ciclos:lista' %}">Ciclos escolares</a>.</p>
       </div>
     {% endif %}
   {% endif %}
@@ -53,7 +53,7 @@
     <section class="level" aria-labelledby="nivel-{{ forloop.counter }}">
       <header class="level__header">
         <h2 class="level__title" id="nivel-{{ forloop.counter }}">{{ nivel.nombre }}</h2>
-        {% if not viendo_bajas and ciclo %}<p class="level__count">{{ nivel.inscritos }} alumno{{ nivel.inscritos|pluralize }}</p>{% endif %}
+        {% if not viendo_bajas and ciclo %}<p class="level__count">{{ nivel.inscritos }} estudiante{{ nivel.inscritos|pluralize }}</p>{% endif %}
       </header>
       <ul class="grade-grid">
         {% for fila in nivel.filas %}
@@ -62,10 +62,11 @@
               <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}°</span>
               <div class="grade-card__body">
                 <h3 class="grade-card__name"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado }}</a></h3>
+                {% if fila.grado.equivalencia %}<p class="grade-card__eq" title="Equivalencia en la continuidad escolar">{{ fila.grado.equivalencia_frase }}</p>{% endif %}
                 {% if viendo_bajas %}
                   <p class="grade-card__meta">Dado de baja</p>
                 {% elif ciclo %}
-                  <p class="grade-card__meta">{{ fila.inscritos }} alumno{{ fila.inscritos|pluralize }}{% if fila.materias %} · {{ fila.materias }} materia{{ fila.materias|pluralize }}{% endif %}</p>
+                  <p class="grade-card__meta">{{ fila.inscritos }} estudiante{{ fila.inscritos|pluralize }}{% if fila.materias %} · {{ fila.materias }} materia{{ fila.materias|pluralize }}{% endif %}</p>
                 {% endif %}
               </div>
               {% if perms.Alumnos.change_grado %}
@@ -96,7 +97,7 @@
           <p class="empty-state__text">Los grados que des de baja aparecerán aquí y podrás reactivarlos.</p>
         {% else %}
           <p class="empty-state__title">Aún no hay grados</p>
-          <p class="empty-state__text">Crea los grados de cada nivel que ofrece el colegio para poder inscribir alumnos.</p>
+          <p class="empty-state__text">Crea los grados de cada nivel que ofrece el colegio para poder inscribir estudiantes.</p>
           {% if perms.Alumnos.add_grado %}
             <a class="btn btn--primary btn--sm" href="{% url 'grados:crear' %}" data-modal-form>Crear grado</a>
           {% endif %}

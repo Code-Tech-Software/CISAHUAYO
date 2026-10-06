@@ -17,12 +17,14 @@ from Alumnos.academico import (
     elegir_ciclo,
     grados_por_asignar,
 )
+from Alumnos.docentes import deshabilitar, habilitar
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion, se_empalman
 from Alumnos.models import CicloEscolar, Grado, HorarioMateria, Materia, MateriaGrado, Profesor, orden_de_nivel
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
+from Usuarios.seguridad import ACCION_CAMBIO, registrar
 
 from .forms import CopiarPlanForm, FiltroMateriasForm, MateriaForm
 
@@ -123,8 +125,23 @@ def materia_detalle(request, pk):
     if ciclo and editable and materia.activa:
         por_asignar = _grupos_por_nivel(grados_por_asignar(materia, ciclo))
 
+    # Quién puede impartirla (habilitados) y quién la imparte de verdad en el ciclo, grado por grado.
+    habilitados = list(Profesor.objects.filter(habilitaciones__materia=materia))
+    grados_de = defaultdict(list)
+    for mg in vigentes:
+        if mg.profesor_id:
+            grados_de[mg.profesor_id].append(mg.grado)
+    ids_habilitados = {profesor.pk for profesor in habilitados}
+    for profesor in habilitados:
+        profesor.grados_del_ciclo = grados_de.get(profesor.pk, [])
+    sin_habilitar = list({mg.profesor_id: mg.profesor for mg in vigentes if mg.profesor_id and mg.profesor_id not in ids_habilitados}.values())
+
     return render(request, 'materias/detalle.html', {
         'materia': materia,
+        'habilitados': habilitados,
+        'habilitados_csv': ','.join(str(profesor.pk) for profesor in habilitados if profesor.estatus == 'ACTIVO'),
+        'sin_habilitar': sin_habilitar,
+        'profesores_por_habilitar': list(Profesor.objects.filter(estatus='ACTIVO').exclude(pk__in=ids_habilitados)) if materia.activa else [],
         'ciclos': ciclos,
         'ciclo': ciclo,
         'asignaciones': asignaciones,
@@ -139,6 +156,71 @@ def materia_detalle(request, pk):
         ),
         'esta_de_baja': not materia.activa,
     })
+
+
+# ---------------------------------------------------------------------------
+# Profesores que pueden impartirla (habilitación)
+# ---------------------------------------------------------------------------
+def _volver_a_la_materia(request, materia):
+    return redirect(destino_seguro(request, f'{materia.get_absolute_url()}#profesores'))
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_profesor')
+def materia_habilitar(request, pk):
+    """Agrega profesores a los que pueden impartir la materia. Sirve para sugerirlos al asignar; no asigna nada."""
+    materia = get_object_or_404(Materia, pk=pk)
+    if not materia.activa:
+        messages.error(request, f'{materia} está dada de baja. Reactívala antes de cambiar quién puede impartirla.')
+        return _volver_a_la_materia(request, materia)
+
+    profesores = list(Profesor.objects.filter(pk__in=solo_numeros(request.POST.getlist('profesor')), estatus='ACTIVO'))
+    if not profesores:
+        messages.error(request, 'Elige al menos un profesor.')
+        return _volver_a_la_materia(request, materia)
+
+    agregados = []
+    with transaction.atomic():
+        for profesor in profesores:
+            if habilitar(profesor, [materia]):
+                agregados.append(profesor)
+                registrar(request.user, profesor, ACCION_CAMBIO, f'Habilitado para impartir: {materia.nombre}.')
+    if agregados:
+        nombres = ', '.join(str(profesor) for profesor in agregados)
+        registrar(request.user, materia, ACCION_CAMBIO, f'Pueden impartirla ahora: {nombres}.')
+        messages.success(request, f'Pueden impartir {materia}: {nombres}.')
+    else:
+        messages.info(request, 'Esos profesores ya podían impartirla.')
+    return _volver_a_la_materia(request, materia)
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_profesor')
+def materia_deshabilitar(request, pk):
+    """Quita profesores de los que pueden impartir la materia. No toca lo que ya imparten: eso se quita en las asignaciones."""
+    materia = get_object_or_404(Materia, pk=pk)
+    ids = solo_numeros(request.POST.getlist('profesor'))
+    profesores = list(Profesor.objects.filter(pk__in=ids, habilitaciones__materia=materia))
+    if not profesores:
+        messages.error(request, 'Elige al menos un profesor.')
+        return _volver_a_la_materia(request, materia)
+
+    with transaction.atomic():
+        for profesor in profesores:
+            deshabilitar(profesor, [materia])
+            registrar(request.user, profesor, ACCION_CAMBIO, f'Ya no está habilitado para impartir: {materia.nombre}.')
+    nombres = ', '.join(str(profesor) for profesor in profesores)
+    registrar(request.user, materia, ACCION_CAMBIO, f'Ya no pueden impartirla: {nombres}.')
+    messages.success(request, f'{nombres} ya no figura{"n" if len(profesores) != 1 else ""} entre quienes pueden impartir {materia}.')
+
+    siguen = MateriaGrado.objects.filter(materia=materia, profesor__in=profesores, ciclo__activo=True, activa=True).count()
+    if siguen:
+        messages.info(
+            request,
+            f'Siguen impartiéndola en {siguen} grupo{"s" if siguen != 1 else ""} del ciclo actual: '
+            'si ya no la darán, cámbialos desde «Grados que la imparten».',
+        )
+    return _volver_a_la_materia(request, materia)
 
 
 # ---------------------------------------------------------------------------

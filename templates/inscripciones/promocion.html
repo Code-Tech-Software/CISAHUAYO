@@ -17,7 +17,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Reinscripción en bloque</h1>
-      <p class="page-header__description">Pasa a los alumnos de un ciclo a su siguiente grado en el ciclo nuevo, de una sola vez. Revisas el resultado grado por grado antes de confirmar.</p>
+      <p class="page-header__description">Pasa a los estudiantes de un ciclo a su siguiente grado en el ciclo nuevo, de una sola vez. Revisas el resultado grado por grado antes de confirmar.</p>
     </div>
   </header>
 
@@ -77,11 +77,11 @@
             </header>
             <div class="table-card table-card--flush">
               <table class="table">
-                <caption class="visually-hidden">Grado al que pasan los alumnos de cada grado</caption>
+                <caption class="visually-hidden">Grado al que pasan los estudiantes de cada grado</caption>
                 <thead class="table__head">
                   <tr>
                     <th class="table__th" scope="col">Grado de origen</th>
-                    <th class="table__th" scope="col">Alumnos</th>
+                    <th class="table__th" scope="col">Estudiantes</th>
                     <th class="table__th" scope="col">Pasan a</th>
                   </tr>
                 </thead>
@@ -89,7 +89,7 @@
                   {% for fila in plan %}
                     <tr class="table__row" data-promo-row data-cantidad="{{ fila.cantidad }}">
                       <td class="table__cell table__cell--main">{{ fila.grado }}</td>
-                      <td class="table__cell" data-label="Alumnos">
+                      <td class="table__cell" data-label="Estudiantes">
                         <span class="cell-stack">
                           <span class="cell-stack__main">{{ fila.cantidad }} por reinscribir</span>
                           {% if fila.ya_inscritos or fila.no_activos %}
@@ -101,7 +101,7 @@
                       </td>
                       <td class="table__cell" data-label="Pasan a">
                         <select class="field__control field__control--select" name="grado_{{ fila.grado.pk }}" data-promo-select
-                                aria-label="Grado al que pasan los alumnos de {{ fila.grado }}"{% if not fila.cantidad %} disabled{% endif %}>
+                                aria-label="Grado al que pasan los estudiantes de {{ fila.grado }}"{% if not fila.cantidad %} disabled{% endif %}>
                           <option value="omitir">No reinscribir</option>
                           {% if puede_egresar %}<option value="egresar"{% if fila.sugerido == 'egresar' %} selected{% endif %}>Marcar como egresados</option>{% endif %}
                           {% for grupo in grupos_destino %}
@@ -136,7 +136,7 @@
             <a class="btn btn--ghost" href="{% url 'inscripciones:lista' %}">Cancelar</a>
             <button type="submit" class="btn btn--primary" data-promo-submit>
               {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
-              <span data-promo-submit-label>Reinscribir alumnos</span>
+              <span data-promo-submit-label>Reinscribir estudiantes</span>
             </button>
           </footer>
         </form>
@@ -144,7 +144,7 @@
         <div class="card">
           <div class="empty-state">
             {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-            <p class="empty-state__title">El ciclo de origen no tiene alumnos inscritos</p>
+            <p class="empty-state__title">El ciclo de origen no tiene estudiantes inscritos</p>
             <p class="empty-state__text">No hay inscripciones activas que pasar al ciclo nuevo.</p>
           </div>
         </div>

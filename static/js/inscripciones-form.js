@@ -41,7 +41,7 @@
     input: searchInput,
     box: results,
     url: form.dataset.searchUrl,
-    emptyText: 'No hay alumnos con ese dato.',
+    emptyText: 'No hay estudiantes con ese dato.',
     render: alumnoResult,
     onPick(alumno) {
       choose(alumno);

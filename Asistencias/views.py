@@ -365,7 +365,7 @@ def dia_guardar(request):
         return redirect(destino)
     inscripcion = inscripciones_del_dia(fecha).filter(pk=datos['inscripcion']).select_related('alumno', 'grado', 'ciclo').first()
     if inscripcion is None:
-        messages.error(request, 'Ese alumno no tiene una inscripción vigente en ese día.')
+        messages.error(request, 'Ese estudiante no tiene una inscripción vigente en ese día.')
         return redirect(destino)
     if not AsistenciaGeneral.objects.filter(inscripcion=inscripcion, fecha=fecha).exists() and not request.user.has_perm('Alumnos.add_asistenciageneral'):
         raise PermissionDenied
@@ -462,7 +462,7 @@ def clase(request, pk):
                 observaciones = ' '.join(request.POST.get(f'obs_{inscripcion.pk}', '').split())[:250]
                 filas.append((inscripcion, estado, observaciones))
         if not filas:
-            messages.error(request, 'No había alumnos a quienes pasar lista.')
+            messages.error(request, 'No había estudiantes a quienes pasar lista.')
             return redirect(volver)
         guardar_pase_de_lista(asignacion, fecha, filas, usuario=request.user)
         cuenta = defaultdict(int)
@@ -790,12 +790,12 @@ def reporte_exportar(request):
     materia = f' · {datos["asignacion"].materia}' if datos['asignacion'] else ' · asistencia general'
     escritor.writerow([f'{datos["grado"]} · {datos["ciclo"]}{materia} · del {datos["desde"]:%d/%m/%Y} al {datos["hasta"]:%d/%m/%Y}'])
     if datos['vista'] == 'cuadricula' and datos['cuadricula_posible']:
-        escritor.writerow(['Alumno', 'Referencia', *[f'{dia:%d/%m}' for dia in datos['dias']]])
+        escritor.writerow(['Estudiante', 'Referencia', *[f'{dia:%d/%m}' for dia in datos['dias']]])
         for inscripcion in datos['filas']:
             escritor.writerow([proteger_celda_csv(str(inscripcion.alumno)), proteger_celda_csv(inscripcion.alumno.referencia), *inscripcion.celdas])
         escritor.writerow(['A = asistió, R = retardo, F = falta, J = falta justificada'])
     else:
-        escritor.writerow(['Alumno', 'Referencia', 'Días registrados', 'Presentes', 'Retardos', 'Faltas', 'Faltas justificadas', 'Asistencia (%)'])
+        escritor.writerow(['Estudiante', 'Referencia', 'Días registrados', 'Presentes', 'Retardos', 'Faltas', 'Faltas justificadas', 'Asistencia (%)'])
         for inscripcion in datos['filas']:
             cuenta = inscripcion.cuenta
             escritor.writerow([

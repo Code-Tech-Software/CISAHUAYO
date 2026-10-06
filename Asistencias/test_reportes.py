@@ -109,7 +109,7 @@ class ReporteTests(BaseReporteTests):
 
     def test_un_grado_sin_alumnos(self):
         respuesta = self.reporte(grado=crear_grado('PRIMARIA', 5).pk)
-        self.assertContains(respuesta, 'no tiene alumnos inscritos')
+        self.assertContains(respuesta, 'no tiene estudiantes inscritos')
 
     def test_un_ciclo_cerrado_tambien_se_puede_consultar(self):
         cerrado = ciclo_cerrado_de_prueba()
@@ -174,13 +174,13 @@ class ExportarReporteTests(BaseReporteTests):
     def test_exporta_el_resumen(self):
         filas = self.filas()
         self.assertIn('4° Primaria', filas[0][0])
-        self.assertEqual(filas[1][:3], ['Alumno', 'Referencia', 'Días registrados'])
+        self.assertEqual(filas[1][:3], ['Estudiante', 'Referencia', 'Días registrados'])
         self.assertEqual([f[0] for f in filas[2:]], [str(self.b.alumno), str(self.c.alumno), str(self.alumno)])
         self.assertEqual(filas[3][2:], ['3', '1', '0', '2', '1', '33'])
 
     def test_exporta_la_cuadricula(self):
         filas = self.filas(vista='cuadricula')
-        self.assertEqual(filas[1][:2], ['Alumno', 'Referencia'])
+        self.assertEqual(filas[1][:2], ['Estudiante', 'Referencia'])
         self.assertEqual(len(filas[1]), 2 + 11)
         self.assertIn('A = asistió', filas[-1][0])
 

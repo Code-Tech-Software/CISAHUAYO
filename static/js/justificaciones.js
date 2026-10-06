@@ -46,8 +46,8 @@
       const vacio = document.createElement('p');
       vacio.className = 'field__hint';
       vacio.textContent = alumnoInput.value
-        ? 'Ese alumno no tiene materias vigentes en el ciclo.'
-        : 'Elige primero al alumno para ver las materias de su grado.';
+        ? 'Ese estudiante no tiene materias vigentes en el ciclo.'
+        : 'Elige primero al estudiante para ver las materias de su grado.';
       lista.append(vacio);
       return;
     }
@@ -90,7 +90,7 @@
   const elegir = (alumno) => {
     alumnoInput.value = alumno.id;
     nombre.textContent = alumno.nombre;
-    gradoElegido.textContent = alumno.grado || 'Alumno seleccionado';
+    gradoElegido.textContent = alumno.grado || 'Estudiante seleccionado';
     avatar.textContent = alumno.iniciales;
     avatar.className = `avatar avatar--tone-${(Number(alumno.id) % 6) + 1}`;
     elegido.hidden = false;
@@ -111,7 +111,7 @@
     input: campoBusqueda,
     box: resultados,
     url: form.dataset.searchUrl,
-    emptyText: 'No hay alumnos con ese dato.',
+    emptyText: 'No hay estudiantes con ese dato.',
     render: alumnoResult,
     onPick(alumno) {
       elegir(alumno);

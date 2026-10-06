@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Movimientos de asignaciones | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:tablero' %}">Asignaciones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Movimientos</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Movimientos</h1>
+      <p class="page-header__description">Quién cambió qué: los profesores que se asignaron o se quitaron de una materia y las materias que se agregaron o quitaron de la lista de cada profesor.</p>
+    </div>
+  </header>
+
+  {% include "asignaciones/_pestanas.html" with seccion="movimientos" %}
+
+  <nav class="pills" aria-label="Filtrar por tipo de movimiento">
+    {% for valor, nombre in tipos %}
+      <a class="pill{% if tipo == valor %} is-active{% endif %}" href="{% if valor %}?tipo={{ valor }}{% else %}{% url 'asignaciones:movimientos' %}{% endif %}"{% if tipo == valor %} aria-current="true"{% endif %}>{{ nombre }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if entradas %}
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Bitácora de asignaciones y habilitaciones de profesores</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Cuándo</th>
+            <th class="table__th" scope="col">Quién</th>
+            <th class="table__th" scope="col">Tipo</th>
+            <th class="table__th" scope="col">Qué cambió</th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for entrada in entradas %}
+            <tr class="table__row">
+              <td class="table__cell" data-label="Cuándo">
+                <span class="cell-stack">
+                  <span class="cell-stack__main">{{ entrada.cuando|date:"j \d\e F \d\e Y" }}</span>
+                  <span class="cell-stack__sub">{{ entrada.cuando|date:"H:i" }}</span>
+                </span>
+              </td>
+              <td class="table__cell" data-label="Quién">{{ entrada.quien }}</td>
+              <td class="table__cell" data-label="Tipo"><span class="tag tag--{% if entrada.tipo == 'Asignación' %}primary{% else %}info{% endif %}">{{ entrada.tipo }}</span></td>
+              <td class="table__cell table__cell--main" data-label="Qué cambió">{{ entrada.texto }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="movimientos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clock" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Todavía no hay movimientos</p>
+        <p class="empty-state__text">Cada vez que alguien asigne o quite a un profesor de una materia, quedará anotado aquí.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

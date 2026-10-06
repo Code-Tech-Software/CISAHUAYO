@@ -75,7 +75,7 @@
           <caption class="visually-hidden">Lista de {{ asignacion.materia }} de {{ asignacion.grado }} del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
           <thead class="table__head">
             <tr>
-              <th class="table__th" scope="col">Alumno</th>
+              <th class="table__th" scope="col">Estudiante</th>
               <th class="table__th" scope="col">Entrada al colegio</th>
               <th class="table__th" scope="col">En esta clase</th>
               <th class="table__th table__col--wide" scope="col">Observaciones</th>
@@ -156,8 +156,8 @@
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No hay alumnos en la lista</p>
-        <p class="empty-state__text">{{ asignacion.grado }} no tiene alumnos inscritos vigentes ese día.</p>
+        <p class="empty-state__title">No hay estudiantes en la lista</p>
+        <p class="empty-state__text">{{ asignacion.grado }} no tiene estudiantes inscritos vigentes ese día.</p>
         {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
       </div>
     </div>

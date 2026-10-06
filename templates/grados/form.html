@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Corrige el nivel o el número de {{ grado }}.{% else %}Elige el nivel y el número del grado. Después podrás inscribir alumnos en él.{% endif %}
+        {% if es_edicion %}Corrige el nivel o el número de {{ grado }}.{% else %}Elige el nivel y el número del grado. Después podrás inscribir estudiantes en él.{% endif %}
       </p>
     </div>
   </header>
@@ -52,6 +52,7 @@
       <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.nivel %}
         {% include "partials/field.html" with campo=form.numero %}
+        {% include "partials/field.html" with campo=form.equivalencia clase="form-grid__full" %}
       </div>
     </section>
 
@@ -63,4 +64,8 @@
       </button>
     </footer>
   </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/grados-form.js' %}" defer></script>
 {% endblock %}

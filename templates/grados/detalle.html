@@ -24,8 +24,9 @@
           <h1 class="identity__name" id="perfil-nombre">{{ grado }}</h1>
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ grado.activo|yesno:"Activo,Dado de baja" }}</span>
+            {% if grado.equivalencia %}<span title="Equivalencia en la continuidad escolar">{{ grado.equivalencia_frase }}</span>{% endif %}
             {% if ciclo %}
-              <span class="text-muted">{{ inscripciones|length }} alumno{{ inscripciones|length|pluralize }} en el ciclo {{ ciclo }}</span>
+              <span class="text-muted">{{ inscripciones|length }} estudiante{{ inscripciones|length|pluralize }} en el ciclo {{ ciclo }}</span>
             {% endif %}
           </p>
         </div>
@@ -67,6 +68,7 @@
       <dl class="identity__facts">
         <div class="identity__fact"><dt>Nivel</dt><dd>{{ grado.get_nivel_display }}</dd></div>
         <div class="identity__fact"><dt>Grado</dt><dd>{{ grado.numero }}°</dd></div>
+        <div class="identity__fact"><dt>Equivalencia</dt><dd>{% if grado.equivalencia %}{{ grado.equivalencia_texto }}{% else %}<span class="text-muted">Sin equivalencia</span>{% endif %}</dd></div>
         <div class="identity__fact"><dt>Ciclo consultado</dt><dd>{{ ciclo|default:"—" }}</dd></div>
         <div class="identity__fact"><dt>Materias</dt><dd>{{ total_materias }}</dd></div>
         <div class="identity__fact">
@@ -80,7 +82,7 @@
   {% if esta_de_baja %}
     <div class="alert alert--error alert--spaced" role="note">
       {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
-      <p class="alert__body"><strong>Grado dado de baja.</strong> Ya no se ofrece al inscribir alumnos. Sus inscripciones y su historial se conservan.</p>
+      <p class="alert__body"><strong>Grado dado de baja.</strong> Ya no se ofrece al inscribir estudiantes. Sus inscripciones y su historial se conservan.</p>
       {% if perms.Alumnos.change_grado %}
         <form method="post" action="{% url 'grados:reactivar' grado.pk %}">
           {% csrf_token %}
@@ -105,7 +107,7 @@
   <div class="tabs" data-tabs>
     <div class="tabs__list" role="tablist" aria-label="Secciones del grado">
       <button type="button" class="tabs__tab" role="tab" id="tab-alumnos" aria-controls="alumnos" aria-selected="true">
-        Alumnos <span class="tabs__count">{{ inscripciones|length }}</span>
+        Estudiantes <span class="tabs__count">{{ inscripciones|length }}</span>
       </button>
       <button type="button" class="tabs__tab" role="tab" id="tab-materias" aria-controls="materias" aria-selected="false">
         Materias <span class="tabs__count">{{ total_materias }}</span>
@@ -118,7 +120,7 @@
       {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo %}
         <div class="panel-actions">
           <a class="btn btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>
-            {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %} Inscribir alumno
+            {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %} Inscribir estudiante
           </a>
         </div>
       {% endif %}
@@ -126,10 +128,10 @@
       {% if inscripciones %}
         <div class="table-card">
           <table class="table">
-            <caption class="visually-hidden">Alumnos de {{ grado }} en el ciclo {{ ciclo }}</caption>
+            <caption class="visually-hidden">Estudiantes de {{ grado }} en el ciclo {{ ciclo }}</caption>
             <thead class="table__head">
               <tr>
-                <th class="table__th" scope="col">Alumno</th>
+                <th class="table__th" scope="col">Estudiante</th>
                 <th class="table__th table__col--wide" scope="col">Edad</th>
                 <th class="table__th" scope="col">Tutor principal</th>
                 <th class="table__th table__col--wide" scope="col">Inscrito el</th>
@@ -183,12 +185,12 @@
         <div class="card">
           <div class="empty-state">
             {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-            <p class="empty-state__title">{% if ciclo %}Sin alumnos en este ciclo{% else %}Aún no hay ciclos escolares{% endif %}</p>
+            <p class="empty-state__title">{% if ciclo %}Sin estudiantes en este ciclo{% else %}Aún no hay ciclos escolares{% endif %}</p>
             <p class="empty-state__text">
-              {% if ciclo %}Cuando inscribas alumnos en {{ grado }}, aparecerán aquí como la lista del grado.{% else %}Crea un ciclo escolar para poder inscribir alumnos.{% endif %}
+              {% if ciclo %}Cuando inscribas estudiantes en {{ grado }}, aparecerán aquí como la lista del grado.{% else %}Crea un ciclo escolar para poder inscribir estudiantes.{% endif %}
             </p>
             {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo %}
-              <a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>Inscribir alumno</a>
+              <a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>Inscribir estudiante</a>
             {% endif %}
           </div>
         </div>
@@ -260,6 +262,7 @@
                     {% if plan_editable and item.activa and perms.Alumnos.change_materiagrado %}
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
                               data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ grado }}" data-profesor="{{ item.profesor_id|default_if_none:'' }}"
+                              data-habilitados="{{ item.habilitados }}"
                               aria-label="{% if item.profesor %}Cambiar al profesor de {{ item.materia }}{% else %}Asignar profesor a {{ item.materia }}{% endif %}"
                               data-tooltip="{% if item.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
                         {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
@@ -307,7 +310,7 @@
       {% if historial %}
         <div class="table-card">
           <table class="table">
-            <caption class="visually-hidden">Alumnos de {{ grado }} en cada ciclo</caption>
+            <caption class="visually-hidden">Estudiantes de {{ grado }} en cada ciclo</caption>
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Ciclo</th>
@@ -338,7 +341,7 @@
           <div class="empty-state">
             {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
             <p class="empty-state__title">Sin historial</p>
-            <p class="empty-state__text">Cuando haya alumnos inscritos en este grado, aquí verás cuántos hubo en cada ciclo.</p>
+            <p class="empty-state__text">Cuando haya estudiantes inscritos en este grado, aquí verás cuántos hubo en cada ciclo.</p>
           </div>
         </div>
       {% endif %}
@@ -409,11 +412,11 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p><strong>{{ grado }}</strong> dejará de ofrecerse al inscribir alumnos y de aparecer en el listado de grados activos.</p>
+          <p><strong>{{ grado }}</strong> dejará de ofrecerse al inscribir estudiantes y de aparecer en el listado de grados activos.</p>
           {% if inscritos_actuales %}
             <div class="alert alert--warning" role="note">
               {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-              <p class="alert__body">Tiene {{ inscritos_actuales }} alumno{{ inscritos_actuales|pluralize }} inscrito{{ inscritos_actuales|pluralize }} en el ciclo actual. Seguirán inscritos, pero no podrás inscribir a nadie más.</p>
+              <p class="alert__body">Tiene {{ inscritos_actuales }} estudiante{{ inscritos_actuales|pluralize }} inscrito{{ inscritos_actuales|pluralize }} en el ciclo actual. Seguirán inscritos, pero no podrás inscribir a nadie más.</p>
             </div>
           {% endif %}
           <p class="text-muted">Es una baja lógica: no se borra nada. Sus inscripciones y su historial se conservan y podrás reactivarlo desde el filtro «Bajas».</p>

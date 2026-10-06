@@ -9,7 +9,7 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Alumnos</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Estudiantes</a></li>
   <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno }}</span></li>
 {% endblock %}
 
@@ -24,7 +24,7 @@
         {% include "partials/avatar.html" with persona=alumno tamano="xl" extra="avatar--square avatar--soft" %}
 
         <div class="identity__text">
-          <p class="identity__eyebrow">Alumno · Ref. {{ alumno.referencia }}</p>
+          <p class="identity__eyebrow">Estudiante · Ref. {{ alumno.referencia }}</p>
           <h1 class="identity__name" id="perfil-nombre">{{ alumno }}</h1>
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ alumno.get_estatus_display }}</span>
@@ -108,11 +108,11 @@
   {% if esta_de_baja %}
     <div class="alert alert--error alert--spaced" role="note">
       {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
-      <p class="alert__body"><strong>Alumno dado de baja.</strong> No aparece en el listado principal ni puede registrarse su asistencia. Su historial se conserva.</p>
+      <p class="alert__body"><strong>Estudiante dado de baja.</strong> No aparece en el listado principal ni puede registrarse su asistencia. Su historial se conserva.</p>
       {% if perms.Alumnos.change_alumno %}
         <form method="post" action="{% url 'alumnos:reactivar' alumno.pk %}">
           {% csrf_token %}
-          <button type="submit" class="btn btn--sm">Reactivar alumno</button>
+          <button type="submit" class="btn btn--sm">Reactivar estudiante</button>
         </form>
       {% endif %}
     </div>
@@ -250,7 +250,7 @@
         <div class="card">
           <div class="empty-state">
             {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
-            <p class="empty-state__title">Este alumno no tiene tutores</p>
+            <p class="empty-state__title">Este estudiante no tiene tutores</p>
             <p class="empty-state__text">Agrega al menos un tutor para tener a quién contactar.</p>
             {% if perms.Alumnos.change_alumno %}
               <a class="btn btn--primary btn--sm" href="{% url 'alumnos:editar' alumno.pk %}?paso=tutores" data-modal-form>Agregar tutor</a>
@@ -299,7 +299,7 @@
             {% elif inscripcion_actual %}
               <div class="empty-state empty-state--inline">
                 <p class="empty-state__title">Sin registros de asistencia</p>
-                <p class="empty-state__text">Aún no se ha tomado asistencia a este alumno en el ciclo actual.</p>
+                <p class="empty-state__text">Aún no se ha tomado asistencia a este estudiante en el ciclo actual.</p>
               </div>
             {% else %}
               <div class="empty-state empty-state--inline">
@@ -348,7 +348,7 @@
             {% else %}
               <div class="empty-state empty-state--inline">
                 <p class="empty-state__title">Sin inscripciones</p>
-                <p class="empty-state__text">Este alumno todavía no está inscrito en ningún ciclo escolar.</p>
+                <p class="empty-state__text">Este estudiante todavía no está inscrito en ningún ciclo escolar.</p>
               </div>
             {% endif %}
           </div>

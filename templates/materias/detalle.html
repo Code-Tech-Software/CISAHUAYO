@@ -150,6 +150,7 @@
                   {% if editable and mg.activa and perms.Alumnos.change_materiagrado %}
                     <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
                             data-asignacion="{{ mg.pk }}" data-descripcion="{{ materia }} de {{ mg.grado }}" data-profesor="{{ mg.profesor_id|default_if_none:'' }}"
+                            data-habilitados="{{ habilitados_csv }}"
                             aria-label="{% if mg.profesor %}Cambiar al profesor de {{ mg.grado }}{% else %}Asignar profesor en {{ mg.grado }}{% endif %}"
                             data-tooltip="{% if mg.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
                       {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
@@ -198,7 +199,121 @@
     {% endif %}
   </section>
 
+  {# --- Profesores que pueden impartirla -------------------------------------------- #}
+  {% if perms.Alumnos.view_profesor %}
+    <section class="card card--stacked" id="profesores" aria-labelledby="titulo-profesores">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="presentation" %}<h2 class="card__title" id="titulo-profesores">Profesores que pueden impartirla</h2>
+        {% if perms.Alumnos.change_profesor and profesores_por_habilitar %}
+          <button type="button" class="btn btn--sm card__header-action" data-modal-open="modal-habilitar-profesores">
+            {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar profesores
+          </button>
+        {% endif %}
+      </header>
+
+      {% if sin_habilitar %}
+        <div class="card__body">
+          <div class="alert alert--warning" role="note">
+            {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+            <p class="alert__body">
+              En el ciclo {{ ciclo }} la imparte{{ sin_habilitar|length|pluralize:",n" }}
+              {% for profesor in sin_habilitar %}<strong>{{ profesor }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %},
+              sin estar en esta lista.
+            </p>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if habilitados %}
+        <div class="table-card table-card--flush">
+          <table class="table">
+            <caption class="visually-hidden">Profesores que pueden impartir {{ materia }}</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Profesor</th>
+                <th class="table__th" scope="col">Especialidad</th>
+                <th class="table__th" scope="col">{% if ciclo %}En el ciclo {{ ciclo }}{% else %}En el ciclo{% endif %}</th>
+                <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for profesor in habilitados %}
+                <tr class="table__row{% if profesor.estatus != 'ACTIVO' %} is-inactive{% endif %}">
+                  <td class="table__cell table__cell--main">
+                    <a class="link-subtle" href="{{ profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ profesor }}</a>
+                    {% if profesor.estatus != "ACTIVO" %}<span class="tag">De baja</span>{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Especialidad">{{ profesor.especialidad|default:"—" }}</td>
+                  <td class="table__cell" data-label="En el ciclo">
+                    {% if profesor.grados_del_ciclo %}
+                      <span class="cell-stack">
+                        <span class="cell-stack__main">{{ profesor.grados_del_ciclo|length }} grupo{{ profesor.grados_del_ciclo|length|pluralize }}</span>
+                        <span class="cell-stack__sub">{% for grado in profesor.grados_del_ciclo %}{{ grado }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                      </span>
+                    {% else %}
+                      <span class="text-muted">No la imparte</span>
+                    {% endif %}
+                  </td>
+                  <td class="table__cell table__cell--actions">
+                    {% if perms.Alumnos.change_profesor %}
+                      <form method="post" action="{% url 'materias:deshabilitar' materia.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="profesor" value="{{ profesor.pk }}">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}#profesores">
+                        <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Quitar a {{ profesor }} de quienes pueden impartir {{ materia }}" data-tooltip="Quitar de la lista">
+                          {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+                        </button>
+                      </form>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card__body">
+          <div class="empty-state empty-state--inline">
+            <p class="empty-state__title">Nadie tiene esta materia en su lista</p>
+            <p class="empty-state__text">Marca a los profesores que pueden impartirla para que aparezcan primero al asignarla a un grupo.</p>
+            {% if perms.Alumnos.change_profesor and profesores_por_habilitar %}
+              <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-habilitar-profesores">Agregar profesores</button>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+
   {# --- Ventanas modales -------------------------------------------------------- #}
+  {% if perms.Alumnos.change_profesor and profesores_por_habilitar %}
+    <dialog class="modal modal--wide" id="modal-habilitar-profesores" aria-labelledby="modal-habilitar-profesores-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'materias:habilitar' materia.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}#profesores">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-habilitar-profesores-titulo">Quién puede impartir {{ materia }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>Marca a los profesores que pueden dar <strong>{{ materia }}</strong>. No se les asigna ningún grupo: solo se les sugerirá al asignar esta materia.</p>
+          <div class="choice-group">
+            {% for profesor in profesores_por_habilitar %}
+              <label class="choice choice--check" for="habilitar-profesor-{{ profesor.pk }}">
+                <input class="choice__input" type="checkbox" name="profesor" value="{{ profesor.pk }}" id="habilitar-profesor-{{ profesor.pk }}">
+                <span class="choice__box">{{ profesor }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--primary">Agregar a la lista</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+
   {% if perms.Alumnos.add_materiagrado and grupos_por_asignar %}
     <dialog class="modal modal--wide" id="modal-asignar" aria-labelledby="modal-asignar-titulo" data-modal>
       <form class="modal__panel" method="post" action="{% url 'materias:asignar' %}">

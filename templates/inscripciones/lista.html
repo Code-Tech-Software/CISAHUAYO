@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Inscripciones</h1>
-      <p class="page-header__description">En qué grado y ciclo está cada alumno. Como hay un solo grupo por grado, la inscripción es lo que lo ubica en su salón.</p>
+      <p class="page-header__description">En qué grado y ciclo está cada estudiante. Como hay un solo grupo por grado, la inscripción es lo que lo ubica en su salón.</p>
     </div>
     <div class="page-header__actions">
       {% if pagina.paginator.count %}
@@ -49,7 +49,7 @@
         <div class="stat">
           <p class="stat__label">{{ nivel.nombre }}</p>
           <p class="stat__value">{{ nivel.total }}</p>
-          <p class="stat__hint">alumno{{ nivel.total|pluralize }}</p>
+          <p class="stat__hint">estudiante{{ nivel.total|pluralize }}</p>
         </div>
       {% endfor %}
       <div class="stat{% if resumen.sin_inscribir %} stat--attention{% endif %}">
@@ -57,8 +57,8 @@
         <p class="stat__value">{{ resumen.sin_inscribir }}</p>
         <p class="stat__hint">
           {% if resumen.sin_inscribir and resumen.ciclo == ciclo_actual and perms.Alumnos.view_alumno %}
-            <a href="{% url 'alumnos:lista' %}?situacion=sin_inscripcion">ver alumnos</a>
-          {% else %}alumnos activos sin inscripción{% endif %}
+            <a href="{% url 'alumnos:lista' %}?situacion=sin_inscripcion">ver estudiantes</a>
+          {% else %}estudiantes activos sin inscripción{% endif %}
         </p>
       </div>
     </section>
@@ -112,7 +112,7 @@
         <caption class="visually-hidden">Lista de inscripciones</caption>
         <thead class="table__head">
           <tr>
-            <th class="table__th" scope="col">Alumno</th>
+            <th class="table__th" scope="col">Estudiante</th>
             <th class="table__th" scope="col">Grado</th>
             <th class="table__th table__col--wide" scope="col">Ciclo</th>
             <th class="table__th table__col--wide" scope="col">Inscrito el</th>
@@ -196,7 +196,7 @@
       <div class="empty-state">
         {% include "partials/icon.html" with name="clipboard-list" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">Aún no hay inscripciones{% if resumen %} en este ciclo{% endif %}</p>
-        <p class="empty-state__text">Inscribe a los alumnos uno por uno o reinscribe a un grupo completo desde el ciclo anterior.</p>
+        <p class="empty-state__text">Inscribe a los estudiantes uno por uno o reinscribe a un grupo completo desde el ciclo anterior.</p>
         {% if perms.Alumnos.add_inscripcion %}
           <a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>
         {% endif %}
@@ -213,8 +213,8 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p>La inscripción de <strong data-baja-alumno>este alumno</strong> (<span data-baja-detalle></span>) dejará de contar en el ciclo.</p>
-          <p class="text-muted">Es una baja lógica: no se borra nada. La inscripción se conserva y puedes reactivarla desde el filtro «Bajas». El alumno sigue registrado y activo.</p>
+          <p>La inscripción de <strong data-baja-alumno>este estudiante</strong> (<span data-baja-detalle></span>) dejará de contar en el ciclo.</p>
+          <p class="text-muted">Es una baja lógica: no se borra nada. La inscripción se conserva y puedes reactivarla desde el filtro «Bajas». El estudiante sigue registrado y activo.</p>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>

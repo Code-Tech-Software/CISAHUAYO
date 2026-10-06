@@ -75,6 +75,7 @@ class GradoAdmin(admin.ModelAdmin):
     list_display = (
         'numero',
         'nivel',
+        'equivalencia',
         'activo',
     )
 

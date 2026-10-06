@@ -75,8 +75,8 @@ class NavegacionTests(SimpleTestCase):
         items = elementos(self.factory.get('/'))
         self.assertEqual(items['Tutores']['url'], '#')
         self.assertFalse(items['Tutores']['disponible'])
-        self.assertEqual(items['Alumnos']['url'], '/alumnos/')
-        self.assertTrue(items['Alumnos']['disponible'])
+        self.assertEqual(items['Estudiantes']['url'], '/alumnos/')
+        self.assertTrue(items['Estudiantes']['disponible'])
 
     def test_panel_de_control_solo_es_activo_en_la_raiz(self):
         self.assertTrue(elementos(self.factory.get('/'))['Panel de control']['activo'])
@@ -85,11 +85,11 @@ class NavegacionTests(SimpleTestCase):
     def test_se_activa_la_coincidencia_mas_especifica(self):
         items = elementos(self.factory.get('/alumnos/inscripciones/'))
         self.assertTrue(items['Inscripciones']['activo'])
-        self.assertFalse(items['Alumnos']['activo'])
+        self.assertFalse(items['Estudiantes']['activo'])
 
     def test_prefijo_de_ruta_mantiene_activo_el_elemento(self):
         items = elementos(self.factory.get('/alumnos/7/editar/'))
-        self.assertTrue(items['Alumnos']['activo'])
+        self.assertTrue(items['Estudiantes']['activo'])
 
     def test_los_elementos_sin_ruta_nunca_se_activan(self):
         items = elementos(self.factory.get('/alumnos/'))
@@ -97,7 +97,7 @@ class NavegacionTests(SimpleTestCase):
 
     def test_solo_aparecen_las_acciones_rapidas_con_ruta(self):
         acciones = contexto(self.factory.get('/'))['acciones_rapidas']
-        self.assertEqual([a['etiqueta'] for a in acciones], ['Nuevo alumno'])
+        self.assertEqual([a['etiqueta'] for a in acciones], ['Nuevo estudiante'])
         self.assertEqual(acciones[0]['url'], '/alumnos/nuevo/')
 
     def test_sin_ruta_de_busqueda_no_hay_url(self):
@@ -140,7 +140,7 @@ class PlantillaBaseTests(TestCase):
         self.assertIn('aria-keyshortcuts="Control+K Meta+K"', html)
         # Solo las páginas con ruta real, las acciones disponibles y las preferencias
         self.assertIn('Panel de control', html)
-        self.assertIn('Nuevo alumno', html)
+        self.assertIn('Nuevo estudiante', html)
         self.assertIn('data-palette-action="toggle-theme"', html)
         self.assertNotIn('data-palette-search', html)
 

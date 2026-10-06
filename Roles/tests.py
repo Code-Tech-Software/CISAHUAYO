@@ -137,7 +137,7 @@ class AltaDeRolesTests(BaseRolesTestCase):
         rol = Rol.objects.get(grupo__name='Coordinación')
         entrada = bitacora(rol, ADDITION).get()
         self.assertEqual(entrada.user, self.admin)
-        self.assertIn('Alumnos · Ver', entrada.change_message)
+        self.assertIn('Estudiantes · Ver', entrada.change_message)
 
     def test_responde_con_json_cuando_se_envia_desde_la_ventana(self):
         respuesta = self.client.post(reverse('roles:crear'), datos_de_rol(), HTTP_X_MODAL_FORM='1')
@@ -244,7 +244,7 @@ class EdicionDeRolesTests(BaseRolesTestCase):
     def test_la_bitacora_dice_que_permisos_se_concedieron_y_cuales_se_retiraron(self):
         self.enviar({'Alumnos.view_alumno', 'Alumnos.add_alumno'})
         mensaje = bitacora(self.rol, CHANGE).get().change_message
-        self.assertIn('Permisos concedidos: Alumnos · Crear', mensaje)
+        self.assertIn('Permisos concedidos: Estudiantes · Crear', mensaje)
         self.assertIn('Permisos retirados: Tutores · Ver', mensaje)
 
     def test_un_cambio_de_nombre_se_registra(self):

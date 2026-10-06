@@ -85,8 +85,8 @@ class Alumno(models.Model):
         return reverse('alumnos:detalle', args=[self.pk])
 
     class Meta:
-        verbose_name = 'Alumno'
-        verbose_name_plural = 'Alumnos'
+        verbose_name = 'Estudiante'
+        verbose_name_plural = 'Estudiantes'
         ordering = [
             'apellido_paterno',
             'apellido_materno',
@@ -187,11 +187,36 @@ class Grado(models.Model):
     nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, verbose_name='Nivel')
     numero = models.PositiveSmallIntegerField(verbose_name='Grado')
     activo = models.BooleanField(default=True, verbose_name='Activo')
+    equivalencia = models.CharField(
+        max_length=8, blank=True, default='', verbose_name='Equivalencia',
+        help_text='Cómo se nombra el grado en la continuidad escolar, sin importar el nivel: un número (1.° de secundaria '
+                  'equivale al 7.°) o un código con letras (K1 para 1.° de preescolar).',
+    )
 
     objects = GradoQuerySet.as_manager()
 
     def __str__(self):
         return f"{self.numero}° {self.get_nivel_display()}"
+
+    @property
+    def equivalencia_numero(self):
+        """La equivalencia como número (7); None si no tiene o es un código con letras (K1)."""
+        valor = str(self.equivalencia or '')
+        return int(valor) if valor.isdigit() else None
+
+    @property
+    def equivalencia_texto(self):
+        """«7°» si la equivalencia es un número, el código tal cual («K1») si lleva letras; vacío si no tiene."""
+        if not self.equivalencia:
+            return ''
+        return f'{self.equivalencia_numero}°' if self.equivalencia_numero is not None else self.equivalencia
+
+    @property
+    def equivalencia_frase(self):
+        """«Equivale al 7°» o «Equivale a K1»; vacío si no tiene equivalencia."""
+        if not self.equivalencia:
+            return ''
+        return f'Equivale al {self.equivalencia_texto}' if self.equivalencia_numero is not None else f'Equivale a {self.equivalencia_texto}'
 
     def get_absolute_url(self):
         return reverse('grados:detalle', args=[self.pk])
@@ -216,7 +241,7 @@ class Grado(models.Model):
 
 class Inscripcion(models.Model):
 
-    alumno = models.ForeignKey(Alumno, on_delete=models.PROTECT, related_name='inscripciones')
+    alumno = models.ForeignKey(Alumno, on_delete=models.PROTECT, related_name='inscripciones', verbose_name='Estudiante')
     ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='inscripciones')
     grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='inscripciones')
     fecha_inscripcion = models.DateField(default=timezone.localdate, verbose_name='Fecha de inscripción')
@@ -249,7 +274,7 @@ class Inscripcion(models.Model):
 
             if existe:
                 raise ValidationError(
-                    'El alumno ya tiene una inscripción activa '
+                    'El estudiante ya tiene una inscripción activa '
                     'en este ciclo escolar.'
                 )
 
@@ -447,7 +472,7 @@ class AsistenciaMateria(models.Model):
     ]
 
     ORIGEN_CHOICES = [
-        ('ENTRADA', 'Entrada del alumno'),
+        ('ENTRADA', 'Entrada del estudiante'),
         ('PASE', 'Pase de lista'),
         ('MANUAL', 'Captura manual'),
         ('CIERRE', 'Cierre del día'),
@@ -479,7 +504,7 @@ class AsistenciaMateria(models.Model):
             != self.materia_grado.grado_id
         ):
             raise ValidationError(
-                'La materia no pertenece al grado del alumno.'
+                'La materia no pertenece al grado del estudiante.'
             )
 
         if (
@@ -488,7 +513,7 @@ class AsistenciaMateria(models.Model):
         ):
             raise ValidationError(
                 'La materia no pertenece al ciclo escolar '
-                'de la inscripción del alumno.'
+                'de la inscripción del estudiante.'
             )
 
     def __str__(self):
@@ -709,11 +734,11 @@ class TutorAlumno(models.Model):
         ('OTRO', 'Otro'),
     ]
     tutor = models.ForeignKey(Tutor,on_delete=models.CASCADE,related_name='alumnos_relacionados')
-    alumno = models.ForeignKey(Alumno,on_delete=models.CASCADE,related_name='tutores_relacionados')
+    alumno = models.ForeignKey(Alumno,on_delete=models.CASCADE,related_name='tutores_relacionados', verbose_name='Estudiante')
     parentesco = models.CharField(max_length=20,choices=PARENTESCO_CHOICES,verbose_name='Parentesco')
     tutor_principal = models.BooleanField( default=False,verbose_name='Tutor principal')
     contacto_emergencia = models.BooleanField(default=False,verbose_name='Contacto de emergencia')
-    autorizado_recoger = models.BooleanField(default=False,verbose_name='Autorizado para recoger al alumno')
+    autorizado_recoger = models.BooleanField(default=False,verbose_name='Autorizado para recoger al estudiante')
     recibe_notificaciones = models.BooleanField(default=True,verbose_name='Recibe notificaciones')
     responsable_pagos = models.BooleanField(default=False,verbose_name='Responsable de pagos')
     observaciones = models.TextField(blank=True,verbose_name='Observaciones')
@@ -729,8 +754,8 @@ class TutorAlumno(models.Model):
         )
 
     class Meta:
-        verbose_name = 'Tutor del alumno'
-        verbose_name_plural = 'Tutores de alumnos'
+        verbose_name = 'Tutor del estudiante'
+        verbose_name_plural = 'Tutores de estudiantes'
 
         constraints = [
             models.UniqueConstraint(
@@ -770,6 +795,10 @@ class Profesor(models.Model):
     cedula_profesional = models.CharField(max_length=20, blank=True, verbose_name='Cédula profesional')
     especialidad = models.CharField(max_length=150, blank=True, verbose_name='Especialidad o áreas que imparte')
     fecha_ingreso = models.DateField(null=True, blank=True, verbose_name='Fecha de ingreso al colegio')
+    horas_maximas = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Horas máximas por semana',
+        help_text='Opcional. Sirve para avisar cuando su carga de clases la rebasa.',
+    )
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
     creado = models.DateTimeField(auto_now_add=True)
@@ -797,3 +826,26 @@ class Profesor(models.Model):
             'apellido_materno',
             'nombre'
         ]
+
+
+class ProfesorMateria(models.Model):
+    """Una materia que el profesor puede impartir (su habilitación).
+
+    Es independiente del ciclo y del grado: dice qué sabe y quiere dar. Quién la imparte de verdad en cada grupo y ciclo
+    es `MateriaGrado.profesor`; la habilitación solo sirve para sugerir a los profesores adecuados al asignar.
+    """
+    profesor = models.ForeignKey(Profesor, on_delete=models.CASCADE, related_name='habilitaciones')
+    materia = models.ForeignKey(Materia, on_delete=models.CASCADE, related_name='habilitaciones')
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.profesor} · {self.materia}'
+
+    class Meta:
+        verbose_name = 'Materia que puede impartir'
+        verbose_name_plural = 'Materias que puede impartir'
+        ordering = ['materia__nombre']
+        constraints = [
+            models.UniqueConstraint(fields=['profesor', 'materia'], name='profesor_materia_unica'),
+        ]
+

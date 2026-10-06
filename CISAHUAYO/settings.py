@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'Materias',
     'Horarios',
     'Profesores',
+    'Asignaciones',
     'Asistencias',
     'Usuarios',
     'Roles',
@@ -116,14 +117,14 @@ LOGIN_REDIRECT_URL = 'inicio'
 
 
 DATABASES = {
-    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
+   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
 }
 
 #DATABASES = {
-   #'default': {
-  #     'ENGINE': 'django.db.backends.sqlite3',
-  #    'NAME': BASE_DIR / 'db.sqlite3',
-  # }
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
 #}
 
 # Password validation
@@ -150,7 +151,6 @@ LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/

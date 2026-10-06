@@ -129,12 +129,12 @@ class FiltroTutoresForm(EstiloCamposMixin, forms.Form):
     ]
     SITUACION_CHOICES = [
         ('', 'Cualquier situación'),
-        ('con_alumnos', 'Con alumnos vigentes'),
-        ('sin_alumnos', 'Sin alumnos vigentes'),
+        ('con_alumnos', 'Con estudiantes vigentes'),
+        ('sin_alumnos', 'Sin estudiantes vigentes'),
     ]
 
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
-        'type': 'search', 'placeholder': 'Nombre, teléfono, CURP o alumno…', 'autocomplete': 'off',
+        'type': 'search', 'placeholder': 'Nombre, teléfono, CURP o estudiante…', 'autocomplete': 'off',
     }))
     estatus = forms.ChoiceField(required=False, choices=[('', 'Activos'), *Tutor.ESTATUS_CHOICES], label='Estatus')
     situacion = forms.ChoiceField(required=False, choices=SITUACION_CHOICES, label='Situación')
@@ -190,7 +190,7 @@ class VinculoForm(EstiloCamposMixin, forms.Form):
     alumno = forms.ModelChoiceField(
         Alumno.objects.all(),
         widget=forms.HiddenInput,
-        error_messages={'required': 'Busca y elige un alumno.', 'invalid_choice': 'Elige un alumno de la lista.'},
+        error_messages={'required': 'Busca y elige un estudiante.', 'invalid_choice': 'Elige un estudiante de la lista.'},
     )
     parentesco = forms.ChoiceField(
         choices=[('', 'Selecciona…'), *TutorAlumno.PARENTESCO_CHOICES],
@@ -199,7 +199,7 @@ class VinculoForm(EstiloCamposMixin, forms.Form):
     )
     tutor_principal = forms.BooleanField(required=False, label='Tutor principal', widget=CHIP)
     contacto_emergencia = forms.BooleanField(required=False, label='Contacto de emergencia', widget=CHIP)
-    autorizado_recoger = forms.BooleanField(required=False, label='Puede recoger al alumno', widget=CHIP)
+    autorizado_recoger = forms.BooleanField(required=False, label='Puede recoger al estudiante', widget=CHIP)
     recibe_notificaciones = forms.BooleanField(required=False, initial=True, label='Recibe notificaciones', widget=CHIP)
     responsable_pagos = forms.BooleanField(required=False, label='Responsable de pagos', widget=CHIP)
     activo = forms.BooleanField(required=False, initial=True, label='Vínculo activo', widget=CHIP)

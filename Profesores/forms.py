@@ -10,6 +10,7 @@ from Alumnos.models import MateriaGrado, Profesor
 from Alumnos.utils import CURP_RE, compactar_espacios, normalizar_curp, validar_telefono
 
 EDAD_MINIMA = 18
+MAXIMO_DE_HORAS = 60   # horas de clase por semana: más no cabe en una semana de trabajo
 
 
 # ---------------------------------------------------------------------------
@@ -24,7 +25,7 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'nombre', 'apellido_paterno', 'apellido_materno', 'curp', 'fecha_nacimiento',
             'telefono', 'telefono_alternativo', 'correo_electronico',
             'domicilio', 'colonia', 'ciudad', 'estado', 'cp',
-            'profesion', 'cedula_profesional', 'especialidad', 'fecha_ingreso',
+            'profesion', 'cedula_profesional', 'especialidad', 'fecha_ingreso', 'horas_maximas',
             'observaciones',
         ]
         widgets = {
@@ -50,6 +51,7 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'profesion': forms.TextInput(attrs={'autocomplete': 'off', 'placeholder': 'Licenciatura en Educación Primaria'}),
             'cedula_profesional': forms.TextInput(attrs={'autocomplete': 'off', 'maxlength': 20, 'placeholder': 'Opcional', 'inputmode': 'numeric'}),
             'especialidad': forms.TextInput(attrs={'autocomplete': 'off', 'placeholder': 'Matemáticas, inglés, educación física…'}),
+            'horas_maximas': forms.NumberInput(attrs={'min': 1, 'max': MAXIMO_DE_HORAS, 'inputmode': 'numeric', 'placeholder': 'Sin tope'}),
             'fecha_ingreso': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'observaciones': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Notas internas sobre este profesor'}),
         }
@@ -58,6 +60,7 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'telefono': 'Es el número principal de contacto.',
             'correo_electronico': 'Opcional. Debe ser único entre los profesores.',
             'especialidad': 'Opcional. Sirve de referencia al elegir quién imparte cada materia.',
+            'horas_maximas': 'Opcional. Las horas de clase por semana que puede dar como máximo: en «Asignaciones» se avisa si su carga la rebasa.',
         }
 
     def __init__(self, *args, **kwargs):
@@ -114,6 +117,12 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             if fecha > hoy - timedelta(days=365 * EDAD_MINIMA + 4):
                 raise ValidationError(f'Un profesor debe tener al menos {EDAD_MINIMA} años.')
         return fecha
+
+    def clean_horas_maximas(self):
+        horas = self.cleaned_data.get('horas_maximas')
+        if horas is not None and not 1 <= horas <= MAXIMO_DE_HORAS:
+            raise ValidationError(f'Escribe de 1 a {MAXIMO_DE_HORAS} horas por semana.')
+        return horas
 
     def clean_fecha_ingreso(self):
         fecha = self.cleaned_data.get('fecha_ingreso')
@@ -178,6 +187,8 @@ class FiltroProfesoresForm(EstiloCamposMixin, forms.Form):
                 | Q(cedula_profesional__icontains=palabra)
                 | Q(asignaciones__materia__nombre__icontains=palabra)
                 | Q(asignaciones__materia__clave__icontains=palabra)
+                | Q(habilitaciones__materia__nombre__icontains=palabra)
+                | Q(habilitaciones__materia__clave__icontains=palabra)
             )
 
         # Las bajas no aparecen salvo que se pida ese estatus.

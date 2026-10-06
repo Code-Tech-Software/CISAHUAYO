@@ -14,6 +14,8 @@ urlpatterns = [
     path('asignaciones/<int:pk>/reactivar/', views.asignacion_reactivar, name='reactivar_asignacion'),
     path('<int:pk>/', views.materia_detalle, name='detalle'),
     path('<int:pk>/editar/', views.materia_editar, name='editar'),
+    path('<int:pk>/habilitar/', views.materia_habilitar, name='habilitar'),
+    path('<int:pk>/deshabilitar/', views.materia_deshabilitar, name='deshabilitar'),
     path('<int:pk>/baja/', views.materia_baja, name='baja'),
     path('<int:pk>/reactivar/', views.materia_reactivar, name='reactivar'),
 ]

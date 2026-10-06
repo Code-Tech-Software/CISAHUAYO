@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Carga por profesor | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:tablero' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">Asignaciones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Carga por profesor</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Carga por profesor</h1>
+      <p class="page-header__description">Cuántas materias y horas por semana tiene cada profesor en el ciclo, frente al máximo que le corresponde. Desde aquí puedes pasar sus clases a otra persona.</p>
+    </div>
+  </header>
+
+  {% include "asignaciones/_pestanas.html" with seccion="carga" %}
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Crea un ciclo para asignar materias y ver la carga de cada profesor.</p>
+      </div>
+    </div>
+  {% else %}
+    {% if not editable %}
+      <div class="alert alert--info alert--spaced" role="note">
+        {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+        <p class="alert__body">El ciclo {{ ciclo }} está cerrado: su carga se conserva tal como quedó y ya no se modifica.</p>
+      </div>
+    {% endif %}
+
+    {% if de_baja_con_clases %}
+      <div class="alert alert--warning alert--spaced" role="note">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <p class="alert__body">
+          {% for carga in de_baja_con_clases %}<strong>{{ carga.profesor }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+          está{{ de_baja_con_clases|length|pluralize:",n" }} de baja y todavía imparte materias en {{ ciclo }}. Pásalas a otro profesor con «Pasar clases».
+        </p>
+      </div>
+    {% endif %}
+
+    <nav class="pills" aria-label="Filtrar por carga">
+      <a class="pill{% if not filtros_activos.estado %} is-active{% endif %}" href="{% querystring estado=None %}"{% if not filtros_activos.estado %} aria-current="true"{% endif %}>
+        Todos <span class="pill__count">{{ total }}</span>
+      </a>
+      <a class="pill{% if filtros_activos.estado == 'sobrecarga' %} is-active{% endif %}" href="{% querystring estado='sobrecarga' %}"{% if filtros_activos.estado == 'sobrecarga' %} aria-current="true"{% endif %}>
+        Sobrecargados <span class="pill__count">{{ conteos.sobrecarga }}</span>
+      </a>
+      <a class="pill{% if filtros_activos.estado == 'completa' %} is-active{% endif %}" href="{% querystring estado='completa' %}"{% if filtros_activos.estado == 'completa' %} aria-current="true"{% endif %}>
+        Carga completa <span class="pill__count">{{ conteos.completa }}</span>
+      </a>
+      <a class="pill{% if filtros_activos.estado == 'con_carga' %} is-active{% endif %}" href="{% querystring estado='con_carga' %}"{% if filtros_activos.estado == 'con_carga' %} aria-current="true"{% endif %}>
+        Con carga <span class="pill__count">{{ conteos.con_carga }}</span>
+      </a>
+      <a class="pill{% if filtros_activos.estado == 'libre' %} is-active{% endif %}" href="{% querystring estado='libre' %}"{% if filtros_activos.estado == 'libre' %} aria-current="true"{% endif %}>
+        Sin clases <span class="pill__count">{{ conteos.libre }}</span>
+      </a>
+    </nav>
+
+    <form class="filters filters--compact" method="get" role="search" aria-label="Buscar profesores" data-autosubmit>
+      {% if filtros_activos.estado %}<input type="hidden" name="estado" value="{{ filtros_activos.estado }}">{% endif %}
+      <div class="filters__search">
+        <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar profesores</label>
+        {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+        {{ filtro.q }}
+      </div>
+      {% if ciclos|length > 1 %}
+        <div class="filters__field">
+          <label class="visually-hidden" for="filtro-ciclo">Ciclo escolar</label>
+          <select class="field__control field__control--select" id="filtro-ciclo" name="ciclo">
+            {% for c in ciclos %}
+              <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% else %}
+        <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+      {% endif %}
+      <div class="filters__field">
+        <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
+        {{ filtro.orden }}
+      </div>
+      <div class="filters__actions">
+        <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+        {% if filtros_activos %}
+          <a class="btn btn--ghost btn--sm" href="{% url 'asignaciones:carga' %}?ciclo={{ ciclo.pk }}">Limpiar</a>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if cargas %}
+      <p class="results-summary" role="status">
+        {{ cargas|length }} profesor{{ cargas|length|pluralize:",es" }}{% if filtros_activos %} con los filtros aplicados{% endif %}
+      </p>
+
+      <div class="table-card">
+        <table class="table">
+          <caption class="visually-hidden">Carga de clases de cada profesor en el ciclo {{ ciclo }}</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Profesor</th>
+              <th class="table__th" scope="col">Materias</th>
+              <th class="table__th table__col--wide" scope="col">Horas por semana</th>
+              <th class="table__th" scope="col">Carga</th>
+              <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for carga in cargas %}
+              {% with profesor=carga.profesor %}
+                <tr class="table__row{% if profesor.estatus != 'ACTIVO' %} is-inactive{% endif %}">
+                  <td class="table__cell table__cell--main">
+                    <a class="person" href="{{ profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}#materias">
+                      {% include "partials/avatar.html" with persona=profesor %}
+                      <span class="person__text">
+                        <span class="person__name">{{ profesor }}{% if profesor.estatus != "ACTIVO" %} <span class="tag tag--danger">De baja</span>{% endif %}</span>
+                        <span class="person__meta">{{ profesor.especialidad|default:"Sin especialidad registrada" }}</span>
+                      </span>
+                    </a>
+                  </td>
+                  <td class="table__cell" data-label="Materias">
+                    {% if carga.total_materias %}
+                      <span class="cell-stack">
+                        <span class="cell-stack__main">{{ carga.total_materias }} materia{{ carga.total_materias|pluralize }} en {{ carga.total_grados }} grado{{ carga.total_grados|pluralize }}</span>
+                        <span class="cell-stack__sub cell-stack__sub--truncate">
+                          {% for asignacion in carga.asignaciones|slice:":3" %}{{ asignacion.materia.nombre }} ({{ asignacion.grado.numero }}°){% if not forloop.last %}, {% endif %}{% endfor %}{% if carga.total_materias > 3 %} y {{ carga.total_materias|add:"-3" }} más{% endif %}
+                        </span>
+                      </span>
+                    {% else %}
+                      <span class="text-muted">Ninguna</span>
+                    {% endif %}
+                  </td>
+                  <td class="table__cell table__col--wide" data-label="Horas por semana">
+                    {% if carga.duracion %}
+                      <span class="cell-stack">
+                        <span class="cell-stack__main">{{ carga.duracion }}{% if carga.maximo %} de {{ carga.maximo }} h{% endif %}</span>
+                        {% if carga.porcentaje is not None %}
+                          <progress class="meter{% if carga.estado == 'sobrecarga' %} meter--danger{% elif carga.estado == 'completa' %} meter--warning{% endif %}" max="100" value="{{ carga.porcentaje }}" aria-label="Carga de {{ profesor }}">{{ carga.porcentaje }}%</progress>
+                        {% endif %}
+                      </span>
+                    {% else %}
+                      <span class="text-muted">{% if carga.total_materias %}Sin horario armado{% else %}—{% endif %}</span>
+                    {% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Carga">
+                    <span class="tag tag--{% if carga.estado == 'sobrecarga' %}danger{% elif carga.estado == 'completa' %}warning{% elif carga.estado == 'libre' %}info{% else %}success{% endif %}">{{ carga.estado_texto }}</span>
+                  </td>
+                  <td class="table__cell table__cell--actions">
+                    {% if editable and perms.Alumnos.change_materiagrado and carga.total_materias %}
+                      <button type="button" class="btn btn--sm" data-modal-open="modal-transferir" data-transferir
+                              data-origen="{{ profesor.pk }}" data-nombre="{{ profesor }}" data-clases="{{ carga.total_materias }}">
+                        {% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Pasar clases
+                      </button>
+                    {% endif %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{{ profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}#materias" aria-label="Ver las materias de {{ profesor }}" data-tooltip="Ver materias">
+                      {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                    </a>
+                  </td>
+                </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif filtros_activos %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">No hay profesores con esos filtros</p>
+          <p class="empty-state__text">Prueba con otra búsqueda o con otro estado de carga.</p>
+          <a class="btn btn--sm" href="{% url 'asignaciones:carga' %}?ciclo={{ ciclo.pk }}">Limpiar filtros</a>
+        </div>
+      </div>
+    {% else %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="presentation" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">Aún no hay profesores activos</p>
+          <p class="empty-state__text">Registra a los profesores para poder asignarles materias y ver su carga.</p>
+          {% if perms.Alumnos.add_profesor %}
+            <a class="btn btn--primary btn--sm" href="{% url 'profesores:crear' %}" data-modal-form>Registrar profesor</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if editable and perms.Alumnos.change_materiagrado %}
+      <dialog class="modal" id="modal-transferir" aria-labelledby="modal-transferir-titulo" data-modal>
+        <form class="modal__panel" method="post" action="{% url 'asignaciones:transferir' %}" data-transferir-form>
+          {% csrf_token %}
+          <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+          <input type="hidden" name="origen" value="">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <header class="modal__header">
+            <h2 class="modal__title" id="modal-transferir-titulo">Pasar las clases de un profesor</h2>
+            <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          </header>
+          <div class="modal__body">
+            <p>Las <strong data-transferir-clases>materias</strong> que imparte <strong data-transferir-nombre>este profesor</strong> en el ciclo <strong>{{ ciclo }}</strong> pasarán a:</p>
+            <div class="field">
+              <label class="field__label" for="transferir-destino">Nuevo profesor</label>
+              <select class="field__control field__control--select" id="transferir-destino" name="destino">
+                <option value="-">Elige a quién pasárselas</option>
+                {% for p in profesores_activos %}
+                  <option value="{{ p.pk }}">{{ p }}{% if p.especialidad %} · {{ p.especialidad }}{% endif %}</option>
+                {% endfor %}
+                <option value="ninguno">Dejarlas sin profesor</option>
+              </select>
+              <p class="field__hint">Si una materia se empalma con otra clase del nuevo profesor, esa se queda con quien estaba y se te avisa.</p>
+            </div>
+          </div>
+          <footer class="modal__footer">
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+            <button type="submit" class="btn btn--primary">Pasar clases</button>
+          </footer>
+        </form>
+      </dialog>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/asignaciones.js' %}" defer></script>
+{% endblock %}

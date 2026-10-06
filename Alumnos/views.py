@@ -221,7 +221,7 @@ def alumno_estatus(request, pk):
     alumno = get_object_or_404(Alumno, pk=pk)
     estatus = request.POST.get('estatus')
     if estatus == 'BAJA':
-        messages.error(request, 'Para dar de baja a un alumno usa la opción «Dar de baja».')
+        messages.error(request, 'Para dar de baja a un estudiante usa la opción «Dar de baja».')
     elif estatus not in dict(Alumno.ESTATUS_CHOICES):
         messages.error(request, 'El estatus indicado no es válido.')
     else:
@@ -302,12 +302,12 @@ def alumno_exportar(request):
     )
 
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
-    respuesta['Content-Disposition'] = f'attachment; filename="alumnos-{timezone.localdate():%Y-%m-%d}.csv"'
+    respuesta['Content-Disposition'] = f'attachment; filename="estudiantes-{timezone.localdate():%Y-%m-%d}.csv"'
     respuesta.write('﻿')  # para que Excel reconozca los acentos
     escritor = csv.writer(respuesta)
     escritor.writerow([
         'Referencia', 'Nombre', 'Apellido paterno', 'Apellido materno', 'CURP', 'Sexo',
-        'Fecha de nacimiento', 'Edad', 'Estatus', 'Ciclo', 'Grado', 'Tutor principal',
+        'Fecha de nacimiento', 'Edad', 'Estatus', 'Ciclo', 'Grado', 'Tutor principal', 'Parentesco del tutor',
         'Teléfono del tutor', 'Correo electrónico', 'Domicilio', 'Colonia', 'Ciudad', 'Estado', 'CP',
         'Fecha de ingreso',
     ])
@@ -319,7 +319,8 @@ def alumno_exportar(request):
             alumno.curp, alumno.get_sexo_display(), alumno.fecha_nacimiento, alumno.edad,
             alumno.get_estatus_display(),
             inscripcion.ciclo if inscripcion else '', inscripcion.grado if inscripcion else '',
-            vinculo.tutor if vinculo else '', vinculo.tutor.telefono if vinculo else '',
+            vinculo.tutor if vinculo else '', vinculo.get_parentesco_display() if vinculo else '',
+            vinculo.tutor.telefono if vinculo else '',
             alumno.correo_electronico or '', alumno.domicilio, alumno.colonia, alumno.ciudad,
             alumno.estado, alumno.cp, alumno.fecha_ingreso,
         ]])

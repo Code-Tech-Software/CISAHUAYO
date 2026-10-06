@@ -171,7 +171,7 @@ def tutor_vincular(request, pk):
     tutor = get_object_or_404(Tutor, pk=pk)
     destino = f'{tutor.get_absolute_url()}#alumnos'
     if tutor.estatus != 'ACTIVO':
-        messages.error(request, 'Reactiva al tutor antes de vincularlo con un alumno.')
+        messages.error(request, 'Reactiva al tutor antes de vincularlo con un estudiante.')
         return redirect(destino)
 
     form = VinculoForm(request.POST)
@@ -221,7 +221,7 @@ def tutor_exportar(request):
     escritor.writerow([
         'Nombre', 'Apellido paterno', 'Apellido materno', 'CURP', 'Estado civil', 'Teléfono',
         'Teléfono alternativo', 'Correo electrónico', 'Ocupación', 'Lugar de trabajo', 'Domicilio',
-        'Colonia', 'Ciudad', 'Estado', 'CP', 'Estatus', 'Alumnos vigentes',
+        'Colonia', 'Ciudad', 'Estado', 'CP', 'Estatus', 'Estudiantes vigentes',
     ])
     for tutor in tutores.iterator(chunk_size=500):
         alumnos = '; '.join(v.alumno.nombre_completo for v in tutor.vinculos_vigentes)

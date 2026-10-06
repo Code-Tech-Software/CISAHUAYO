@@ -24,6 +24,7 @@ urlpatterns = [
     path('materias/', include('Materias.urls')),
     path('horarios/', include('Horarios.urls')),
     path('profesores/', include('Profesores.urls')),
+    path('asignaciones/', include('Asignaciones.urls')),
     path('asistencias/', include('Asistencias.urls')),
 ]  # Para servir archivos multimedia en desarrollo
 if settings.DEBUG:

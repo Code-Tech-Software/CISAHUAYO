@@ -148,7 +148,7 @@ class JustificacionForm(_AlcanceMixin, EstiloCamposMixin, forms.Form):
 
     alumno = forms.ModelChoiceField(
         Alumno.objects.exclude(estatus='BAJA'), widget=forms.HiddenInput,
-        error_messages={'required': 'Busca y elige un alumno.', 'invalid_choice': 'Elige un alumno de la lista.'},
+        error_messages={'required': 'Busca y elige un estudiante.', 'invalid_choice': 'Elige un estudiante de la lista.'},
     )
     fecha_desde = forms.DateField(label='Fecha', widget=FECHA, error_messages={'required': 'Indica la fecha.', 'invalid': 'Escribe una fecha válida.'})
     fecha_hasta = forms.DateField(
@@ -161,7 +161,7 @@ class JustificacionForm(_AlcanceMixin, EstiloCamposMixin, forms.Form):
     materias_modo = forms.ChoiceField(choices=MODOS_MATERIAS, initial='TODAS', widget=forms.RadioSelect(attrs={'class': 'choice__input'}), label='Faltas por materia que se justifican')
     materias = MateriasDelGradoField(
         MateriaGrado.objects.none(), required=False, widget=forms.CheckboxSelectMultiple(attrs={'class': 'choice__input'}), label='Materias',
-        error_messages={'invalid_choice': 'Elige materias del grado del alumno.', 'invalid_pk_value': 'Elige materias del grado del alumno.'},
+        error_messages={'invalid_choice': 'Elige materias del grado del estudiante.', 'invalid_pk_value': 'Elige materias del grado del estudiante.'},
     )
     motivo = forms.CharField(
         label='Motivo', max_length=1000, widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Cita médica, enfermedad, trámite familiar…'}),
@@ -260,7 +260,7 @@ class JustificacionEdicionForm(_AlcanceMixin, EstiloCamposMixin, forms.Form):
     materias_modo = forms.ChoiceField(choices=MODOS_MATERIAS, widget=forms.RadioSelect(attrs={'class': 'choice__input'}), label='Faltas por materia que se justifican')
     materias = MateriasDelGradoField(
         MateriaGrado.objects.none(), required=False, widget=forms.CheckboxSelectMultiple(attrs={'class': 'choice__input'}), label='Materias',
-        error_messages={'invalid_choice': 'Elige materias del grado del alumno.', 'invalid_pk_value': 'Elige materias del grado del alumno.'},
+        error_messages={'invalid_choice': 'Elige materias del grado del estudiante.', 'invalid_pk_value': 'Elige materias del grado del estudiante.'},
     )
     motivo = forms.CharField(
         label='Motivo', max_length=1000, widget=forms.Textarea(attrs={'rows': 3}),
@@ -299,7 +299,7 @@ class JustificacionEdicionForm(_AlcanceMixin, EstiloCamposMixin, forms.Form):
 
 class FiltroJustificacionesForm(EstiloCamposMixin, forms.Form):
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
-        'type': 'search', 'placeholder': 'Alumno, referencia o motivo…', 'autocomplete': 'off',
+        'type': 'search', 'placeholder': 'Estudiante, referencia o motivo…', 'autocomplete': 'off',
     }))
     grado = forms.ModelChoiceField(Grado.objects.none(), required=False, empty_label='Todos los grados', label='Grado')
     desde = forms.DateField(required=False, label='Desde', widget=FECHA)
@@ -345,7 +345,7 @@ UMBRAL_ASISTENCIA = 85  # por debajo de este porcentaje el reporte marca al alum
 class FiltroReporteForm(EstiloCamposMixin, forms.Form):
     """Qué reporte se pide. `resolver()` completa lo que falte (ciclo actual, mes en curso) y valida el rango."""
 
-    VISTAS = [('resumen', 'Resumen por alumno'), ('cuadricula', 'Cuadrícula por día')]
+    VISTAS = [('resumen', 'Resumen por estudiante'), ('cuadricula', 'Cuadrícula por día')]
 
     ciclo = forms.ModelChoiceField(CicloEscolar.objects.all(), required=False, empty_label=None, label='Ciclo escolar')
     grado = forms.ModelChoiceField(Grado.objects.none(), required=False, empty_label='Elige un grado', label='Grado')

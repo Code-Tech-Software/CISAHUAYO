@@ -530,7 +530,7 @@
 
     if (!isEdit) {
       const note = el('p', 'review__note');
-      note.append(icon('key'), document.createTextNode(' Al registrar al alumno verás sus credenciales de acceso una sola vez: tenlas a la mano para entregarlas.'));
+      note.append(icon('key'), document.createTextNode(' Al registrar al estudiante verás sus credenciales de acceso una sola vez: tenlas a la mano para entregarlas.'));
       blocks.push(note);
     }
     review.replaceChildren(...blocks);

@@ -95,9 +95,9 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
         help_texts = {
             'fotografia': 'JPG o PNG de hasta 5 MB.',
             'curp': 'Al escribirla completamos la fecha de nacimiento y el sexo.',
-            'referencia': 'Código único del alumno: es el que se escanea para pasar asistencia.',
-            'uid': 'Número de la tarjeta, si el alumno la usa.',
-            'correo_electronico': 'Debe ser único entre los alumnos.',
+            'referencia': 'Código único del estudiante: es el que se escanea para pasar asistencia.',
+            'uid': 'Número de la tarjeta, si el estudiante la usa.',
+            'correo_electronico': 'Debe ser único entre los estudiantes.',
         }
 
     def __init__(self, *args, **kwargs):
@@ -196,7 +196,7 @@ class TutorVinculoForm(EstiloCamposMixin, forms.Form):
     correo_electronico = forms.EmailField(max_length=254, required=False, label='Correo electrónico')
     curp = forms.CharField(max_length=18, required=False, label='CURP')
     ocupacion = forms.CharField(max_length=100, required=False, label='Ocupación')
-    mismo_domicilio = forms.BooleanField(required=False, initial=True, label='Vive en el mismo domicilio del alumno', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
+    mismo_domicilio = forms.BooleanField(required=False, initial=True, label='Vive en el mismo domicilio del estudiante', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
 
     # Relación con el alumno
     parentesco = forms.ChoiceField(
@@ -206,7 +206,7 @@ class TutorVinculoForm(EstiloCamposMixin, forms.Form):
     )
     tutor_principal = forms.BooleanField(required=False, label='Tutor principal', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
     contacto_emergencia = forms.BooleanField(required=False, label='Contacto de emergencia', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
-    autorizado_recoger = forms.BooleanField(required=False, label='Puede recoger al alumno', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
+    autorizado_recoger = forms.BooleanField(required=False, label='Puede recoger al estudiante', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
     recibe_notificaciones = forms.BooleanField(required=False, initial=True, label='Recibe notificaciones', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
     responsable_pagos = forms.BooleanField(required=False, label='Responsable de pagos', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
     observaciones = forms.CharField(required=False, label='Observaciones', widget=forms.Textarea(attrs={'rows': 2}))
@@ -405,7 +405,7 @@ def grados_disponibles(incluir=None):
 class InscripcionInicialForm(EstiloCamposMixin, forms.Form):
     """Inscripción opcional al registrar al alumno."""
 
-    inscribir = forms.BooleanField(required=False, label='Inscribir al alumno ahora', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
+    inscribir = forms.BooleanField(required=False, label='Inscribir al estudiante ahora', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
     ciclo = CicloChoiceField(CicloEscolar.objects.all(), required=False, empty_label='Selecciona un ciclo', label='Ciclo escolar')
     grado = GradoChoiceField(Grado.objects.none(), required=False, empty_label='Selecciona un grado', label='Grado')
 
@@ -464,7 +464,7 @@ class InscribirForm(EstiloCamposMixin, forms.ModelForm):
         ciclo = datos.get('ciclo')
         # La restricción alumno+ciclo queda fuera de la validación del ModelForm (alumno no es campo).
         if ciclo and Inscripcion.objects.filter(alumno=self.instance.alumno, ciclo=ciclo).exists():
-            raise ValidationError('El alumno ya está inscrito en este ciclo escolar.')
+            raise ValidationError('El estudiante ya está inscrito en este ciclo escolar.')
         return datos
 
 

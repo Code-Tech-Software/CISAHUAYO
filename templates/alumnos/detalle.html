@@ -15,7 +15,7 @@
 
 {% block content %}
   {% if credenciales %}
-    {% include "alumnos/_credenciales.html" %}
+    {% include "partials/credenciales_acceso.html" %}
   {% endif %}
 
   {% with tono=alumno.estatus|tono_estatus %}
@@ -181,30 +181,7 @@
             <div class="details__item details__item--wide">
               <dt class="details__label">Contraseña</dt>
               <dd class="details__value">
-                <div class="secret">
-                  {% if user.is_superuser %}
-                    {% if alumno.contrasena_visible %}
-                      <input class="secret__value" id="contrasena-estudiante" type="password" value="{{ alumno.contrasena_visible }}" readonly size="{{ alumno.contrasena_visible|length|add:2 }}" autocomplete="off" aria-label="Contraseña del estudiante">
-                      <button type="button" class="btn btn--ghost btn--icon btn--sm secret__toggle" data-reveal="#contrasena-estudiante" aria-pressed="false" aria-label="Mostrar la contraseña" data-tooltip="Mostrar u ocultar">
-                        {% include "partials/icon.html" with name="eye" icon_class="secret__eye" %}
-                        {% include "partials/icon.html" with name="eye-off" icon_class="secret__eye-off" %}
-                      </button>
-                      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-copy="#contrasena-estudiante" aria-label="Copiar la contraseña" data-tooltip="Copiar">
-                        {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
-                      </button>
-                    {% else %}
-                      <span class="text-muted">No se puede consultar: es anterior a esta función. Restablécela para asignar una nueva.</span>
-                    {% endif %}
-                  {% else %}
-                    <span class="secret__mask" aria-hidden="true">••••••••</span>
-                    <span class="text-muted">Solo un administrador puede consultarla.</span>
-                  {% endif %}
-                  {% if perms.Alumnos.change_alumno %}
-                    <button type="button" class="btn btn--sm" data-modal-open="modal-contrasena">
-                      {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Restablecer contraseña
-                    </button>
-                  {% endif %}
-                </div>
+                {% include "partials/contrasena_consulta.html" with persona=alumno campo_id="contrasena-estudiante" rotulo="del estudiante" puede_restablecer=perms.Alumnos.change_alumno %}
               </dd>
             </div>
           </dl>
@@ -382,27 +359,8 @@
 
   {# --- Ventanas modales -------------------------------------------------------- #}
   {% if perms.Alumnos.change_alumno %}
-    <dialog class="modal" id="modal-contrasena" aria-labelledby="modal-contrasena-titulo" data-modal>
-      <form class="modal__panel" method="post" action="{% url 'alumnos:contrasena' alumno.pk %}">
-        {% csrf_token %}
-        <header class="modal__header">
-          <h2 class="modal__title" id="modal-contrasena-titulo">Restablecer contraseña</h2>
-          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
-        </header>
-        <div class="modal__body">
-          <p>Asigna una contraseña nueva a <strong>{{ alumno }}</strong>. La anterior dejará de funcionar.</p>
-          <div class="field">
-            <label class="field__label" for="nueva-contrasena">Nueva contraseña</label>
-            <input class="field__control field__control--mono" id="nueva-contrasena" name="contrasena" type="text" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Déjala vacía para generar una" aria-describedby="nueva-contrasena-ayuda">
-            <p class="field__hint" id="nueva-contrasena-ayuda">Puede ser sencilla, de 4 caracteres o más.{% if not user.is_superuser %} Al terminar podrás verla una sola vez.{% endif %}</p>
-          </div>
-        </div>
-        <footer class="modal__footer">
-          <button type="button" class="btn" data-modal-close>Cancelar</button>
-          <button type="submit" class="btn btn--primary">Restablecer contraseña</button>
-        </footer>
-      </form>
-    </dialog>
+    {% url 'alumnos:contrasena' alumno.pk as accion_contrasena %}
+    {% include "partials/modal_contrasena.html" with persona=alumno accion=accion_contrasena %}
   {% endif %}
 
   {% if perms.Alumnos.delete_alumno and not esta_de_baja %}

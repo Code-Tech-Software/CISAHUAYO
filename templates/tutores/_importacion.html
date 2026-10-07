@@ -26,6 +26,11 @@
 
   {% if perms.Alumnos.add_tutor %}
     <div class="import-report__actions">
+      {% if importacion.creados %}
+        <a class="btn btn--sm" href="{% url 'tutores:importar_credenciales' %}">
+          {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Descargar usuarios y contraseñas
+        </a>
+      {% endif %}
       <a class="btn btn--sm" href="{% url 'tutores:importar' %}" data-modal-form>
         {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %} Importar otro archivo
       </a>

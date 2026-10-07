@@ -13,6 +13,10 @@
 {% endblock %}
 
 {% block content %}
+  {% if credenciales %}
+    {% include "partials/credenciales_acceso.html" %}
+  {% endif %}
+
   {% if importacion %}
     {% include "tutores/_importacion.html" %}
   {% endif %}

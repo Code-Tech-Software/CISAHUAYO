@@ -2,10 +2,19 @@ from django import forms
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.db.models import Exists, OuterRef, Q
+from django.urls import reverse
 
-from Alumnos.forms import EstiloCamposMixin
+from Alumnos.forms import LARGO_MINIMO_CONTRASENA, EstiloCamposMixin, validar_contrasena_sencilla
 from Alumnos.models import Alumno, Tutor, TutorAlumno
-from Alumnos.utils import CURP_RE, compactar_espacios, normalizar_curp, validar_telefono
+from Alumnos.utils import (
+    CURP_RE,
+    compactar_espacios,
+    generar_contrasena,
+    normalizar_curp,
+    normalizar_usuario,
+    problema_de_usuario,
+    validar_telefono,
+)
 from Alumnos.vinculos import sincronizar_principales, vincular_tutor
 
 CHIP = forms.CheckboxInput(attrs={'class': 'choice__input'})
@@ -20,6 +29,23 @@ def vinculos_con_alumnos_vigentes():
 # Alta y edición
 # ---------------------------------------------------------------------------
 class TutorForm(EstiloCamposMixin, forms.ModelForm):
+    """Datos del tutor y su acceso al sistema.
+
+    El usuario se puede escribir o dejar vacío (se genera con su nombre, «maria.lopez»). La contraseña solo se pide al
+    registrar (`contrasena_inicial`; vacía = se genera una); después se restablece desde su perfil.
+    """
+
+    contrasena_inicial = forms.CharField(
+        required=False,
+        max_length=64,
+        label='Contraseña de acceso',
+        widget=forms.TextInput(attrs={
+            'autocomplete': 'off', 'spellcheck': 'false', 'class': 'field__control--mono',
+            'placeholder': 'Escribe la contraseña',
+        }),
+        help_text=f'Escríbela tú (mínimo {LARGO_MINIMO_CONTRASENA} caracteres) o déjala vacía para que se genere una.',
+    )
+
     class Meta:
         model = Tutor
         fields = [
@@ -27,7 +53,7 @@ class TutorForm(EstiloCamposMixin, forms.ModelForm):
             'telefono', 'telefono_alternativo', 'correo_electronico',
             'domicilio', 'colonia', 'ciudad', 'estado', 'cp',
             'ocupacion', 'lugar_trabajo', 'telefono_trabajo',
-            'observaciones', 'estatus',
+            'observaciones', 'estatus', 'usuario',
         ]
         widgets = {
             'nombre': forms.TextInput(attrs={'autocomplete': 'off', 'autofocus': True}),
@@ -53,11 +79,16 @@ class TutorForm(EstiloCamposMixin, forms.ModelForm):
             'lugar_trabajo': forms.TextInput(attrs={'autocomplete': 'off'}),
             'telefono_trabajo': forms.TextInput(attrs={'inputmode': 'tel', 'autocomplete': 'off', 'placeholder': 'Con extensión, si aplica'}),
             'observaciones': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Notas internas sobre este tutor'}),
+            'usuario': forms.TextInput(attrs={
+                'autocomplete': 'off', 'autocapitalize': 'none', 'spellcheck': 'false', 'class': 'field__control--mono',
+                'placeholder': 'Se propone con su nombre: maria.lopez',
+            }),
         }
         help_texts = {
             'curp': 'Opcional. Si la capturas, debe ser única entre los tutores.',
             'telefono': 'Es el número principal de contacto.',
             'correo_electronico': 'Opcional.',
+            'usuario': 'Con el que entrará al sistema. Se propone con su nombre mientras lo escribes y puedes cambiarlo; no se repite entre los tutores.',
         }
 
     def __init__(self, *args, **kwargs):
@@ -66,6 +97,13 @@ class TutorForm(EstiloCamposMixin, forms.ModelForm):
         self.fields['estado_civil'].choices = [('', 'Sin especificar'), *Tutor.ESTADO_CIVIL_CHOICES]
         if self.creando:
             del self.fields['estatus']  # nace como "Activo" (valor por defecto del modelo)
+        else:
+            del self.fields['contrasena_inicial']  # después se restablece desde su perfil
+        # persona-form.js propone el usuario con el nombre y revisa el que se escriba (ver tutores:usuario)
+        self.fields['usuario'].widget.attrs.update({
+            'data-usuario-url': reverse('tutores:usuario'),
+            'data-excluir': self.instance.pk or '',
+        })
         self.aplicar_estilo()
 
     # --- limpieza por campo ----------------------------------------------------------
@@ -103,11 +141,30 @@ class TutorForm(EstiloCamposMixin, forms.ModelForm):
     def clean_ocupacion(self):
         return self._compacto('ocupacion')
 
+    def clean_usuario(self):
+        usuario = normalizar_usuario(self.cleaned_data.get('usuario'))
+        if not usuario:
+            return None  # se genera con su nombre al guardar (y el campo es único: vacío es NULL)
+        problema = problema_de_usuario(usuario, excluir=self.instance.pk)
+        if problema:
+            raise ValidationError(problema)
+        return usuario
+
+    def clean_contrasena_inicial(self):
+        return validar_contrasena_sencilla(self.cleaned_data.get('contrasena_inicial'))
+
     def save(self, commit=True):
-        with transaction.atomic():
-            tutor = super().save(commit)
-            if commit and 'estatus' in self.changed_data:
-                sincronizar_principales(tutor)  # igual que al dar de baja o reactivar desde el perfil
+        tutor = super().save(commit=False)
+        self.contrasena_en_claro = None
+        if self.creando:
+            self.contrasena_en_claro = self.cleaned_data.get('contrasena_inicial') or generar_contrasena()
+            tutor.establecer_contrasena(self.contrasena_en_claro)
+        if commit:
+            with transaction.atomic():
+                tutor.save()
+                self.save_m2m()
+                if 'estatus' in self.changed_data:
+                    sincronizar_principales(tutor)  # igual que al dar de baja o reactivar desde el perfil
         return tutor
 
 
@@ -186,6 +243,7 @@ class FiltroTutoresForm(EstiloCamposMixin, forms.Form):
                 | Q(telefono_alternativo__icontains=palabra)
                 | Q(correo_electronico__icontains=palabra)
                 | Q(ocupacion__icontains=palabra)
+                | Q(usuario__icontains=palabra)
                 | Q(alumnos_relacionados__alumno__nombre__icontains=palabra)
                 | Q(alumnos_relacionados__alumno__apellido_paterno__icontains=palabra)
                 | Q(alumnos_relacionados__alumno__apellido_materno__icontains=palabra)

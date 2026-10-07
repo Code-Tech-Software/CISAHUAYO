@@ -14,6 +14,10 @@
 {% endblock %}
 
 {% block content %}
+  {% if credenciales %}
+    {% include "partials/credenciales_acceso.html" %}
+  {% endif %}
+
   {% with tono=tutor.estatus|tono_estatus %}
     <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
       <div class="identity__main">
@@ -138,6 +142,24 @@
           </dl>
         </article>
 
+        <article class="card">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="key" %}<h2 class="card__title">Acceso al sistema</h2>
+          </header>
+          <dl class="details card__body">
+            <div class="details__item details__item--wide">
+              <dt class="details__label">Usuario</dt>
+              <dd class="details__value details__value--mono">{{ tutor.usuario|default:"—" }}</dd>
+            </div>
+            <div class="details__item details__item--wide">
+              <dt class="details__label">Contraseña</dt>
+              <dd class="details__value">
+                {% include "partials/contrasena_consulta.html" with persona=tutor campo_id="contrasena-tutor" rotulo="del tutor" puede_restablecer=perms.Alumnos.change_tutor %}
+              </dd>
+            </div>
+          </dl>
+        </article>
+
         {% if tutor.observaciones %}
           <article class="card info-grid__wide">
             <header class="card__header card__header--icon">
@@ -238,6 +260,11 @@
   </div>
 
   {# --- Ventanas modales -------------------------------------------------------- #}
+  {% if perms.Alumnos.change_tutor %}
+    {% url 'tutores:contrasena' tutor.pk as accion_contrasena %}
+    {% include "partials/modal_contrasena.html" with persona=tutor accion=accion_contrasena %}
+  {% endif %}
+
   {% if perms.Alumnos.delete_tutor and not esta_de_baja %}
     <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
       <form class="modal__panel" method="post" action="{% url 'tutores:baja' tutor.pk %}">

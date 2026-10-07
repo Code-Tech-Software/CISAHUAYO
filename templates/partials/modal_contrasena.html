@@ -1,0 +1,29 @@
+{% comment %}
+  Ventana para asignar o restablecer la contraseña de un estudiante o de un tutor (la escrita o, vacía, una generada).
+  Parámetros: persona (con contrasena), accion (URL a la que se envía).
+{% endcomment %}
+<dialog class="modal" id="modal-contrasena" aria-labelledby="modal-contrasena-titulo" data-modal>
+  <form class="modal__panel" method="post" action="{{ accion }}">
+    {% csrf_token %}
+    <header class="modal__header">
+      <h2 class="modal__title" id="modal-contrasena-titulo">{% if persona.contrasena %}Restablecer contraseña{% else %}Asignar contraseña{% endif %}</h2>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+    </header>
+    <div class="modal__body">
+      {% if persona.contrasena %}
+        <p>Asigna una contraseña nueva a <strong>{{ persona }}</strong>. La anterior dejará de funcionar.</p>
+      {% else %}
+        <p>Asigna la contraseña con la que <strong>{{ persona }}</strong> entrará al sistema.</p>
+      {% endif %}
+      <div class="field">
+        <label class="field__label" for="nueva-contrasena">Nueva contraseña</label>
+        <input class="field__control field__control--mono" id="nueva-contrasena" name="contrasena" type="text" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Déjala vacía para generar una" aria-describedby="nueva-contrasena-ayuda">
+        <p class="field__hint" id="nueva-contrasena-ayuda">Mínimo 4 caracteres.{% if not user.is_superuser %} Al terminar podrás verla una sola vez.{% endif %}</p>
+      </div>
+    </div>
+    <footer class="modal__footer">
+      <button type="button" class="btn" data-modal-close>Cancelar</button>
+      <button type="submit" class="btn btn--primary">{% if persona.contrasena %}Restablecer contraseña{% else %}Asignar contraseña{% endif %}</button>
+    </footer>
+  </form>
+</dialog>

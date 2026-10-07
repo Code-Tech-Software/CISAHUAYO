@@ -1,6 +1,7 @@
 {% comment %}
-  Credenciales de acceso de un alumno, justo después de asignarlas. Quien no es administrador solo las ve esta vez; un
-  administrador puede consultarlas después en el perfil. Parámetro: credenciales (nombre, url, referencia, contrasena).
+  Credenciales de acceso de un estudiante o de un tutor, justo después de asignarlas. Quien no es administrador solo las
+  ve esta vez; un administrador puede consultarlas después en el perfil.
+  Parámetro: credenciales (nombre, url, contrasena y el dato con el que entra: etiqueta + usuario, o referencia).
 {% endcomment %}
 <section class="credentials" aria-labelledby="credenciales-titulo">
   <span class="credentials__icon">{% include "partials/icon.html" with name="key" icon_class="icon--lg" %}</span>
@@ -8,11 +9,11 @@
     <h2 class="credentials__title" id="credenciales-titulo">Credenciales de acceso</h2>
     <p class="credentials__text">
       Para <strong>{{ credenciales.nombre }}</strong>.
-      {% if user.is_superuser %}Entrégalas o guárdalas. Como administrador podrás consultar la contraseña después, en el perfil del estudiante.
+      {% if user.is_superuser %}Entrégalas o guárdalas. Como administrador podrás consultar la contraseña después, en su perfil.
       {% else %}Entrégalas o guárdalas ahora: por seguridad la contraseña <strong>no se volverá a mostrar</strong>.{% endif %}
     </p>
     <dl class="credentials__list">
-      <div><dt class="credentials__label">Referencia</dt><dd class="credentials__value">{{ credenciales.referencia }}</dd></div>
+      <div><dt class="credentials__label">{{ credenciales.etiqueta|default:"Referencia" }}</dt><dd class="credentials__value">{% firstof credenciales.usuario credenciales.referencia %}</dd></div>
       <div><dt class="credentials__label">Contraseña</dt><dd class="credentials__value" id="credencial-contrasena">{{ credenciales.contrasena }}</dd></div>
     </dl>
   </div>

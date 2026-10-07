@@ -56,7 +56,7 @@ MODULOS = (
         Funcion('Tutores', _permisos('tutor'), ayuda={
             'ver': 'Consultar tutores y exportarlos a CSV.',
             'crear': 'Registrar tutores nuevos, uno por uno o varios a la vez importando un archivo CSV.',
-            'editar': 'Editar sus datos y sus vínculos con los estudiantes.',
+            'editar': 'Editar sus datos y sus vínculos con los estudiantes, y asignar o restablecer su contraseña. Consultar la contraseña es exclusivo de los administradores.',
             'baja': 'Dar de baja a un tutor (se conserva su historial).',
         }),
     )),

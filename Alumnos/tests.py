@@ -480,7 +480,7 @@ class CrearTests(BaseTestCase):
         html = self.client.get(self.url).content.decode()
         campo = re.search(r'<input[^>]*name="contrasena_inicial"[^>]*>', html).group(0)
         self.assertNotIn('value=', campo)
-        self.assertIn('placeholder="Escribe una contraseña sencilla"', campo)
+        self.assertIn('placeholder="Escribe la contraseña"', campo)
         self.assertIn('Generar una', html)
 
     def test_vincula_a_un_tutor_existente(self):

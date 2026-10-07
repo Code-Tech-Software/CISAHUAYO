@@ -794,6 +794,16 @@ body {
   font-weight: var(--weight-medium);
 }
 
+/* Confirmación en vivo de que un dato sirve (p. ej. «maria.lopez está disponible»); vacía no ocupa lugar */
+.field__hint--ok {
+  color: var(--color-success);
+  font-weight: var(--weight-medium);
+}
+
+.field__hint--ok:empty {
+  display: none;
+}
+
 /* --- Menu (desplegable) ------------------------------------------------------
    <div class="menu" data-menu> con un botón (.menu__trigger o .user-trigger,
    resaltado con aria-expanded) y un .menu__panel[hidden]. --wide es el panel
@@ -3204,6 +3214,11 @@ body {
   overflow-wrap: anywhere;
 }
 
+.details__value--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
 .details__value--empty {
   color: var(--color-text-muted);
   font-weight: var(--weight-regular);
@@ -3358,6 +3373,42 @@ body {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-2);
+}
+
+/* --- Contraseña de consulta ----------------------------------------------------------------------------------
+   En el perfil de un estudiante o de un tutor (parcial partials/contrasena_consulta.html). */
+.secret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.secret__value {
+  width: auto;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-field-bg);
+  color: var(--color-text-strong);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--text-base);
+  letter-spacing: 0.08em;
+}
+
+.secret__mask {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.1em;
+}
+
+.secret__eye-off,
+.secret__toggle[aria-pressed="true"] .secret__eye {
+  display: none;
+}
+
+.secret__toggle[aria-pressed="true"] .secret__eye-off {
+  display: block;
 }
 
 /* --- Importación desde CSV -----------------------------------------------------------------------------------
@@ -4344,11 +4395,26 @@ body {
   }
 }
 
-/* Credenciales de acceso · Tableta (≥ 640 px): icono, datos y botones en una fila */
+/* Credenciales de acceso · Tableta (≥ 640 px): el icono a la izquierda y los botones debajo de los datos, para que un
+   usuario largo («maria.lopez») no se parta en dos renglones; desde 1280 px los botones pasan a la derecha */
 @media (min-width: 40rem) {
   .credentials {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
+  }
+
+  .credentials__actions {
+    grid-column: 2;
+  }
+}
+
+@media (min-width: 80rem) {
+  .credentials {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .credentials__actions {
+    grid-column: auto;
   }
 }
 

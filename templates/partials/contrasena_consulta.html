@@ -1,0 +1,32 @@
+{% comment %}
+  La contraseña de un estudiante o de un tutor en su perfil. Solo un administrador la ve (oculta de entrada, con botones
+  para mostrarla y copiarla); los demás ven puntos. Quien puede editar tiene el botón que abre #modal-contrasena.
+  Parámetros: persona (con contrasena y contrasena_visible), campo_id (id del campo), rotulo («del estudiante», «del
+  tutor»), puede_restablecer.
+{% endcomment %}
+<div class="secret">
+  {% if not persona.contrasena %}
+    <span class="text-muted">Todavía no tiene contraseña.</span>
+  {% elif user.is_superuser %}
+    {% if persona.contrasena_visible %}
+      <input class="secret__value" id="{{ campo_id }}" type="password" value="{{ persona.contrasena_visible }}" readonly size="{{ persona.contrasena_visible|length|add:2 }}" autocomplete="off" aria-label="Contraseña {{ rotulo }}">
+      <button type="button" class="btn btn--ghost btn--icon btn--sm secret__toggle" data-reveal="#{{ campo_id }}" aria-pressed="false" aria-label="Mostrar la contraseña" data-tooltip="Mostrar u ocultar">
+        {% include "partials/icon.html" with name="eye" icon_class="secret__eye" %}
+        {% include "partials/icon.html" with name="eye-off" icon_class="secret__eye-off" %}
+      </button>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-copy="#{{ campo_id }}" aria-label="Copiar la contraseña" data-tooltip="Copiar">
+        {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
+      </button>
+    {% else %}
+      <span class="text-muted">No se puede consultar: es anterior a esta función. Restablécela para asignar una nueva.</span>
+    {% endif %}
+  {% else %}
+    <span class="secret__mask" aria-hidden="true">••••••••</span>
+    <span class="text-muted">Solo un administrador puede consultarla.</span>
+  {% endif %}
+  {% if puede_restablecer %}
+    <button type="button" class="btn btn--sm" data-modal-open="modal-contrasena">
+      {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} {% if persona.contrasena %}Restablecer contraseña{% else %}Asignar contraseña{% endif %}
+    </button>
+  {% endif %}
+</div>

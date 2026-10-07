@@ -98,6 +98,88 @@
     button.lastChild.textContent = ' Guardando…';
   });
 
+  /* ------------------------------------------------------- Contraseña de acceso */
+  /* «Generar una» escribe una contraseña al azar fácil de dictar (sin vocales ni 0/o, 1/l/i), como en el alta de estudiantes. */
+  const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+  qs('[data-password-generate]')?.addEventListener('click', () => {
+    const input = qs('input[name="contrasena_inicial"]');
+    const bytes = new Uint32Array(8);
+    window.crypto.getRandomValues(bytes);
+    input.value = [...bytes].map((n) => PASSWORD_ALPHABET[n % PASSWORD_ALPHABET.length]).join('');
+    clearError(input.closest('.field'));
+    dirty = true;
+  });
+
+  /* -------------------------------------------------------------- Usuario del tutor */
+  /* Mientras no se escriba a mano, se propone con su nombre (el servidor da uno libre: maria.lopez, maria.lopez2…).
+     Lo que se escriba se revisa: formato y que ningún otro tutor lo tenga. Al editar se respeta el que ya tiene. */
+  const usuario = qs('input[data-usuario-url]');
+  if (usuario) {
+    const estado = qs('[data-usuario-estado]');
+    const nombre = qs('input[name="nombre"]');
+    const apellido = qs('input[name="apellido_paterno"]');
+    let manual = usuario.value.trim() !== '';
+    let timer;
+    let ultima = 0;
+
+    const consultar = async (extra = {}) => {
+      const id = ++ultima;
+      const url = new URL(usuario.dataset.usuarioUrl, window.location.origin);
+      url.searchParams.set('nombre', nombre?.value ?? '');
+      url.searchParams.set('apellido_paterno', apellido?.value ?? '');
+      if (usuario.dataset.excluir) url.searchParams.set('excluir', usuario.dataset.excluir);
+      Object.entries(extra).forEach(([clave, valor]) => url.searchParams.set(clave, valor));
+      try {
+        const respuesta = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!respuesta.ok) return null;
+        const datos = await respuesta.json();
+        return id === ultima ? datos : null;   /* solo cuenta la respuesta más reciente */
+      } catch (error) {
+        return null;
+      }
+    };
+
+    const proponer = () => {
+      window.clearTimeout(timer);
+      if (manual) return;
+      if (!nombre?.value.trim() && !apellido?.value.trim()) {
+        usuario.value = '';
+        estado.textContent = '';
+        return;
+      }
+      timer = window.setTimeout(async () => {
+        const datos = await consultar();
+        if (!datos || manual) return;
+        usuario.value = datos.sugerido;
+        clearError(usuario.closest('.field'));
+        estado.textContent = `«${datos.sugerido}» está disponible.`;
+      }, 300);
+    };
+
+    const revisar = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        const datos = await consultar({ usuario: usuario.value });
+        if (!datos || !manual) return;
+        if (datos.disponible) {
+          clearError(usuario.closest('.field'));
+          estado.textContent = datos.mensaje;
+        } else {
+          estado.textContent = '';
+          showError(usuario, datos.mensaje);
+        }
+      }, 300);
+    };
+
+    nombre?.addEventListener('input', proponer);
+    apellido?.addEventListener('input', proponer);
+    usuario.addEventListener('input', () => {
+      manual = usuario.value.trim() !== '';   /* si lo borra, se vuelve a proponer con su nombre */
+      if (manual) revisar();
+      else proponer();
+    });
+  }
+
   /* Si el servidor devolvió errores, el cursor va al primer campo con problema. */
   qs('.field.is-invalid .field__control')?.focus();
 })();

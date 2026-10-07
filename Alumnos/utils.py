@@ -120,6 +120,55 @@ def normalizar_religion(texto):
     return None
 
 
+# Usuario con el que un tutor entrará al sistema: minúsculas, números, punto, guion y guion bajo, con al menos una letra
+# (así nunca se confunde con la referencia numérica de un estudiante).
+USUARIO_RE = re.compile(r'^(?=.*[a-z])[a-z0-9][a-z0-9._-]{2,39}$')
+LARGO_MAXIMO_USUARIO = 40
+
+
+def normalizar_usuario(texto):
+    """'  María.López ' -> 'maria.lopez' (sin acentos, en minúsculas y sin espacios)."""
+    return re.sub(r'\s+', '', sin_acentos(texto or '').lower())
+
+
+def base_de_usuario(nombre, apellido_paterno):
+    """El usuario que corresponde a un nombre: primer nombre y primer apellido, «maria.lopez»."""
+    partes = []
+    for texto in (nombre, apellido_paterno):
+        palabras = (texto or '').split()
+        palabra = re.sub(r'[^a-z0-9]', '', sin_acentos(palabras[0]).lower()) if palabras else ''
+        if palabra:
+            partes.append(palabra)
+    base = '.'.join(partes)
+    if not re.search(r'[a-z]', base) or len(base) < 3:
+        base = f'tutor.{base}' if base else 'tutor'
+    return base[:LARGO_MAXIMO_USUARIO - 4]
+
+
+def problema_de_usuario(usuario, excluir=None):
+    """Por qué no sirve un usuario ya normalizado (formato o repetido entre los tutores), o None si sirve."""
+    from .models import Tutor
+
+    if not USUARIO_RE.match(usuario):
+        return 'Usa de 3 a 40 letras, números, punto, guion o guion bajo, con al menos una letra (sin espacios ni acentos).'
+    if Tutor.objects.filter(usuario=usuario).exclude(pk=excluir).exists():
+        return f'El usuario «{usuario}» ya lo tiene otro tutor.'
+    return None
+
+
+def usuario_disponible(nombre, apellido_paterno, excluir=None):
+    """El primer usuario libre para esa persona entre los tutores: «maria.lopez», «maria.lopez2», «maria.lopez3»…"""
+    from .models import Tutor
+
+    base = base_de_usuario(nombre, apellido_paterno)
+    usados = set(Tutor.objects.filter(usuario__startswith=base).exclude(pk=excluir).values_list('usuario', flat=True))
+    candidato, numero = base, 1
+    while candidato in usados:
+        numero += 1
+        candidato = f'{base}{numero}'
+    return candidato
+
+
 def normalizar_telefono(valor):
     """Deja solo los 10 dígitos del número, quitando espacios, guiones y la lada +52."""
     digitos = re.sub(r'\D', '', valor or '')

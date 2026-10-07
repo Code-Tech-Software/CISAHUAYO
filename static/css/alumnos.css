@@ -8,8 +8,7 @@
      2. Tutores (vista del perfil)
      3. Académico (asistencia e inscripciones)
      4. Asistente de registro (foto, tutores, revisión, inscripción)
-     5. Contraseña de consulta
-     6. Responsive
+     5. Responsive
 
    La cabecera de perfil (.identity), la búsqueda en vivo (.live-search) y la tarjeta de credenciales de acceso
    (.credentials, que usan alumnos y usuarios) son genéricas y viven en app.css.
@@ -468,46 +467,7 @@
 
 
 /* ==========================================================================
-   5. CONTRASEÑA DE CONSULTA
-   ========================================================================== */
-/* Contraseña que solo un administrador puede ver: oculta de entrada, con botón para mostrarla y copiarla */
-.secret {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.secret__value {
-  width: auto;
-  max-width: 100%;
-  padding: var(--space-1) var(--space-3);
-  border: var(--border);
-  border-radius: var(--radius-md);
-  background: var(--color-field-bg);
-  color: var(--color-text-strong);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: var(--text-base);
-  letter-spacing: 0.08em;
-}
-
-.secret__mask {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: 0.1em;
-}
-
-.secret__eye-off,
-.secret__toggle[aria-pressed="true"] .secret__eye {
-  display: none;
-}
-
-.secret__toggle[aria-pressed="true"] .secret__eye-off {
-  display: block;
-}
-
-
-/* ==========================================================================
-   6. RESPONSIVE
+   5. RESPONSIVE
    ========================================================================== */
 @media (min-width: 40rem) {
   .tutor-grid {

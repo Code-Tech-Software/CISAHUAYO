@@ -712,6 +712,11 @@ class Tutor(models.Model):
     telefono_trabajo = models.CharField(max_length=20,blank=True,verbose_name='Teléfono del trabajo')
     observaciones = models.TextField(blank=True,verbose_name='Observaciones')
     estatus = models.CharField(max_length=20,choices=ESTATUS_CHOICES,default='ACTIVO',verbose_name='Estatus')
+    # Acceso al sistema (para lo que se construya después, como un portal de tutores). El usuario se genera con su nombre
+    # si no se escribe; la contraseña se guarda cifrada para verificarla y legible para que un administrador la consulte.
+    usuario = models.CharField(max_length=40, unique=True, null=True, blank=True, verbose_name='Usuario')
+    contrasena = models.CharField(max_length=128, blank=True, default='', verbose_name='Contraseña')
+    contrasena_visible = models.CharField(max_length=64, blank=True, default='', editable=False, verbose_name='Contraseña (consulta)')
     creado = models.DateTimeField( auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -721,6 +726,21 @@ class Tutor(models.Model):
             f"{self.apellido_paterno} "
             f"{self.apellido_materno}"
         ).strip()
+
+    def save(self, *args, **kwargs):
+        # Todo tutor tiene usuario, se registre desde donde se registre (su formulario, el alta de un estudiante, una
+        # importación o el admin de Django)
+        if not self.usuario:
+            from .utils import usuario_disponible
+            self.usuario = usuario_disponible(self.nombre, self.apellido_paterno, excluir=self.pk)
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = {*kwargs['update_fields'], 'usuario'}
+        super().save(*args, **kwargs)
+
+    def establecer_contrasena(self, contrasena):
+        """Asigna la contraseña (cifrada para verificarla y legible para consulta). No guarda el registro."""
+        self.contrasena = make_password(contrasena)
+        self.contrasena_visible = contrasena
 
     @property
     def nombre_completo(self):

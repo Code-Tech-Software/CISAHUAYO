@@ -96,6 +96,35 @@
       </div>
     </section>
 
+    <section class="card" aria-labelledby="seccion-acceso">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="key" %}<h2 class="card__title" id="seccion-acceso">Acceso al sistema</h2>
+      </header>
+      <div class="card__body form-grid">
+        <div class="field form-grid__full{% if form.usuario.errors %} is-invalid{% endif %}">
+          <label class="field__label" for="{{ form.usuario.id_for_label }}">{{ form.usuario.label }}</label>
+          {{ form.usuario }}
+          <p class="field__hint" id="{{ form.usuario.auto_id }}_helptext">{{ form.usuario.help_text }}</p>
+          <p class="field__hint field__hint--ok" data-usuario-estado aria-live="polite"></p>
+          {% for error in form.usuario.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
+        {% if not es_edicion %}
+          <div class="field form-grid__full{% if form.contrasena_inicial.errors %} is-invalid{% endif %}">
+            <label class="field__label" for="{{ form.contrasena_inicial.id_for_label }}">{{ form.contrasena_inicial.label }}</label>
+            <div class="input-group">
+              {{ form.contrasena_inicial }}
+              <button type="button" class="btn" data-password-generate>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Generar una</button>
+              <button type="button" class="btn" data-copy="#{{ form.contrasena_inicial.id_for_label }}">{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar</button>
+            </div>
+            <p class="field__hint" id="{{ form.contrasena_inicial.auto_id }}_helptext">{{ form.contrasena_inicial.help_text }}{% if not user.is_superuser %} Al terminar podrás verla una sola vez.{% endif %}</p>
+            {% for error in form.contrasena_inicial.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+        {% else %}
+          <p class="field__hint form-grid__full">La contraseña se asigna o se restablece desde su perfil.</p>
+        {% endif %}
+      </div>
+    </section>
+
     <section class="card" aria-labelledby="seccion-notas">
       <header class="card__header card__header--icon">
         {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="seccion-notas">Notas{% if es_edicion %} y estatus{% endif %}</h2>

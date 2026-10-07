@@ -17,11 +17,11 @@ from .utils import (
 )
 
 TAMANO_MAXIMO_FOTO = 5 * 1024 * 1024  # 5 MB
-# La contraseña de un estudiante puede ser sencilla (un PIN, su nombre…): solo se pide que no sea trivialmente corta
+# La contraseña de un estudiante o de un tutor puede ser sencilla (un PIN, su nombre…): solo se pide que no sea trivialmente corta
 LARGO_MINIMO_CONTRASENA = 4
 
 
-def validar_contrasena_de_estudiante(contrasena):
+def validar_contrasena_sencilla(contrasena):
     """Devuelve la contraseña sin espacios en los extremos, o lanza ValidationError si es demasiado corta. Vacía es válida."""
     contrasena = (contrasena or '').strip()
     if contrasena and len(contrasena) < LARGO_MINIMO_CONTRASENA:
@@ -66,9 +66,9 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
         label='Contraseña de acceso',
         widget=forms.TextInput(attrs={
             'autocomplete': 'off', 'spellcheck': 'false', 'class': 'field__control--mono',
-            'placeholder': 'Escribe una contraseña sencilla',
+            'placeholder': 'Escribe la contraseña',
         }),
-        help_text=f'Asígnala tú: puede ser sencilla, de {LARGO_MINIMO_CONTRASENA} caracteres o más. Si la dejas vacía se genera una.',
+        help_text=f'Escríbela tú (mínimo {LARGO_MINIMO_CONTRASENA} caracteres) o déjala vacía para que se genere una.',
     )
 
     class Meta:
@@ -187,7 +187,7 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
         return foto
 
     def clean_contrasena_inicial(self):
-        return validar_contrasena_de_estudiante(self.cleaned_data.get('contrasena_inicial'))
+        return validar_contrasena_sencilla(self.cleaned_data.get('contrasena_inicial'))
 
     # --- guardado --------------------------------------------------------------
     def save(self, commit=True):
@@ -224,12 +224,12 @@ class ImportarEstudiantesForm(EstiloCamposMixin, forms.Form):
 
 
 class RestablecerContrasenaForm(forms.Form):
-    """Nueva contraseña de un estudiante: la que se escriba o, si se deja vacía, una generada."""
+    """Nueva contraseña de un estudiante o de un tutor: la que se escriba o, si se deja vacía, una generada."""
 
     contrasena = forms.CharField(required=False, max_length=64)
 
     def clean_contrasena(self):
-        return validar_contrasena_de_estudiante(self.cleaned_data.get('contrasena'))
+        return validar_contrasena_sencilla(self.cleaned_data.get('contrasena'))
 
 
 # ---------------------------------------------------------------------------
@@ -413,6 +413,7 @@ def guardar_vinculos(alumno, formset):
             if datos.get('mismo_domicilio'):
                 tutor.domicilio, tutor.colonia = alumno.domicilio, alumno.colonia
                 tutor.ciudad, tutor.estado, tutor.cp = alumno.ciudad, alumno.estado, alumno.cp
+            tutor.establecer_contrasena(generar_contrasena())   # su usuario se genera al guardar; un admin la consulta en su perfil
             tutor.save()
         TutorAlumno.objects.update_or_create(
             tutor=tutor,

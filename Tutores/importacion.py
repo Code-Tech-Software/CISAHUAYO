@@ -8,7 +8,9 @@ Volver a cargar un archivo es seguro. Un tutor que ya está registrado (por su C
 duplica: si la fila trae estudiantes que todavía no tiene vinculados, solo se agregan esos vínculos. Por eso sirve tanto
 una fila por tutor (con varios estudiantes) como una fila por cada estudiante del mismo tutor.
 
-Lo indispensable es el nombre, el apellido paterno y el teléfono. Todo lo demás es opcional.
+Lo indispensable es el nombre, el apellido paterno y el teléfono. Todo lo demás es opcional; a cada tutor nuevo se le da
+un usuario (el del archivo o uno generado con su nombre) y una contraseña (la del archivo o una generada), que se pueden
+descargar al terminar. A un tutor que ya existía no se le cambian.
 """
 import re
 from dataclasses import dataclass, field
@@ -43,6 +45,8 @@ COLUMNAS = (
     Columna('telefono_trabajo', 'Teléfono del trabajo', 'Con extensión, si aplica.'),
     Columna('observaciones', 'Observaciones', 'Notas internas sobre el tutor.'),
     Columna('estatus', 'Estatus', 'Activo o Inactivo (dado de baja). Si falta queda Activo.'),
+    Columna('usuario', 'Usuario', 'Con el que entrará al sistema: letras, números, punto o guion. Si falta se genera con su nombre (maria.lopez).'),
+    Columna('contrasena', 'Contraseña', 'La que se le asigna (4 caracteres o más). Si falta se genera una.'),
     Columna(
         'estudiantes', 'Referencia del estudiante',
         'Los estudiantes a su cargo, por su referencia (o su CURP). Si son varios, sepáralos con punto y coma: «8888; 8889».',
@@ -117,7 +121,7 @@ def _estatus(texto):
 # ---------------------------------------------------------------------------
 @dataclass
 class Resultado:
-    creados: list = field(default_factory=list)       # {'fila', 'nombre', 'vinculos'}
+    creados: list = field(default_factory=list)       # {'fila', 'nombre', 'usuario', 'contrasena', 'vinculos'}
     ampliados: int = 0                                 # ya estaban registrados y se les vincularon más estudiantes
     errores: list = field(default_factory=list)       # {'fila', 'persona', 'motivo'}
     omitidos: int = 0                                  # ya estaban registrados y no hubo nada nuevo que hacer
@@ -228,6 +232,7 @@ class Importador:
                 'colonia': datos.get('colonia', ''), 'ciudad': datos.get('ciudad', ''), 'estado': datos.get('estado', ''),
                 'cp': datos.get('cp', ''), 'ocupacion': datos.get('ocupacion', ''), 'lugar_trabajo': datos.get('lugar_trabajo', ''),
                 'telefono_trabajo': datos.get('telefono_trabajo', ''), 'observaciones': datos.get('observaciones', ''),
+                'usuario': datos.get('usuario', ''), 'contrasena_inicial': datos.get('contrasena', ''),
             })
             if not form.is_valid():
                 for campo, errores in form.errors.items():
@@ -257,7 +262,7 @@ class Importador:
 
         if existente is None:
             self._recordar(tutor)
-            return 'creado', {'nombre': str(tutor), 'vinculos': nuevos}
+            return 'creado', {'nombre': str(tutor), 'usuario': tutor.usuario, 'contrasena': form.contrasena_en_claro, 'vinculos': nuevos}
         if nuevos:
             return 'ampliado', {'nombre': str(tutor), 'vinculos': nuevos}
         return 'omitido', None

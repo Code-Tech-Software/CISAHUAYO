@@ -27,6 +27,7 @@ from .utils import (
     clave_de_texto,
     compactar_espacios,
     datos_de_curp,
+    generar_contrasena,
     normalizar_curp,
     normalizar_religion,
     siguiente_referencia,
@@ -282,13 +283,15 @@ class Importador:
                 None,
             )
             if existente is None:
-                existente = Tutor.objects.create(
+                existente = Tutor(
                     nombre=datos_tutor['nombre'], apellido_paterno=datos_tutor['apellido_paterno'],
                     apellido_materno=datos_tutor['apellido_materno'], telefono=datos_tutor['telefono'],
                     correo_electronico=datos_tutor['correo_electronico'],
                     domicilio=alumno.domicilio, colonia=alumno.colonia, ciudad=alumno.ciudad,
                     estado=alumno.estado, cp=alumno.cp,
                 )
+                existente.establecer_contrasena(generar_contrasena())   # su usuario se genera al guardar
+                existente.save()
             self.tutores[llave] = existente
         return self.tutores[llave]
 

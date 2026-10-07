@@ -353,6 +353,7 @@ class TutorAdmin(admin.ModelAdmin):
         'telefono',
         'correo_electronico',
         'ocupacion',
+        'usuario',
         'estatus',
     )
 
@@ -363,6 +364,7 @@ class TutorAdmin(admin.ModelAdmin):
         'curp',
         'telefono',
         'correo_electronico',
+        'usuario',
     )
 
     list_filter = (

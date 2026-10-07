@@ -6,7 +6,6 @@
    comunican con eventos del documento (app:toggle-theme, app:toggle-sidebar).
 
      initSidebar   Menú lateral: superpuesto en móvil, contraíble en escritorio
-     initNavGroups Grupos desplegables del menú (y su panel flotante con el menú contraído)
      initMenus     Menús desplegables (notificaciones, usuario)
      initPalette   Buscador de comandos (Ctrl+K / Cmd+K)
      initTheme     Tema claro/oscuro
@@ -28,7 +27,6 @@
 
   /* Deben coincidir con static/js/preload.js y con los puntos de corte de app.css. */
   const SIDEBAR_KEY = 'cisahuayo.sidebar';
-  const NAV_KEY = 'cisahuayo.menu';
   const THEME_KEY = 'cisahuayo.theme';
   const DESKTOP = window.matchMedia('(min-width: 64rem)');
   const MOTION_OK = window.matchMedia('(prefers-reduced-motion: no-preference)');
@@ -356,111 +354,6 @@
     });
 
     syncToggle();
-  }
-
-  /* -------------------------------------------------------- Grupos del menú */
-  /* Cada grupo ([data-nav-group]) es un <details>: se abre y se cierra solo, aun sin este script. Aquí se recuerdan
-     entre páginas los grupos que la persona deja abiertos (el de la página actual llega abierto desde el servidor) y, con
-     el sidebar contraído (escritorio), el grupo se abre en un panel flotante junto a su icono. */
-  function initNavGroups() {
-    const nav = qs('[data-nav]');
-    if (!nav) return;
-    const groups = qsa('[data-nav-group]', nav);
-    if (!groups.length) return;
-
-    const leerAbiertos = () => {
-      try {
-        return new Set(JSON.parse(localStorage.getItem(NAV_KEY) || '[]'));
-      } catch (error) {
-        return new Set();
-      }
-    };
-    const abiertos = leerAbiertos();
-    const guardar = () => store.set(NAV_KEY, abiertos.size ? JSON.stringify([...abiertos]) : null);
-
-    const detailsOf = (group) => qs('details', group);
-
-    groups.forEach((group) => {
-      const details = detailsOf(group);
-      if (abiertos.has(group.dataset.navGroup)) details.open = true;
-      details.addEventListener('toggle', () => {
-        if (isRail()) return;
-        if (details.open) {
-          abiertos.add(group.dataset.navGroup);
-        } else {
-          abiertos.delete(group.dataset.navGroup);
-        }
-        guardar();
-      });
-    });
-
-    /* --- Panel flotante (sidebar contraído) --- */
-    let flyout = null;
-    let flyoutOwner = null;
-    const closeFlyout = ({ restoreFocus = false } = {}) => {
-      if (!flyout) return;
-      flyout.remove();
-      flyout = null;
-      if (restoreFocus) flyoutOwner?.focus();
-      flyoutOwner = null;
-    };
-    const openFlyout = (group) => {
-      const toggle = qs('[data-nav-toggle]', group);
-      closeFlyout();
-      flyout = document.createElement('div');
-      flyout.className = 'nav-flyout';
-      flyout.setAttribute('role', 'dialog');
-      flyout.setAttribute('aria-label', qs('.nav__label--group', group).textContent.trim());
-      const title = document.createElement('p');
-      title.className = 'nav-flyout__title';
-      title.textContent = flyout.getAttribute('aria-label');
-      const list = document.createElement('ul');
-      list.className = 'nav-flyout__list';
-      qsa('.nav__sublink', group).forEach((link) => {
-        const item = document.createElement('li');
-        item.append(link.cloneNode(true));
-        list.append(item);
-      });
-      flyout.append(title, list);
-      document.body.append(flyout);
-
-      const rect = toggle.getBoundingClientRect();
-      const { height } = flyout.getBoundingClientRect();
-      const top = Math.max(8, Math.min(rect.top - 8, window.innerHeight - height - 8));
-      flyout.style.setProperty('left', `${Math.round(nav.getBoundingClientRect().right + 8)}px`);
-      flyout.style.setProperty('top', `${Math.round(top)}px`);
-      flyoutOwner = toggle;
-      qs('a', flyout)?.focus();
-    };
-
-    const isRail = () => DESKTOP.matches && root.classList.contains('is-sidebar-collapsed');
-
-    /* Contraído: el <summary> no despliega la lista (no cabe en el riel), abre el panel flotante */
-    nav.addEventListener('click', (event) => {
-      const toggle = event.target.closest('[data-nav-toggle]');
-      if (!toggle || !isRail()) return;
-      event.preventDefault();
-      if (flyoutOwner === toggle) {
-        closeFlyout();
-      } else {
-        openFlyout(toggle.closest('[data-nav-group]'));
-      }
-    });
-
-    document.addEventListener('click', (event) => {
-      if (flyout && !flyout.contains(event.target) && !event.target.closest('[data-nav-toggle]')) closeFlyout();
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && flyout) {
-        event.preventDefault();
-        closeFlyout({ restoreFocus: true });
-      }
-    });
-    /* Al expandir o contraer el sidebar, o al cambiar de tamaño, el panel ya no corresponde */
-    document.addEventListener('app:toggle-sidebar', () => closeFlyout());
-    qs('[data-sidebar-toggle]')?.addEventListener('click', () => closeFlyout());
-    window.addEventListener('resize', () => closeFlyout());
-    nav.addEventListener('scroll', () => closeFlyout());
   }
 
   /* -------------------------------------------------------------------- Menús */
@@ -1054,7 +947,6 @@
   }
 
   initSidebar();
-  initNavGroups();
   initMenus();
   initPalette();
   initTheme();

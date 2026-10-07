@@ -50,9 +50,6 @@ PREDETERMINADOS = (
     ('Recepción', 'Pantalla de entrada, asistencia del día y justificaciones.', 5, _recepcion),
 )
 
-# Roles cuyas cuentas son de profesores (al crearlas se registra o vincula su ficha de profesor)
-ROLES_DOCENTES = {'Docente'}
-
 
 def _crear_rol(nombre, descripcion, tono, permisos=(), **extra):
     grupo, _ = Group.objects.get_or_create(name=nombre)
@@ -73,7 +70,7 @@ def crear_roles_iniciales():
         es_sistema=True, acceso_total=True,
     )
     for nombre, descripcion, tono, permisos in PREDETERMINADOS:
-        _crear_rol(nombre, descripcion, tono, permisos(), es_docente=nombre in ROLES_DOCENTES)
+        _crear_rol(nombre, descripcion, tono, permisos())
 
     # Quien ya era superusuario pasa a tener el rol de administrador
     for usuario in get_user_model().objects.filter(is_superuser=True):

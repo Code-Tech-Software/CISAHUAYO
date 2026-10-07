@@ -42,34 +42,8 @@ PASOS_FORMULARIO = (
 
 @login_required
 def inicio(request):
-    """Panel de control: cualquier cuenta con sesión; cada quien ve solo los accesos a lo que su rol permite.
-
-    Si la cuenta es de un profesor, ve además sus clases del día (con acceso directo al pase de lista).
-    """
-    return render(request, 'index.html', {'mis_clases': _mis_clases_de_hoy(request.user)})
-
-
-def _mis_clases_de_hoy(usuario):
-    """Las clases de hoy del profesor de la cuenta, o None si la cuenta no es de un profesor activo."""
-    from Alumnos.asistencias import ciclo_de_fecha, clases_por_grado, motivo_sin_clases
-    from Usuarios.docentes import profesor_de
-
-    profesor = profesor_de(usuario)
-    if profesor is None or profesor.estatus != 'ACTIVO':
-        return None
-    ahora = timezone.localtime()
-    hoy = ahora.date()
-    ciclo = ciclo_de_fecha(hoy)
-    motivo = motivo_sin_clases(hoy, ciclo)
-    clases = []
-    if ciclo and not motivo:
-        clases = sorted(
-            (clase for lista in clases_por_grado(ciclo, hoy, materia_grado__profesor=profesor).values() for clase in lista),
-            key=lambda clase: (clase.inicio, clase.asignacion.grado.nivel, clase.asignacion.grado.numero),
-        )
-    hora = ahora.time()
-    filas = [{'clase': clase, 'en_curso': clase.inicio <= hora < clase.fin, 'terminada': clase.fin <= hora} for clase in clases]
-    return {'profesor': profesor, 'clases': filas, 'motivo': motivo, 'ciclo': ciclo}
+    """Panel de control: cualquier cuenta con sesión; cada quien ve solo los accesos a lo que su rol permite."""
+    return render(request, 'index.html')
 
 
 # ---------------------------------------------------------------------------

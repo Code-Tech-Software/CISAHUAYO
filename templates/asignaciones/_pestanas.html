@@ -1,20 +1,10 @@
 {% comment %}
-  Navegación entre las pantallas de asignaciones académicas.
-  Parámetros: seccion ("mapa", "tablero", "carga" o "movimientos") y ciclo.
+  Navegación entre las tres pantallas de asignaciones. Parámetros: seccion ("tablero", "carga" o "movimientos") y ciclo.
 {% endcomment %}
-<nav class="pills" aria-label="Vistas de asignaciones">
-  <a class="pill{% if seccion == 'mapa' %} is-active{% endif %}" href="{% url 'asignaciones:mapa' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'mapa' %} aria-current="page"{% endif %}>
-    {% include "partials/icon.html" with name="layout-grid" icon_class="icon--sm" %} Mapa
-  </a>
-  <a class="pill{% if seccion == 'tablero' %} is-active{% endif %}" href="{% url 'asignaciones:tablero' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'tablero' %} aria-current="page"{% endif %}>
-    {% include "partials/icon.html" with name="list" icon_class="icon--sm" %} Lista
-  </a>
+<nav class="pills" aria-label="Secciones de asignaciones">
+  <a class="pill{% if seccion == 'tablero' %} is-active{% endif %}" href="{% url 'asignaciones:tablero' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'tablero' %} aria-current="page"{% endif %}>Tablero</a>
   {% if perms.Alumnos.view_profesor %}
-    <a class="pill{% if seccion == 'carga' %} is-active{% endif %}" href="{% url 'asignaciones:carga' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'carga' %} aria-current="page"{% endif %}>
-      {% include "partials/icon.html" with name="briefcase" icon_class="icon--sm" %} Carga docente
-    </a>
+    <a class="pill{% if seccion == 'carga' %} is-active{% endif %}" href="{% url 'asignaciones:carga' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'carga' %} aria-current="page"{% endif %}>Carga por profesor</a>
   {% endif %}
-  <a class="pill{% if seccion == 'movimientos' %} is-active{% endif %}" href="{% url 'asignaciones:movimientos' %}"{% if seccion == 'movimientos' %} aria-current="page"{% endif %}>
-    {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Movimientos
-  </a>
+  <a class="pill{% if seccion == 'movimientos' %} is-active{% endif %}" href="{% url 'asignaciones:movimientos' %}"{% if seccion == 'movimientos' %} aria-current="page"{% endif %}>Movimientos</a>
 </nav>

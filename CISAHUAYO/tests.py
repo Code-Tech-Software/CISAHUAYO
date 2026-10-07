@@ -122,7 +122,7 @@ class PlantillaBaseTests(TestCase):
             'class="topbar"',
             'aria-label="Navegación principal"',
             'aria-label="Ruta de navegación"',
-            'Control escolar',
+            'Gestión escolar',
             'Académico',
             'Ciclos escolares',
             'img/logointer.svg',

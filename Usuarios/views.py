@@ -13,7 +13,6 @@ from CISAHUAYO.permisos import requiere_permisos
 
 from . import catalogo
 from .forms import CambioContrasenaForm, FiltroUsuariosForm, MiCuentaForm, UsuarioForm
-from .docentes import profesor_de
 from .models import PerfilUsuario
 from .seguridad import (
     ACCION_ALTA,
@@ -36,8 +35,8 @@ SESION_CREDENCIALES = 'credenciales_usuario'
 
 
 def _consulta():
-    """Usuarios con su perfil, su ficha de profesor y su rol ya cargados (sin una consulta por fila)."""
-    return Usuario.objects.select_related('perfil', 'profesor').prefetch_related(
+    """Usuarios con su perfil y su rol ya cargados (sin una consulta por fila)."""
+    return Usuario.objects.select_related('perfil').prefetch_related(
         Prefetch('groups', queryset=Group.objects.select_related('rol').prefetch_related('permissions')),
         'user_permissions',
     )
@@ -50,34 +49,15 @@ def _gestionable(request, usuario):
     return usuario
 
 
-def guardar_credenciales(request, usuario, contrasena, titulo, url=None, escrita=False):
-    """Deja en la sesión las credenciales de una cuenta para mostrarlas una sola vez (la contraseña no se guarda en claro)."""
+def _guardar_credenciales(request, usuario, contrasena, titulo):
     request.session[SESION_CREDENCIALES] = {
         'pk': usuario.pk,
         'nombre': nombre_de(usuario),
-        'url': url or reverse('usuarios:detalle', args=[usuario.pk]),
+        'url': reverse('usuarios:detalle', args=[usuario.pk]),
         'usuario': usuario.username,
         'contrasena': contrasena,
         'titulo': titulo,
-        'etiqueta': 'Contraseña inicial' if escrita else 'Contraseña temporal',
     }
-
-
-def _texto_de_la_ficha(form):
-    """« Se registró su ficha de profesor.» o « Quedó vinculada con el profesor X.» (o nada)."""
-    profesor = getattr(form, 'profesor_vinculado', None)
-    if profesor is None:
-        return ''
-    if form.docente.profesor_creado:
-        return f' Se registró su ficha de profesor ({profesor}).'
-    return f' Quedó vinculada con la ficha del profesor {profesor}.'
-
-
-def _anotar_en_la_ficha(request, form, usuario):
-    profesor = getattr(form, 'profesor_vinculado', None)
-    if profesor is not None:
-        accion = 'Ficha registrada junto con' if form.docente.profesor_creado else 'Se vinculó con'
-        registrar(request.user, profesor, ACCION_CAMBIO, f'{accion} la cuenta de acceso «{usuario.username}».')
 
 
 def _cambios_de(form):
@@ -135,10 +115,9 @@ def usuario_crear(request):
         if form.is_valid():
             usuario = form.save()
             rol = rol_de(usuario)
-            registrar(request.user, usuario, ACCION_ALTA, f'Cuenta creada con el rol «{rol}».{_texto_de_la_ficha(form)}')
-            _anotar_en_la_ficha(request, form, usuario)
-            guardar_credenciales(request, usuario, form.contrasena_en_claro, 'Cuenta creada', escrita=form.contrasena_escrita)
-            messages.success(request, f'La cuenta de {nombre_de(usuario)} fue creada con el rol «{rol}».{_texto_de_la_ficha(form)}')
+            registrar(request.user, usuario, ACCION_ALTA, f'Cuenta creada con el rol «{rol}».')
+            _guardar_credenciales(request, usuario, form.contrasena_en_claro, 'Cuenta creada')
+            messages.success(request, f'La cuenta de {nombre_de(usuario)} fue creada con el rol «{rol}».')
             return redirect('usuarios:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
@@ -157,12 +136,9 @@ def usuario_editar(request, pk):
             cambios = _cambios_de(form)
             if cambios:
                 partes.append(f'Datos modificados: {cambios}.')
-            if form.profesor_vinculado:
-                partes.append(_texto_de_la_ficha(form).strip())
-                _anotar_en_la_ficha(request, form, usuario)
             if partes:
                 registrar(request.user, usuario, ACCION_CAMBIO, ' '.join(partes))
-            messages.success(request, f'Los datos de {nombre_de(usuario)} se actualizaron.{_texto_de_la_ficha(form)}')
+            messages.success(request, f'Los datos de {nombre_de(usuario)} se actualizaron.')
             return redirect('usuarios:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form, usuario)
@@ -185,7 +161,6 @@ def usuario_detalle(request, pk):
     return render(request, 'usuarios/detalle.html', {
         'usuario': usuario,
         'perfil': getattr(usuario, 'perfil', None) or PerfilUsuario(usuario=usuario),
-        'profesor': profesor_de(usuario),
         'rol': rol,
         'es_yo': es_yo,
         'resumen': resumen,
@@ -262,7 +237,7 @@ def usuario_restablecer(request, pk):
     perfil.debe_cambiar_contrasena = True
     perfil.save(update_fields=['debe_cambiar_contrasena', 'modificado'])
     registrar(request.user, usuario, ACCION_CAMBIO, 'Contraseña restablecida (deberá cambiarla al entrar).')
-    guardar_credenciales(request, usuario, contrasena, 'Contraseña restablecida')
+    _guardar_credenciales(request, usuario, contrasena, 'Contraseña restablecida')
     messages.success(request, f'Se generó una contraseña temporal para {nombre_de(usuario)}. Entrégasela: no se volverá a mostrar.')
     return redirect('usuarios:detalle', usuario.pk)
 

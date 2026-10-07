@@ -1,9 +1,7 @@
-"""Asignaciones académicas: qué profesor imparte cada materia, en qué grado y en qué ciclo.
+"""Quién imparte qué: el tablero de asignaciones, la carga de cada profesor y la bitácora de movimientos.
 
-Es la pantalla central para armar el ciclo: el mapa (materias × grados), la nueva asignación (materia del catálogo o
-nueva + grados + profesores en un solo formulario), la lista con filtros, la carga de cada profesor y la bitácora.
-Las asignaciones viven en `MateriaGrado` (`profesor` = quién la imparte); cambiar al profesor de una o varias se hace
-con `Profesores.views.asignar`, y aquí además se reparten en bloque (pasar las clases de un profesor a otro).
+Las asignaciones en sí viven en `MateriaGrado.profesor` y se cambian con `Profesores.views.asignar` (una o varias a la
+vez); aquí se consultan, se reparten en bloque (pasar las clases de un profesor a otro) y se exportan.
 """
 import csv
 
@@ -24,18 +22,17 @@ from Alumnos.docentes import (
     carga_de_profesores,
     con_habilitados,
     descripcion_del_cambio,
-    habilitados_por_materia,
     resumen_del_ciclo,
 )
 from Alumnos.horarios import con_resumen_de_horario
-from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Profesor, orden_de_nivel
-from Alumnos.utils import compactar_espacios, proteger_celda_csv
+from Alumnos.models import CicloEscolar, MateriaGrado, Profesor, orden_de_nivel
+from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, paginar
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
-from Usuarios.seguridad import ACCION_ALTA, ACCION_CAMBIO, registrar
+from Usuarios.seguridad import ACCION_CAMBIO, registrar
 
-from .forms import AsignacionAcademicaForm, FiltroAsignacionesForm, FiltroCargaForm
+from .forms import FiltroAsignacionesForm, FiltroCargaForm
 
 POR_PAGINA_TABLERO = 50
 
@@ -57,159 +54,7 @@ def _asignaciones_filtradas(filtro, ciclo):
 
 
 # ---------------------------------------------------------------------------
-# Mapa: materias × grados del ciclo, con quién imparte cada una
-# ---------------------------------------------------------------------------
-@requiere_permisos('Alumnos.view_materiagrado')
-def mapa(request):
-    """La vista central: de un vistazo, qué profesor imparte cada materia en cada grado del ciclo.
-
-    Cada celda es una acción: con la materia en el plan, elegir o cambiar a su profesor; sin ella, agregarla a ese grado
-    (con su profesor) en un solo paso.
-    """
-    ciclos, ciclo = _ciclo_de(request)
-    niveles_validos = dict(Grado.NIVEL_CHOICES)
-    nivel = request.GET.get('nivel', '')
-    if nivel not in niveles_validos:
-        nivel = ''
-    buscar = compactar_espacios(request.GET.get('q', ''))
-
-    asignaciones = []
-    if ciclo:
-        asignaciones = con_habilitados(con_resumen_de_horario(
-            MateriaGrado.objects.filter(ciclo=ciclo, activa=True).select_related('materia', 'grado', 'profesor').prefetch_related('horarios')
-        ))
-    for asignacion in asignaciones:
-        # Cada profesor con un color (de seis): de un vistazo se ve quién da qué
-        asignacion.tono = (asignacion.profesor_id - 1) % 6 + 1 if asignacion.profesor_id else 0
-    celdas = {(a.materia_id, a.grado_id): a for a in asignaciones}
-    grados_con_plan = {a.grado_id for a in asignaciones}
-    materias_con_plan = {a.materia_id for a in asignaciones}
-
-    grados = [grado for grado in Grado.objects.filter(Q(activo=True) | Q(pk__in=grados_con_plan)).academicos()
-              if not nivel or grado.nivel == nivel]
-    materias = list(Materia.objects.filter(Q(activa=True) | Q(pk__in=materias_con_plan)).order_by('nombre'))
-    if buscar:
-        palabras = buscar.lower().split()
-        materias = [m for m in materias if all(p in f'{m.nombre} {m.clave}'.lower() for p in palabras)]
-
-    columnas = []
-    for grado in grados:
-        del_grado = [celdas[(m.pk, grado.pk)] for m in materias if (m.pk, grado.pk) in celdas]
-        columnas.append({'grado': grado, 'materias': len(del_grado), 'sin_profesor': sum(1 for a in del_grado if not a.profesor_id)})
-    filas = [
-        {'materia': materia, 'celdas': [{'grado': grado, 'asignacion': celdas.get((materia.pk, grado.pk))} for grado in grados],
-         'en_plan': sum(1 for grado in grados if (materia.pk, grado.pk) in celdas)}
-        for materia in materias
-    ]
-    grupos_de_nivel = []
-    for grado in grados:
-        if not grupos_de_nivel or grupos_de_nivel[-1]['clave'] != grado.nivel:
-            grupos_de_nivel.append({'clave': grado.nivel, 'nombre': grado.get_nivel_display(), 'total': 0})
-        grupos_de_nivel[-1]['total'] += 1
-
-    editable = ciclo_editable(ciclo)
-    profesores_en_el_mapa = {a.profesor_id: {'profesor': a.profesor, 'tono': a.tono} for a in asignaciones if a.profesor_id}
-    return render(request, 'asignaciones/mapa.html', {
-        'ciclos': ciclos,
-        'ciclo': ciclo,
-        'editable': editable,
-        'nivel': nivel,
-        'niveles': [(clave, nombre) for clave, nombre in Grado.NIVEL_CHOICES],
-        'buscar': buscar,
-        'columnas': columnas,
-        'grupos_de_nivel': grupos_de_nivel,
-        'filas': filas,
-        'resumen': resumen_del_ciclo(ciclo),
-        'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO')) if editable else [],
-        'leyenda': sorted(profesores_en_el_mapa.values(), key=lambda p: (p['profesor'].apellido_paterno, p['profesor'].nombre)),
-        'seccion': 'mapa',
-    })
-
-
-# ---------------------------------------------------------------------------
-# Nueva asignación: materia (existente o nueva) + grados + profesores, en un solo formulario
-# ---------------------------------------------------------------------------
-def _datos_para_el_formulario(form):
-    """Lo que el formulario necesita para reaccionar sin volver al servidor: qué grados ya tienen cada materia en cada
-    ciclo (y con quién) y qué profesores pueden impartir cada materia."""
-    ciclos = [ciclo.pk for ciclo in form.fields['ciclo'].queryset]
-    plan = {}
-    for ciclo_id, materia_id, grado_id, profesor_id in (
-        MateriaGrado.objects.filter(ciclo__in=ciclos, activa=True).order_by()
-        .values_list('ciclo_id', 'materia_id', 'grado_id', 'profesor_id')
-    ):
-        plan.setdefault(str(ciclo_id), {}).setdefault(str(materia_id), {})[str(grado_id)] = profesor_id or 0
-    habilitados = {str(materia): profesores for materia, profesores in habilitados_por_materia().items()}
-    nombres = {str(p.pk): p.nombre_corto for p in Profesor.objects.all()}
-    return {'plan': plan, 'habilitados': habilitados, 'profesores': nombres}
-
-
-@requiere_permisos('Alumnos.add_materiagrado')
-def nueva(request):
-    inicial = {}
-    for campo in ('ciclo', 'materia'):
-        if request.GET.get(campo, '').isdigit():
-            inicial[campo] = int(request.GET[campo])
-    grados = solo_numeros(request.GET.getlist('grado'))
-    if grados:
-        inicial['grados'] = grados
-    form = AsignacionAcademicaForm(request.POST if request.method == 'POST' else None, actor=request.user, initial=inicial)
-
-    if request.method == 'POST':
-        if form.is_valid():
-            resultado = form.guardar()
-            _avisar_resultado(request, resultado)
-            destino = f'{reverse("asignaciones:mapa")}?ciclo={resultado["ciclo"].pk}'
-            return redirect(destino_seguro(request, destino))
-        messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
-
-    if not form.fields['ciclo'].queryset.exists():
-        messages.error(request, 'No hay ciclos abiertos: crea un ciclo escolar para poder asignar materias.')
-        return redirect('asignaciones:mapa')
-    return render(request, 'asignaciones/nueva.html', {
-        'form': form,
-        'datos': _datos_para_el_formulario(form),
-    })
-
-
-def _avisar_resultado(request, resultado):
-    """Mensajes y bitácora de una asignación académica."""
-    materia, ciclo, plan = resultado['materia'], resultado['ciclo'], resultado['plan']
-    for asignacion, anterior in resultado['cambios']:
-        registrar(request.user, asignacion, ACCION_CAMBIO, descripcion_del_cambio(asignacion, anterior))
-    if resultado['nueva']:
-        registrar(request.user, materia, ACCION_ALTA, 'Materia creada desde «Asignaciones académicas».')
-
-    agregadas = [a.grado for a, estado in plan.values() if estado != 'ya_estaba']
-    ya_estaban = [a.grado for a, estado in plan.values() if estado == 'ya_estaba']
-    partes = []
-    if resultado['nueva']:
-        partes.append(f'Se creó la materia {materia}.')
-    if agregadas:
-        partes.append(f'{materia.nombre} quedó en el plan de {_lista(agregadas)} para el ciclo {ciclo}.')
-    con_profesor = {}
-    for asignacion, _ in resultado['cambios']:
-        con_profesor.setdefault(asignacion.profesor, []).append(asignacion.grado)
-    for profesor, grados in con_profesor.items():
-        partes.append(f'{profesor} la imparte en {_lista(grados)}.')
-    if partes:
-        messages.success(request, ' '.join(partes))
-    if ya_estaban and not resultado['cambios']:
-        messages.info(request, f'{materia.nombre} ya estaba en {_lista(ya_estaban)}.')
-    for motivo in resultado['omitidas'][:5]:
-        messages.error(request, f'No se pudo asignar el profesor. {motivo}')
-    if len(resultado['omitidas']) > 5:
-        messages.error(request, f'Y {len(resultado["omitidas"]) - 5} más con el mismo problema.')
-
-
-def _lista(grados):
-    """«1° Primaria, 2° Primaria y 3° Primaria»."""
-    nombres = [str(grado) for grado in grados]
-    return nombres[0] if len(nombres) == 1 else f'{", ".join(nombres[:-1])} y {nombres[-1]}'
-
-
-# ---------------------------------------------------------------------------
-# Tablero (lista)
+# Tablero
 # ---------------------------------------------------------------------------
 @requiere_permisos('Alumnos.view_materiagrado')
 def tablero(request):

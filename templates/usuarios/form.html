@@ -23,21 +23,18 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar usuario{% else %}Nuevo usuario{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Actualiza los datos y el rol de {{ usuario|nombre_visible }}.{% else %}Escribe una contraseña inicial o deja que se genere una temporal; la verás una sola vez y la persona deberá cambiarla al entrar. Si es docente, aquí mismo se registra su ficha de profesor.{% endif %}
+        {% if es_edicion %}Actualiza los datos y el rol de {{ usuario|nombre_visible }}.{% else %}Se genera una contraseña temporal que verás una sola vez; la persona deberá cambiarla al entrar.{% endif %}
       </p>
     </div>
   </header>
 
-  <form class="form-page" id="usuario-form" method="post" novalidate data-cuenta-docente>
+  <form class="form-page" id="usuario-form" method="post" novalidate>
     {% csrf_token %}
 
-    {% if form.non_field_errors or form.docente.non_field_errors and not form.docente.disponible %}
+    {% if form.non_field_errors %}
       <div class="alert alert--error" role="alert">
         {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
-        <div class="alert__body">
-          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
-          {% if not form.docente.disponible %}{% for error in form.docente.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% endif %}
-        </div>
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
       </div>
     {% endif %}
 
@@ -46,8 +43,8 @@
         {% include "partials/icon.html" with name="user" %}<h2 class="card__title" id="seccion-persona">Datos de la persona</h2>
       </header>
       <div class="card__body form-grid">
-        <div data-campo-nombre>{% include "partials/field.html" with campo=form.first_name %}</div>
-        <div data-campo-apellidos>{% include "partials/field.html" with campo=form.last_name %}</div>
+        {% include "partials/field.html" with campo=form.first_name %}
+        {% include "partials/field.html" with campo=form.last_name %}
         {% include "partials/field.html" with campo=form.email %}
         {% include "partials/field.html" with campo=form.telefono %}
         {% include "partials/field.html" with campo=form.cargo clase="form-grid__full" %}
@@ -61,11 +58,8 @@
       <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.username %}
         {% include "partials/field.html" with campo=form.rol %}
-        {% if form.contrasena %}{% include "partials/field.html" with campo=form.contrasena clase="form-grid__full" %}{% endif %}
       </div>
     </section>
-
-    {% include "usuarios/_seccion_docente.html" with docente=form.docente %}
 
     <footer class="action-bar">
       <a class="btn btn--ghost" href="{% if es_edicion %}{% url 'usuarios:detalle' usuario.pk %}{% else %}{% url 'usuarios:lista' %}{% endif %}">Cancelar</a>
@@ -79,5 +73,4 @@
 
 {% block extra_js %}
   <script src="{% static 'js/usuarios-form.js' %}" defer></script>
-  <script src="{% static 'js/cuenta-docente.js' %}" defer></script>
 {% endblock %}

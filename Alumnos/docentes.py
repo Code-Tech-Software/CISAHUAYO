@@ -53,31 +53,7 @@ def asignar_profesor(asignaciones, profesor):
                 asignacion.profesor = profesor
                 asignacion.save(update_fields=['profesor'])
                 cambios.append((asignacion, anterior))
-        # Quien imparte una materia la puede impartir: queda en su lista para sugerirlo la próxima vez
-        if profesor is not None and cambios:
-            habilitar(profesor, {asignacion.materia_id: asignacion.materia for asignacion, _ in cambios}.values())
     return cambios, omitidas
-
-
-def agregar_al_plan(ciclo, materia, grados):
-    """Pone `materia` en el plan de cada grado del ciclo: crea lo que falta y reactiva lo que se había quitado.
-
-    Devuelve {id de grado: (asignación, estado)} con estado «nueva», «reactivada» o «ya_estaba».
-    """
-    resultado = {}
-    with transaction.atomic():
-        existentes = {mg.grado_id: mg for mg in MateriaGrado.objects.filter(ciclo=ciclo, materia=materia, grado__in=grados)}
-        for grado in grados:
-            actual = existentes.get(grado.pk)
-            if actual is None:
-                resultado[grado.pk] = (MateriaGrado.objects.create(ciclo=ciclo, grado=grado, materia=materia), 'nueva')
-            elif not actual.activa:
-                actual.activa = True
-                actual.save(update_fields=['activa'])
-                resultado[grado.pk] = (actual, 'reactivada')
-            else:
-                resultado[grado.pk] = (actual, 'ya_estaba')
-    return resultado
 
 
 def descripcion_del_cambio(asignacion, anterior):

@@ -41,10 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    # Debe ir antes de staticfiles: así en desarrollo también sirve los estáticos WhiteNoise (con Cache-Control) y no
-    # el servidor de Django, que los manda sin él y el navegador podía quedarse con copias viejas
-    'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
+    'whitenoise.runserver_nostatic',
     'cloudinary',
     'cloudinary_storage',
     'Alumnos',
@@ -79,8 +77,7 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # El de WhiteNoise con manifiesto; en desarrollo agrega ?v=<fecha> a cada URL (ver CISAHUAYO/almacenamiento.py)
-        "BACKEND": "CISAHUAYO.almacenamiento.EstaticosConVersion",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 

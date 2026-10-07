@@ -34,10 +34,6 @@
     </div>
   </header>
 
-  {% if credenciales %}
-    {% include "usuarios/_credenciales.html" %}
-  {% endif %}
-
   {# Las bajas no se mezclan con los profesores vigentes: tienen su propio filtro #}
   <nav class="pills" aria-label="Filtrar por estatus">
     <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% querystring estatus=None page=None %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>

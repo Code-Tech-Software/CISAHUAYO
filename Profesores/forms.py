@@ -63,36 +63,9 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'horas_maximas': 'Opcional. Las horas de clase por semana que puede dar como máximo: en «Asignaciones» se avisa si su carga la rebasa.',
         }
 
-    def __init__(self, *args, actor=None, abrir_acceso=False, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.aplicar_estilo()
-        # «Dar acceso al sistema»: su cuenta de usuario (nueva o una que ya existe), anidada con el prefijo «acceso»
-        self.acceso = None
-        if actor is not None:
-            from Usuarios.forms import CuentaDeProfesorForm
-            self.acceso = CuentaDeProfesorForm(
-                self.data or None, prefix='acceso', actor=actor, profesor=self.instance if self.instance.pk else None,
-                initial={'dar_acceso': abrir_acceso},
-            )
-        self.cuenta = self.contrasena_en_claro = None
-        self.cuenta_nueva = False
-
-    def is_valid(self):
-        propio = super().is_valid()
-        anidado = self.acceso.is_valid() if self.acceso is not None else True
-        return propio and anidado
-
-    def save(self, commit=True):
-        from django.db import transaction
-
-        from Usuarios.docentes import sincronizar_nombre
-
-        with transaction.atomic():
-            profesor = super().save(commit)
-            sincronizar_nombre(profesor)   # la cuenta lleva el nombre de la ficha
-            if self.acceso is not None:
-                self.cuenta, self.contrasena_en_claro, self.cuenta_nueva = self.acceso.guardar(profesor)
-        return profesor
 
     # --- limpieza por campo ----------------------------------------------------------
     def _compacto(self, campo):

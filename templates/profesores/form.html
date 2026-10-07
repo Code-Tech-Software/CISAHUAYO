@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar profesor{% else %}Registrar profesor{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Actualiza los datos de {{ profesor }}.{% else %}Captura sus datos y, si lo necesita, dale acceso al sistema con su propia cuenta. Las materias que imparte se asignan desde su perfil o desde «Asignaciones académicas».{% endif %}
+        {% if es_edicion %}Actualiza los datos de {{ profesor }}.{% else %}Captura sus datos. Después podrás asignarle las materias que imparte desde su perfil.{% endif %}
       </p>
     </div>
   </header>
@@ -32,16 +32,13 @@
     {% for estado in estados_mx %}<option value="{{ estado }}">{% endfor %}
   </datalist>
 
-  <form class="form-page" id="profesor-form" method="post" novalidate data-persona-form data-cuenta-docente>
+  <form class="form-page" id="profesor-form" method="post" novalidate data-persona-form>
     {% csrf_token %}
 
-    {% if form.non_field_errors or form.acceso.non_field_errors and not form.acceso.disponible %}
+    {% if form.non_field_errors %}
       <div class="alert alert--error" role="alert">
         {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
-        <div class="alert__body">
-          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
-          {% if not form.acceso.disponible %}{% for error in form.acceso.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% endif %}
-        </div>
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
       </div>
     {% endif %}
 
@@ -100,8 +97,6 @@
       </div>
     </section>
 
-    {% if form.acceso %}{% include "profesores/_seccion_acceso.html" with acceso=form.acceso %}{% endif %}
-
     <section class="card" aria-labelledby="seccion-notas">
       <header class="card__header card__header--icon">
         {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="seccion-notas">Notas</h2>
@@ -123,5 +118,4 @@
 
 {% block extra_js %}
   <script src="{% static 'js/persona-form.js' %}" defer></script>
-  <script src="{% static 'js/cuenta-docente.js' %}" defer></script>
 {% endblock %}

@@ -58,14 +58,6 @@
           </div>
           {% for error in form.tono.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
         </div>
-        <label class="switch-row form-grid__full" for="{{ form.es_docente.id_for_label }}">
-          <span class="switch-row__icon">{% include "partials/icon.html" with name="presentation" %}</span>
-          <span class="switch-row__text">
-            <span class="switch-row__title">Rol para docentes</span>
-            <span class="switch-row__hint">Las cuentas con este rol son de profesores: al crearlas se registra o se vincula su ficha de profesor, para que cada docente tenga una sola cuenta.</span>
-          </span>
-          <input class="switch" type="checkbox" name="{{ form.es_docente.html_name }}" id="{{ form.es_docente.id_for_label }}"{% if form.es_docente.value %} checked{% endif %}>
-        </label>
       </div>
     </section>
 

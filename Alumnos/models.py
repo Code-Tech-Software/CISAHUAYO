@@ -218,11 +218,6 @@ class Grado(models.Model):
             return ''
         return f'Equivale al {self.equivalencia_texto}' if self.equivalencia_numero is not None else f'Equivale a {self.equivalencia_texto}'
 
-    @property
-    def equivalencia_distinta(self):
-        """La equivalencia solo cuando dice algo más que el número del grado (en primaria, 1.° equivale al 1.°)."""
-        return self.equivalencia_texto if self.equivalencia and str(self.equivalencia) != str(self.numero) else ''
-
     def get_absolute_url(self):
         return reverse('grados:detalle', args=[self.pk])
 
@@ -806,13 +801,6 @@ class Profesor(models.Model):
     )
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
-    # Una sola cuenta por profesor y un solo profesor por cuenta: la cuenta guarda el acceso (usuario, contraseña, rol y
-    # permisos); aquí solo vive la información del docente
-    usuario = models.OneToOneField(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='profesor',
-        verbose_name='Cuenta de acceso',
-        help_text='La cuenta con la que entra al sistema. Lo que puede hacer lo define el rol de esa cuenta.',
-    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -822,15 +810,6 @@ class Profesor(models.Model):
     @property
     def nombre_completo(self):
         return str(self)
-
-    @property
-    def apellidos(self):
-        return f'{self.apellido_paterno} {self.apellido_materno}'.strip()
-
-    @property
-    def nombre_corto(self):
-        """«M. Rangel»: para espacios reducidos como el mapa de asignaciones."""
-        return f'{self.nombre[:1]}. {self.apellido_paterno}'
 
     @property
     def iniciales(self):

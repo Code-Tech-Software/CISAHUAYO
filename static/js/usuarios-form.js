@@ -11,10 +11,7 @@
 
   const usuario = form.querySelector('[data-usuario]');
   const nombre = form.querySelector('[name="first_name"]');
-  const apellidosCuenta = form.querySelector('[name="last_name"]');
-  /* Si la cuenta es de un docente nuevo, los apellidos se escriben en su ficha (apellido paterno) */
-  const paterno = form.querySelector('[name="docente-apellido_paterno"]');
-  const apellidos = { get value() { return (apellidosCuenta.disabled && paterno ? paterno : apellidosCuenta).value; } };
+  const apellidos = form.querySelector('[name="last_name"]');
   const { phoneDigits, formatPhone } = window.CISAHUAYO.forms;
 
   /* «María José» + «Núñez Ruiz» → «maria.nunez» */
@@ -34,8 +31,7 @@
   };
   if (!usuario.value) {
     nombre.addEventListener('input', sugerir);
-    apellidosCuenta.addEventListener('input', sugerir);
-    paterno?.addEventListener('input', sugerir);
+    apellidos.addEventListener('input', sugerir);
   }
 
   usuario.addEventListener('input', () => {

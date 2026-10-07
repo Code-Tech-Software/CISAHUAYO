@@ -2845,6 +2845,23 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* Selector de archivos: el botón del navegador con el aspecto de los botones del sistema */
+.field__control[type="file"]::file-selector-button {
+  margin-right: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.field__control[type="file"]::file-selector-button:hover {
+  background: var(--color-surface-hover);
+}
+
 /* --- Form grid (cuadrícula de campos) -------------------------------------------------------------- */
 .form-grid {
   display: grid;
@@ -3341,6 +3358,128 @@ body {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-2);
+}
+
+/* --- Importación desde CSV -----------------------------------------------------------------------------------
+   Resumen de lo que pasó con cada fila de un archivo importado (estudiantes y tutores), la tabla de filas con
+   errores y la lista de indicaciones de la pantalla de importación. */
+.import-report {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-success-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-success-bg);
+}
+
+.import-report--partial {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-bg);
+}
+
+.import-report--failed {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+}
+
+.import-report__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.import-report__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.import-report__title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.import-report__text {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.import-report__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.import-report__stat {
+  min-width: 9rem;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.import-report__stat dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.import-report__stat dd {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.import-report__stat--ok dd {
+  color: var(--color-success);
+}
+
+.import-report__stat--error dd {
+  color: var(--color-danger);
+}
+
+.import-report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.import-report__more {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+/* El nombre de cada columna va a la izquierda (un <th> se centra por omisión) y su marca de «Indispensable» al lado */
+.import-columns th.table__cell {
+  text-align: left;
+}
+
+.import-columns .tag {
+  margin-left: var(--space-2);
+}
+
+.import-errors .table__cell {
+  white-space: normal;
+}
+
+.import-help {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-5);
+  padding-left: var(--space-5);
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
 }
 
 /* --- Estado de error (404, 403...) -------------------------------------------------------------------------

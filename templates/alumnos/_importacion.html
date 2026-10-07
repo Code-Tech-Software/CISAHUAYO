@@ -1,0 +1,41 @@
+{% comment %}
+  Resumen de la última importación de estudiantes (se muestra una sola vez, en el listado).
+  Parámetro: importacion (archivo, total, creados, omitidos, religiones_como_otra, errores, errores_total).
+{% endcomment %}
+<section class="import-report{% if importacion.errores_total %} import-report--partial{% endif %}" aria-labelledby="importacion-titulo">
+  <header class="import-report__header">
+    <span class="import-report__icon">{% include "partials/icon.html" with name="upload" icon_class="icon--lg" %}</span>
+    <div>
+      <h2 class="import-report__title" id="importacion-titulo">Importación terminada</h2>
+      <p class="import-report__text">Archivo «{{ importacion.archivo }}» · {{ importacion.total }} fila{{ importacion.total|pluralize }} revisada{{ importacion.total|pluralize }}.</p>
+    </div>
+  </header>
+
+  <dl class="import-report__stats">
+    <div class="import-report__stat import-report__stat--ok"><dt>Registrados</dt><dd>{{ importacion.creados }}</dd></div>
+    {% if importacion.omitidos %}<div class="import-report__stat"><dt>Ya estaban registrados</dt><dd>{{ importacion.omitidos }}</dd></div>{% endif %}
+    {% if importacion.errores_total %}<div class="import-report__stat import-report__stat--error"><dt>Con errores</dt><dd>{{ importacion.errores_total }}</dd></div>{% endif %}
+  </dl>
+
+  {% if importacion.religiones_como_otra %}
+    <p class="import-report__text">
+      {{ importacion.religiones_como_otra }} estudiante{{ importacion.religiones_como_otra|pluralize }} tenía{{ importacion.religiones_como_otra|pluralize:",n" }} una religión que no está en la lista: se registró como «Otra».
+    </p>
+  {% endif %}
+
+  <div class="import-report__actions">
+    <a class="btn btn--sm" href="{% url 'alumnos:importar_credenciales' %}">
+      {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Descargar contraseñas
+    </a>
+    {% if perms.Alumnos.add_alumno %}
+      <a class="btn btn--sm" href="{% url 'alumnos:importar' %}" data-modal-form>
+        {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %} Importar otro archivo
+      </a>
+    {% endif %}
+  </div>
+
+  {% if importacion.errores %}
+    <h3 class="subsection-title">Filas que no se importaron</h3>
+    {% include "partials/importacion_errores.html" with errores=importacion.errores errores_total=importacion.errores_total %}
+  {% endif %}
+</section>

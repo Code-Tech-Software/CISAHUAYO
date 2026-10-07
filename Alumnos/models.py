@@ -1,6 +1,7 @@
 from datetime import date, time
 
 from django.conf import settings
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, RegexValidator
 from django.db import models
@@ -13,8 +14,20 @@ class Alumno(models.Model):
     SEXO_CHOICES = [
         ('M', 'Masculino'),
         ('F', 'Femenino'),
-        ('O', 'Otro'),
     ]
+
+    # El texto guardado es el mismo que se lee en pantalla
+    RELIGION_CHOICES = [(religion, religion) for religion in (
+        'Católica',
+        'Cristiana',
+        'Evangélica',
+        'Iglesia de Jesucristo de los Santos de los Últimos Días',
+        'Musulmana',
+        'Judía',
+        'Budista',
+        'Hinduista',
+        'Otra',
+    )]
 
     GRUPO_SANGUINEO_CHOICES = [
         ('A+', 'A+'),
@@ -44,6 +57,8 @@ class Alumno(models.Model):
     sexo = models.CharField(max_length=1, choices=SEXO_CHOICES, verbose_name='Sexo')
     fecha_nacimiento = models.DateField(verbose_name='Fecha de nacimiento')
     grupo_sanguineo = models.CharField(max_length=3, choices=GRUPO_SANGUINEO_CHOICES, verbose_name='Grupo sanguíneo')
+    # Los formularios la ofrecen como lista (RELIGION_CHOICES), pero el campo no restringe: así los registros anteriores,
+    # escritos a mano, siguen siendo válidos y no se pierden al editarlos.
     religion = models.CharField(max_length=80, blank=True, verbose_name='Religión')
     alergias = models.TextField(blank=True, verbose_name='Alergias')
     domicilio = models.CharField(max_length=200, verbose_name='Domicilio')
@@ -57,6 +72,9 @@ class Alumno(models.Model):
     fotografia = models.ImageField(upload_to='alumnos/', blank=True, null=True, verbose_name='Fotografía')
     correo_electronico = models.EmailField(max_length=254, unique=True, null=True, blank=True, verbose_name='Correo electrónico')
     contrasena = models.CharField(max_length=128, verbose_name='Contraseña')
+    # La contraseña tal como se asignó, para que un administrador pueda consultarla. `contrasena` (cifrada) sigue siendo
+    # la que se verifica; esta es solo de consulta y queda vacía en los estudiantes anteriores, hasta que se restablezca.
+    contrasena_visible = models.CharField(max_length=64, blank=True, default='', editable=False, verbose_name='Contraseña (consulta)')
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
 
     def __str__(self):
@@ -65,6 +83,11 @@ class Alumno(models.Model):
             f"{self.apellido_paterno} "
             f"{self.apellido_materno}"
         ).strip()
+
+    def establecer_contrasena(self, contrasena):
+        """Asigna la contraseña (cifrada para verificarla y legible para consulta). No guarda el registro."""
+        self.contrasena = make_password(contrasena)
+        self.contrasena_visible = contrasena
 
     @property
     def nombre_completo(self):

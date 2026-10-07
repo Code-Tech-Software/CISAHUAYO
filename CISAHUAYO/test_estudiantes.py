@@ -63,7 +63,8 @@ class NingunaPantallaDiceAlumnoTests(BaseTestCase):
         return [
             reverse('inicio'),
             reverse('alumnos:lista'), reverse('alumnos:detalle', args=[a]), reverse('alumnos:crear'), reverse('alumnos:editar', args=[a]),
-            reverse('tutores:lista'), reverse('tutores:detalle', args=[t]), reverse('tutores:crear'),
+            reverse('alumnos:importar'),
+            reverse('tutores:lista'), reverse('tutores:detalle', args=[t]), reverse('tutores:crear'), reverse('tutores:importar'),
             reverse('profesores:lista'), reverse('profesores:detalle', args=[self.profesor.pk]),
             reverse('ciclos:lista'), reverse('ciclos:detalle', args=[c]),
             reverse('grados:lista'), reverse('grados:detalle', args=[g]), reverse('grados:crear'),
@@ -124,6 +125,29 @@ class NingunaPantallaDiceAlumnoTests(BaseTestCase):
             texto = texto_visible(getattr(self.client, metodo)(url, datos).content.decode())
             pendientes += [f'{url}: {contexto(texto, h)}' for h in PALABRA.finditer(texto)]
         self.assertEqual(pendientes, [])
+
+    def test_la_importacion_y_la_contrasena_dicen_estudiante(self):
+        """El resumen de una importación (con errores), su pantalla sin resultados y el perfil con la contraseña visible."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        contenido = 'Nombre,Apellido paterno,CURP\nAna,García,GALA150315MMNRPNA1\nLuis,Pérez,ABC\n'.encode('utf-8')
+        sin_resultados = self.client.post(reverse('alumnos:importar'), {'archivo': SimpleUploadedFile('a.csv', 'Nombre,Apellido paterno,CURP\nLuis,Pérez,ABC\n'.encode())})
+        self.assertContains(sin_resultados, 'No se importó ningún estudiante')
+        self.client.post(reverse('alumnos:importar'), {'archivo': SimpleUploadedFile('estudiantes.csv', contenido)})
+        self.alumno.establecer_contrasena('sol123')
+        self.alumno.save()
+        self.assertNotRegex(texto_visible(sin_resultados.content.decode()), PALABRA)
+        self.revisar([reverse('alumnos:lista'), self.alumno.get_absolute_url()])   # la lista trae el resumen, se ve una vez
+
+    def test_la_importacion_de_tutores_y_sus_tarjetas_dicen_estudiante(self):
+        """El resumen con errores, la pantalla sin resultados, las tarjetas de estudiantes y la ventana de baja."""
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        malo = SimpleUploadedFile('a.csv', 'Nombre,Apellido paterno,Teléfono\nPedro,Mal,12\n'.encode())
+        sin_resultados = self.client.post(reverse('tutores:importar'), {'archivo': malo})
+        self.assertContains(sin_resultados, 'No se importó ningún tutor')
+        self.assertNotRegex(texto_visible(sin_resultados.content.decode()), PALABRA)
+        bueno = SimpleUploadedFile('tutores.csv', 'Nombre,Apellido paterno,Teléfono,Referencia del estudiante,Parentesco\nAna,Mora,3531239999,R0001,Madre\nPedro,Mal,12,,\n'.encode())
+        self.client.post(reverse('tutores:importar'), {'archivo': bueno})
+        self.revisar([reverse('tutores:lista'), reverse('tutores:lista') + '?estatus=INACTIVO'])   # el primero trae el resumen
 
     def test_estudiante_si_aparece(self):
         texto = texto_visible(self.client.get(reverse('alumnos:lista')).content.decode())

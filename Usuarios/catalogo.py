@@ -47,15 +47,15 @@ MODULOS = (
     Modulo('alumnos', 'Estudiantes', 'graduation-cap', 'El padrón de estudiantes, sus perfiles y sus credenciales.', (
         Funcion('Estudiantes', _permisos('alumno'), ayuda={
             'ver': 'Consultar el padrón y los perfiles, y exportarlos a CSV.',
-            'crear': 'Registrar estudiantes nuevos.',
-            'editar': 'Editar sus datos y tutores, cambiar su estatus y restablecer su contraseña.',
+            'crear': 'Registrar estudiantes nuevos, uno por uno o varios a la vez importando un archivo CSV.',
+            'editar': 'Editar sus datos y tutores, cambiar su estatus y restablecer su contraseña. Consultar la contraseña es exclusivo de los administradores.',
             'baja': 'Dar de baja a un estudiante (se conserva su historial).',
         }),
     )),
     Modulo('tutores', 'Tutores', 'users', 'Padres, madres y responsables, y su vínculo con los estudiantes.', (
         Funcion('Tutores', _permisos('tutor'), ayuda={
             'ver': 'Consultar tutores y exportarlos a CSV.',
-            'crear': 'Registrar tutores nuevos.',
+            'crear': 'Registrar tutores nuevos, uno por uno o varios a la vez importando un archivo CSV.',
             'editar': 'Editar sus datos y sus vínculos con los estudiantes.',
             'baja': 'Dar de baja a un tutor (se conserva su historial).',
         }),

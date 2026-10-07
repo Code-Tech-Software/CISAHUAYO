@@ -13,6 +13,10 @@
 {% endblock %}
 
 {% block content %}
+  {% if importacion %}
+    {% include "tutores/_importacion.html" %}
+  {% endif %}
+
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Tutores</h1>
@@ -26,6 +30,10 @@
         </a>
       {% endif %}
       {% if perms.Alumnos.add_tutor %}
+        <a class="btn" href="{% url 'tutores:importar' %}" data-modal-form>
+          {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %}
+          Importar CSV
+        </a>
         <a class="btn btn--primary" href="{% url 'tutores:crear' %}" data-modal-form>
           {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %}
           Nuevo tutor
@@ -74,7 +82,7 @@
     </p>
 
     <div class="table-card">
-      <table class="table">
+      <table class="table table--tutores">
         <caption class="visually-hidden">Lista de tutores</caption>
         <thead class="table__head">
           <tr>
@@ -106,14 +114,25 @@
               <td class="table__cell" data-label="Estudiantes">
                 {% with vinculos=tutor.vinculos_vigentes %}
                   {% if vinculos %}
-                    <span class="cell-stack">
-                      <span class="cell-stack__main">
-                        {% for v in vinculos|slice:":2" %}{{ v.alumno.nombre }} {{ v.alumno.apellido_paterno }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                      </span>
-                      <span class="cell-stack__sub">
-                        {{ vinculos|length }} estudiante{{ vinculos|length|pluralize }}{% if vinculos|length > 2 %} · +{{ vinculos|length|add:"-2" }} más{% endif %}
-                      </span>
-                    </span>
+                    {# Una tarjeta por estudiante, con enlace a su perfil; las que sobran se resumen en «+N más» #}
+                    <ul class="student-chips" aria-label="Estudiantes de {{ tutor }}">
+                      {% for v in vinculos|slice:":3" %}
+                        {% with alumno=v.alumno inscripcion=v.alumno.inscripciones_actuales.0 %}
+                          <li>
+                            <a class="student-chip"{% if perms.Alumnos.view_alumno %} href="{{ alumno.get_absolute_url }}" aria-label="Ver perfil de {{ alumno }}" data-tooltip="Ver perfil"{% endif %}>
+                              {% include "partials/avatar.html" with persona=alumno tamano="sm" %}
+                              <span class="student-chip__text">
+                                <span class="student-chip__name">{{ alumno.nombre }} {{ alumno.apellido_paterno }}</span>
+                                <span class="student-chip__meta">{{ v.get_parentesco_display }} · {% if inscripcion %}{{ inscripcion.grado }}{% else %}Sin inscripción{% endif %}</span>
+                              </span>
+                            </a>
+                          </li>
+                        {% endwith %}
+                      {% endfor %}
+                      {% if vinculos|length > 3 %}
+                        <li><a class="student-chip student-chip--more" href="{{ tutor.get_absolute_url }}#alumnos">+{{ vinculos|length|add:"-3" }} más</a></li>
+                      {% endif %}
+                    </ul>
                   {% else %}
                     <span class="tag tag--warning">Sin estudiantes vigentes</span>
                   {% endif %}
@@ -137,6 +156,14 @@
                       {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
                     </a>
                   {% endif %}
+                {% endif %}
+                {% if perms.Alumnos.delete_tutor and tutor.estatus == "ACTIVO" %}
+                  <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
+                          data-action="{% url 'tutores:baja' tutor.pk %}" data-nombre="{{ tutor }}"
+                          data-aviso="{% if tutor.sin_otro_tutor %}{{ tutor.sin_otro_tutor }} estudiante{{ tutor.sin_otro_tutor|pluralize }} se quedar{{ tutor.sin_otro_tutor|pluralize:'á,án' }} sin ningún tutor vigente. Conviene vincularles otro tutor.{% endif %}"
+                          aria-label="Dar de baja a {{ tutor }}" data-tooltip="Dar de baja">
+                    {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                  </button>
                 {% endif %}
               </td>
             </tr>
@@ -174,8 +201,38 @@
         <p class="empty-state__text">Regístralos aquí o desde el alta de un estudiante.</p>
         {% if perms.Alumnos.add_tutor %}
           <a class="btn btn--primary btn--sm" href="{% url 'tutores:crear' %}" data-modal-form>Registrar tutor</a>
+          <a class="btn btn--sm" href="{% url 'tutores:importar' %}" data-modal-form>Importar CSV</a>
         {% endif %}
       </div>
     </div>
   {% endif %}
+
+  {# Una sola ventana de confirmación para todas las filas: baja-lista.js le pone el tutor que corresponde #}
+  {% if perms.Alumnos.delete_tutor %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-baja-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja a <span data-baja-nombre>este tutor</span></h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-baja-nombre>Este tutor</strong> dejará de aparecer en el listado principal y no se ofrecerá al vincular estudiantes.</p>
+          <div class="alert alert--warning" role="note" data-baja-aviso hidden>
+            {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+            <p class="alert__body" data-baja-aviso-texto></p>
+          </div>
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su registro y sus vínculos se conservan y podrás reactivarlo desde el filtro «Bajas». Si era el tutor principal de algún estudiante, otro tutor vigente tomará su lugar.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/baja-lista.js' %}" defer></script>
 {% endblock %}

@@ -1,5 +1,4 @@
 from django import forms
-from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Q
@@ -12,12 +11,22 @@ from .utils import (
     compactar_espacios as _compactar,
     generar_contrasena,
     normalizar_curp,
+    normalizar_religion,
     siguiente_referencia,
     validar_telefono,
 )
 
 TAMANO_MAXIMO_FOTO = 5 * 1024 * 1024  # 5 MB
-LARGO_MINIMO_CONTRASENA = 6
+# La contraseña de un estudiante puede ser sencilla (un PIN, su nombre…): solo se pide que no sea trivialmente corta
+LARGO_MINIMO_CONTRASENA = 4
+
+
+def validar_contrasena_de_estudiante(contrasena):
+    """Devuelve la contraseña sin espacios en los extremos, o lanza ValidationError si es demasiado corta. Vacía es válida."""
+    contrasena = (contrasena or '').strip()
+    if contrasena and len(contrasena) < LARGO_MINIMO_CONTRASENA:
+        raise ValidationError(f'Usa al menos {LARGO_MINIMO_CONTRASENA} caracteres.')
+    return contrasena
 
 
 class EstiloCamposMixin:
@@ -40,17 +49,26 @@ class EstiloCamposMixin:
 class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
     """Datos del alumno. Se usa en el asistente de registro y en la edición.
 
-    La contraseña (`contrasena`) nunca se edita aquí: al registrar se guarda cifrada
-    a partir de `contrasena_inicial`, y después solo se restablece desde el perfil.
+    La contraseña (`contrasena`) nunca se edita aquí: al registrar se asigna la que se escriba en `contrasena_inicial`
+    (o una generada si se deja vacía), y después solo se restablece desde el perfil.
     """
 
     quitar_fotografia = forms.BooleanField(required=False, label='Quitar fotografía')
+    religion = forms.ChoiceField(
+        required=False,
+        label='Religión',
+        choices=[('', 'Selecciona…'), *Alumno.RELIGION_CHOICES],
+        widget=forms.Select(attrs={'autocomplete': 'off'}),
+    )
     contrasena_inicial = forms.CharField(
         required=False,
         max_length=64,
         label='Contraseña de acceso',
-        widget=forms.TextInput(attrs={'autocomplete': 'off', 'spellcheck': 'false', 'class': 'field__control--mono'}),
-        help_text='Se guarda cifrada. Si la dejas vacía se genera una automáticamente.',
+        widget=forms.TextInput(attrs={
+            'autocomplete': 'off', 'spellcheck': 'false', 'class': 'field__control--mono',
+            'placeholder': 'Escribe una contraseña sencilla',
+        }),
+        help_text=f'Asígnala tú: puede ser sencilla, de {LARGO_MINIMO_CONTRASENA} caracteres o más. Si la dejas vacía se genera una.',
     )
 
     class Meta:
@@ -76,7 +94,6 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
             'fecha_ingreso': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'sexo': forms.RadioSelect(attrs={'class': 'choice__input'}),
             'grupo_sanguineo': forms.RadioSelect(attrs={'class': 'choice__input'}),
-            'religion': forms.TextInput(attrs={'autocomplete': 'off'}),
             'domicilio': forms.TextInput(attrs={'autocomplete': 'street-address', 'placeholder': 'Calle y número'}),
             'colonia': forms.TextInput(attrs={'autocomplete': 'off'}),
             'ciudad': forms.TextInput(attrs={'autocomplete': 'address-level2'}),
@@ -108,13 +125,25 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
         self.fields['sexo'].choices = Alumno.SEXO_CHOICES
         self.fields['grupo_sanguineo'].choices = Alumno.GRUPO_SANGUINEO_CHOICES
 
+        # La religión se elige de una lista. Un valor anterior que no esté en ella (texto libre de antes) se conserva
+        # como opción, para que al editar no se pierda ni obligue a cambiarlo; si es una de la lista escrita de otro modo
+        # («Catolico»), se preselecciona la de la lista.
+        opciones = [('', 'Selecciona…'), *Alumno.RELIGION_CHOICES]
+        actual = self.instance.religion
+        if actual and actual not in dict(Alumno.RELIGION_CHOICES):
+            reconocida = normalizar_religion(actual)
+            if reconocida:
+                self.initial['religion'] = reconocida
+            else:
+                opciones.append((actual, actual))
+        self.fields['religion'].choices = opciones
+
         if self.creando:
             del self.fields['estatus']  # nace como "Activo" (valor por defecto del modelo)
             if not self.is_bound:
                 self.initial.setdefault('referencia', siguiente_referencia())
                 self.initial.setdefault('ciudad', 'Sahuayo')
                 self.initial.setdefault('estado', 'Michoacán')
-                self.fields['contrasena_inicial'].initial = generar_contrasena()
         else:
             del self.fields['contrasena_inicial']
         self.aplicar_estilo()
@@ -158,10 +187,7 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
         return foto
 
     def clean_contrasena_inicial(self):
-        contrasena = self.cleaned_data.get('contrasena_inicial', '')
-        if contrasena and len(contrasena) < LARGO_MINIMO_CONTRASENA:
-            raise ValidationError(f'Usa al menos {LARGO_MINIMO_CONTRASENA} caracteres.')
-        return contrasena
+        return validar_contrasena_de_estudiante(self.cleaned_data.get('contrasena_inicial'))
 
     # --- guardado --------------------------------------------------------------
     def save(self, commit=True):
@@ -171,10 +197,39 @@ class AlumnoForm(EstiloCamposMixin, forms.ModelForm):
         self.contrasena_en_claro = None
         if self.creando:
             self.contrasena_en_claro = self.cleaned_data.get('contrasena_inicial') or generar_contrasena()
-            alumno.contrasena = make_password(self.contrasena_en_claro)
+            alumno.establecer_contrasena(self.contrasena_en_claro)
         if commit:
             alumno.save()
         return alumno
+
+
+class ImportarEstudiantesForm(EstiloCamposMixin, forms.Form):
+    """El archivo CSV con los estudiantes que se van a registrar (ver Alumnos/importacion.py)."""
+
+    archivo = forms.FileField(
+        label='Archivo CSV',
+        widget=forms.FileInput(attrs={'accept': '.csv,.txt,text/csv', 'class': 'field__control'}),
+        error_messages={'required': 'Elige el archivo CSV que quieres importar.'},
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data['archivo']
+        if not archivo.name.lower().endswith(('.csv', '.txt')):
+            raise ValidationError('El archivo debe ser un CSV (.csv). En tu hoja de cálculo usa «Guardar como… CSV».')
+        return archivo
+
+
+class RestablecerContrasenaForm(forms.Form):
+    """Nueva contraseña de un estudiante: la que se escriba o, si se deja vacía, una generada."""
+
+    contrasena = forms.CharField(required=False, max_length=64)
+
+    def clean_contrasena(self):
+        return validar_contrasena_de_estudiante(self.cleaned_data.get('contrasena'))
 
 
 # ---------------------------------------------------------------------------

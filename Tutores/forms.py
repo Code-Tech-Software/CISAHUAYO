@@ -6,7 +6,7 @@ from django.db.models import Exists, OuterRef, Q
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import Alumno, Tutor, TutorAlumno
 from Alumnos.utils import CURP_RE, compactar_espacios, normalizar_curp, validar_telefono
-from Alumnos.vinculos import sincronizar_principales
+from Alumnos.vinculos import sincronizar_principales, vincular_tutor
 
 CHIP = forms.CheckboxInput(attrs={'class': 'choice__input'})
 
@@ -109,6 +109,29 @@ class TutorForm(EstiloCamposMixin, forms.ModelForm):
             if commit and 'estatus' in self.changed_data:
                 sincronizar_principales(tutor)  # igual que al dar de baja o reactivar desde el perfil
         return tutor
+
+
+# ---------------------------------------------------------------------------
+# Importación desde CSV
+# ---------------------------------------------------------------------------
+class ImportarTutoresForm(EstiloCamposMixin, forms.Form):
+    """El archivo CSV con los tutores que se van a registrar (ver Tutores/importacion.py)."""
+
+    archivo = forms.FileField(
+        label='Archivo CSV',
+        widget=forms.FileInput(attrs={'accept': '.csv,.txt,text/csv', 'class': 'field__control'}),
+        error_messages={'required': 'Elige el archivo CSV que quieres importar.'},
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data['archivo']
+        if not archivo.name.lower().endswith(('.csv', '.txt')):
+            raise ValidationError('El archivo debe ser un CSV (.csv). En tu hoja de cálculo usa «Guardar como… CSV».')
+        return archivo
 
 
 # ---------------------------------------------------------------------------
@@ -217,19 +240,4 @@ class VinculoForm(EstiloCamposMixin, forms.Form):
     def guardar(self, tutor):
         """Crea o actualiza el vínculo; devuelve (vínculo, creado)."""
         datos = self.cleaned_data
-        alumno = datos['alumno']
-        valores = {campo: datos[campo] for campo in self.CAMPOS}
-
-        otro_principal = (
-            TutorAlumno.objects.filter(alumno=alumno, activo=True, tutor_principal=True, tutor__estatus='ACTIVO')
-            .exclude(tutor=tutor).exists()
-        )
-        if valores['activo'] and not otro_principal:
-            valores['tutor_principal'] = True  # todo alumno con tutores vigentes tiene un principal
-        if not valores['activo']:
-            valores['tutor_principal'] = False
-
-        vinculo, creado = TutorAlumno.objects.update_or_create(tutor=tutor, alumno=alumno, defaults=valores)
-        if vinculo.tutor_principal:
-            TutorAlumno.objects.filter(alumno=alumno).exclude(pk=vinculo.pk).update(tutor_principal=False)
-        return vinculo, creado
+        return vincular_tutor(tutor, datos['alumno'], {campo: datos[campo] for campo in self.CAMPOS})

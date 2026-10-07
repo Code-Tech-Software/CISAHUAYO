@@ -1,13 +1,15 @@
 {% comment %}
-  Credenciales de acceso de un alumno. Se muestran una sola vez: la contraseña se guarda
-  cifrada y no puede recuperarse después. Parámetro: credenciales (nombre, url, referencia, contrasena).
+  Credenciales de acceso de un alumno, justo después de asignarlas. Quien no es administrador solo las ve esta vez; un
+  administrador puede consultarlas después en el perfil. Parámetro: credenciales (nombre, url, referencia, contrasena).
 {% endcomment %}
 <section class="credentials" aria-labelledby="credenciales-titulo">
   <span class="credentials__icon">{% include "partials/icon.html" with name="key" icon_class="icon--lg" %}</span>
   <div class="credentials__body">
     <h2 class="credentials__title" id="credenciales-titulo">Credenciales de acceso</h2>
     <p class="credentials__text">
-      Para <strong>{{ credenciales.nombre }}</strong>. Entrégalas o guárdalas ahora: por seguridad la contraseña <strong>no se volverá a mostrar</strong>.
+      Para <strong>{{ credenciales.nombre }}</strong>.
+      {% if user.is_superuser %}Entrégalas o guárdalas. Como administrador podrás consultar la contraseña después, en el perfil del estudiante.
+      {% else %}Entrégalas o guárdalas ahora: por seguridad la contraseña <strong>no se volverá a mostrar</strong>.{% endif %}
     </p>
     <dl class="credentials__list">
       <div><dt class="credentials__label">Referencia</dt><dd class="credentials__value">{{ credenciales.referencia }}</dd></div>

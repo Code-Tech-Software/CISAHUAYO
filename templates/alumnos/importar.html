@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Importar estudiantes | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Estudiantes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Importar</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Importar estudiantes</h1>
+      <p class="page-header__description">
+        Registra a varios estudiantes a la vez desde un archivo CSV. Puedes incluir a su tutor principal y el grado en el que se inscriben{% if ciclo_actual %} (ciclo {{ ciclo_actual }}){% endif %}.
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-archivo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="upload" %}<h2 class="card__title" id="seccion-archivo">Archivo</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.archivo clase="form-grid__full" %}
+        <p class="field__hint form-grid__full">
+          Hasta {{ filas_maximas }} estudiantes por archivo. Si una fila tiene errores, las demás se registran igual y verás qué corregir:
+          al volver a cargar el archivo, los estudiantes que ya están registrados (misma CURP) se omiten.
+        </p>
+      </div>
+    </section>
+
+    {% if resultado %}
+      <section class="import-report import-report--failed" aria-labelledby="resultado-titulo">
+        <header class="import-report__header">
+          <h2 class="import-report__title" id="resultado-titulo">No se importó ningún estudiante</h2>
+          <p class="import-report__text">
+            Se revisaron {{ resultado.total }} fila{{ resultado.total|pluralize }}.
+            {% if resultado.omitidos %}{{ resultado.omitidos }} ya estaba{{ resultado.omitidos|pluralize:",n" }} registrada{{ resultado.omitidos|pluralize }} (misma CURP).{% endif %}
+            {% if resultado.errores %}Corrige lo siguiente y vuelve a cargar el archivo.{% endif %}
+          </p>
+        </header>
+        {% if resultado.errores %}
+          {% include "partials/importacion_errores.html" with errores=resultado.errores errores_total=resultado.errores|length %}
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-columnas">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="seccion-columnas">Cómo preparar el archivo</h2>
+        <a class="btn btn--sm card__header-action" href="{% url 'alumnos:importar_plantilla' %}">
+          {% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Descargar plantilla
+        </a>
+      </header>
+      <div class="card__body">
+        <ul class="import-help">
+          <li>La primera fila lleva los encabezados de las columnas. El orden no importa y las columnas que no necesites se pueden quitar.</li>
+          <li>Solo son indispensables el <strong>nombre</strong>, el <strong>apellido paterno</strong> y la <strong>CURP</strong>: de ella salen la fecha de nacimiento y el sexo si no los escribes. Lo demás se puede completar después.</li>
+          <li>En Excel o Google Sheets usa «Guardar como… CSV». Se aceptan los separadores coma y punto y coma, y los acentos.</li>
+          <li>Las contraseñas que no escribas se generan solas. Al terminar podrás descargarlas en un archivo.</li>
+        </ul>
+
+        <div class="table-card table-card--flush">
+          <table class="table import-columns">
+            <caption class="visually-hidden">Columnas que reconoce la importación</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Columna</th>
+                <th class="table__th" scope="col">Qué escribir</th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for columna in columnas %}
+                <tr class="table__row">
+                  <th class="table__cell table__cell--main" scope="row" data-label="Columna">
+                    {{ columna.titulo }}
+                    {% if columna.requerida %}<span class="tag tag--primary">Indispensable</span>{% endif %}
+                  </th>
+                  <td class="table__cell" data-label="Qué escribir">{% if columna.ayuda %}{{ columna.ayuda }}{% else %}<span class="text-muted">Texto libre.</span>{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'alumnos:lista' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary" data-submit>
+        {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %}
+        Importar estudiantes
+      </button>
+    </footer>
+  </form>
+{% endblock %}

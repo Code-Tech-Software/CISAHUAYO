@@ -17,6 +17,7 @@
      initSubmitFeedback  Botón «ocupado» y sin doble envío en los formularios POST
      initBack      Enlaces [data-back] que regresan a la página anterior
      initCopyAndPrint  Botones [data-copy] y [data-print]
+     initReveal    Botones [data-reveal] que muestran u ocultan una contraseña
      initAutosubmit    Filtros de listados que se envían solos ([data-autosubmit])
 
    Expone window.CISAHUAYO.icon(nombre), .liveSearch(opciones), .alumnoResult(alumno) y .forms (CURP, teléfonos,
@@ -897,6 +898,20 @@
     });
   }
 
+  /* ------------------------------------------------- Mostrar u ocultar una contraseña */
+  /* <button data-reveal="#campo" aria-pressed="false">: alterna el campo (password / text) y avisa su estado. */
+  function initReveal() {
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-reveal]');
+      const field = button && qs(button.dataset.reveal);
+      if (!field) return;
+      const visible = field.type === 'password';
+      field.type = visible ? 'text' : 'password';
+      button.setAttribute('aria-pressed', String(visible));
+      button.setAttribute('aria-label', visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña');
+    });
+  }
+
   /* --------------------------------------------------------- Filtros en vivo */
   /* <form data-autosubmit>: envía al cambiar un select o al dejar de escribir; el botón queda de respaldo. */
   function initAutosubmit() {
@@ -958,5 +973,6 @@
   initSubmitFeedback();
   initBack();
   initCopyAndPrint();
+  initReveal();
   initAutosubmit();
 })();

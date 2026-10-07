@@ -1,5 +1,6 @@
-"""Utilidades de la sección de alumnos: CURP, referencias, contraseñas y teléfonos."""
+"""Utilidades de la sección de alumnos: CURP, referencias, contraseñas, religiones y teléfonos."""
 import re
+import unicodedata
 from datetime import date
 
 from django.core.exceptions import ValidationError
@@ -71,6 +72,52 @@ def siguiente_referencia():
 
 def generar_contrasena(longitud=8):
     return get_random_string(longitud, ALFABETO_CONTRASENA)
+
+
+def sin_acentos(texto):
+    """'Católica' -> 'Catolica'."""
+    return ''.join(c for c in unicodedata.normalize('NFD', texto or '') if unicodedata.category(c) != 'Mn')
+
+
+def clave_de_texto(texto):
+    """Forma para comparar textos escritos a mano: sin acentos, en minúsculas y con los espacios compactados."""
+    return ' '.join(sin_acentos(texto).lower().split())
+
+
+# Cómo suele escribirse en un archivo lo que la lista de religiones nombra de otro modo
+_RELIGIONES_POR_ALIAS = {
+    'mormon': 'Iglesia de Jesucristo de los Santos de los Últimos Días',
+    'mormona': 'Iglesia de Jesucristo de los Santos de los Últimos Días',
+    'sud': 'Iglesia de Jesucristo de los Santos de los Últimos Días',
+    'santos de los ultimos dias': 'Iglesia de Jesucristo de los Santos de los Últimos Días',
+    'iglesia de jesucristo': 'Iglesia de Jesucristo de los Santos de los Últimos Días',
+    'islam': 'Musulmana',
+    'islamica': 'Musulmana',
+    'judaismo': 'Judía',
+    'hinduismo': 'Hinduista',
+    'budismo': 'Budista',
+}
+# Respuestas que significan «sin religión»: se registran vacías
+RELIGION_NINGUNA = {'ninguna', 'ninguno', 'ateo', 'atea', 'sin religion', 'no tiene', 'no aplica', 'n/a', 'na', 's/r', '-'}
+
+
+def normalizar_religion(texto):
+    """La religión de la lista (Alumno.RELIGION_CHOICES) a la que corresponde un texto escrito a mano, o None.
+
+    Ignora acentos, mayúsculas y el género: «catolico», «Cristiano» y «musulmán» dan «Católica», «Cristiana» y «Musulmana».
+    """
+    from .models import Alumno
+
+    conocidas = {clave_de_texto(valor): valor for valor, _ in Alumno.RELIGION_CHOICES}
+    clave = clave_de_texto(texto)
+    if clave in conocidas:
+        return conocidas[clave]
+    if clave in _RELIGIONES_POR_ALIAS:
+        return _RELIGIONES_POR_ALIAS[clave]
+    for variante in (clave[:-1] + 'a' if clave.endswith('o') else None, clave + 'a' if clave.endswith('n') else None):
+        if variante in conocidas:
+            return conocidas[variante]
+    return None
 
 
 def normalizar_telefono(valor):

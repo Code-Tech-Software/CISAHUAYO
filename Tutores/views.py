@@ -1,4 +1,5 @@
 import csv
+from collections import defaultdict
 
 from django.contrib import messages
 from django.db import transaction
@@ -8,27 +9,47 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from Alumnos.academico import prefetch_inscripciones_actuales
 from Alumnos.models import Inscripcion, Tutor, TutorAlumno
 from Alumnos.utils import ESTADOS_MX, proteger_celda_csv
 from Alumnos.vinculos import asegurar_tutor_principal, sincronizar_principales
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 
-from .forms import FiltroTutoresForm, TutorForm, VinculoForm
+from . import importacion
+from .forms import FiltroTutoresForm, ImportarTutoresForm, TutorForm, VinculoForm
+
+SESION_IMPORTACION = 'importacion_tutores'    # el resumen de la última importación (se muestra una vez)
 
 
-def _prefetch_alumnos_vigentes():
-    """Alumnos vinculados de forma activa, sin contar las bajas (solo para la página mostrada)."""
-    return Prefetch(
-        'alumnos_relacionados',
-        queryset=(
-            TutorAlumno.objects.filter(activo=True)
-            .exclude(alumno__estatus='BAJA')
-            .select_related('alumno')
-            .order_by('alumno__apellido_paterno', 'alumno__nombre')
-        ),
-        to_attr='vinculos_vigentes',
+def _prefetch_alumnos_vigentes(con_grado=False):
+    """Alumnos vinculados de forma activa, sin contar las bajas (solo para la página mostrada).
+
+    Con `con_grado` trae también el grado actual de cada alumno, en `alumno.inscripciones_actuales`.
+    """
+    vinculos = (
+        TutorAlumno.objects.filter(activo=True)
+        .exclude(alumno__estatus='BAJA')
+        .select_related('alumno')
+        .order_by('alumno__apellido_paterno', 'alumno__nombre')
     )
+    if con_grado:
+        vinculos = vinculos.prefetch_related(prefetch_inscripciones_actuales('alumno__'))
+    return Prefetch('alumnos_relacionados', queryset=vinculos, to_attr='vinculos_vigentes')
+
+
+def _estudiantes_sin_otro_tutor(tutores):
+    """Anota en cada tutor (`sin_otro_tutor`) cuántos de sus estudiantes vigentes se quedarían sin ningún tutor vigente
+    si se diera de baja. Una sola consulta para todos los de la página."""
+    alumnos = {v.alumno_id for tutor in tutores for v in tutor.vinculos_vigentes}
+    tutores_de = defaultdict(set)
+    if alumnos:
+        for alumno_id, tutor_id in TutorAlumno.objects.filter(
+            activo=True, tutor__estatus='ACTIVO', alumno_id__in=alumnos,
+        ).values_list('alumno_id', 'tutor_id'):
+            tutores_de[alumno_id].add(tutor_id)
+    for tutor in tutores:
+        tutor.sin_otro_tutor = sum(1 for v in tutor.vinculos_vigentes if not tutores_de[v.alumno_id] - {tutor.pk})
 
 
 # ---------------------------------------------------------------------------
@@ -37,8 +58,9 @@ def _prefetch_alumnos_vigentes():
 @requiere_permisos('Alumnos.view_tutor')
 def tutor_lista(request):
     filtro = FiltroTutoresForm(request.GET)
-    tutores = filtro.filtrar(Tutor.objects.all()).prefetch_related(_prefetch_alumnos_vigentes())
+    tutores = filtro.filtrar(Tutor.objects.all()).prefetch_related(_prefetch_alumnos_vigentes(con_grado=True))
     pagina, rango_paginas, por_pagina = paginar(request, tutores)
+    _estudiantes_sin_otro_tutor(pagina)
 
     conteos = dict(Tutor.objects.values_list('estatus').annotate(total=Count('pk')))
     return render(request, 'tutores/lista.html', {
@@ -52,6 +74,8 @@ def tutor_lista(request):
         'total_bajas': conteos.get('INACTIVO', 0),
         'viendo_bajas': filtro.activos.get('estatus') == 'INACTIVO',
         'filtros_activos': {k: v for k, v in filtro.activos.items() if k not in ('orden', 'estatus')},
+        # Tras importar un archivo se muestra, una sola vez, el resumen de lo que pasó con cada fila
+        'importacion': request.session.pop(SESION_IMPORTACION, None),
     })
 
 
@@ -203,6 +227,66 @@ def tutor_desvincular(request, pk):
     asegurar_tutor_principal(vinculo.alumno)
     messages.success(request, f'{tutor} fue desvinculado de {vinculo.alumno}. El vínculo se conserva como inactivo.')
     return redirect(f'{tutor.get_absolute_url()}#alumnos')
+
+
+# ---------------------------------------------------------------------------
+# Importación desde CSV
+# ---------------------------------------------------------------------------
+@requiere_permisos('Alumnos.add_tutor')
+def tutor_importar(request):
+    """Registra los tutores de un archivo CSV (ver Tutores/importacion.py).
+
+    Si algo se registra o se vincula, se vuelve al listado con el resumen (una respuesta con HTML rompería la ventana
+    modal); si no, se queda aquí mostrando por qué.
+    """
+    resultado = None
+    if request.method == 'POST':
+        form = ImportarTutoresForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                filas = importacion.leer_filas(form.cleaned_data['archivo'].read())
+            except importacion.ErrorDeArchivo as error:
+                form.add_error('archivo', str(error))
+            else:
+                resultado = importacion.importar(filas)
+                if resultado.hubo_cambios:
+                    request.session[SESION_IMPORTACION] = {
+                        'archivo': form.cleaned_data['archivo'].name,
+                        'total': resultado.total,
+                        'creados': len(resultado.creados),
+                        'ampliados': resultado.ampliados,
+                        'vinculos': resultado.vinculos,
+                        'omitidos': resultado.omitidos,
+                        'errores': resultado.errores[:importacion.ERRORES_GUARDADOS],
+                        'errores_total': resultado.con_error,
+                    }
+                    n, malas = len(resultado.creados), resultado.con_error
+                    if n:
+                        messages.success(request, 'Se importó 1 tutor.' if n == 1 else f'Se importaron {n} tutores.')
+                    else:
+                        messages.success(request, 'Se vincularon estudiantes a tutores que ya estaban registrados.')
+                    if malas:
+                        messages.warning(request, '1 fila no se importó: revisa el resumen.' if malas == 1 else f'{malas} filas no se importaron: revisa el resumen.')
+                    return redirect('tutores:lista')
+                messages.error(request, 'No se importó ningún tutor.')
+    else:
+        form = ImportarTutoresForm()
+
+    return render(request, 'tutores/importar.html', {
+        'form': form,
+        'resultado': resultado,
+        'columnas': importacion.COLUMNAS,
+        'filas_maximas': importacion.FILAS_MAXIMAS,
+    })
+
+
+@require_GET
+@requiere_permisos('Alumnos.add_tutor')
+def tutor_importar_plantilla(request):
+    """El CSV con los encabezados que reconoce la importación."""
+    respuesta = HttpResponse(importacion.plantilla_csv(), content_type='text/csv; charset=utf-8')
+    respuesta['Content-Disposition'] = 'attachment; filename="plantilla-tutores.csv"'
+    return respuesta
 
 
 # ---------------------------------------------------------------------------

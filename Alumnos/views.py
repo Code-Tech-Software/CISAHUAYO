@@ -2,7 +2,6 @@ import csv
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
@@ -13,13 +12,16 @@ from django.views.decorators.http import require_GET, require_POST
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 
+from . import importacion
 from .academico import prefetch_inscripciones_actuales
 from .asistencias import con_justificada_general
 from .forms import (
     AlumnoForm,
     FiltroAlumnosForm,
+    ImportarEstudiantesForm,
     InscribirForm,
     InscripcionInicialForm,
+    RestablecerContrasenaForm,
     TutoresFormSet,
     ciclo_activo,
     guardar_vinculos,
@@ -30,6 +32,8 @@ from .utils import ESTADOS_MX, generar_contrasena, proteger_celda_csv
 from .vinculos import prefetch_vinculos_activos
 
 SESION_CREDENCIALES = 'credenciales_alumno'
+SESION_IMPORTACION = 'importacion_estudiantes'                  # el resumen de la última importación (se muestra una vez)
+SESION_IMPORTACION_CREDENCIALES = 'importacion_credenciales'    # sus contraseñas, para descargarlas
 
 PASOS_FORMULARIO = (
     {'clave': 'identidad', 'titulo': 'Identidad', 'icono': 'user'},
@@ -79,6 +83,8 @@ def alumno_lista(request):
         'ciclo_actual': ciclo_activo(),
         # Tras registrar a un alumno se muestran, una sola vez, sus credenciales de acceso
         'credenciales': request.session.pop(SESION_CREDENCIALES, None),
+        # Y, tras importar un archivo, el resumen de lo que pasó con cada fila
+        'importacion': request.session.pop(SESION_IMPORTACION, None),
     })
 
 
@@ -259,10 +265,15 @@ def alumno_reactivar(request, pk):
 @require_POST
 @requiere_permisos('Alumnos.change_alumno')
 def alumno_contrasena(request, pk):
+    """Restablece la contraseña: la que se escriba o, si se deja vacía, una generada."""
     alumno = get_object_or_404(Alumno, pk=pk)
-    nueva = generar_contrasena()
-    alumno.contrasena = make_password(nueva)
-    alumno.save(update_fields=['contrasena'])
+    form = RestablecerContrasenaForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, f'No se cambió la contraseña de {alumno}: {form.errors["contrasena"][0]}')
+        return redirect(alumno)
+    nueva = form.cleaned_data['contrasena'] or generar_contrasena()
+    alumno.establecer_contrasena(nueva)
+    alumno.save(update_fields=['contrasena', 'contrasena_visible'])
     request.session[SESION_CREDENCIALES] = {
         'pk': alumno.pk,
         'nombre': str(alumno),
@@ -270,7 +281,7 @@ def alumno_contrasena(request, pk):
         'referencia': alumno.referencia,
         'contrasena': nueva,
     }
-    messages.success(request, f'Se generó una nueva contraseña para {alumno}.')
+    messages.success(request, f'Se asignó una nueva contraseña a {alumno}.')
     return redirect(alumno)
 
 
@@ -324,6 +335,85 @@ def alumno_exportar(request):
             alumno.correo_electronico or '', alumno.domicilio, alumno.colonia, alumno.ciudad,
             alumno.estado, alumno.cp, alumno.fecha_ingreso,
         ]])
+    return respuesta
+
+
+# ---------------------------------------------------------------------------
+# Importación desde CSV
+# ---------------------------------------------------------------------------
+@requiere_permisos('Alumnos.add_alumno')
+def alumno_importar(request):
+    """Registra los estudiantes de un archivo CSV (ver Alumnos/importacion.py).
+
+    Si se registra al menos uno, se vuelve al listado con el resumen (una respuesta con HTML rompería la ventana modal);
+    si ninguno se pudo registrar, se queda aquí mostrando por qué.
+    """
+    resultado = None
+    if request.method == 'POST':
+        form = ImportarEstudiantesForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                filas = importacion.leer_filas(form.cleaned_data['archivo'].read())
+            except importacion.ErrorDeArchivo as error:
+                form.add_error('archivo', str(error))
+            else:
+                resultado = importacion.importar(filas)
+                if resultado.creados:
+                    request.session[SESION_IMPORTACION] = {
+                        'archivo': form.cleaned_data['archivo'].name,
+                        'total': resultado.total,
+                        'creados': len(resultado.creados),
+                        'omitidos': resultado.omitidos,
+                        'religiones_como_otra': resultado.religiones_como_otra,
+                        'errores': resultado.errores[:importacion.ERRORES_GUARDADOS],
+                        'errores_total': resultado.con_error,
+                    }
+                    request.session[SESION_IMPORTACION_CREDENCIALES] = [
+                        [c['referencia'], c['nombre'], c['grado'], c['contrasena']] for c in resultado.creados
+                    ]
+                    n, malas = len(resultado.creados), resultado.con_error
+                    messages.success(request, 'Se importó 1 estudiante.' if n == 1 else f'Se importaron {n} estudiantes.')
+                    if malas:
+                        messages.warning(request, '1 fila no se importó: revisa el resumen.' if malas == 1 else f'{malas} filas no se importaron: revisa el resumen.')
+                    return redirect('alumnos:lista')
+                messages.error(request, 'No se importó ningún estudiante.')
+    else:
+        form = ImportarEstudiantesForm()
+
+    return render(request, 'alumnos/importar.html', {
+        'form': form,
+        'resultado': resultado,
+        'columnas': importacion.COLUMNAS,
+        'filas_maximas': importacion.FILAS_MAXIMAS,
+        'ciclo_actual': ciclo_activo(),
+    })
+
+
+@require_GET
+@requiere_permisos('Alumnos.add_alumno')
+def alumno_importar_plantilla(request):
+    """El CSV con los encabezados que reconoce la importación."""
+    respuesta = HttpResponse(importacion.plantilla_csv(), content_type='text/csv; charset=utf-8')
+    respuesta['Content-Disposition'] = 'attachment; filename="plantilla-estudiantes.csv"'
+    return respuesta
+
+
+@require_GET
+@requiere_permisos('Alumnos.add_alumno')
+def alumno_importar_credenciales(request):
+    """Las contraseñas de los estudiantes de la última importación (quien importa no siempre puede consultarlas después)."""
+    contrasenas = request.session.get(SESION_IMPORTACION_CREDENCIALES)
+    if not contrasenas:
+        messages.info(request, 'No hay contraseñas de una importación reciente que descargar.')
+        return redirect('alumnos:lista')
+
+    respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
+    respuesta['Content-Disposition'] = f'attachment; filename="contrasenas-importadas-{timezone.localdate():%Y-%m-%d}.csv"'
+    respuesta.write('﻿')
+    escritor = csv.writer(respuesta)
+    escritor.writerow(['Referencia', 'Nombre', 'Grado', 'Contraseña'])
+    for fila in contrasenas:
+        escritor.writerow([proteger_celda_csv(valor) for valor in fila])
     return respuesta
 
 

@@ -81,10 +81,13 @@ def grados_por_asignar(materia, ciclo):
     return Grado.objects.filter(activo=True).exclude(pk__in=vigentes).academicos()
 
 
-def prefetch_inscripciones_actuales():
-    """Inscripciones activas del ciclo actual, en `alumno.inscripciones_actuales` (solo para los alumnos de la página)."""
+def prefetch_inscripciones_actuales(desde=''):
+    """Inscripciones activas del ciclo actual, en `alumno.inscripciones_actuales` (solo para los alumnos de la página).
+
+    `desde` es la ruta hasta el alumno cuando se parte de otro modelo (por ejemplo 'alumno__' desde un vínculo).
+    """
     return Prefetch(
-        'inscripciones',
+        f'{desde}inscripciones',
         queryset=(
             Inscripcion.objects.filter(activa=True, ciclo__activo=True)
             .select_related('grado', 'ciclo')

@@ -146,7 +146,9 @@ class EstructuraDeLasPaginasDeFormularioTests(BaseTestCase):
         return {
             'alumnos:crear': reverse('alumnos:crear'),
             'alumnos:editar': reverse('alumnos:editar', args=[self.alumno.pk]),
+            'alumnos:importar': reverse('alumnos:importar'),
             'tutores:crear': reverse('tutores:crear'),
+            'tutores:importar': reverse('tutores:importar'),
             'tutores:editar': reverse('tutores:editar', args=[self.tutor.pk]),
             'profesores:crear': reverse('profesores:crear'),
             'profesores:editar': reverse('profesores:editar', args=[self.profesor.pk]),

@@ -1,0 +1,29 @@
+{% comment %}
+  Filas de un archivo importado que no se pudieron registrar.
+  Parámetros: errores (lista de fila, persona y motivo), errores_total (cuántas hubo en total), rotulo (encabezado de la
+  columna de la persona: «Estudiante» o «Tutor»).
+{% endcomment %}
+<div class="table-card table-card--flush">
+  <table class="table import-errors">
+    <caption class="visually-hidden">Filas que no se importaron</caption>
+    <thead class="table__head">
+      <tr>
+        <th class="table__th" scope="col">Fila</th>
+        <th class="table__th" scope="col">{{ rotulo|default:"Estudiante" }}</th>
+        <th class="table__th" scope="col">Qué corregir</th>
+      </tr>
+    </thead>
+    <tbody class="table__body">
+      {% for error in errores %}
+        <tr class="table__row">
+          <td class="table__cell" data-label="Fila">{{ error.fila }}</td>
+          <td class="table__cell table__cell--main" data-label="{{ rotulo|default:'Estudiante' }}">{% if error.persona %}{{ error.persona }}{% else %}<span class="text-muted">Sin nombre</span>{% endif %}</td>
+          <td class="table__cell" data-label="Qué corregir">{{ error.motivo }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if errores_total > errores|length %}
+  <p class="text-muted import-report__more">Se muestran las primeras {{ errores|length }} de {{ errores_total }} filas con errores.</p>
+{% endif %}

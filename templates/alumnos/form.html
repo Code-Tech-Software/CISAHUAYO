@@ -173,10 +173,10 @@
               <label class="field__label" for="{{ form.contrasena_inicial.id_for_label }}">{{ form.contrasena_inicial.label }}</label>
               <div class="input-group">
                 {{ form.contrasena_inicial }}
-                <button type="button" class="btn" data-password-generate>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Generar otra</button>
+                <button type="button" class="btn" data-password-generate>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Generar una</button>
                 <button type="button" class="btn" data-copy="#{{ form.contrasena_inicial.id_for_label }}">{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar</button>
               </div>
-              <p class="field__hint" id="{{ form.contrasena_inicial.auto_id }}_helptext">{{ form.contrasena_inicial.help_text }} Al terminar podrás verla una sola vez.</p>
+              <p class="field__hint" id="{{ form.contrasena_inicial.auto_id }}_helptext">{{ form.contrasena_inicial.help_text }}{% if not user.is_superuser %} Al terminar podrás verla una sola vez.{% endif %}</p>
               {% for error in form.contrasena_inicial.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
             </div>
           </div>

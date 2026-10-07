@@ -41,8 +41,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # Antes de staticfiles: así `runserver` sirve los estáticos con WhiteNoise (revalida en cada carga con DEBUG) y el
+    # navegador no se queda con una copia vieja de los CSS/JS tras un cambio.
     'whitenoise.runserver_nostatic',
+    'django.contrib.staticfiles',
     'cloudinary',
     'cloudinary_storage',
     'Alumnos',
@@ -116,16 +118,16 @@ LOGIN_REDIRECT_URL = 'inicio'
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 
-DATABASES = {
-   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
-}
-
 #DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
+#   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
 #}
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators

@@ -1,0 +1,39 @@
+{% comment %}
+  Resumen de la última importación de tutores (se muestra una sola vez, en el listado).
+  Parámetro: importacion (archivo, total, creados, ampliados, vinculos, omitidos, errores, errores_total).
+{% endcomment %}
+<section class="import-report{% if importacion.errores_total %} import-report--partial{% endif %}" aria-labelledby="importacion-titulo">
+  <header class="import-report__header">
+    <span class="import-report__icon">{% include "partials/icon.html" with name="upload" icon_class="icon--lg" %}</span>
+    <div>
+      <h2 class="import-report__title" id="importacion-titulo">Importación terminada</h2>
+      <p class="import-report__text">Archivo «{{ importacion.archivo }}» · {{ importacion.total }} fila{{ importacion.total|pluralize }} revisada{{ importacion.total|pluralize }}.</p>
+    </div>
+  </header>
+
+  <dl class="import-report__stats">
+    <div class="import-report__stat import-report__stat--ok"><dt>Tutores registrados</dt><dd>{{ importacion.creados }}</dd></div>
+    <div class="import-report__stat"><dt>Estudiantes vinculados</dt><dd>{{ importacion.vinculos }}</dd></div>
+    {% if importacion.omitidos %}<div class="import-report__stat"><dt>Ya estaban registrados</dt><dd>{{ importacion.omitidos }}</dd></div>{% endif %}
+    {% if importacion.errores_total %}<div class="import-report__stat import-report__stat--error"><dt>Con errores</dt><dd>{{ importacion.errores_total }}</dd></div>{% endif %}
+  </dl>
+
+  {% if importacion.ampliados %}
+    <p class="import-report__text">
+      {{ importacion.ampliados }} tutor{{ importacion.ampliados|pluralize:",es" }} que ya estaba{{ importacion.ampliados|pluralize:",n" }} registrado{{ importacion.ampliados|pluralize }} recibió estudiantes nuevos.
+    </p>
+  {% endif %}
+
+  {% if perms.Alumnos.add_tutor %}
+    <div class="import-report__actions">
+      <a class="btn btn--sm" href="{% url 'tutores:importar' %}" data-modal-form>
+        {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %} Importar otro archivo
+      </a>
+    </div>
+  {% endif %}
+
+  {% if importacion.errores %}
+    <h3 class="subsection-title">Filas que no se importaron</h3>
+    {% include "partials/importacion_errores.html" with errores=importacion.errores errores_total=importacion.errores_total rotulo="Tutor" %}
+  {% endif %}
+</section>

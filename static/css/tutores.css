@@ -6,7 +6,8 @@
 
    Índice
      1. Perfil: alumnos vinculados
-     2. Responsive
+     2. Listado: estudiantes del tutor
+     3. Responsive
    ========================================================================== */
 
 
@@ -100,7 +101,90 @@
 
 
 /* ==========================================================================
-   2. RESPONSIVE
+   2. LISTADO: ESTUDIANTES DEL TUTOR
+   Una tarjeta pequeña por estudiante (foto o iniciales, nombre, parentesco y grado) que lleva a su perfil.
+   ========================================================================== */
+/* Que las tarjetas no le quiten el sitio al nombre ni al teléfono del tutor */
+.table--tutores .person {
+  min-width: 10rem;
+}
+
+.table--tutores .cell-stack__main a {
+  white-space: nowrap;
+}
+
+.student-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-chips > li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.student-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 14rem;
+  padding: 0.25rem var(--space-3) 0.25rem 0.25rem;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+a.student-chip[href]:hover {
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-soft);
+}
+
+a.student-chip[href]:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.student-chip__text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.student-chip__name,
+.student-chip__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-chip__name {
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.student-chip__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.student-chip--more {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+
+/* ==========================================================================
+   3. RESPONSIVE
    ========================================================================== */
 @media (min-width: 40rem) {
   .student-grid {

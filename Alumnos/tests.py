@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 import shutil
 import tempfile
 from datetime import date
@@ -160,6 +161,13 @@ class BaseTestCase(TestCase):
 
     def setUp(self):
         self.client.force_login(self.admin)
+
+    def con_permisos(self, *codigos):
+        """Inicia sesión con una cuenta nueva que solo tiene los permisos indicados (codename)."""
+        usuario = get_user_model().objects.create_user('con_permisos', password='x')
+        usuario.user_permissions.add(*Permission.objects.filter(codename__in=codigos))
+        self.client.force_login(usuario)
+        return usuario
 
 
 # ---------------------------------------------------------------------------
@@ -407,7 +415,7 @@ class CrearTests(BaseTestCase):
         self.assertIn('value="Sahuayo"', html)
         self.assertIn('name="insc-inscribir"', html)
         self.assertNotIn('name="estatus"', html)     # al registrar nace como activo
-        self.assertEqual(len(respuesta.context['form'].fields['contrasena_inicial'].initial), 8)
+        self.assertIsNone(respuesta.context['form'].fields['contrasena_inicial'].initial)   # se asigna a mano: no viene una puesta
 
     def test_registra_alumno_con_tutor_nuevo(self):
         respuesta = self.publicar()
@@ -450,10 +458,30 @@ class CrearTests(BaseTestCase):
         self.assertTrue(check_password(generada, Alumno.objects.get(referencia='1001').contrasena))
         self.assertEqual(respuesta.status_code, 302)
 
-    def test_rechaza_contrasena_corta(self):
+    def test_rechaza_contrasena_demasiado_corta(self):
         respuesta = self.publicar(alumno=datos_alumno(contrasena_inicial='123'))
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'Usa al menos 6 caracteres')
+        self.assertContains(respuesta, 'Usa al menos 4 caracteres')
+
+    def test_la_contrasena_puede_ser_sencilla_y_se_asigna_a_mano(self):
+        self.publicar(alumno=datos_alumno(contrasena_inicial='1234'))
+        alumno = Alumno.objects.get(referencia='1001')
+        self.assertTrue(check_password('1234', alumno.contrasena))
+        self.assertEqual(alumno.contrasena_visible, '1234')
+        self.assertEqual(self.client.session['credenciales_alumno']['contrasena'], '1234')
+
+    def test_la_contrasena_generada_tambien_queda_consultable(self):
+        self.publicar(alumno=datos_alumno(contrasena_inicial=''))
+        alumno = Alumno.objects.get(referencia='1001')
+        self.assertEqual(alumno.contrasena_visible, self.client.session['credenciales_alumno']['contrasena'])
+        self.assertTrue(check_password(alumno.contrasena_visible, alumno.contrasena))
+
+    def test_el_formulario_ofrece_la_contrasena_vacia_con_ayuda_para_escribirla(self):
+        html = self.client.get(self.url).content.decode()
+        campo = re.search(r'<input[^>]*name="contrasena_inicial"[^>]*>', html).group(0)
+        self.assertNotIn('value=', campo)
+        self.assertIn('placeholder="Escribe una contraseña sencilla"', campo)
+        self.assertIn('Generar una', html)
 
     def test_vincula_a_un_tutor_existente(self):
         hermano = crear_alumno()
@@ -782,7 +810,53 @@ class PerfilTests(BaseTestCase):
         nueva = self.client.session['credenciales_alumno']['contrasena']
         self.assertNotEqual(self.alumno.contrasena, antes)
         self.assertTrue(check_password(nueva, self.alumno.contrasena))
+        self.assertEqual(self.alumno.contrasena_visible, nueva)
         self.assertContains(self.client.get(respuesta['Location']), nueva)
+
+    def test_restablece_con_la_contrasena_que_se_escribe(self):
+        respuesta = self.client.post(reverse('alumnos:contrasena', args=[self.alumno.pk]), {'contrasena': ' abcd '})
+        self.assertRedirects(respuesta, self.alumno.get_absolute_url(), fetch_redirect_response=False)
+        self.alumno.refresh_from_db()
+        self.assertEqual(self.alumno.contrasena_visible, 'abcd')           # sin espacios en los extremos
+        self.assertTrue(check_password('abcd', self.alumno.contrasena))
+
+    def test_no_restablece_con_una_contrasena_demasiado_corta(self):
+        antes = (self.alumno.contrasena, self.alumno.contrasena_visible)
+        respuesta = self.client.post(reverse('alumnos:contrasena', args=[self.alumno.pk]), {'contrasena': 'abc'}, follow=True)
+        self.assertContains(respuesta, 'Usa al menos 4 caracteres')
+        self.alumno.refresh_from_db()
+        self.assertEqual((self.alumno.contrasena, self.alumno.contrasena_visible), antes)
+
+    def test_el_administrador_ve_la_contrasena_en_el_perfil_oculta_hasta_que_la_muestra(self):
+        self.alumno.establecer_contrasena('sol123')
+        self.alumno.save()
+        html = self.client.get(self.alumno.get_absolute_url()).content.decode()
+        campo = re.search(r'<input[^>]*id="contrasena-estudiante"[^>]*>', html).group(0)
+        self.assertIn('type="password"', campo)       # oculta de entrada
+        self.assertIn('value="sol123"', campo)
+        self.assertIn('data-reveal="#contrasena-estudiante"', html)
+        self.assertIn('data-copy="#contrasena-estudiante"', html)
+        self.assertIn('Restablecer contraseña', html)
+
+    def test_un_estudiante_anterior_sin_contrasena_consultable_lo_explica(self):
+        html = self.client.get(self.alumno.get_absolute_url()).content.decode()
+        self.assertNotIn('id="contrasena-estudiante"', html)
+        self.assertIn('No se puede consultar', html)
+        self.assertIn('Restablecer contraseña', html)
+
+    def test_quien_no_es_administrador_nunca_ve_la_contrasena(self):
+        self.alumno.establecer_contrasena('sol123')
+        self.alumno.save()
+        self.con_permisos('view_alumno', 'change_alumno')
+        respuesta = self.client.get(self.alumno.get_absolute_url())
+        self.assertNotContains(respuesta, 'sol123')
+        self.assertNotContains(respuesta, 'contrasena-estudiante')
+        self.assertContains(respuesta, 'Solo un administrador puede consultarla')
+        self.assertContains(respuesta, 'Restablecer contraseña')          # pero sí puede restablecerla (permiso de edición)
+
+    def test_sin_permiso_de_edicion_no_se_ofrece_restablecerla(self):
+        self.con_permisos('view_alumno')
+        self.assertNotContains(self.client.get(self.alumno.get_absolute_url()), 'modal-contrasena')
 
     def test_inscribe_a_un_alumno_existente(self):
         respuesta = self.client.post(reverse('alumnos:inscribir', args=[self.alumno.pk]), {

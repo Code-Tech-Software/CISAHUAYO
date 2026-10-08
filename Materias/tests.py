@@ -207,7 +207,7 @@ class CrearTests(BaseTestCase):
 
     def test_campos_obligatorios_y_largo(self):
         respuesta = self.client.post(self.url, {})
-        self.assertEqual(set(respuesta.context['form'].errors), {'clave', 'nombre'})
+        self.assertEqual(set(respuesta.context['form'].errors), {'nombre'})   # la clave se propone sola con el nombre
         respuesta = self.client.post(self.url, {'clave': 'A' * 21, 'nombre': 'X'})
         self.assertIn('clave', respuesta.context['form'].errors)
 

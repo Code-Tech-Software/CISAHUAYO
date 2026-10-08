@@ -31,6 +31,10 @@ class Rol(models.Model):
         default=False,
         help_text='Quien tiene este rol puede hacer todo en el sistema (y entrar a la administración de Django).',
     )
+    es_docente = models.BooleanField(
+        'rol para docentes', default=False,
+        help_text='Las cuentas con este rol son de profesores: al crearlas se registra o se vincula su ficha de profesor.',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -56,7 +60,8 @@ class PerfilUsuario(models.Model):
     cargo = models.CharField(max_length=80, blank=True, help_text='Puesto o función en el colegio.')
     debe_cambiar_contrasena = models.BooleanField(
         'debe cambiar su contraseña', default=False,
-        help_text='Se activa al crear la cuenta o restablecer la contraseña: en su siguiente acceso deberá elegir una propia.',
+        help_text='Si está activo, en su siguiente acceso deberá elegir una contraseña propia. Es opcional: se pide al '
+                  'crear la cuenta o al restablecer su contraseña.',
     )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)

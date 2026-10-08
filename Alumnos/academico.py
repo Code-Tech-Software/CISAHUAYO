@@ -6,7 +6,7 @@ import re
 from datetime import date, timedelta
 
 from django.db import transaction
-from django.db.models import Max, Prefetch
+from django.db.models import Max, Prefetch, Q
 from django.utils import timezone
 
 from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion, Materia, MateriaGrado
@@ -172,6 +172,42 @@ def siguiente_grado(grado, grados):
         if del_nivel:
             return min(del_nivel, key=lambda g: g.numero)
     return None
+
+
+def inscripciones_vigentes(alumno):
+    """Sus inscripciones del ciclo actual y de los próximos (las de ciclos ya cerrados son historia y no se tocan)."""
+    return Inscripcion.objects.filter(alumno=alumno).filter(Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate()))
+
+
+def suspender_inscripciones(alumno):
+    """Al dar de baja al alumno: sus inscripciones vigentes dejan de estar activas (con la marca para restaurarlas).
+
+    Devuelve las que se desactivaron.
+    """
+    inscripciones = list(inscripciones_vigentes(alumno).filter(activa=True).select_related('grado', 'ciclo'))
+    Inscripcion.objects.filter(pk__in=[i.pk for i in inscripciones]).update(activa=False, suspendida_por_baja=True)
+    return inscripciones
+
+
+def restaurar_inscripciones(alumno):
+    """Al reactivar al alumno: vuelven a estar activas las inscripciones vigentes que se desactivaron por su baja.
+
+    Las de un ciclo que ya cerró se quedan como estaban (solo pierden la marca). Devuelve las que se reactivaron.
+    """
+    inscripciones = list(inscripciones_vigentes(alumno).filter(activa=False, suspendida_por_baja=True).select_related('grado', 'ciclo'))
+    Inscripcion.objects.filter(pk__in=[i.pk for i in inscripciones]).update(activa=True, suspendida_por_baja=False)
+    Inscripcion.objects.filter(alumno=alumno, suspendida_por_baja=True).update(suspendida_por_baja=False)
+    return inscripciones
+
+
+def sincronizar_inscripciones(alumno, estatus_anterior):
+    """Tras cambiar el estatus del alumno (por la acción de baja o reactivar, o desde su edición): pasar a «Baja» suspende
+    sus inscripciones vigentes y salir de «Baja» las restaura. Devuelve (suspendidas, restauradas)."""
+    if alumno.estatus == 'BAJA' and estatus_anterior != 'BAJA':
+        return suspender_inscripciones(alumno), []
+    if estatus_anterior == 'BAJA' and alumno.estatus != 'BAJA':
+        return [], restaurar_inscripciones(alumno)
+    return [], []
 
 
 def motivo_no_inscribible(alumno):

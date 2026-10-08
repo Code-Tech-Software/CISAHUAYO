@@ -158,7 +158,8 @@ def inscripcion_baja(request, pk):
         messages.info(request, f'La inscripción de {inscripcion.alumno} ya estaba dada de baja.')
     else:
         inscripcion.activa = False
-        inscripcion.save(update_fields=['activa'])
+        inscripcion.suspendida_por_baja = False   # baja a mano: no vuelve sola al reactivar al estudiante
+        inscripcion.save(update_fields=['activa', 'suspendida_por_baja'])
         messages.success(
             request,
             f'La inscripción de {inscripcion.alumno} en {inscripcion.grado} ({inscripcion.ciclo}) se dio de baja. '
@@ -178,7 +179,8 @@ def inscripcion_reactivar(request, pk):
         messages.error(request, f'No se pudo reactivar la inscripción. {motivo}')
     else:
         inscripcion.activa = True
-        inscripcion.save(update_fields=['activa'])
+        inscripcion.suspendida_por_baja = False
+        inscripcion.save(update_fields=['activa', 'suspendida_por_baja'])
         messages.success(request, f'La inscripción de {inscripcion.alumno} en {inscripcion.grado} ({inscripcion.ciclo}) fue reactivada.')
     return redirect(_url_de_lista(inscripcion.ciclo_id))
 

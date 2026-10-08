@@ -269,6 +269,9 @@ class Inscripcion(models.Model):
     grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='inscripciones')
     fecha_inscripcion = models.DateField(default=timezone.localdate, verbose_name='Fecha de inscripción')
     activa = models.BooleanField(default=True, verbose_name='Activa')
+    # Se desactivó sola al dar de baja al estudiante: al reactivarlo vuelve a estar activa. Una inscripción que se dio de
+    # baja a mano (desde Inscripciones) no lleva esta marca y no se reactiva con él.
+    suspendida_por_baja = models.BooleanField(default=False, editable=False, verbose_name='Desactivada por la baja del estudiante')
 
     def __str__(self):
         return (
@@ -844,6 +847,13 @@ class Profesor(models.Model):
     )
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
+    # Una sola cuenta por profesor y un solo profesor por cuenta: la cuenta guarda el acceso (usuario, contraseña, rol y
+    # permisos); aquí solo vive la información del docente
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='profesor',
+        verbose_name='Cuenta de acceso',
+        help_text='La cuenta con la que entra al sistema. Lo que puede hacer lo define el rol de esa cuenta.',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -853,6 +863,29 @@ class Profesor(models.Model):
     @property
     def nombre_completo(self):
         return str(self)
+
+    @property
+    def apellidos(self):
+        return f'{self.apellido_paterno} {self.apellido_materno}'.strip()
+
+    @property
+    def niveles_lista(self):
+        """Los códigos de sus niveles en orden escolar (['PRIMARIA', 'SECUNDARIA']). Usa lo precargado si lo hay."""
+        codigos = {nivel.nivel for nivel in self.niveles.all()}
+        return [codigo for codigo in ORDEN_NIVELES if codigo in codigos]
+
+    @property
+    def niveles_texto(self):
+        """«Primaria, Secundaria» (vacío si no tiene)."""
+        nombres = dict(Grado.NIVEL_CHOICES)
+        return ', '.join(nombres[codigo] for codigo in self.niveles_lista)
+
+    def establecer_niveles(self, codigos):
+        """Deja exactamente esos niveles (los que sobran se quitan, los que faltan se agregan)."""
+        codigos = set(codigos)
+        self.niveles.exclude(nivel__in=codigos).delete()
+        actuales = set(self.niveles.values_list('nivel', flat=True))
+        ProfesorNivel.objects.bulk_create([ProfesorNivel(profesor=self, nivel=codigo) for codigo in codigos - actuales])
 
     @property
     def iniciales(self):
@@ -868,6 +901,26 @@ class Profesor(models.Model):
             'apellido_paterno',
             'apellido_materno',
             'nombre'
+        ]
+
+
+class ProfesorNivel(models.Model):
+    """Un nivel escolar en el que el profesor da clases (preescolar, primaria, secundaria o preparatoria).
+
+    Un profesor puede estar en varios. Sirve para ubicarlo (listado, filtro, perfil) y para sugerirlo primero al asignar
+    materias de un grado de ese nivel; no impide asignarle materias de otro.
+    """
+    profesor = models.ForeignKey(Profesor, on_delete=models.CASCADE, related_name='niveles')
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, verbose_name='Nivel')
+
+    def __str__(self):
+        return f'{self.profesor} · {self.get_nivel_display()}'
+
+    class Meta:
+        verbose_name = 'Nivel en el que da clases'
+        verbose_name_plural = 'Niveles en los que da clases'
+        constraints = [
+            models.UniqueConstraint(fields=['profesor', 'nivel'], name='profesor_nivel_unico'),
         ]
 
 

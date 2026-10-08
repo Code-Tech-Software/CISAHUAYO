@@ -339,7 +339,7 @@
                     </span>
                     <span class="text-muted">Ciclo {{ inscripcion.ciclo }} · inscrito el {{ inscripcion.fecha_inscripcion|date:"j M Y" }}</span>
                     <span class="timeline__tags">
-                      {% if inscripcion.activa %}<span class="tag tag--success">Activa</span>{% else %}<span class="tag">Inactiva</span>{% endif %}
+                      {% if inscripcion.activa %}<span class="tag tag--success">Activa</span>{% elif inscripcion.suspendida_por_baja %}<span class="tag" title="Vuelve a estar activa si se reactiva al estudiante">Inactiva por la baja</span>{% else %}<span class="tag">Inactiva</span>{% endif %}
                       {% if inscripcion.ciclo.activo %}<span class="tag tag--primary">Ciclo actual</span>{% endif %}
                     </span>
                   </li>

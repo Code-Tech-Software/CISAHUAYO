@@ -37,7 +37,7 @@ def bloque(asignacion, dia=0, inicio=(8, 0), fin=(9, 0)):
 def datos_profesor(**cambios):
     datos = {
         'nombre': 'Ana', 'apellido_paterno': 'Lara', 'apellido_materno': 'Ruiz', 'telefono': '353 111 2233',
-        'curp': '', 'correo_electronico': '', 'fecha_nacimiento': '', 'fecha_ingreso': '',
+        'curp': '', 'correo_electronico': '', 'fecha_nacimiento': '', 'fecha_ingreso': '', 'niveles': ['PRIMARIA'],
     }
     datos.update(cambios)
     return datos
@@ -224,6 +224,9 @@ class CrearTests(BaseTestCase):
         respuesta = self.client.get(self.url)
         self.assertEqual(respuesta.status_code, 200)
         for nombre, campo in respuesta.context['form'].fields.items():
+            if nombre == 'niveles':   # casillas tipo chip: llevan choice__input
+                self.assertIn('choice__input', campo.widget.attrs.get('class', ''))
+                continue
             self.assertIn('field__control', campo.widget.attrs.get('class', ''), nombre)
 
     def test_registra_y_vuelve_al_listado_con_mensaje(self):
@@ -251,7 +254,8 @@ class CrearTests(BaseTestCase):
 
     def test_campos_obligatorios(self):
         respuesta = self.client.post(self.url, {})
-        self.assertEqual(set(respuesta.context['form'].errors), {'nombre', 'apellido_paterno', 'telefono'})
+        self.assertEqual(set(respuesta.context['form'].errors), {'nombre', 'apellido_paterno', 'telefono', 'niveles'})
+        self.assertContains(respuesta, 'Elige al menos un nivel.')
         self.assertFalse(Profesor.objects.exists())
 
     def test_telefono_invalido(self):

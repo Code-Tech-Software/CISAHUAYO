@@ -104,15 +104,6 @@
    2. LISTADO: ESTUDIANTES DEL TUTOR
    Una tarjeta pequeña por estudiante (foto o iniciales, nombre, parentesco y grado) que lleva a su perfil.
    ========================================================================== */
-/* Que las tarjetas no le quiten el sitio al nombre ni al teléfono del tutor */
-.table--tutores .person {
-  min-width: 10rem;
-}
-
-.table--tutores .cell-stack__main a {
-  white-space: nowrap;
-}
-
 .student-chips {
   display: flex;
   flex-wrap: wrap;

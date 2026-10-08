@@ -74,9 +74,12 @@
         </div>
         <div class="identity__fact"><dt>Teléfono</dt><dd>{% if perfil.telefono %}<a href="tel:{{ perfil.telefono }}">{{ perfil.telefono|telefono }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</dd></div>
         <div class="identity__fact"><dt>Cargo</dt><dd>{{ perfil.cargo|default:"—" }}</dd></div>
+        {% if profesor %}
+          <div class="identity__fact"><dt>Profesor</dt><dd>{% if perms.Alumnos.view_profesor %}<a href="{{ profesor.get_absolute_url }}">{{ profesor }}</a>{% else %}{{ profesor }}{% endif %}</dd></div>
+        {% endif %}
         <div class="identity__fact"><dt>Último acceso</dt><dd>{% if usuario.last_login %}{{ usuario.last_login|date:"j M Y, H:i" }}{% else %}Aún no entra{% endif %}</dd></div>
         <div class="identity__fact"><dt>Cuenta creada</dt><dd>{{ usuario.date_joined|date:"j M Y" }}</dd></div>
-        <div class="identity__fact"><dt>Contraseña</dt><dd>{% if perfil.debe_cambiar_contrasena %}<span class="tag tag--warning">Temporal</span>{% else %}Propia{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Contraseña</dt><dd>{% if perfil.debe_cambiar_contrasena %}<span class="tag tag--warning">Debe cambiarla al entrar</span>{% else %}Vigente{% endif %}</dd></div>
       </dl>
     </section>
   {% endwith %}
@@ -90,6 +93,16 @@
           {% csrf_token %}
           <button type="submit" class="btn btn--sm">Reactivar cuenta</button>
         </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if rol.es_docente and not profesor %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Cuenta de docente sin ficha de profesor.</strong> Tiene un rol para docentes, pero no está vinculada con ningún profesor.{% if puede_editar %} Edítala para registrar o vincular su ficha.{% endif %}</p>
+      {% if puede_editar %}
+        <a class="btn btn--sm" href="{% url 'usuarios:editar' usuario.pk %}" data-modal-form>Vincular ficha</a>
       {% endif %}
     </div>
   {% endif %}
@@ -142,8 +155,12 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p>Se generará una <strong>contraseña temporal nueva</strong> y la que tenía dejará de servir. Verás la nueva una sola vez para entregarla.</p>
-          <p class="text-muted">Al entrar, el sistema le pedirá elegir una contraseña propia. Si tiene una sesión abierta, se cerrará.</p>
+          <p>Se generará una <strong>contraseña nueva</strong> y la que tenía dejará de servir. Verás la nueva una sola vez para entregarla.</p>
+          <label class="choice choice--check" for="restablecer-pedir-cambio">
+            <input type="checkbox" class="choice__input" name="pedir_cambio" id="restablecer-pedir-cambio">
+            <span class="choice__box">Pedir que la cambie al entrar</span>
+          </label>
+          <p class="text-muted">Si no lo marcas, puede seguir usando la nueva. Si tiene una sesión abierta, se cerrará.</p>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>

@@ -600,3 +600,17 @@ a.slot__name:hover {
   width: auto;
   min-width: 11rem;
 }
+
+/* Grados agrupados por nivel en el alta de una materia (casillas con el nombre del nivel encima) */
+.nivel-casillas + .nivel-casillas {
+  margin-top: var(--space-4);
+}
+
+.nivel-casillas__titulo {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}

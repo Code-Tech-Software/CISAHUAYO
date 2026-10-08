@@ -1,7 +1,7 @@
 """Filtros de plantilla de la sección de alumnos."""
 from django import template
 
-from ..models import ORDEN_NIVELES
+from ..models import ORDEN_NIVELES, Grado
 from ..utils import normalizar_telefono
 
 register = template.Library()
@@ -45,6 +45,12 @@ def tono(pk):
 def nivel_tono(nivel):
     """Número 1-4 según el nivel escolar, para dar a cada nivel su propio color."""
     return ORDEN_NIVELES.index(nivel) + 1 if nivel in ORDEN_NIVELES else 1
+
+
+@register.filter
+def nombre_de_nivel(nivel):
+    """'PRIMARIA' -> 'Primaria'."""
+    return dict(Grado.NIVEL_CHOICES).get(nivel, nivel)
 
 
 @register.filter

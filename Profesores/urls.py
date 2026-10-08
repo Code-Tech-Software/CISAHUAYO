@@ -15,4 +15,5 @@ urlpatterns = [
     path('<int:pk>/reactivar/', views.profesor_reactivar, name='reactivar'),
     path('<int:pk>/habilitar/', views.profesor_habilitar, name='habilitar'),
     path('<int:pk>/deshabilitar/', views.profesor_deshabilitar, name='deshabilitar'),
+    path('<int:pk>/desvincular-cuenta/', views.profesor_desvincular, name='desvincular_cuenta'),
 ]

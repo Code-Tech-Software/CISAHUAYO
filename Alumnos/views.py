@@ -13,7 +13,7 @@ from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, pagina
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 
 from . import importacion
-from .academico import prefetch_inscripciones_actuales
+from .academico import prefetch_inscripciones_actuales, sincronizar_inscripciones
 from .asistencias import con_justificada_general
 from .forms import (
     AlumnoForm,
@@ -146,6 +146,7 @@ def alumno_crear(request):
 @requiere_permisos('Alumnos.change_alumno')
 def alumno_editar(request, pk):
     alumno = get_object_or_404(Alumno, pk=pk)
+    estatus_anterior = alumno.estatus   # antes de validar: el formulario lo cambia en la instancia
 
     if request.method == 'POST':
         form = AlumnoForm(request.POST, request.FILES, instance=alumno)
@@ -156,10 +157,11 @@ def alumno_editar(request, pk):
                 with transaction.atomic():
                     form.save()
                     guardar_vinculos(alumno, tutores)
+                    suspendidas, restauradas = sincronizar_inscripciones(alumno, estatus_anterior)
             except IntegrityError:
                 form.add_error(None, 'No se pudo guardar: algún dato único ya pertenece a otro registro.')
             else:
-                messages.success(request, f'Los datos de {alumno} se actualizaron.')
+                messages.success(request, f'Los datos de {alumno} se actualizaron.{_texto_de_inscripciones(suspendidas, restauradas)}')
                 return redirect('alumnos:lista')
         messages.error(request, 'Revisa los pasos marcados: hay datos por corregir.')
     else:
@@ -221,6 +223,18 @@ def alumno_detalle(request, pk):
 # ---------------------------------------------------------------------------
 # Acciones sobre un alumno
 # ---------------------------------------------------------------------------
+def _texto_de_inscripciones(suspendidas, restauradas):
+    """« Su inscripción en 2° Primaria (2026-2027) quedó desactivada.» (o reactivada; vacío si no había)."""
+    partes = []
+    for inscripciones, verbo in ((suspendidas, 'desactivada'), (restauradas, 'reactivada')):
+        if inscripciones:
+            lista = ', '.join(f'{i.grado} ({i.ciclo})' for i in inscripciones)
+            plural = len(inscripciones) != 1
+            partes.append(f' Su{"s" if plural else ""} inscripci{"ones" if plural else "ón"} en {lista} '
+                          f'qued{"aron" if plural else "ó"} {verbo}{"s" if plural else ""}.')
+    return ''.join(partes)
+
+
 @require_POST
 @requiere_permisos('Alumnos.change_alumno')
 def alumno_estatus(request, pk):
@@ -231,23 +245,35 @@ def alumno_estatus(request, pk):
     elif estatus not in dict(Alumno.ESTATUS_CHOICES):
         messages.error(request, 'El estatus indicado no es válido.')
     else:
-        alumno.estatus = estatus
-        alumno.save(update_fields=['estatus'])
-        messages.success(request, f'{alumno} ahora está en estatus «{alumno.get_estatus_display()}».')
+        anterior = alumno.estatus
+        with transaction.atomic():
+            alumno.estatus = estatus
+            alumno.save(update_fields=['estatus'])
+            suspendidas, restauradas = sincronizar_inscripciones(alumno, anterior)
+        messages.success(request, f'{alumno} ahora está en estatus «{alumno.get_estatus_display()}».'
+                                  f'{_texto_de_inscripciones(suspendidas, restauradas)}')
     return redirect(alumno)
 
 
 @require_POST
 @requiere_permisos('Alumnos.delete_alumno')
 def alumno_baja(request, pk):
-    """Baja lógica: el alumno deja de aparecer en el listado, pero nada se borra."""
+    """Baja lógica: el alumno deja de aparecer en el listado, pero nada se borra. Sus inscripciones del ciclo actual (y
+    de los próximos) se desactivan con él, y vuelven si se le reactiva."""
     alumno = get_object_or_404(Alumno, pk=pk)
     if alumno.estatus == 'BAJA':
         messages.info(request, f'{alumno} ya estaba dado de baja.')
     else:
-        alumno.estatus = 'BAJA'
-        alumno.save(update_fields=['estatus'])
-        messages.success(request, f'{alumno} fue dado de baja. Su historial se conserva y puedes reactivarlo desde el filtro «Bajas».')
+        anterior = alumno.estatus
+        with transaction.atomic():
+            alumno.estatus = 'BAJA'
+            alumno.save(update_fields=['estatus'])
+            suspendidas, _ = sincronizar_inscripciones(alumno, anterior)
+        messages.success(
+            request,
+            f'{alumno} fue dado de baja.{_texto_de_inscripciones(suspendidas, [])} '
+            'Su historial se conserva y puedes reactivarlo desde el filtro «Bajas».',
+        )
     return redirect('alumnos:lista')
 
 
@@ -256,9 +282,11 @@ def alumno_baja(request, pk):
 def alumno_reactivar(request, pk):
     alumno = get_object_or_404(Alumno, pk=pk)
     if alumno.estatus == 'BAJA':
-        alumno.estatus = 'ACTIVO'
-        alumno.save(update_fields=['estatus'])
-        messages.success(request, f'{alumno} fue reactivado.')
+        with transaction.atomic():
+            alumno.estatus = 'ACTIVO'
+            alumno.save(update_fields=['estatus'])
+            _, restauradas = sincronizar_inscripciones(alumno, 'BAJA')
+        messages.success(request, f'{alumno} fue reactivado.{_texto_de_inscripciones([], restauradas)}')
     return redirect('alumnos:lista')
 
 

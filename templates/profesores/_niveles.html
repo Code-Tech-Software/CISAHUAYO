@@ -1,0 +1,4 @@
+{% load alumnos_extras %}{% comment %}
+  Los niveles en los que da clases un profesor, como etiquetas con el color de cada nivel.
+  Parámetro: profesor (con `niveles` precargado para no consultar por fila).
+{% endcomment %}{% with codigos=profesor.niveles_lista %}{% if codigos %}<ul class="tag-list" aria-label="Niveles en los que da clases">{% for codigo in codigos %}<li class="tag tag--tono-{{ codigo|nivel_tono }}">{{ codigo|nombre_de_nivel }}</li>{% endfor %}</ul>{% else %}<span class="tag tag--warning">Sin nivel</span>{% endif %}{% endwith %}

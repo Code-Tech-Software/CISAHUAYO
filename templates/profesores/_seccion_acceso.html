@@ -1,0 +1,76 @@
+{% comment %}
+  «Dar acceso al sistema» en el alta o edición de un profesor: crea su cuenta de usuario o vincula una que ya existe.
+  Parámetros: acceso (Usuarios.forms.CuentaDeProfesorForm), profesor (en edición). Lo maneja static/js/cuenta-docente.js.
+{% endcomment %}
+{% if acceso.vinculada %}
+  <section class="card" id="acceso" aria-labelledby="seccion-acceso">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="key" %}<h2 class="card__title" id="seccion-acceso">Acceso al sistema</h2>
+    </header>
+    <div class="card__body">
+      <p class="switch-row__hint">
+        Entra con la cuenta
+        {% if perms.auth.view_user %}<a class="link-subtle" href="{% url 'usuarios:detalle' acceso.vinculada.pk %}"><strong>{{ acceso.vinculada.username }}</strong></a>{% else %}<strong>{{ acceso.vinculada.username }}</strong>{% endif %}{% if not acceso.vinculada.is_active %} (desactivada){% endif %}.
+        Su rol, su contraseña y su correo de acceso se administran en «Usuarios»; su nombre se toma de esta ficha.
+      </p>
+    </div>
+  </section>
+{% elif acceso.disponible %}
+  <section class="card" id="acceso" aria-labelledby="seccion-acceso" data-toggle-card>
+    <div class="card__body">
+      <label class="switch-row" for="{{ acceso.dar_acceso.id_for_label }}">
+        <span class="switch-row__icon">{% include "partials/icon.html" with name="key" %}</span>
+        <span class="switch-row__text">
+          <span class="switch-row__title" id="seccion-acceso">Dar acceso al sistema</span>
+          <span class="switch-row__hint">Crea su cuenta de usuario (o vincula una que ya existe) para que pueda entrar, por ejemplo a pasar lista en sus clases.</span>
+        </span>
+        <input class="switch" type="checkbox" name="{{ acceso.dar_acceso.html_name }}" id="{{ acceso.dar_acceso.id_for_label }}"
+               {% if acceso.mostrar %}checked{% endif %} data-toggle-card-switch>
+      </label>
+      {% for error in acceso.non_field_errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+
+      <div class="switch-panel" data-toggle-card-body{% if not acceso.mostrar %} hidden{% endif %}>
+        {% if acceso.fields.modo.choices|length > 1 %}
+          <fieldset class="field" data-modos>
+            <legend class="field__label">{{ acceso.modo.label }}</legend>
+            <div class="choice-group">
+              {% for radio in acceso.modo %}
+                <label class="choice" for="{{ radio.id_for_label }}">
+                  <input class="choice__input" type="radio" name="{{ radio.data.name }}" value="{{ radio.data.value }}" id="{{ radio.id_for_label }}"{% if radio.data.value == acceso.modo_actual %} checked{% endif %}>
+                  <span class="choice__box">{{ radio.choice_label }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% else %}
+          <input type="hidden" name="{{ acceso.modo.html_name }}" value="{{ acceso.modo_actual }}">
+        {% endif %}
+
+        {% if acceso.puede_crear %}
+          <div class="form-grid" data-modo-panel="nueva"{% if acceso.modo_actual != 'nueva' %} hidden{% endif %}>
+            {% include "partials/field.html" with campo=acceso.username %}
+            {% include "partials/field.html" with campo=acceso.rol %}
+            {% include "partials/field.html" with campo=acceso.email %}
+            {% include "partials/field.html" with campo=acceso.contrasena %}
+            {% if acceso.pedir_cambio %}
+              <div class="field form-grid__full">
+                <div class="choice-group">{% include "partials/chip.html" with campo=acceso.pedir_cambio %}</div>
+                <p class="field__hint">{{ acceso.pedir_cambio.help_text }}</p>
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if acceso.puede_vincular %}
+          <div class="form-grid" data-modo-panel="existente"{% if acceso.modo_actual != 'existente' %} hidden{% endif %}>
+            {% if acceso.fields.cuenta.queryset.exists %}
+              {% include "partials/field.html" with campo=acceso.cuenta clase="form-grid__full" %}
+            {% else %}
+              <p class="field__hint form-grid__full">No hay cuentas activas libres que puedas vincular. Elige «Crear una cuenta nueva».</p>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+{% endif %}

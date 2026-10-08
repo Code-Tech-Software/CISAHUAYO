@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar materia{% else %}Nueva materia{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Corrige la clave o el nombre de {{ materia }}.{% else %}Registra la materia en el catálogo. Después la asignas a los grados que la imparten en cada ciclo.{% endif %}
+        {% if es_edicion %}Corrige la clave o el nombre de {{ materia }}.{% elif form.grados %}Escribe su nombre y elige los grados donde se imparte: la clave se propone sola y se agrega al plan del ciclo {{ form.ciclo }}.{% else %}Registra la materia en el catálogo. Después la asignas a los grados que la imparten en cada ciclo.{% endif %}
       </p>
     </div>
   </header>
@@ -44,9 +44,43 @@
       </header>
       <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.nombre %}
-        {% include "partials/field.html" with campo=form.clave %}
+        <div class="field{% if form.clave.errors %} is-invalid{% endif %}">
+          <label class="field__label{% if form.clave.field.required %} field__label--required{% endif %}" for="{{ form.clave.id_for_label }}">{{ form.clave.label }}</label>
+          {{ form.clave }}
+          <p class="field__hint" id="{{ form.clave.auto_id }}_helptext">{{ form.clave.help_text }}</p>
+          <p class="field__hint field__hint--ok" data-clave-estado aria-live="polite"></p>
+          {% for error in form.clave.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
       </div>
     </section>
+
+    {% if form.grados %}
+      <section class="card" aria-labelledby="seccion-grados">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grados">Grados</h2>
+        </header>
+        <fieldset class="card__body field{% if form.grados.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">{{ form.grados.label }}</legend>
+          {% for grupo in form.grados_por_nivel %}
+            <div class="nivel-casillas">
+              <p class="nivel-casillas__titulo">{{ grupo.nombre }}</p>
+              <div class="choice-group">
+                {% for casilla in grupo.casillas %}
+                  <label class="choice choice--check" for="{{ casilla.id_for_label }}">
+                    {{ casilla.tag }}
+                    <span class="choice__box">{{ casilla.choice_label }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+          <p class="field__hint">{{ form.grados.help_text }}</p>
+          {% for error in form.grados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
+      </section>
+    {% elif not es_edicion %}
+      <p class="field__hint">{{ form.motivo_sin_grados }}: la materia se registra en el catálogo y después se agrega a los grados desde su perfil.</p>
+    {% endif %}
 
     <footer class="action-bar">
       <a class="btn btn--ghost" href="{% if es_edicion %}{{ materia.get_absolute_url }}{% else %}{% url 'materias:lista' %}{% endif %}">Cancelar</a>
@@ -56,4 +90,8 @@
       </button>
     </footer>
   </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/materia-form.js' %}" defer></script>
 {% endblock %}

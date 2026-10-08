@@ -6,11 +6,21 @@ from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from Alumnos.forms import EstiloCamposMixin
-from Alumnos.models import MateriaGrado, Profesor
+from Alumnos.models import Grado, MateriaGrado, Profesor, ProfesorNivel
 from Alumnos.utils import CURP_RE, compactar_espacios, normalizar_curp, validar_telefono
 
 EDAD_MINIMA = 18
 MAXIMO_DE_HORAS = 60   # horas de clase por semana: más no cabe en una semana de trabajo
+
+
+def campo_niveles():
+    """Los niveles en los que da clases: uno o varios (lo comparten la ficha del profesor y el alta de un usuario docente)."""
+    return forms.MultipleChoiceField(
+        choices=Grado.NIVEL_CHOICES, label='Niveles en los que da clases',
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'choice__input'}),
+        help_text='Elige todos los que correspondan. Al asignar materias de un grado se sugiere primero a quien da clases en su nivel.',
+        error_messages={'required': 'Elige al menos un nivel.'},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -63,9 +73,40 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'horas_maximas': 'Opcional. Las horas de clase por semana que puede dar como máximo: en «Asignaciones» se avisa si su carga la rebasa.',
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, actor=None, abrir_acceso=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['niveles'] = campo_niveles()
+        if self.instance.pk and not self.is_bound:
+            self.initial['niveles'] = self.instance.niveles_lista
         self.aplicar_estilo()
+        # «Dar acceso al sistema»: su cuenta de usuario (nueva o una que ya existe), anidada con el prefijo «acceso»
+        self.acceso = None
+        if actor is not None:
+            from Usuarios.forms import CuentaDeProfesorForm
+            self.acceso = CuentaDeProfesorForm(
+                self.data or None, prefix='acceso', actor=actor, profesor=self.instance if self.instance.pk else None,
+                initial={'dar_acceso': abrir_acceso},
+            )
+        self.cuenta = self.contrasena_en_claro = None
+        self.cuenta_nueva = False
+
+    def is_valid(self):
+        propio = super().is_valid()
+        anidado = self.acceso.is_valid() if self.acceso is not None else True
+        return propio and anidado
+
+    def save(self, commit=True):
+        from django.db import transaction
+
+        from Usuarios.docentes import sincronizar_nombre
+
+        with transaction.atomic():
+            profesor = super().save(commit)
+            profesor.establecer_niveles(self.cleaned_data['niveles'])
+            sincronizar_nombre(profesor)   # la cuenta lleva el nombre de la ficha
+            if self.acceso is not None:
+                self.cuenta, self.contrasena_en_claro, self.cuenta_nueva = self.acceso.guardar(profesor)
+        return profesor
 
     # --- limpieza por campo ----------------------------------------------------------
     def _compacto(self, campo):
@@ -157,6 +198,10 @@ class FiltroProfesoresForm(EstiloCamposMixin, forms.Form):
         'type': 'search', 'placeholder': 'Nombre, teléfono, correo, especialidad o materia…', 'autocomplete': 'off',
     }))
     estatus = forms.ChoiceField(required=False, choices=[('', 'Activos'), *Profesor.ESTATUS_CHOICES], label='Estatus')
+    nivel = forms.ChoiceField(
+        required=False, label='Nivel',
+        choices=[('', 'Todos los niveles'), *Grado.NIVEL_CHOICES, ('SIN_NIVEL', 'Sin nivel registrado')],
+    )
     situacion = forms.ChoiceField(required=False, choices=SITUACION_CHOICES, label='Situación')
     orden = forms.ChoiceField(required=False, choices=ORDEN_CHOICES, label='Ordenar por')
 
@@ -194,6 +239,12 @@ class FiltroProfesoresForm(EstiloCamposMixin, forms.Form):
         # Las bajas no aparecen salvo que se pida ese estatus.
         if con_estatus:
             queryset = queryset.filter(estatus=datos.get('estatus') or 'ACTIVO')
+
+        nivel = datos.get('nivel')
+        if nivel == 'SIN_NIVEL':
+            queryset = queryset.filter(~Exists(ProfesorNivel.objects.filter(profesor=OuterRef('pk'))))
+        elif nivel:
+            queryset = queryset.filter(Exists(ProfesorNivel.objects.filter(profesor=OuterRef('pk'), nivel=nivel)))
 
         situacion = datos.get('situacion')
         if situacion:

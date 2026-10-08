@@ -7,6 +7,7 @@ app_name = 'materias'
 urlpatterns = [
     path('', views.materia_lista, name='lista'),
     path('nueva/', views.materia_crear, name='crear'),
+    path('clave/', views.materia_clave, name='clave'),
     path('exportar/', views.materia_exportar, name='exportar'),
     path('asignar/', views.asignar, name='asignar'),
     path('copiar/', views.copiar_plan, name='copiar'),

@@ -27,6 +27,7 @@ class RolForm(EstiloCamposMixin, forms.Form):
         'autocomplete': 'off', 'placeholder': 'Para qué sirve este rol',
     }), help_text='Opcional. Ayuda a elegir el rol correcto al crear una cuenta.')
     tono = forms.TypedChoiceField(choices=Rol.TONOS, coerce=int, initial=1, label='Color', widget=forms.RadioSelect)
+    es_docente = forms.BooleanField(required=False, label='Rol para docentes')
 
     def __init__(self, *args, actor, rol=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,7 +38,7 @@ class RolForm(EstiloCamposMixin, forms.Form):
         self.permisos_finales = set(self.permisos_actuales)
         self.otorgados, self.retirados = [], []
         if rol and not self.is_bound:
-            self.initial = {'nombre': rol.nombre, 'descripcion': rol.descripcion, 'tono': rol.tono}
+            self.initial = {'nombre': rol.nombre, 'descripcion': rol.descripcion, 'tono': rol.tono, 'es_docente': rol.es_docente}
         self.aplicar_estilo()
 
     # --- permisos marcados (para volver a dibujar la matriz) ---------------------------
@@ -86,7 +87,7 @@ class RolForm(EstiloCamposMixin, forms.Form):
         datos = self.cleaned_data
         if self.rol is None:
             grupo = Group.objects.create(name=datos['nombre'])
-            rol = Rol.objects.create(grupo=grupo, descripcion=datos['descripcion'], tono=datos['tono'])
+            rol = Rol.objects.create(grupo=grupo, descripcion=datos['descripcion'], tono=datos['tono'], es_docente=datos.get('es_docente', False))
             fuera_del_catalogo = set()
         else:
             rol = self.rol
@@ -95,7 +96,8 @@ class RolForm(EstiloCamposMixin, forms.Form):
             grupo.save(update_fields=['name'])
             rol.descripcion = datos['descripcion']
             rol.tono = datos['tono']
-            rol.save(update_fields=['descripcion', 'tono', 'modificado'])
+            rol.es_docente = datos.get('es_docente', False)
+            rol.save(update_fields=['descripcion', 'tono', 'es_docente', 'modificado'])
             # Permisos que alguien puso desde el admin de Django y no son del catálogo: se respetan
             fuera_del_catalogo = codigos(grupo.permissions.select_related('content_type')) - TODOS
 

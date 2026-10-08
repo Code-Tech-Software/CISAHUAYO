@@ -17,7 +17,7 @@ from django.db.models import Count, Q
 
 from .academico import ciclo_editable
 from .horarios import conflictos_de_asignacion, formatear_duracion, mensaje_de_empalme_profesor, minutos_semanales
-from .models import MateriaGrado, Profesor, ProfesorMateria
+from .models import Grado, MateriaGrado, Profesor, ProfesorMateria, ProfesorNivel
 
 ESTADOS_DE_CARGA = {
     'libre': 'Sin clases',
@@ -94,11 +94,26 @@ def habilitados_por_materia(materias=None):
     return resultado
 
 
+def profesores_por_nivel():
+    """{nivel: [ids de profesores activos que dan clases en él]}."""
+    resultado = defaultdict(list)
+    for nivel, profesor_id in ProfesorNivel.objects.filter(profesor__estatus='ACTIVO').order_by().values_list('nivel', 'profesor_id'):
+        resultado[nivel].append(profesor_id)
+    return resultado
+
+
 def con_habilitados(asignaciones):
-    """Agrega a cada asignación `habilitados` (ids de profesores habilitados para su materia, como «3,8,12»)."""
+    """Agrega a cada asignación `habilitados` (ids de profesores habilitados para su materia, como «3,8,12»),
+    `del_nivel` (ids de quienes dan clases en el nivel de su grado) y `nivel_del_grado` («Primaria»)."""
     asignaciones = list(asignaciones)
     mapa = habilitados_por_materia({a.materia_id for a in asignaciones})
+    niveles = dict(Grado.objects.filter(pk__in={a.grado_id for a in asignaciones}).values_list('pk', 'nivel'))
+    por_nivel = profesores_por_nivel() if asignaciones else {}
+    nombres = dict(Grado.NIVEL_CHOICES)
     for asignacion in asignaciones:
+        nivel = niveles.get(asignacion.grado_id)
+        asignacion.del_nivel = ','.join(str(pk) for pk in por_nivel.get(nivel, []))
+        asignacion.nivel_del_grado = nombres.get(nivel, '')
         asignacion.habilitados = ','.join(str(pk) for pk in mapa.get(asignacion.materia_id, []))
         asignacion.profesor_habilitado = (
             asignacion.profesor_id is None or asignacion.profesor_id in mapa.get(asignacion.materia_id, [])

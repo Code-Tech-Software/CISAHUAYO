@@ -34,6 +34,10 @@
     </div>
   </header>
 
+  {% if credenciales %}
+    {% include "usuarios/_credenciales.html" %}
+  {% endif %}
+
   {# Las bajas no se mezclan con los profesores vigentes: tienen su propio filtro #}
   <nav class="pills" aria-label="Filtrar por estatus">
     <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% querystring estatus=None page=None %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>
@@ -44,13 +48,17 @@
     </a>
   </nav>
 
-  <form class="filters filters--compact" method="get" role="search" aria-label="Buscar y filtrar profesores" data-autosubmit>
+  <form class="filters" method="get" role="search" aria-label="Buscar y filtrar profesores" data-autosubmit>
     {% if viendo_bajas %}<input type="hidden" name="estatus" value="INACTIVO">{% endif %}
     {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
     <div class="filters__search">
       <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar profesores</label>
       {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
       {{ filtro.q }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.nivel.id_for_label }}">{{ filtro.nivel.label }}</label>
+      {{ filtro.nivel }}
     </div>
     <div class="filters__field">
       <label class="visually-hidden" for="{{ filtro.situacion.id_for_label }}">{{ filtro.situacion.label }}</label>
@@ -74,11 +82,12 @@
     </p>
 
     <div class="table-card">
-      <table class="table">
+      <table class="table table--personas">
         <caption class="visually-hidden">Lista de profesores</caption>
         <thead class="table__head">
           <tr>
             <th class="table__th" scope="col">Profesor</th>
+            <th class="table__th" scope="col">Niveles</th>
             <th class="table__th" scope="col">Contacto</th>
             <th class="table__th" scope="col">{% if ciclo %}Materias en {{ ciclo }}{% else %}Materias{% endif %}</th>
             <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
@@ -96,6 +105,7 @@
                   </span>
                 </a>
               </td>
+              <td class="table__cell" data-label="Niveles">{% include "profesores/_niveles.html" with profesor=profesor %}</td>
               <td class="table__cell" data-label="Contacto">
                 <span class="cell-stack">
                   <span class="cell-stack__main"><a class="link-subtle" href="tel:{{ profesor.telefono }}">{{ profesor.telefono|telefono }}</a></span>

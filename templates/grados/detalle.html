@@ -262,7 +262,7 @@
                     {% if plan_editable and item.activa and perms.Alumnos.change_materiagrado %}
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
                               data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ grado }}" data-profesor="{{ item.profesor_id|default_if_none:'' }}"
-                              data-habilitados="{{ item.habilitados }}"
+                              data-habilitados="{{ item.habilitados }}" data-del-nivel="{{ item.del_nivel }}" data-nivel="{{ grado.get_nivel_display }}"
                               aria-label="{% if item.profesor %}Cambiar al profesor de {{ item.materia }}{% else %}Asignar profesor a {{ item.materia }}{% endif %}"
                               data-tooltip="{% if item.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
                         {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}

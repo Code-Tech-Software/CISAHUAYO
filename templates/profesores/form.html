@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar profesor{% else %}Registrar profesor{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Actualiza los datos de {{ profesor }}.{% else %}Captura sus datos. Después podrás asignarle las materias que imparte desde su perfil.{% endif %}
+        {% if es_edicion %}Actualiza los datos de {{ profesor }}.{% else %}Captura sus datos y, si lo necesita, dale acceso al sistema con su propia cuenta. Las materias que imparte se asignan desde su perfil o desde «Asignaciones académicas».{% endif %}
       </p>
     </div>
   </header>
@@ -32,13 +32,16 @@
     {% for estado in estados_mx %}<option value="{{ estado }}">{% endfor %}
   </datalist>
 
-  <form class="form-page" id="profesor-form" method="post" novalidate data-persona-form>
+  <form class="form-page" id="profesor-form" method="post" novalidate data-persona-form data-cuenta-docente>
     {% csrf_token %}
 
-    {% if form.non_field_errors %}
+    {% if form.non_field_errors or form.acceso.non_field_errors and not form.acceso.disponible %}
       <div class="alert alert--error" role="alert">
         {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
-        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        <div class="alert__body">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+          {% if not form.acceso.disponible %}{% for error in form.acceso.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% endif %}
+        </div>
       </div>
     {% endif %}
 
@@ -89,6 +92,7 @@
         {% include "partials/icon.html" with name="briefcase" %}<h2 class="card__title" id="seccion-profesional">Datos profesionales</h2>
       </header>
       <div class="card__body form-grid">
+        {% include "partials/casillas.html" with campo=form.niveles clase="form-grid__full" %}
         {% include "partials/field.html" with campo=form.profesion clase="form-grid__full" %}
         {% include "partials/field.html" with campo=form.cedula_profesional %}
         {% include "partials/field.html" with campo=form.fecha_ingreso %}
@@ -96,6 +100,8 @@
         {% include "partials/field.html" with campo=form.especialidad clase="form-grid__full" %}
       </div>
     </section>
+
+    {% if form.acceso %}{% include "profesores/_seccion_acceso.html" with acceso=form.acceso %}{% endif %}
 
     <section class="card" aria-labelledby="seccion-notas">
       <header class="card__header card__header--icon">
@@ -118,4 +124,5 @@
 
 {% block extra_js %}
   <script src="{% static 'js/persona-form.js' %}" defer></script>
+  <script src="{% static 'js/cuenta-docente.js' %}" defer></script>
 {% endblock %}

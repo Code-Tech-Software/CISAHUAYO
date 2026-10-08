@@ -5,7 +5,7 @@ from itertools import groupby
 from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.db.models import Count, IntegerField, Q, Value
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -17,15 +17,16 @@ from Alumnos.academico import (
     elegir_ciclo,
     grados_por_asignar,
 )
-from Alumnos.docentes import deshabilitar, habilitar
+from Alumnos.docentes import deshabilitar, habilitar, profesores_por_nivel
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion, se_empalman
 from Alumnos.models import CicloEscolar, Grado, HorarioMateria, Materia, MateriaGrado, Profesor, orden_de_nivel
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
-from CISAHUAYO.permisos import requiere_permisos
+from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
 from Usuarios.seguridad import ACCION_CAMBIO, registrar
 
+from .claves import clave_sugerida
 from .forms import CopiarPlanForm, FiltroMateriasForm, MateriaForm
 
 
@@ -78,14 +79,36 @@ def _formulario(request, form, materia=None):
 
 @requiere_permisos('Alumnos.add_materia')
 def materia_crear(request):
-    form = MateriaForm(request.POST if request.method == 'POST' else None)
+    ciclo = ciclo_actual()
+    form = MateriaForm(
+        request.POST if request.method == 'POST' else None,
+        ciclo=ciclo if ciclo and ciclo_editable(ciclo) else None,
+        puede_asignar=request.user.has_perm('Alumnos.add_materiagrado'),
+    )
     if request.method == 'POST':
         if form.is_valid():
-            materia = form.save()
-            messages.success(request, f'La materia {materia} fue registrada.')
+            with transaction.atomic():
+                materia = form.save()
+            grados = form.grados_asignados
+            detalle = ''
+            if grados:
+                nombres = ', '.join(str(grado) for grado in grados)
+                detalle = f' y se agregó al plan de {nombres} (ciclo {form.ciclo})'
+            messages.success(request, f'La materia {materia} fue registrada con la clave {materia.clave}{detalle}.')
             return redirect('materias:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
+
+
+@require_GET
+@requiere_alguno('Alumnos.add_materia', 'Alumnos.change_materia')
+def materia_clave(request):
+    """Para el formulario de materia (JSON): la clave libre que corresponde al nombre y a los grados elegidos."""
+    grados = Grado.objects.filter(pk__in=solo_numeros(request.GET.getlist('grado')))
+    excluir = request.GET.get('excluir', '')
+    return JsonResponse({'sugerida': clave_sugerida(
+        request.GET.get('nombre', ''), list(grados), excluir=int(excluir) if excluir.isdigit() else None,
+    )})
 
 
 @requiere_permisos('Alumnos.change_materia')
@@ -132,6 +155,10 @@ def materia_detalle(request, pk):
         if mg.profesor_id:
             grados_de[mg.profesor_id].append(mg.grado)
     ids_habilitados = {profesor.pk for profesor in habilitados}
+    # Para sugerir primero, al asignar en cada grado, a quienes dan clases en su nivel
+    por_nivel = profesores_por_nivel()
+    for mg in asignaciones:
+        mg.del_nivel = ','.join(str(pk) for pk in por_nivel.get(mg.grado.nivel, []))
     for profesor in habilitados:
         profesor.grados_del_ciclo = grados_de.get(profesor.pk, [])
     sin_habilitar = list({mg.profesor_id: mg.profesor for mg in vigentes if mg.profesor_id and mg.profesor_id not in ids_habilitados}.values())

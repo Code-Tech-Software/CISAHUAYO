@@ -150,7 +150,7 @@
                   {% if editable and mg.activa and perms.Alumnos.change_materiagrado %}
                     <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
                             data-asignacion="{{ mg.pk }}" data-descripcion="{{ materia }} de {{ mg.grado }}" data-profesor="{{ mg.profesor_id|default_if_none:'' }}"
-                            data-habilitados="{{ habilitados_csv }}"
+                            data-habilitados="{{ habilitados_csv }}" data-del-nivel="{{ mg.del_nivel }}" data-nivel="{{ mg.grado.get_nivel_display }}"
                             aria-label="{% if mg.profesor %}Cambiar al profesor de {{ mg.grado }}{% else %}Asignar profesor en {{ mg.grado }}{% endif %}"
                             data-tooltip="{% if mg.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
                       {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}

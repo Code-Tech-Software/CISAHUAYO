@@ -2,7 +2,8 @@
 
    Prepara dos ventanas con los datos de la fila que las abrió:
    - elegir el profesor de una materia ([data-asignar-form], en los perfiles del grado y de la materia); si el botón trae
-     data-habilitados (ids de quienes pueden impartir esa materia), esos salen primero en su propio grupo;
+     data-habilitados (ids de quienes pueden impartir esa materia), esos salen primero en su propio grupo, y después los de
+     data-del-nivel (quienes dan clases en el nivel del grado, data-nivel);
    - quitar al profesor de una materia ([data-quitar-prof-form], en el perfil del profesor).
 */
 (() => {
@@ -24,15 +25,21 @@
     return nodo;
   };
 
-  const llenarSelector = (habilitados, elegido) => {
+  const llenarSelector = (habilitados, delNivel, nivel, elegido) => {
     const ids = new Set((habilitados || '').split(',').filter(Boolean));
+    const delMismoNivel = new Set((delNivel || '').split(',').filter(Boolean));
     const propios = profesores.filter((opcion) => ids.has(opcion.value));
-    const otros = profesores.filter((opcion) => !ids.has(opcion.value));
+    const delNivelOpciones = profesores.filter((opcion) => !ids.has(opcion.value) && delMismoNivel.has(opcion.value));
+    const otros = profesores.filter((opcion) => !ids.has(opcion.value) && !delMismoNivel.has(opcion.value));
+    const grupos = [
+      ['Pueden impartirla', propios],
+      [nivel ? `Dan clases en ${nivel.toLowerCase()}` : 'Del mismo nivel', delNivelOpciones],
+      ['Otros profesores', otros],
+    ].filter(([, opciones]) => opciones.length);
     selector.replaceChildren();
     if (sinProfesor) selector.appendChild(sinProfesor);
-    if (propios.length && otros.length) {
-      selector.appendChild(grupo('Pueden impartirla', propios));
-      selector.appendChild(grupo('Otros profesores', otros));
+    if (grupos.length > 1) {
+      grupos.forEach(([etiqueta, opciones]) => selector.appendChild(grupo(etiqueta, opciones)));
     } else {
       profesores.forEach((opcion) => selector.appendChild(opcion));
     }
@@ -46,7 +53,7 @@
     if (elegir) {
       asignar.querySelector('[name="asignacion"]').value = elegir.dataset.asignacion;
       asignar.querySelector('[data-asignar-descripcion]').textContent = elegir.dataset.descripcion;
-      llenarSelector(elegir.dataset.habilitados, elegir.dataset.profesor);
+      llenarSelector(elegir.dataset.habilitados, elegir.dataset.delNivel, elegir.dataset.nivel, elegir.dataset.profesor);
       return;
     }
 

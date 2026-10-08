@@ -199,7 +199,7 @@ def rol_copiar(request, pk):
     omitidos = len(permisos_de_rol(origen) - propios)
     with transaction.atomic():
         grupo = Group.objects.create(name=nombre)
-        rol = Rol.objects.create(grupo=grupo, descripcion=origen.descripcion, tono=origen.tono)
+        rol = Rol.objects.create(grupo=grupo, descripcion=origen.descripcion, tono=origen.tono, es_docente=origen.es_docente)
         grupo.permissions.set(objetos_de_permisos(permisos))
     registrar(request.user, rol, ACCION_ALTA, f'Copia del rol «{origen}».')
     aviso = f' Se omitieron {omitidos} permiso{"s" if omitidos != 1 else ""} que tú no tienes.' if omitidos else ''

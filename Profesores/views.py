@@ -3,6 +3,7 @@ from collections import defaultdict
 from itertools import groupby
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, IntegerField, Q, Value
 from django.http import HttpResponse
@@ -25,7 +26,9 @@ from Alumnos.utils import ESTADOS_MX, proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
-from Usuarios.seguridad import ACCION_CAMBIO, registrar
+from Usuarios.docentes import desvincular, puede_desactivar_su_cuenta
+from Usuarios.seguridad import ACCION_ALTA, ACCION_BAJA, ACCION_CAMBIO, puede_gestionar, registrar, rol_de
+from Usuarios.views import SESION_CREDENCIALES, guardar_credenciales
 
 from .forms import FiltroProfesoresForm, ProfesorForm
 
@@ -37,7 +40,7 @@ from .forms import FiltroProfesoresForm, ProfesorForm
 def profesor_lista(request):
     filtro = FiltroProfesoresForm(request.GET)
     ciclo = ciclo_actual()
-    profesores = filtro.filtrar(Profesor.objects.all(), ciclo)
+    profesores = filtro.filtrar(Profesor.objects.all(), ciclo).prefetch_related('niveles')
     if ciclo:
         profesores = profesores.annotate(
             materias=Count('asignaciones', filter=Q(asignaciones__ciclo=ciclo, asignaciones__activa=True), distinct=True),
@@ -64,6 +67,8 @@ def profesor_lista(request):
         'viendo_bajas': filtro.activos.get('estatus') == 'INACTIVO',
         'filtros_activos': {k: v for k, v in filtro.activos.items() if k not in ('orden', 'estatus')},
         'ciclo': ciclo,
+        # Tras darle acceso a un profesor se muestran, una sola vez, las credenciales de su cuenta
+        'credenciales': request.session.pop(SESION_CREDENCIALES, None),
     })
 
 
@@ -79,13 +84,31 @@ def _formulario(request, form, profesor=None):
     })
 
 
+def _resultado_del_acceso(request, form, profesor):
+    """Si el formulario creó o vinculó la cuenta del profesor: bitácora, credenciales (una sola vez) y el texto del aviso."""
+    cuenta = form.cuenta
+    if cuenta is None:
+        return ''
+    if form.cuenta_nueva:
+        registrar(request.user, cuenta, ACCION_ALTA, f'Cuenta creada con el rol «{rol_de(cuenta)}» para el profesor {profesor}.')
+        registrar(request.user, profesor, ACCION_CAMBIO, f'Se le dio acceso al sistema con la cuenta «{cuenta.username}».')
+        guardar_credenciales(request, cuenta, form.contrasena_en_claro, 'Acceso al sistema', url=profesor.get_absolute_url(),
+                             escrita=form.acceso.contrasena_escrita, pedir_cambio=form.acceso.pedir_cambio)
+        return f' Se creó su cuenta «{cuenta.username}» con el rol «{rol_de(cuenta)}».'
+    registrar(request.user, cuenta, ACCION_CAMBIO, f'Se vinculó con la ficha del profesor {profesor}.')
+    registrar(request.user, profesor, ACCION_CAMBIO, f'Se vinculó con la cuenta de acceso «{cuenta.username}».')
+    return f' Ahora entra con la cuenta «{cuenta.username}».'
+
+
 @requiere_permisos('Alumnos.add_profesor')
 def profesor_crear(request):
-    form = ProfesorForm(request.POST if request.method == 'POST' else None)
+    form = ProfesorForm(request.POST if request.method == 'POST' else None, actor=request.user,
+                        abrir_acceso=request.GET.get('acceso') == '1')
     if request.method == 'POST':
         if form.is_valid():
             profesor = form.save()
-            messages.success(request, f'{profesor} fue registrado correctamente.')
+            aviso = _resultado_del_acceso(request, form, profesor)
+            messages.success(request, f'{profesor} fue registrado correctamente.{aviso}')
             return redirect('profesores:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
@@ -94,14 +117,36 @@ def profesor_crear(request):
 @requiere_permisos('Alumnos.change_profesor')
 def profesor_editar(request, pk):
     profesor = get_object_or_404(Profesor, pk=pk)
-    form = ProfesorForm(request.POST if request.method == 'POST' else None, instance=profesor)
+    form = ProfesorForm(request.POST if request.method == 'POST' else None, instance=profesor, actor=request.user,
+                        abrir_acceso=request.GET.get('acceso') == '1')
     if request.method == 'POST':
         if form.is_valid():
             form.save()
-            messages.success(request, f'Los datos de {profesor} se actualizaron.')
+            aviso = _resultado_del_acceso(request, form, profesor)
+            messages.success(request, f'Los datos de {profesor} se actualizaron.{aviso}')
             return redirect('profesores:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form, profesor)
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_profesor', 'auth.change_user')
+def profesor_desvincular(request, pk):
+    """Separa la ficha del profesor de su cuenta. No borra ni desactiva nada (sirve para corregir una vinculación equivocada)."""
+    profesor = get_object_or_404(Profesor.objects.select_related('usuario'), pk=pk)
+    if profesor.usuario_id is None:
+        messages.info(request, f'{profesor} no tiene cuenta de acceso.')
+        return redirect(profesor.get_absolute_url())
+    if not puede_gestionar(request.user, profesor.usuario):
+        raise PermissionDenied('No puedes administrar a un usuario con más permisos que tú.')
+    cuenta = desvincular(profesor)
+    registrar(request.user, profesor, ACCION_CAMBIO, f'Se desvinculó de la cuenta de acceso «{cuenta.username}».')
+    registrar(request.user, cuenta, ACCION_CAMBIO, f'Se desvinculó de la ficha del profesor {profesor}.')
+    messages.success(
+        request,
+        f'{profesor} ya no está vinculado con la cuenta «{cuenta.username}». La cuenta sigue existiendo: desactívala en «Usuarios» si ya no se usará.',
+    )
+    return redirect(profesor.get_absolute_url())
 
 
 # ---------------------------------------------------------------------------
@@ -152,8 +197,24 @@ def profesor_detalle(request, pk):
         if request.user.has_perm('Alumnos.change_profesor') and profesor.estatus == 'ACTIVO' else []
     )
 
+    # Su cuenta de acceso (una sola) y lo que quien consulta puede hacer con ella
+    cuenta = profesor.usuario if profesor.usuario_id else None
+    usuario = request.user
+    puede_dar_acceso = (
+        cuenta is None and profesor.estatus == 'ACTIVO' and usuario.has_perm('Alumnos.change_profesor')
+        and (usuario.has_perm('auth.add_user') or usuario.has_perm('auth.change_user'))
+    )
+
     return render(request, 'profesores/detalle.html', {
         'profesor': profesor,
+        'cuenta': cuenta,
+        'rol_cuenta': rol_de(cuenta) if cuenta else None,
+        'puede_dar_acceso': puede_dar_acceso,
+        'puede_desvincular': (
+            cuenta is not None and usuario.has_perm('Alumnos.change_profesor') and usuario.has_perm('auth.change_user')
+            and puede_gestionar(usuario, cuenta)
+        ),
+        'puede_desactivar_cuenta': puede_desactivar_su_cuenta(usuario, profesor),
         'habilitadas': habilitadas,
         'sin_habilitar': sin_habilitar,
         'materias_por_habilitar': por_habilitar,
@@ -189,14 +250,22 @@ def profesor_baja(request, pk):
         return redirect('profesores:lista')
 
     liberadas = 0
+    cuenta_desactivada = None
     with transaction.atomic():
         profesor.estatus = 'INACTIVO'
         profesor.save(update_fields=['estatus', 'modificado'])
         if request.POST.get('quitar_del_ciclo'):
             # Solo el ciclo actual: el historial de los ciclos cerrados conserva quién daba cada materia
             liberadas = MateriaGrado.objects.filter(profesor=profesor, ciclo__activo=True, activa=True).update(profesor=None)
+        if request.POST.get('desactivar_cuenta') and puede_desactivar_su_cuenta(request.user, profesor):
+            cuenta_desactivada = profesor.usuario
+            cuenta_desactivada.is_active = False
+            cuenta_desactivada.save(update_fields=['is_active'])
+            registrar(request.user, cuenta_desactivada, ACCION_BAJA, f'Cuenta desactivada al dar de baja al profesor {profesor}.')
 
     aviso = f' Sus {liberadas} materia{"s" if liberadas != 1 else ""} del ciclo actual quedaron sin profesor.' if liberadas else ''
+    if cuenta_desactivada:
+        aviso += f' Su cuenta «{cuenta_desactivada.username}» quedó desactivada.'
     messages.success(
         request,
         f'{profesor} fue dado de baja.{aviso} Su registro se conserva y puedes reactivarlo desde el filtro «Bajas».',
@@ -211,7 +280,10 @@ def profesor_reactivar(request, pk):
     if profesor.estatus == 'INACTIVO':
         profesor.estatus = 'ACTIVO'
         profesor.save(update_fields=['estatus', 'modificado'])
-        messages.success(request, f'{profesor} fue reactivado. Asígnale de nuevo las materias que imparte.')
+        aviso = ''
+        if profesor.usuario_id and not profesor.usuario.is_active:
+            aviso = f' Su cuenta «{profesor.usuario.username}» sigue desactivada: reactívala en «Usuarios» si volverá a entrar al sistema.'
+        messages.success(request, f'{profesor} fue reactivado. Asígnale de nuevo las materias que imparte.{aviso}')
     return redirect('profesores:lista')
 
 
@@ -326,7 +398,7 @@ def asignar(request):
 def profesor_exportar(request):
     filtro = FiltroProfesoresForm(request.GET)
     ciclo = ciclo_actual()
-    profesores = list(filtro.filtrar(Profesor.objects.all(), ciclo))
+    profesores = list(filtro.filtrar(Profesor.objects.all(), ciclo).prefetch_related('niveles'))
 
     materias = defaultdict(list)
     if ciclo:
@@ -350,13 +422,14 @@ def profesor_exportar(request):
     escritor = csv.writer(respuesta)
     escritor.writerow([
         'Nombre', 'Apellido paterno', 'Apellido materno', 'CURP', 'Teléfono', 'Teléfono alternativo', 'Correo electrónico',
-        'Profesión', 'Cédula profesional', 'Especialidad', 'Fecha de ingreso', 'Estatus',
+        'Niveles', 'Profesión', 'Cédula profesional', 'Especialidad', 'Fecha de ingreso', 'Estatus',
         f'Materias en el ciclo actual{f" ({ciclo})" if ciclo else ""}', 'Materias que puede impartir', 'Horas máximas por semana',
     ])
     for profesor in profesores:
         escritor.writerow([proteger_celda_csv(valor) for valor in [
             profesor.nombre, profesor.apellido_paterno, profesor.apellido_materno, profesor.curp or '', profesor.telefono,
-            profesor.telefono_alternativo, profesor.correo_electronico or '', profesor.profesion, profesor.cedula_profesional,
+            profesor.telefono_alternativo, profesor.correo_electronico or '', profesor.niveles_texto, profesor.profesion,
+            profesor.cedula_profesional,
             profesor.especialidad, f'{profesor.fecha_ingreso:%d/%m/%Y}' if profesor.fecha_ingreso else '',
             profesor.get_estatus_display(), '; '.join(materias.get(profesor.pk, [])),
             '; '.join(habilitadas.get(profesor.pk, [])), profesor.horas_maximas or '',

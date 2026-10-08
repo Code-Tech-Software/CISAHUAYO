@@ -1,4 +1,6 @@
 """Módulo de usuarios: listado, alta, edición, desactivación, contraseñas, «Mi cuenta» y permisos dinámicos."""
+import re
+
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -40,6 +42,7 @@ class BaseUsuariosTestCase(BaseTestCase):
         super().setUpTestData()
         cls.docente = Rol.objects.get(grupo__name='Docente')
         cls.direccion = Rol.objects.get(grupo__name='Dirección')
+        cls.recepcion = Rol.objects.get(grupo__name='Recepción')
         cls.administrador = Rol.objects.get(acceso_total=True)
 
     def entrar_como(self, usuario):
@@ -154,20 +157,44 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
         self.assertFalse(Usuario.objects.filter(username='maria.nunez').exists())
 
     def test_crea_la_cuenta_con_rol_y_contrasena_temporal(self):
-        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente))
+        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion))
         self.assertRedirects(respuesta, reverse('usuarios:lista'), fetch_redirect_response=False)
         usuario = Usuario.objects.get(username='maria.nunez')
         self.assertEqual((usuario.first_name, usuario.last_name, usuario.email), ('María José', 'Núñez Ruiz', 'maria@example.com'))
         self.assertTrue(usuario.is_active)
         self.assertFalse(usuario.is_staff)
         self.assertFalse(usuario.is_superuser)
-        self.assertEqual(rol_de(usuario), self.docente)
+        self.assertEqual(rol_de(usuario), self.recepcion)
         perfil = usuario.perfil
         self.assertEqual((perfil.telefono, perfil.cargo), ('3531234567', 'Secretaria'))
-        self.assertTrue(perfil.debe_cambiar_contrasena)
+        self.assertFalse(perfil.debe_cambiar_contrasena)   # cambiarla al entrar es opcional y no se marcó
+
+    def test_el_alta_ofrece_pedir_que_la_cambie_sin_marcar(self):
+        html = self.client.get(reverse('usuarios:crear')).content.decode()
+        casilla = re.search(r'<input[^>]*name="pedir_cambio"[^>]*>', html).group(0)
+        self.assertIn('type="checkbox"', casilla)
+        self.assertNotIn('checked', casilla)
+        self.assertIn('Pedir que la cambie al entrar', html)
+        self.assertNotIn('deberá cambiarla al entrar', html)
+
+    def test_si_se_marca_debera_cambiarla_al_entrar(self):
+        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion, pedir_cambio='on'))
+        usuario = Usuario.objects.get(username='maria.nunez')
+        self.assertTrue(usuario.perfil.debe_cambiar_contrasena)
+        self.assertTrue(self.client.session['credenciales_usuario']['pedir_cambio'])
+        self.assertContains(self.client.get(reverse('usuarios:lista')), 'le pedirá elegir una propia')
+
+    def test_si_no_se_marca_entra_y_trabaja_con_la_asignada(self):
+        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion, contrasena='Clave-Escuela-2026'))
+        listado = self.client.get(reverse('usuarios:lista'))
+        self.assertContains(listado, 'Puede seguir usando esta contraseña')
+        self.assertNotContains(listado, 'le pedirá elegir una propia')
+        persona = Client()
+        self.assertTrue(persona.login(username='maria.nunez', password='Clave-Escuela-2026'))
+        self.assertEqual(persona.get(reverse('inicio')).status_code, 200)   # no lo manda a cambiarla
 
     def test_la_contrasena_temporal_se_muestra_una_sola_vez_y_funciona(self):
-        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente))
+        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion))
         temporal = self.client.session['credenciales_usuario']['contrasena']
         self.assertGreaterEqual(len(temporal), 8)
         usuario = Usuario.objects.get(username='maria.nunez')
@@ -181,19 +208,19 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
         self.assertNotIn(temporal, segunda)
 
     def test_avisa_con_un_mensaje_y_deja_bitacora(self):
-        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente), follow=True)
+        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion), follow=True)
         self.assertContains(respuesta, 'fue creada con el rol')
         usuario = Usuario.objects.get(username='maria.nunez')
         entrada = bitacora(usuario, ADDITION).get()
         self.assertEqual(entrada.user, self.admin)
-        self.assertIn('Docente', entrada.change_message)
+        self.assertIn('Recepción', entrada.change_message)
 
     def test_el_usuario_se_guarda_en_minusculas(self):
-        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente, username='Maria.Nunez'))
+        self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion, username='Maria.Nunez'))
         self.assertTrue(Usuario.objects.filter(username='maria.nunez').exists())
 
     def test_responde_con_json_cuando_se_envia_desde_la_ventana(self):
-        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente), HTTP_X_MODAL_FORM='1')
+        respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion), HTTP_X_MODAL_FORM='1')
         self.assertEqual(respuesta.json(), {'redirect': reverse('usuarios:lista')})
 
     def test_rechaza_datos_incorrectos(self):
@@ -210,7 +237,7 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
         }
         for nombre, (cambios, texto) in casos.items():
             with self.subTest(caso=nombre):
-                respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.docente, **cambios))
+                respuesta = self.client.post(reverse('usuarios:crear'), datos_de_alta(self.recepcion, **cambios))
                 self.assertEqual(respuesta.status_code, 200)
                 self.assertContains(respuesta, texto)
         self.assertFalse(Usuario.objects.filter(username='maria.nunez').exists())
@@ -334,7 +361,7 @@ class EdicionDeUsuariosTests(BaseUsuariosTestCase):
     def test_pasar_de_administrador_a_otro_rol_quita_el_acceso_total(self):
         otra_admin = crear_usuario('otra_admin', self.administrador)
         self.assertTrue(otra_admin.is_superuser)
-        self.client.post(reverse('usuarios:editar', args=[otra_admin.pk]), self.datos(username='otra_admin', rol=self.docente.pk, email='', first_name='Otra_admin', last_name='Prueba'))
+        self.client.post(reverse('usuarios:editar', args=[otra_admin.pk]), self.datos(username='otra_admin', rol=self.recepcion.pk, email='', first_name='Otra_admin', last_name='Prueba'))
         otra_admin.refresh_from_db()
         self.assertFalse(otra_admin.is_superuser)
         self.assertFalse(otra_admin.is_staff)
@@ -364,9 +391,9 @@ class EdicionDeUsuariosTests(BaseUsuariosTestCase):
     def test_otro_administrador_si_puede_cambiarle_el_rol_al_segundo(self):
         segundo = crear_usuario('segundo', self.administrador)
         self.assertFalse(es_ultimo_administrador(segundo))
-        self.client.post(reverse('usuarios:editar', args=[segundo.pk]), self.datos(username='segundo', first_name='Segundo', last_name='Prueba', email='', rol=self.docente.pk))
+        self.client.post(reverse('usuarios:editar', args=[segundo.pk]), self.datos(username='segundo', first_name='Segundo', last_name='Prueba', email='', rol=self.recepcion.pk))
         segundo.refresh_from_db()
-        self.assertEqual(rol_de(segundo), self.docente)
+        self.assertEqual(rol_de(segundo), self.recepcion)
 
     def test_una_cuenta_antigua_con_usuario_en_mayusculas_se_puede_editar(self):
         antigua = Usuario.objects.create_user('Antigua', password='x', first_name='A', last_name='B')
@@ -531,8 +558,20 @@ class RestablecerContrasenaTests(BaseUsuariosTestCase):
         self.usuario.refresh_from_db()
         self.assertTrue(self.usuario.check_password(temporal))
         self.assertFalse(self.usuario.check_password('VieJa-clave-77'))
-        self.assertTrue(self.usuario.perfil.debe_cambiar_contrasena)
+        self.assertFalse(self.usuario.perfil.debe_cambiar_contrasena)   # cambiarla al entrar es opcional
         self.assertTrue(bitacora(self.usuario, CHANGE).filter(change_message__contains='restablecida').exists())
+
+    def test_al_restablecer_se_puede_pedir_que_la_cambie(self):
+        self.client.post(reverse('usuarios:restablecer', args=[self.usuario.pk]), {'pedir_cambio': 'on'})
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.perfil.debe_cambiar_contrasena)
+        self.assertTrue(bitacora(self.usuario, CHANGE).filter(change_message__contains='deberá cambiarla').exists())
+
+    def test_la_ventana_de_restablecer_ofrece_la_casilla(self):
+        html = self.client.get(reverse('usuarios:detalle', args=[self.usuario.pk])).content.decode()
+        ventana = re.search(r'<dialog[^>]*id="modal-restablecer".*?</dialog>', html, re.S).group(0)
+        self.assertIn('name="pedir_cambio"', ventana)
+        self.assertNotIn('checked', re.search(r'<input[^>]*name="pedir_cambio"[^>]*>', ventana).group(0))
 
     def test_la_muestra_una_sola_vez(self):
         self.client.post(reverse('usuarios:restablecer', args=[self.usuario.pk]))

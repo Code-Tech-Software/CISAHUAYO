@@ -73,6 +73,7 @@ class NingunaPantallaDiceAlumnoTests(BaseTestCase):
             reverse('materias:lista'), reverse('materias:detalle', args=[self.materia.pk]),
             reverse('horarios:lista'), reverse('horarios:grado', args=[g]),
             reverse('asignaciones:tablero'), reverse('asignaciones:carga'), reverse('asignaciones:movimientos'),
+            reverse('usuarios:crear'), reverse('profesores:crear'), reverse('profesores:editar', args=[self.profesor.pk]),
             reverse('asistencias:inicio'), reverse('asistencias:dia'), reverse('asistencias:clases'),
             reverse('asistencias:justificaciones'), reverse('asistencias:justificacion_crear'),
             reverse('asistencias:reporte'), reverse('asistencias:ajustes'), reverse('asistencias:alumno', args=[a]),

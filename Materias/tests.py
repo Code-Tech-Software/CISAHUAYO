@@ -16,6 +16,7 @@ from CISAHUAYO.pruebas import (
     ciclo_cerrado_de_prueba,
     ciclo_proximo_de_prueba,
     crear_grado,
+    crear_profesor,
 )
 
 
@@ -136,15 +137,61 @@ class ListaTests(BaseTestCase):
         self.assertEqual(self.claves(q='IN'), ['ING'])
         self.assertEqual(self.claves(q='nadie'), [])
 
-    def test_cuenta_los_grados_del_ciclo_actual(self):
-        grados = {m.clave: m.grados for m in self.pedir().context['pagina']}
-        self.assertEqual(grados, {'ESP': 1, 'ING': 0, 'MAT': 2})
+    def test_muestra_el_grado_con_su_equivalencia(self):
+        secundaria = crear_grado('SECUNDARIA', 1, equivalencia='7')
+        Materia.objects.filter(pk=self.esp.pk).update(grado=secundaria)
+        html = self.pedir().content.decode()
+        self.assertIn('<span class="cell-stack__main">1° Secundaria</span>', html)
+        self.assertIn('Equivale al 7°', html)
+        self.assertIn('Sin grado', html)                       # las de antes que todavía no tienen
+
+    def test_muestra_el_profesor_del_ciclo_actual(self):
+        marta = crear_profesor()
+        MateriaGrado.objects.filter(materia=self.esp, grado=self.p1).update(profesor=marta)
+        Materia.objects.filter(pk=self.ing.pk).update(grado=self.p1)   # con grado, pero fuera del plan del ciclo
+        respuesta = self.pedir()
+        plan = {m.clave: [str(a.profesor or '') for a in m.plan_actual] for m in respuesta.context['pagina']}
+        self.assertEqual(plan, {'ESP': [str(marta)], 'ING': [], 'MAT': ['', '']})   # ING es de otro ciclo
+        self.assertContains(respuesta, f'Profesor en {self.ciclo}')
+        self.assertContains(respuesta, str(marta))
+        self.assertContains(respuesta, 'Sin profesor')
+        self.assertContains(respuesta, 'Fuera del plan')
 
     def test_sin_ciclo_actual_no_falla(self):
         self.ciclo.activo = False
         self.ciclo.save()
         respuesta = self.pedir()
-        self.assertEqual({m.grados for m in respuesta.context['pagina']}, {0})
+        self.assertNotContains(respuesta, 'Profesor en')
+        self.assertNotIn('situacion', respuesta.context['filtro'].fields)
+
+    def test_filtra_por_nivel_y_por_grado(self):
+        secundaria = crear_grado('SECUNDARIA', 1)
+        Materia.objects.filter(pk=self.mat.pk).update(grado=self.p1)
+        Materia.objects.filter(pk=self.esp.pk).update(grado=secundaria)
+        self.assertEqual(self.claves(nivel='PRIMARIA'), ['MAT'])
+        self.assertEqual(self.claves(nivel='SECUNDARIA'), ['ESP'])
+        self.assertEqual(self.claves(grado=self.p1.pk), ['MAT'])
+        self.assertEqual(self.claves(grado='SIN_GRADO'), ['ING'])
+        self.assertEqual(self.claves(grado='nada'), ['ESP', 'ING', 'MAT'])   # lo inválido se ignora
+
+    def test_el_filtro_de_grado_los_agrupa_por_nivel(self):
+        html = self.pedir().content.decode()
+        self.assertIn('<optgroup label="Primaria">', html)
+        self.assertIn('<option value="SIN_GRADO">Sin grado</option>', html)
+
+    def test_filtra_por_profesor_en_el_ciclo_actual(self):
+        MateriaGrado.objects.filter(materia=self.esp, grado=self.p1).update(profesor=crear_profesor())
+        self.assertEqual(self.claves(situacion='con_profesor'), ['ESP'])
+        self.assertEqual(self.claves(situacion='sin_profesor'), ['MAT'])
+        self.assertEqual(self.claves(situacion='fuera_del_plan'), ['ING'])
+
+    def test_ordena_por_grado_o_por_clave(self):
+        secundaria = crear_grado('SECUNDARIA', 1)
+        Materia.objects.filter(pk=self.mat.pk).update(grado=secundaria)
+        Materia.objects.filter(pk=self.ing.pk).update(grado=self.p1)
+        self.assertEqual(self.claves(orden='grado'), ['ING', 'MAT', 'ESP'])   # sin grado, al final
+        self.assertEqual(self.claves(orden='-nombre'), ['MAT', 'ING', 'ESP'])
+        self.assertEqual(self.claves(orden='clave'), ['ESP', 'ING', 'MAT'])
 
     def test_pagina_y_tamano(self):
         for i in range(25):
@@ -223,7 +270,7 @@ class EditarTests(BaseTestCase):
     def test_formulario_precargado(self):
         respuesta = self.client.get(self.url)
         self.assertContains(respuesta, 'value="MAT"')
-        self.assertEqual(list(respuesta.context['form'].fields), ['clave', 'nombre'])
+        self.assertEqual(list(respuesta.context['form'].fields), ['clave', 'nombre', 'grado'])
 
     def test_actualiza_y_vuelve_al_listado(self):
         respuesta = self.client.post(self.url, {'clave': 'MATE', 'nombre': 'Matemáticas I'}, follow=True)
@@ -260,10 +307,9 @@ class DetalleTests(BaseTestCase):
         self.actual = ciclo_actual_de_prueba('2026-2027')
         self.proximo = ciclo_proximo_de_prueba('2027-2028')
         self.cerrado = ciclo_cerrado_de_prueba('2025-2026')
-        self.materia = crear_materia()
         self.p1, self.p2, self.p3 = crear_grado('PRIMARIA', 1), crear_grado('PRIMARIA', 2), crear_grado('PRIMARIA', 3)
+        self.materia = crear_materia(grado=self.p1)
         self.a1 = asignar(self.materia, self.p1, self.actual)
-        self.a2 = asignar(self.materia, self.p2, self.actual, activa=False)
         bloque(self.a1, 0, (8, 0), (9, 0))
         bloque(self.a1, 2, (8, 0), (9, 0))
         bloque(self.a1, 4, (10, 0), (10, 45))
@@ -273,41 +319,52 @@ class DetalleTests(BaseTestCase):
         self.assertEqual(respuesta.status_code, 200)
         return respuesta
 
-    def test_grados_del_ciclo_con_su_horario(self):
+    def test_muestra_su_clase_del_ciclo_actual_con_su_horario(self):
         respuesta = self.detalle()
-        filas = respuesta.context['asignaciones']
-        self.assertEqual([str(f.grado) for f in filas], ['1° Primaria', '2° Primaria'])
-        self.assertEqual(filas[0].lineas, ['Lun, Mié · 08:00–09:00', 'Vie · 10:00–10:45'])
-        self.assertEqual(filas[0].duracion, '2 h 45 min')
-        self.assertEqual(respuesta.context['total_grados'], 1)                  # la quitada no cuenta
+        clases = respuesta.context['clases']
+        self.assertEqual(clases, [self.a1])
+        self.assertEqual(clases[0].lineas, ['Lun, Mié · 08:00–09:00', 'Vie · 10:00–10:45'])
         self.assertEqual(respuesta.context['horas_semanales'], '2 h 45 min')
+        self.assertContains(respuesta, 'Su clase en el ciclo 2026-2027')
+        self.assertContains(respuesta, 'Sin profesor')
 
-    def test_muestra_las_quitadas_y_ofrece_volver_a_asignarlas(self):
-        self.assertContains(self.detalle(), 'Volver a asignar')
+    def test_ya_no_tiene_grados_por_ciclo_ni_asignar_a_grados(self):
+        html = self.detalle().content.decode()
+        self.assertNotIn('Grados que la imparten', html)
+        self.assertNotIn('selector-ciclo', html)
+        self.assertNotIn('modal-asignar"', html)
+        self.assertNotIn('data-quitar', html)
 
-    def test_ofrece_los_grados_pendientes_agrupados_por_nivel(self):
-        grupos = self.detalle().context['grupos_por_asignar']
-        self.assertEqual([(g['nombre'], [str(x) for x in g['grados']]) for g in grupos], [('Primaria', ['2° Primaria', '3° Primaria'])])
+    def test_siempre_es_el_ciclo_actual(self):
+        self.assertEqual(self.detalle(ciclo=self.proximo.pk).context['ciclo'], self.actual)
 
-    def test_elige_otro_ciclo(self):
-        respuesta = self.detalle(ciclo=self.proximo.pk)
-        self.assertEqual(respuesta.context['ciclo'], self.proximo)
-        self.assertEqual(respuesta.context['asignaciones'], [])
-        self.assertEqual(respuesta.context['total_grados'], 0)
-
-    def test_un_ciclo_cerrado_es_de_solo_lectura(self):
+    def test_los_otros_ciclos_quedan_como_historial(self):
         asignar(self.materia, self.p1, self.cerrado)
-        respuesta = self.detalle(ciclo=self.cerrado.pk)
-        self.assertFalse(respuesta.context['editable'])
-        self.assertEqual(respuesta.context['grupos_por_asignar'], [])
-        self.assertContains(respuesta, 'está cerrado')
-        self.assertNotContains(respuesta, 'data-quitar')
+        respuesta = self.detalle()
+        self.assertEqual([a.ciclo for a in respuesta.context['historial']], [self.cerrado])
+        self.assertContains(respuesta, 'Otros ciclos')
 
-    def test_una_materia_de_baja_no_ofrece_asignar(self):
+    def test_si_se_quito_del_plan_ofrece_volver_a_agregarla(self):
+        MateriaGrado.objects.filter(pk=self.a1.pk).update(activa=False)
+        respuesta = self.detalle()
+        self.assertTrue(respuesta.context['puede_agregarse'])
+        self.assertContains(respuesta, 'Agregar al plan de 1° Primaria')
+        self.client.post(reverse('materias:asignar'), {'ciclo': self.actual.pk, 'materia': self.materia.pk, 'grado': self.p1.pk})
+        self.a1.refresh_from_db()
+        self.assertTrue(self.a1.activa)
+
+    def test_sin_grado_pide_elegirlo(self):
+        vieja = crear_materia('OLD', 'Taller')
+        respuesta = self.client.get(vieja.get_absolute_url())
+        self.assertFalse(respuesta.context['puede_agregarse'])
+        self.assertContains(respuesta, 'Todavía no tiene grado')
+        self.assertContains(respuesta, 'Elegir su grado')
+
+    def test_una_materia_de_baja_no_ofrece_agregarla(self):
         self.materia.activa = False
         self.materia.save()
         respuesta = self.detalle()
-        self.assertEqual(respuesta.context['grupos_por_asignar'], [])
+        self.assertFalse(respuesta.context['puede_agregarse'])
         self.assertContains(respuesta, 'Materia dada de baja')
         self.assertContains(respuesta, 'Reactivar materia')
 
@@ -412,24 +469,48 @@ class AsignarTests(BaseTestCase):
         datos.update(extra)
         return self.client.post(self.url, datos)
 
-    def test_una_materia_a_varios_grados(self):
-        respuesta = self.post(materias=[self.mat], grados=[self.p1, self.p2], next=self.mat.get_absolute_url())
+    def test_una_materia_sin_grado_toma_el_grado_al_que_se_agrega(self):
+        respuesta = self.post(materias=[self.mat], grados=[self.p1], next=self.mat.get_absolute_url())
         self.assertRedirects(respuesta, self.mat.get_absolute_url(), fetch_redirect_response=False)
-        self.assertEqual(MateriaGrado.objects.filter(ciclo=self.actual, materia=self.mat, activa=True).count(), 2)
+        self.assertEqual(MateriaGrado.objects.filter(ciclo=self.actual, materia=self.mat, activa=True).count(), 1)
+        self.mat.refresh_from_db()
+        self.assertEqual(self.mat.grado, self.p1)
+
+    def test_una_materia_no_se_agrega_a_varios_grados(self):
+        self.post(materias=[self.mat], grados=[self.p1, self.p2])
+        self.assertFalse(MateriaGrado.objects.exists())
+        mensajes = [str(m) for m in self.client.get(reverse('materias:lista')).context['messages']]
+        self.assertIn('No se agregó. Matemáticas la imparte un solo grado: elige solo uno.', mensajes)
+
+    def test_una_materia_con_grado_solo_se_agrega_al_suyo(self):
+        Materia.objects.filter(pk=self.mat.pk).update(grado=self.p2)
+        self.post(materias=[self.mat], grados=[self.p1])
+        self.assertFalse(MateriaGrado.objects.exists())
+        mensajes = [str(m) for m in self.client.get(reverse('materias:lista')).context['messages']]
+        self.assertIn('No se agregó. Matemáticas es de 2° Primaria: solo se agrega al plan de ese grado.', mensajes)
+        self.post(materias=[self.mat], grados=[self.p2])
+        self.assertTrue(MateriaGrado.objects.filter(materia=self.mat, grado=self.p2).exists())
+
+    def test_una_materia_que_sigue_en_otro_grado_no_toma_uno_nuevo(self):
+        asignar(self.mat, self.p2, self.actual)                      # de antes de la regla, sin grado
+        self.post(materias=[self.mat], grados=[self.p1])
+        self.assertFalse(MateriaGrado.objects.filter(grado=self.p1).exists())
+        self.mat.refresh_from_db()
+        self.assertIsNone(self.mat.grado)
 
     def test_varias_materias_a_un_grado(self):
         self.post(materias=[self.mat, self.esp], grados=[self.p1])
         self.assertEqual(MateriaGrado.objects.filter(ciclo=self.actual, grado=self.p1, activa=True).count(), 2)
 
-    def test_crea_todas_las_combinaciones_y_confirma(self):
-        self.post(materias=[self.mat, self.esp], grados=[self.p1, self.p2])
-        self.assertEqual(MateriaGrado.objects.count(), 4)
+    def test_varias_materias_a_su_grado_y_confirma(self):
+        self.post(materias=[self.mat, self.esp], grados=[self.p1])
+        self.assertEqual(MateriaGrado.objects.count(), 2)
         mensajes = [str(m) for m in self.client.get(reverse('materias:lista')).context['messages']]
-        self.assertIn('Se agregaron 4 asignaciones de materia a grados en el ciclo 2026-2027.', mensajes)
+        self.assertIn('Se agregaron 2 asignaciones de materia a grados en el ciclo 2026-2027.', mensajes)
 
     def test_no_duplica_lo_que_ya_estaba(self):
         asignar(self.mat, self.p1, self.actual)
-        self.post(materias=[self.mat], grados=[self.p1, self.p2])
+        self.post(materias=[self.mat, self.esp], grados=[self.p1])
         self.assertEqual(MateriaGrado.objects.count(), 2)
 
     def test_reactiva_una_asignacion_quitada(self):
@@ -557,11 +638,12 @@ class ExportarTests(BaseTestCase):
     def setUp(self):
         super().setUp()
         self.actual = ciclo_actual_de_prueba()
-        self.mat = crear_materia('MAT', '=Matemáticas')
+        primero = crear_grado('PRIMARIA', 1, equivalencia='1')
+        self.mat = crear_materia('MAT', '=Matemáticas', grado=primero)
         crear_materia('ESP', 'Español')
         crear_materia('OLD', 'Antigua', activa=False)
-        asignar(self.mat, crear_grado('PRIMARIA', 2), self.actual)
-        asignar(self.mat, crear_grado('PRIMARIA', 1), self.actual)
+        self.marta = crear_profesor()
+        asignar(self.mat, primero, self.actual, profesor=self.marta)
 
     def filas(self, **filtros):
         respuesta = self.client.get(reverse('materias:exportar'), filtros)
@@ -572,13 +654,18 @@ class ExportarTests(BaseTestCase):
         self.assertTrue(contenido.startswith('﻿'))
         return list(csv.reader(io.StringIO(contenido.lstrip('﻿'))))
 
-    def test_exporta_las_activas_con_sus_grados_en_orden_escolar(self):
+    def test_exporta_las_activas_con_su_grado_y_su_profesor(self):
         filas = self.filas()
-        self.assertEqual(filas[0][:3], ['Clave', 'Nombre', 'Estado'])
-        self.assertIn('2026-2027', filas[0][3])
+        self.assertEqual(filas[0][:5], ['Clave', 'Nombre', 'Grado', 'Equivalencia', 'Estado'])
+        self.assertIn('2026-2027', filas[0][5])
         self.assertEqual([f[0] for f in filas[1:]], ['MAT', 'ESP'])           # por nombre: «=Matemáticas» va antes que «Español»
         self.assertEqual(filas[1][1], "'=Matemáticas")                      # neutraliza fórmulas de Excel
-        self.assertEqual(filas[1][3], '1° Primaria; 2° Primaria')
+        self.assertEqual(filas[1][2:], ['1° Primaria', '1°', 'Activa', str(self.marta)])
+        self.assertEqual(filas[2][2:], ['Sin grado', '', 'Activa', ''])
+
+    def test_respeta_los_filtros_de_grado(self):
+        self.assertEqual([f[0] for f in self.filas(grado='SIN_GRADO')[1:]], ['ESP'])
+        self.assertEqual([f[0] for f in self.filas(situacion='con_profesor')[1:]], ['MAT'])
 
     def test_respeta_los_filtros(self):
         self.assertEqual([f[0] for f in self.filas(estado='BAJA')[1:]], ['OLD'])

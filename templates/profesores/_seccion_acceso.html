@@ -49,7 +49,14 @@
         {% if acceso.puede_crear %}
           <div class="form-grid" data-modo-panel="nueva"{% if acceso.modo_actual != 'nueva' %} hidden{% endif %}>
             {% include "partials/field.html" with campo=acceso.username %}
-            {% include "partials/field.html" with campo=acceso.rol %}
+            {% if acceso.sin_roles_docentes %}
+              <div class="field is-invalid">
+                <span class="field__label field__label--required">{{ acceso.rol.label }}</span>
+                <p class="field__error">No hay un rol para docentes que puedas asignar. Márcalo como «Rol para docentes» en Roles.</p>
+              </div>
+            {% else %}
+              {% include "partials/field.html" with campo=acceso.rol %}
+            {% endif %}
             {% include "partials/field.html" with campo=acceso.email %}
             {% include "partials/field.html" with campo=acceso.contrasena %}
             {% if acceso.pedir_cambio %}

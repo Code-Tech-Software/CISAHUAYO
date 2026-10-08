@@ -92,7 +92,7 @@ class CuentaDeProfesorForm(EstiloCamposMixin, forms.Form):
         'autocomplete': 'off', 'placeholder': 'El del profesor',
     }), help_text='Opcional. Si lo dejas vacío se usa el correo de su ficha.')
     rol = forms.ModelChoiceField(queryset=Rol.objects.none(), required=False, label='Rol', empty_label='Elige un rol',
-                                 help_text='Define qué puede ver y hacer en el sistema.')
+                                 help_text='Solo aparecen los roles para docentes. Define qué puede ver y hacer en el sistema.')
     cuenta = forms.ModelChoiceField(queryset=Usuario.objects.none(), required=False, label='Cuenta', empty_label='Elige la cuenta',
                                     help_text='Cuentas activas que todavía no son de ningún profesor.')
 
@@ -111,9 +111,11 @@ class CuentaDeProfesorForm(EstiloCamposMixin, forms.Form):
         self.fields['modo'].choices = [(clave, texto) for clave, texto in self.MODOS
                                        if (clave == 'nueva' and self.puede_crear) or (clave == 'existente' and self.puede_vincular)]
 
-        asignables = roles_asignables(actor) if self.puede_crear else []
+        # Solo los roles para docentes (Rol.es_docente) que quien captura también podría dar
+        asignables = [rol for rol in roles_asignables(actor) if rol.es_docente] if self.puede_crear else []
         self.fields['rol'].queryset = Rol.objects.filter(pk__in=[rol.pk for rol in asignables]).select_related('grupo')
         self.fields['rol'].label_from_instance = lambda rol: rol.nombre
+        self.sin_roles_docentes = self.puede_crear and not asignables
         predeterminado = rol_docente_predeterminado(asignables)
         if predeterminado:
             self.fields['rol'].initial = predeterminado.pk
@@ -157,7 +159,9 @@ class CuentaDeProfesorForm(EstiloCamposMixin, forms.Form):
             datos['email'] = validar_correo_de_cuenta(datos.get('email'))
         except ValidationError as error:
             self.add_error('email', error)
-        if not datos.get('rol'):
+        if self.sin_roles_docentes:
+            self.add_error('rol', 'No hay un rol para docentes que puedas asignar. Márcalo como «Rol para docentes» en Roles.')
+        elif not datos.get('rol'):
             self.add_error('rol', 'Elige el rol de la cuenta.')
         if datos.get('contrasena') and 'username' not in self.errors:
             try:

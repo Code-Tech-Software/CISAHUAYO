@@ -36,20 +36,22 @@ class DetalleConProfesorTests(BaseTestCase):
         super().setUp()
         self.ciclo = ciclo_actual_de_prueba()
         self.cerrado = ciclo_cerrado_de_prueba()
-        self.materia = crear_materia()
         self.profesor = crear_profesor()
-        self.p1, self.p2 = crear_grado('PRIMARIA', 1), crear_grado('PRIMARIA', 2)
-        self.a1 = asignar(self.materia, self.p1, self.ciclo, profesor=self.profesor)
-        self.a2 = asignar(self.materia, self.p2, self.ciclo)
+        self.p1 = crear_grado('PRIMARIA', 1)
+        self.materia = crear_materia(grado=self.p1)
+        self.a1 = asignar(self.materia, self.p1, self.ciclo)
 
     def detalle(self, **parametros):
         return self.client.get(self.materia.get_absolute_url(), parametros)
 
-    def test_muestra_quien_da_la_materia_en_cada_grado(self):
+    def test_muestra_quien_da_la_materia(self):
+        respuesta = self.detalle()
+        self.assertContains(respuesta, 'Sin profesor')
+        self.assertContains(respuesta, 'Asignar profesor')
+        MateriaGrado.objects.filter(pk=self.a1.pk).update(profesor=self.profesor)
         respuesta = self.detalle()
         self.assertContains(respuesta, self.profesor.get_absolute_url())
-        self.assertContains(respuesta, 'Sin profesor')
-        self.assertEqual(respuesta.context['sin_profesor'], 1)
+        self.assertContains(respuesta, 'Cambiar profesor')
 
     def test_ofrece_solo_profesores_activos(self):
         baja = crear_profesor(nombre='Baja', telefono='3530000009', estatus='INACTIVO')
@@ -58,20 +60,19 @@ class DetalleConProfesorTests(BaseTestCase):
         self.assertNotIn(baja, respuesta.context['profesores_activos'])
         self.assertContains(respuesta, 'modal-asignar-profesor')
 
-    def test_un_ciclo_cerrado_no_permite_asignar(self):
+    def test_lo_de_un_ciclo_cerrado_no_se_asigna_desde_aqui(self):
         asignar(self.materia, self.p1, self.cerrado, profesor=self.profesor)
-        respuesta = self.detalle(ciclo=self.cerrado.pk)
-        self.assertEqual(respuesta.context['profesores_activos'], [])
-        self.assertNotContains(respuesta, 'data-asignar-profesor')
-        self.assertNotContains(respuesta, 'modal-asignar-profesor')
+        respuesta = self.detalle()
+        self.assertContains(respuesta, 'Otros ciclos')
+        self.assertEqual(len(respuesta.content.decode().split('data-asignar-profesor')) - 1, 1)   # solo la del ciclo actual
 
     def test_asignar_desde_el_perfil_vuelve_al_perfil(self):
         respuesta = self.client.post(reverse('profesores:asignar'), {
-            'asignacion': self.a2.pk, 'profesor': self.profesor.pk, 'next': self.materia.get_absolute_url(),
+            'asignacion': self.a1.pk, 'profesor': self.profesor.pk, 'next': self.materia.get_absolute_url(),
         }, follow=True)
         self.assertRedirects(respuesta, self.materia.get_absolute_url())
-        self.assertContains(respuesta, 'imparte ahora Matemáticas en 2° Primaria')
-        self.assertEqual(respuesta.context['sin_profesor'], 0)
+        self.assertContains(respuesta, 'imparte ahora Matemáticas en 1° Primaria')
+        self.assertEqual(respuesta.context['clases'][0].profesor, self.profesor)
 
 
 # ---------------------------------------------------------------------------

@@ -203,6 +203,29 @@ class DarAccesoDesdeProfesoresTests(CuentasTestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertFalse(Usuario.objects.filter(username='ana.lara').exists())
 
+    def test_el_menu_de_roles_solo_ofrece_roles_para_docentes(self):
+        taller = crear_rol('Maestros de taller', {'Alumnos.view_alumno'}, es_docente=True)
+        html = self.client.get(reverse('profesores:crear')).content.decode()
+        menu = html[html.index('name="acceso-rol"'):]
+        menu = menu[:menu.index('</select>')]
+        self.assertIn(f'value="{self.docente.pk}"', menu)
+        self.assertIn(f'value="{taller.pk}"', menu)
+        self.assertNotIn(f'value="{self.direccion.pk}"', menu)
+        self.assertNotIn(f'value="{self.recepcion.pk}"', menu)
+
+    def test_no_acepta_un_rol_que_no_es_para_docentes(self):
+        respuesta = self.client.post(reverse('profesores:crear'), self.acceso(**{'acceso-rol': self.direccion.pk}))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn('rol', respuesta.context['acceso'].errors)
+        self.assertFalse(Profesor.objects.exists())
+
+    def test_sin_roles_para_docentes_lo_explica(self):
+        Rol.objects.filter(es_docente=True).update(es_docente=False)
+        self.assertContains(self.client.get(reverse('profesores:crear')), 'No hay un rol para docentes que puedas asignar')
+        respuesta = self.client.post(reverse('profesores:crear'), self.acceso())
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertFalse(Profesor.objects.exists())
+
 
 # ---------------------------------------------------------------------------
 # Perfil del profesor: su cuenta, la baja y desvincular

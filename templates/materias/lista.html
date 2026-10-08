@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Materias</h1>
-      <p class="page-header__description">El catálogo de materias del colegio. Cada ciclo se decide en qué grados se imparte cada una, y su horario se arma en <a href="{% if perms.Alumnos.view_horariomateria %}{% url 'horarios:lista' %}{% else %}#{% endif %}">Horarios</a>.</p>
+      <p class="page-header__description">El catálogo de materias del colegio. Cada materia la imparte un solo grado; cada ciclo se agrega a su plan con su profesor, y su horario se arma en <a href="{% if perms.Alumnos.view_horariomateria %}{% url 'horarios:lista' %}{% else %}#{% endif %}">Horarios</a>.</p>
     </div>
     <div class="page-header__actions">
       {% if pagina.paginator.count %}
@@ -50,13 +50,31 @@
     </a>
   </nav>
 
-  <form class="filters filters--search-only" method="get" role="search" aria-label="Buscar materias" data-autosubmit>
+  <form class="filters{% if filtro.situacion %} filters--cuatro{% endif %}" method="get" role="search" aria-label="Buscar y filtrar materias" data-autosubmit>
     {% if viendo_bajas %}<input type="hidden" name="estado" value="BAJA">{% endif %}
     {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
     <div class="filters__search">
       <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar materias</label>
       {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
       {{ filtro.q }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.nivel.id_for_label }}">{{ filtro.nivel.label }}</label>
+      {{ filtro.nivel }}
+    </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">{{ filtro.grado.label }}</label>
+      {{ filtro.grado }}
+    </div>
+    {% if filtro.situacion %}
+      <div class="filters__field">
+        <label class="visually-hidden" for="{{ filtro.situacion.id_for_label }}">{{ filtro.situacion.label }}</label>
+        {{ filtro.situacion }}
+      </div>
+    {% endif %}
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
+      {{ filtro.orden }}
     </div>
     <div class="filters__actions">
       <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
@@ -78,7 +96,8 @@
           <tr>
             <th class="table__th" scope="col">Materia</th>
             <th class="table__th" scope="col">Clave</th>
-            <th class="table__th" scope="col">{% if ciclo %}Grados en {{ ciclo }}{% else %}Grados{% endif %}</th>
+            <th class="table__th" scope="col">Grado</th>
+            {% if ciclo %}<th class="table__th" scope="col">Profesor en {{ ciclo }}</th>{% endif %}
             <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
           </tr>
         </thead>
@@ -95,9 +114,32 @@
                 </a>
               </td>
               <td class="table__cell" data-label="Clave"><code class="code">{{ materia.clave }}</code></td>
-              <td class="table__cell" data-label="Grados">
-                {% if materia.grados %}{{ materia.grados }} grado{{ materia.grados|pluralize }}{% elif viendo_bajas or not ciclo %}—{% else %}<span class="tag tag--warning">Sin asignar</span>{% endif %}
+              <td class="table__cell" data-label="Grado">
+                {% if materia.grado %}
+                  <span class="cell-stack">
+                    <span class="cell-stack__main">{{ materia.grado }}</span>
+                    {% if materia.grado.equivalencia_frase %}<span class="cell-stack__sub">{{ materia.grado.equivalencia_frase }}</span>{% endif %}
+                  </span>
+                {% else %}
+                  <span class="tag tag--warning">Sin grado</span>
+                {% endif %}
               </td>
+              {% if ciclo %}
+                <td class="table__cell" data-label="Profesor">
+                  {% for asignacion in materia.plan_actual %}
+                    <span class="cell-stack">
+                      {% if asignacion.profesor %}
+                        <span class="cell-stack__main">{% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ asignacion.profesor.get_absolute_url }}">{{ asignacion.profesor }}</a>{% else %}{{ asignacion.profesor }}{% endif %}</span>
+                      {% else %}
+                        <span class="cell-stack__main"><span class="tag tag--warning">Sin profesor</span></span>
+                      {% endif %}
+                      {% if asignacion.grado_id != materia.grado_id %}<span class="cell-stack__sub">En {{ asignacion.grado }}</span>{% endif %}
+                    </span>
+                  {% empty %}
+                    {% if viendo_bajas or not materia.grado %}—{% else %}<span class="tag">Fuera del plan</span>{% endif %}
+                  {% endfor %}
+                </td>
+              {% endif %}
               <td class="table__cell table__cell--actions">
                 <a class="btn btn--ghost btn--icon btn--sm" href="{{ materia.get_absolute_url }}" aria-label="Ver la materia {{ materia }}" data-tooltip="Ver materia">
                   {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
@@ -126,12 +168,12 @@
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No encontramos materias con esa búsqueda</p>
+        <p class="empty-state__title">No encontramos materias con esos filtros</p>
         <p class="empty-state__text">
-          Prueba con otra clave o nombre.
+          Prueba con otra clave o nombre, o con otro nivel o grado.
           {% if conteos.bajas and not viendo_bajas %}¿Buscas una materia dada de baja? Revisa el filtro «Bajas».{% endif %}
         </p>
-        <a class="btn btn--sm" href="{% url 'materias:lista' %}">Limpiar búsqueda</a>
+        <a class="btn btn--sm" href="{% url 'materias:lista' %}">Limpiar filtros</a>
       </div>
     </div>
   {% elif viendo_bajas %}

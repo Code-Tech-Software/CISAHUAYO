@@ -25,6 +25,7 @@
         {% if not profesores_activos %}
           <p class="field__hint">Aún no hay profesores activos. {% if perms.Alumnos.add_profesor %}<a href="{% url 'profesores:crear' %}">Registra al primero</a>.{% endif %}</p>
         {% else %}
+          <p class="field__hint" data-asignar-nivel>Solo aparecen quienes dan clases en el nivel del grado.</p>
           <p class="field__hint" data-asignar-pista hidden>Arriba van los profesores que pueden impartir esta materia.</p>
           <p class="field__hint">Si la materia ya tiene horario y se empalma con otra clase del profesor, no se podrá asignar.</p>
         {% endif %}

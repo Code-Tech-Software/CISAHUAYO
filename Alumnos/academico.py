@@ -70,15 +70,103 @@ def ciclo_editable(ciclo):
 
 
 def materias_por_asignar(grado, ciclo):
-    """Materias activas que el grado todavía no imparte (de forma vigente) en el ciclo."""
+    """Materias activas del grado (o todavía sin grado) que el grado no imparte (de forma vigente) en el ciclo."""
     vigentes = MateriaGrado.objects.filter(ciclo=ciclo, grado=grado, activa=True).values('materia_id')
-    return Materia.objects.filter(activa=True).exclude(pk__in=vigentes)
+    return Materia.objects.filter(Q(grado=grado) | Q(grado__isnull=True), activa=True).exclude(pk__in=vigentes)
 
 
 def grados_por_asignar(materia, ciclo):
-    """Grados activos que todavía no imparten (de forma vigente) la materia en el ciclo, en orden escolar."""
+    """Grados activos que todavía no imparten (de forma vigente) la materia en el ciclo, en orden escolar: solo el
+    suyo (una materia la imparte un solo grado) o, si todavía no tiene, cualquiera."""
     vigentes = MateriaGrado.objects.filter(ciclo=ciclo, materia=materia, activa=True).values('grado_id')
-    return Grado.objects.filter(activo=True).exclude(pk__in=vigentes).academicos()
+    grados = Grado.objects.filter(activo=True).exclude(pk__in=vigentes)
+    if materia.grado_id:
+        grados = grados.filter(pk=materia.grado_id)
+    return grados.academicos()
+
+
+def grados_vigentes_fuera_de(materia, grado):
+    """Los grados distintos de `grado` en cuyo plan sigue la materia, en el ciclo actual o en uno próximo (mientras
+    siga ahí no se le puede dar otro grado). En orden escolar."""
+    vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+    en_el_plan = MateriaGrado.objects.filter(vigentes, materia=materia, activa=True).values('grado_id')
+    return list(Grado.objects.filter(pk__in=en_el_plan).exclude(pk=grado.pk).academicos())
+
+
+def asegurar_en_el_plan(materia, ciclo=None):
+    """Una materia activa con grado se imparte en su grado: la deja en el plan del ciclo (el actual si no se indica),
+    creando la asignación o reactivando la que estaba quitada. Devuelve la asignación, o None si no aplica (sin ciclo
+    actual, ciclo cerrado, materia de baja o sin grado, o grado de baja)."""
+    ciclo = ciclo if ciclo is not None else ciclo_actual()
+    if not ciclo_editable(ciclo) or not materia.activa or not materia.grado_id or not materia.grado.activo:
+        return None
+    asignacion, _ = MateriaGrado.objects.get_or_create(ciclo=ciclo, grado_id=materia.grado_id, materia=materia)
+    if not asignacion.activa:
+        asignacion.activa = True
+        asignacion.save(update_fields=['activa'])
+    return asignacion
+
+
+def _vigentes_en_otros_grados(materia, grado):
+    """Las asignaciones activas de la materia en otro grado, en el ciclo actual o en uno próximo."""
+    vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+    return MateriaGrado.objects.filter(vigentes, materia=materia, activa=True).exclude(grado=grado)
+
+
+def motivo_para_no_cambiar_de_grado(materia, grado):
+    """Por qué la materia no puede pasar a `grado` ('' si sí puede): en su grado de ahora ya tiene horario o asistencia
+    en el ciclo actual o en uno próximo (eso es del grupo de ese grado y no se mueve solo)."""
+    con_clases = (
+        _vigentes_en_otros_grados(materia, grado)
+        .filter(Q(horarios__isnull=False) | Q(asistencias__isnull=False)).select_related('grado', 'ciclo').distinct()
+    )
+    detalle = ', '.join(sorted({f'{asignacion.grado} ({asignacion.ciclo})' for asignacion in con_clases}))
+    if detalle:
+        return (f'Ya tiene horario en {detalle}. Quítale ese horario en Horarios antes de cambiarla de grado, o da de baja '
+                f'esta materia y registra otra para el grado nuevo.')
+    return ''
+
+
+def pasar_al_grado(materia):
+    """Tras elegirle o cambiarle el grado a la materia, mueve su plan del ciclo actual y de los próximos a ese grado.
+
+    Cada asignación vigente en otro grado (sin horario ni asistencia: ver `motivo_para_no_cambiar_de_grado`) pasa al
+    grado nuevo; si en ese ciclo ya estaba en él, la otra solo se quita. Su profesor se queda si da clases en el nivel
+    del grado nuevo. Al final la materia queda en el plan del ciclo actual. Devuelve los profesores que se quitaron.
+    """
+    grado = materia.grado
+    sin_profesor = []
+    with transaction.atomic():
+        for asignacion in _vigentes_en_otros_grados(materia, grado).select_related('profesor').order_by('ciclo_id', 'pk'):
+            ya_esta = MateriaGrado.objects.filter(ciclo_id=asignacion.ciclo_id, grado=grado, materia=materia).first()
+            if ya_esta is not None:
+                if not ya_esta.activa:
+                    ya_esta.activa = True
+                    ya_esta.save(update_fields=['activa'])
+                asignacion.activa = False
+                asignacion.save(update_fields=['activa'])
+                continue
+            asignacion.grado = grado
+            if asignacion.profesor_id and not asignacion.profesor.niveles.filter(nivel=grado.nivel).exists():
+                sin_profesor.append(asignacion.profesor)
+                asignacion.profesor = None
+            asignacion.save(update_fields=['grado', 'profesor'])
+        asegurar_en_el_plan(materia)
+    return sin_profesor
+
+
+def motivo_para_no_agregar(materia, grado):
+    """Por qué la materia no se puede agregar al plan de `grado` ('' si sí se puede): una materia la imparte un solo
+    grado. Una materia que todavía no tiene grado toma el primero al que se agrega."""
+    if materia.grado_id:
+        if materia.grado_id != grado.pk:
+            return f'{materia} es de {materia.grado}: solo se agrega al plan de ese grado.'
+        return ''
+    otros = grados_vigentes_fuera_de(materia, grado)
+    if otros:
+        nombres = ', '.join(str(otro) for otro in otros)
+        return f'{materia} todavía se imparte en {nombres}: una materia la imparte un solo grado. Quítala de ahí primero.'
+    return ''
 
 
 def prefetch_inscripciones_actuales(desde=''):

@@ -1,7 +1,8 @@
 /* CISAHUAYO · asignaciones
 
    - Tablero: asignar un profesor a varias materias marcadas ([data-asignacion-masiva]). Las casillas de las filas
-     ([data-masiva-fila]) viven fuera del formulario y se unen a él con el atributo form.
+     ([data-masiva-fila]) viven fuera del formulario y se unen a él con el atributo form. Solo se ofrecen los profesores
+     que dan clases en el nivel de todas las marcadas (data-nivel de la fila, data-niveles de cada profesor).
    - Carga por profesor: prepara la ventana para pasar las clases de un profesor a otro ([data-transferir-form]) con
      los datos del botón que la abrió.
 */
@@ -17,7 +18,21 @@
     const enviar = masiva.querySelector('[data-masiva-enviar]');
     const mensajeInicial = conteo.textContent;
 
+    // Un profesor solo imparte materias de sus niveles: quedan a la vista los que cubren los de todas las marcadas
+    const filtrarProfesores = () => {
+      const niveles = new Set(filas.filter((casilla) => casilla.checked).map((casilla) => casilla.dataset.nivel).filter(Boolean));
+      Array.from(profesor.options).forEach((opcion) => {
+        if (opcion.dataset.niveles === undefined) return;
+        const suyos = opcion.dataset.niveles.split(',');
+        const fuera = [...niveles].some((nivel) => !suyos.includes(nivel));
+        opcion.hidden = fuera;
+        opcion.disabled = fuera;
+      });
+      if (profesor.selectedOptions[0]?.disabled) profesor.value = '-';
+    };
+
     const actualizar = () => {
+      filtrarProfesores();
       const marcadas = filas.filter((casilla) => casilla.checked).length;
       conteo.textContent = marcadas
         ? `${marcadas} materia${marcadas === 1 ? '' : 's'} marcada${marcadas === 1 ? '' : 's'}`
@@ -51,11 +66,14 @@
       transferir.querySelector('[name="origen"]').value = boton.dataset.origen;
       transferir.querySelector('[data-transferir-nombre]').textContent = boton.dataset.nombre;
       transferir.querySelector('[data-transferir-clases]').textContent = `${clases} materia${clases === 1 ? '' : 's'}`;
-      // Quien se va no puede ser su propio destino
+      // Quien se va no puede ser su propio destino, y solo se ofrecen profesores de alguno de los niveles de sus materias
+      const niveles = (boton.dataset.niveles || '').split(',').filter(Boolean);
       Array.from(destino.options).forEach((opcion) => {
-        const esElMismo = opcion.value === boton.dataset.origen;
-        opcion.hidden = esElMismo;
-        opcion.disabled = esElMismo;
+        if (opcion.dataset.niveles === undefined) return;   /* «Elige…» y «Dejarlas sin profesor» */
+        const suyos = opcion.dataset.niveles.split(',');
+        const fuera = opcion.value === boton.dataset.origen || !niveles.some((nivel) => suyos.includes(nivel));
+        opcion.hidden = fuera;
+        opcion.disabled = fuera;
       });
       destino.value = '-';
     });

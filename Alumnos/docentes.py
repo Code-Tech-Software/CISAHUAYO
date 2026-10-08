@@ -34,11 +34,13 @@ ESTADOS_DE_CARGA = {
 def asignar_profesor(asignaciones, profesor):
     """Fija `profesor` (o, con None, quita al que estaba) en cada asignación materia-grado.
 
-    Se omite lo que no se puede: un ciclo cerrado, una materia que ya no se imparte en ese grado o un profesor que
-    quedaría en dos grupos a la vez. Devuelve `(cambios, omitidas)`: `cambios` es la lista de `(asignación, profesor
-    anterior)` y `omitidas` los textos que explican cada omisión. No manda mensajes ni deja bitácora: eso es de la vista.
+    Se omite lo que no se puede: un ciclo cerrado, una materia que ya no se imparte en ese grado, un profesor que no da
+    clases en el nivel del grado o que quedaría en dos grupos a la vez. Devuelve `(cambios, omitidas)`: `cambios` es la
+    lista de `(asignación, profesor anterior)` y `omitidas` los textos que explican cada omisión. No manda mensajes ni deja
+    bitácora: eso es de la vista.
     """
     cambios, omitidas = [], []
+    niveles = set(profesor.niveles.values_list('nivel', flat=True)) if profesor else set()
     with transaction.atomic():
         for asignacion in asignaciones:
             etiqueta = f'{asignacion.materia} de {asignacion.grado}'
@@ -46,14 +48,24 @@ def asignar_profesor(asignaciones, profesor):
                 omitidas.append(f'{etiqueta}: el ciclo {asignacion.ciclo} está cerrado.')
             elif not asignacion.activa:
                 omitidas.append(f'{etiqueta}: ya no se imparte en ese grado.')
+            elif asignacion.profesor_id == (profesor.pk if profesor else None):
+                continue   # ya lo tenía: nada que cambiar
+            elif profesor and asignacion.grado.nivel not in niveles:
+                omitidas.append(f'{etiqueta}: {mensaje_fuera_de_nivel(profesor, asignacion.grado)}')
             elif profesor and (empalmes := conflictos_de_asignacion(profesor, asignacion)):
                 omitidas.append(f'{etiqueta}: {mensaje_de_empalme_profesor(profesor, empalmes)}')
-            elif asignacion.profesor_id != (profesor.pk if profesor else None):
+            else:
                 anterior = asignacion.profesor
                 asignacion.profesor = profesor
                 asignacion.save(update_fields=['profesor'])
                 cambios.append((asignacion, anterior))
     return cambios, omitidas
+
+
+def mensaje_fuera_de_nivel(profesor, grado):
+    """Por qué no se le puede asignar una materia del grado: solo imparte en los niveles de su ficha."""
+    return (f'{profesor} no da clases en {grado.get_nivel_display()}. Agrégale ese nivel en su ficha para poder '
+            f'asignarle materias de ese nivel.')
 
 
 def descripcion_del_cambio(asignacion, anterior):

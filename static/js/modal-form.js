@@ -332,12 +332,15 @@
     evento.preventDefault();
     if (ocupado) return;
 
+    /* Como en un envío normal, va también el botón que lo envió si tiene nombre (p. ej. «Sí, registrarla sin profesor») */
+    const datos = new FormData(formulario);
+    if (evento.submitter?.name) datos.append(evento.submitter.name, evento.submitter.value);
     ocupado = true;
     guardando(formulario, true);
     const mio = ++turno;
     try {
       const respuesta = await fetch(formulario.action, {
-        method: 'POST', body: new FormData(formulario), headers: ENCABEZADOS, credentials: 'same-origin',
+        method: 'POST', body: datos, headers: ENCABEZADOS, credentials: 'same-origin',
       });
       await tratar(respuesta, formulario.action, mio);
     } catch (error) {

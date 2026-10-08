@@ -1,9 +1,10 @@
 /* CISAHUAYO · profesores
 
    Prepara dos ventanas con los datos de la fila que las abrió:
-   - elegir el profesor de una materia ([data-asignar-form], en los perfiles del grado y de la materia); si el botón trae
-     data-habilitados (ids de quienes pueden impartir esa materia), esos salen primero en su propio grupo, y después los de
-     data-del-nivel (quienes dan clases en el nivel del grado, data-nivel);
+   - elegir el profesor de una materia ([data-asignar-form], en los perfiles del grado y de la materia y en el tablero):
+     solo se ofrecen los de data-del-nivel (quienes dan clases en el nivel del grado, data-nivel), porque un profesor solo
+     imparte materias de sus niveles; primero, en su propio grupo, los de data-habilitados (pueden impartir esa materia).
+     Si el que la tiene ahora es de otro nivel (de antes de esta regla) se deja a la vista para no cambiarlo sin querer;
    - quitar al profesor de una materia ([data-quitar-prof-form], en el perfil del profesor).
 */
 (() => {
@@ -28,24 +29,31 @@
   const llenarSelector = (habilitados, delNivel, nivel, elegido) => {
     const ids = new Set((habilitados || '').split(',').filter(Boolean));
     const delMismoNivel = new Set((delNivel || '').split(',').filter(Boolean));
-    const propios = profesores.filter((opcion) => ids.has(opcion.value));
-    const delNivelOpciones = profesores.filter((opcion) => !ids.has(opcion.value) && delMismoNivel.has(opcion.value));
-    const otros = profesores.filter((opcion) => !ids.has(opcion.value) && !delMismoNivel.has(opcion.value));
+    const propios = profesores.filter((opcion) => delMismoNivel.has(opcion.value) && ids.has(opcion.value));
+    const delNivelOpciones = profesores.filter((opcion) => delMismoNivel.has(opcion.value) && !ids.has(opcion.value));
+    const actual = profesores.filter((opcion) => opcion.value === elegido && !delMismoNivel.has(opcion.value));
+    const nombreNivel = nivel ? nivel.toLowerCase() : 'el nivel del grado';
     const grupos = [
       ['Pueden impartirla', propios],
-      [nivel ? `Dan clases en ${nivel.toLowerCase()}` : 'Del mismo nivel', delNivelOpciones],
-      ['Otros profesores', otros],
+      [`Dan clases en ${nombreNivel}`, delNivelOpciones],
+      ['Asignado ahora (de otro nivel)', actual],
     ].filter(([, opciones]) => opciones.length);
     selector.replaceChildren();
     if (sinProfesor) selector.appendChild(sinProfesor);
     if (grupos.length > 1) {
       grupos.forEach(([etiqueta, opciones]) => selector.appendChild(grupo(etiqueta, opciones)));
     } else {
-      profesores.forEach((opcion) => selector.appendChild(opcion));
+      grupos.forEach(([, opciones]) => opciones.forEach((opcion) => selector.appendChild(opcion)));
     }
     selector.value = elegido || '';
     const pista = asignar.querySelector('[data-asignar-pista]');
     if (pista) pista.hidden = !propios.length;
+    const nivelPista = asignar.querySelector('[data-asignar-nivel]');
+    if (nivelPista) {
+      nivelPista.textContent = propios.length || delNivelOpciones.length
+        ? `Solo aparecen quienes dan clases en ${nombreNivel}.`
+        : `Ningún profesor activo da clases en ${nombreNivel}. Agrégale ese nivel en su ficha de Profesores para poder asignárselo.`;
+    }
   };
 
   document.addEventListener('click', (event) => {

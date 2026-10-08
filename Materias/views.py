@@ -1,10 +1,9 @@
 import csv
 from collections import defaultdict
-from itertools import groupby
 
 from django.contrib import messages
 from django.db import IntegrityError, transaction
-from django.db.models import Count, IntegerField, Q, Value
+from django.db.models import Count, F, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -12,43 +11,44 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from Alumnos.academico import (
+    asegurar_en_el_plan,
     ciclo_actual,
     ciclo_editable,
-    elegir_ciclo,
-    grados_por_asignar,
+    motivo_para_no_agregar,
 )
-from Alumnos.docentes import deshabilitar, habilitar, profesores_por_nivel
+from Alumnos.docentes import asignar_profesor, descripcion_del_cambio, deshabilitar, habilitar, profesores_por_nivel
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion, se_empalman
 from Alumnos.models import CicloEscolar, Grado, HorarioMateria, Materia, MateriaGrado, Profesor, orden_de_nivel
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
-from Usuarios.seguridad import ACCION_CAMBIO, registrar
+from Usuarios.seguridad import ACCION_ALTA, ACCION_CAMBIO, registrar
 
 from .claves import clave_sugerida
 from .forms import CopiarPlanForm, FiltroMateriasForm, MateriaForm
 
 
-def _grupos_por_nivel(grados):
-    return [
-        {'nombre': dict(Grado.NIVEL_CHOICES)[nivel], 'grados': list(grupo)}
-        for nivel, grupo in groupby(grados, key=lambda grado: grado.nivel)
-    ]
-
-
 # ---------------------------------------------------------------------------
 # Listado
 # ---------------------------------------------------------------------------
+def _plan_del_ciclo(ciclo):
+    """Prefetch: las asignaciones vigentes de cada materia en el ciclo, con su grado y su profesor (en `plan_actual`)."""
+    return Prefetch(
+        'grados_materia',
+        queryset=MateriaGrado.objects.filter(ciclo=ciclo, activa=True).select_related('grado', 'profesor')
+        .order_by(orden_de_nivel('grado__nivel'), 'grado__numero'),
+        to_attr='plan_actual',
+    )
+
+
 @requiere_permisos('Alumnos.view_materia')
 def materia_lista(request):
-    filtro = FiltroMateriasForm(request.GET)
     ciclo = ciclo_actual()
-    materias = filtro.filtrar(Materia.objects.all())
+    filtro = FiltroMateriasForm(request.GET, ciclo=ciclo)
+    materias = filtro.filtrar(Materia.objects.select_related('grado'))
     if ciclo:
-        materias = materias.annotate(grados=Count('grados_materia', filter=Q(grados_materia__ciclo=ciclo, grados_materia__activa=True)))
-    else:
-        materias = materias.annotate(grados=Value(0, output_field=IntegerField()))
+        materias = materias.prefetch_related(_plan_del_ciclo(ciclo))
     pagina, rango_paginas, por_pagina = paginar(request, materias)
 
     conteos = filtro.filtrar(Materia.objects.all(), con_estado=False).order_by().aggregate(
@@ -83,20 +83,34 @@ def materia_crear(request):
     form = MateriaForm(
         request.POST if request.method == 'POST' else None,
         ciclo=ciclo if ciclo and ciclo_editable(ciclo) else None,
-        puede_asignar=request.user.has_perm('Alumnos.add_materiagrado'),
+        puede_asignar_profesor=request.user.has_perm('Alumnos.change_materiagrado'),
     )
     if request.method == 'POST':
         if form.is_valid():
+            profesor = form.cleaned_data.get('profesor')
             with transaction.atomic():
                 materia = form.save()
-            grados = form.grados_asignados
+                asignacion = form.asignacion
+                cambios = []
+                if asignacion is not None and profesor is not None:
+                    cambios, _ = asignar_profesor([asignacion], profesor)
+                    if cambios:
+                        habilitar(profesor, [materia])   # quien la imparte, puede impartirla
+                registrar(request.user, materia, ACCION_ALTA, f'Registrada con la clave {materia.clave}'
+                          f'{f" para {materia.grado}" if materia.grado_id else ""}.')
+                for cambio, anterior in cambios:
+                    registrar(request.user, cambio, ACCION_CAMBIO, descripcion_del_cambio(cambio, anterior))
+
             detalle = ''
-            if grados:
-                nombres = ', '.join(str(grado) for grado in grados)
-                detalle = f' y se agregó al plan de {nombres} (ciclo {form.ciclo})'
+            if asignacion is not None:
+                detalle = f' y se agregó al plan de {materia.grado} (ciclo {form.ciclo})'
+                detalle += f'. La imparte {profesor}' if cambios else '. Queda sin profesor: asígnalo desde su perfil o en Asignaciones'
+            elif materia.grado_id:
+                detalle = f' para {materia.grado}'
             messages.success(request, f'La materia {materia} fue registrada con la clave {materia.clave}{detalle}.')
             return redirect('materias:lista')
-        messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
+        if not form.solo_falta_confirmar:
+            messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
 
 
@@ -117,51 +131,62 @@ def materia_editar(request, pk):
     form = MateriaForm(request.POST if request.method == 'POST' else None, instance=materia)
     if request.method == 'POST':
         if form.is_valid():
-            form.save()
-            messages.success(request, f'La materia {materia} se actualizó.')
+            with transaction.atomic():
+                form.save()
+            detalle = ''
+            if form.cambio_de_grado and form.asignacion is not None:
+                detalle = f' Su clase del ciclo {form.asignacion.ciclo} quedó en {materia.grado}.'
+            elif form.cambio_de_grado:
+                detalle = f' Ahora es de {materia.grado}.'
+            for profesor in form.profesores_quitados:
+                detalle += f' {profesor} dejó de impartirla porque no da clases en {materia.grado.get_nivel_display()}.'
+            messages.success(request, f'La materia {materia} se actualizó.{detalle}')
             return redirect('materias:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form, materia)
 
 
 # ---------------------------------------------------------------------------
-# Perfil: en qué grados se imparte (por ciclo)
+# Perfil: su clase en el ciclo actual (una materia la imparte un solo grado)
 # ---------------------------------------------------------------------------
 @requiere_permisos('Alumnos.view_materia')
 def materia_detalle(request, pk):
-    materia = get_object_or_404(Materia, pk=pk)
-    ciclos = list(CicloEscolar.objects.all())
-    ciclo = elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
+    materia = get_object_or_404(Materia.objects.select_related('grado'), pk=pk)
+    ciclo = ciclo_actual()
+    editable = ciclo_editable(ciclo)
 
-    asignaciones = []
+    # Su clase del ciclo actual: la del plan de su grado (una materia de antes de la regla podría tener más de una)
+    clases = []
     if ciclo:
-        asignaciones = con_resumen_de_horario(
-            MateriaGrado.objects.filter(materia=materia, ciclo=ciclo)
+        clases = con_resumen_de_horario(
+            MateriaGrado.objects.filter(materia=materia, ciclo=ciclo, activa=True)
             .select_related('grado', 'profesor').prefetch_related('horarios')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero')
         )
-    vigentes = [mg for mg in asignaciones if mg.activa]
-    editable = ciclo_editable(ciclo)
-    minutos = sum(mg.minutos for mg in vigentes)
+    por_nivel = profesores_por_nivel()
+    for clase in clases:
+        clase.del_nivel = ','.join(str(pk) for pk in por_nivel.get(clase.grado.nivel, []))
+    minutos = sum(clase.minutos for clase in clases)
+    # Si se quitó del plan (o el ciclo empezó después de registrarla) se puede volver a poner en su grado
+    puede_agregarse = (
+        editable and materia.activa and materia.grado_id is not None and materia.grado.activo
+        and not any(clase.grado_id == materia.grado_id for clase in clases)
+    )
+    historial = list(
+        MateriaGrado.objects.filter(materia=materia, activa=True).exclude(ciclo=ciclo)
+        .select_related('ciclo', 'grado', 'profesor').order_by('-ciclo__fecha_inicio', orden_de_nivel('grado__nivel'), 'grado__numero')
+    )
 
-    por_asignar = []
-    if ciclo and editable and materia.activa:
-        por_asignar = _grupos_por_nivel(grados_por_asignar(materia, ciclo))
-
-    # Quién puede impartirla (habilitados) y quién la imparte de verdad en el ciclo, grado por grado.
+    # Quién puede impartirla (habilitados) y quién la imparte de verdad en el ciclo actual
     habilitados = list(Profesor.objects.filter(habilitaciones__materia=materia))
     grados_de = defaultdict(list)
-    for mg in vigentes:
-        if mg.profesor_id:
-            grados_de[mg.profesor_id].append(mg.grado)
+    for clase in clases:
+        if clase.profesor_id:
+            grados_de[clase.profesor_id].append(clase.grado)
     ids_habilitados = {profesor.pk for profesor in habilitados}
-    # Para sugerir primero, al asignar en cada grado, a quienes dan clases en su nivel
-    por_nivel = profesores_por_nivel()
-    for mg in asignaciones:
-        mg.del_nivel = ','.join(str(pk) for pk in por_nivel.get(mg.grado.nivel, []))
     for profesor in habilitados:
         profesor.grados_del_ciclo = grados_de.get(profesor.pk, [])
-    sin_habilitar = list({mg.profesor_id: mg.profesor for mg in vigentes if mg.profesor_id and mg.profesor_id not in ids_habilitados}.values())
+    sin_habilitar = list({c.profesor_id: c.profesor for c in clases if c.profesor_id and c.profesor_id not in ids_habilitados}.values())
 
     return render(request, 'materias/detalle.html', {
         'materia': materia,
@@ -169,18 +194,14 @@ def materia_detalle(request, pk):
         'habilitados_csv': ','.join(str(profesor.pk) for profesor in habilitados if profesor.estatus == 'ACTIVO'),
         'sin_habilitar': sin_habilitar,
         'profesores_por_habilitar': list(Profesor.objects.filter(estatus='ACTIVO').exclude(pk__in=ids_habilitados)) if materia.activa else [],
-        'ciclos': ciclos,
         'ciclo': ciclo,
-        'asignaciones': asignaciones,
-        'total_grados': len(vigentes),
-        'horas_semanales': formatear_duracion(minutos) if minutos else '',
         'editable': editable,
-        'grupos_por_asignar': por_asignar,
+        'clases': clases,
+        'puede_agregarse': puede_agregarse,
+        'historial': historial,
+        'horas_semanales': formatear_duracion(minutos) if minutos else '',
         'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO')) if editable else [],
-        'sin_profesor': sum(1 for mg in vigentes if not mg.profesor_id),
-        'asignaciones_actuales': (
-            MateriaGrado.objects.filter(materia=materia, ciclo__activo=True, activa=True).count() if materia.activa else 0
-        ),
+        'asignaciones_actuales': len(clases) if materia.activa else 0,
         'esta_de_baja': not materia.activa,
     })
 
@@ -282,9 +303,12 @@ def materia_baja(request, pk):
 def materia_reactivar(request, pk):
     materia = get_object_or_404(Materia, pk=pk)
     if not materia.activa:
-        materia.activa = True
-        materia.save(update_fields=['activa'])
-        messages.success(request, f'La materia {materia} fue reactivada. Asígnala de nuevo a los grados que la imparten.')
+        with transaction.atomic():
+            materia.activa = True
+            materia.save(update_fields=['activa'])
+            asignacion = asegurar_en_el_plan(materia)   # vuelve al plan de su grado en el ciclo actual
+        detalle = f' Volvió al plan de {asignacion.grado} del ciclo {asignacion.ciclo}.' if asignacion else ''
+        messages.success(request, f'La materia {materia} fue reactivada.{detalle}')
     return redirect('materias:lista')
 
 
@@ -316,9 +340,20 @@ def asignar(request):
             (mg.materia_id, mg.grado_id): mg
             for mg in MateriaGrado.objects.filter(ciclo=ciclo, materia__in=materias, grado__in=grados)
         }
-        nuevas, reactivar = [], []
+        nuevas, reactivar, omitidas = [], [], []
         for materia in materias:
+            # Una materia la imparte un solo grado: la que todavía no tiene grado toma el elegido, si es uno solo
+            if not materia.grado_id and len(grados) > 1:
+                omitidas.append(f'{materia} la imparte un solo grado: elige solo uno.')
+                continue
             for grado in grados:
+                motivo = motivo_para_no_agregar(materia, grado)
+                if motivo:
+                    omitidas.append(motivo)
+                    continue
+                if not materia.grado_id:
+                    materia.grado = grado
+                    materia.save(update_fields=['grado'])
                 actual = existentes.get((materia.pk, grado.pk))
                 if actual is None:
                     nuevas.append(MateriaGrado(ciclo=ciclo, grado=grado, materia=materia))
@@ -330,8 +365,12 @@ def asignar(request):
     total = len(nuevas) + len(reactivar)
     if total:
         messages.success(request, f'Se agregaron {total} asignaci{"ones" if total != 1 else "ón"} de materia a grados en el ciclo {ciclo}.')
-    else:
+    elif not omitidas:
         messages.info(request, 'Esas materias ya estaban asignadas a esos grados.')
+    for motivo in omitidas[:5]:
+        messages.error(request, f'No se agregó. {motivo}')
+    if len(omitidas) > 5:
+        messages.error(request, f'Y {len(omitidas) - 5} más con el mismo problema.')
     return redirect(destino)
 
 
@@ -366,9 +405,15 @@ def asignacion_reactivar(request, pk):
         messages.error(request, f'La materia {asignacion.materia} está dada de baja: reactívala primero.')
     elif not asignacion.grado.activo:
         messages.error(request, f'El grado {asignacion.grado} está dado de baja: reactívalo primero.')
+    elif not asignacion.activa and (motivo := motivo_para_no_agregar(asignacion.materia, asignacion.grado)):
+        messages.error(request, f'No se reactivó. {motivo}')
     elif not asignacion.activa:
-        asignacion.activa = True
-        asignacion.save(update_fields=['activa'])
+        with transaction.atomic():
+            asignacion.activa = True
+            asignacion.save(update_fields=['activa'])
+            if not asignacion.materia.grado_id:
+                asignacion.materia.grado = asignacion.grado
+                asignacion.materia.save(update_fields=['grado'])
         messages.success(request, f'{asignacion.materia} volvió a impartirse en {asignacion.grado} ({asignacion.ciclo}).')
     return redirect(destino)
 
@@ -379,26 +424,26 @@ def asignacion_reactivar(request, pk):
 @require_GET
 @requiere_permisos('Alumnos.view_materia')
 def materia_exportar(request):
-    filtro = FiltroMateriasForm(request.GET)
-    materias = filtro.filtrar(Materia.objects.all())
     ciclo = ciclo_actual()
-
-    grados_por_materia = {}
+    filtro = FiltroMateriasForm(request.GET, ciclo=ciclo)
+    materias = filtro.filtrar(Materia.objects.select_related('grado'))
     if ciclo:
-        for mg in (
-            MateriaGrado.objects.filter(ciclo=ciclo, activa=True).select_related('grado')
-            .order_by(orden_de_nivel('grado__nivel'), 'grado__numero')
-        ):
-            grados_por_materia.setdefault(mg.materia_id, []).append(str(mg.grado))
+        materias = materias.prefetch_related(_plan_del_ciclo(ciclo))
 
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="materias-{timezone.localdate():%Y-%m-%d}.csv"'
     respuesta.write('﻿')  # para que Excel reconozca los acentos
     escritor = csv.writer(respuesta)
-    escritor.writerow(['Clave', 'Nombre', 'Estado', f'Grados en el ciclo actual{f" ({ciclo})" if ciclo else ""}'])
+    escritor.writerow(['Clave', 'Nombre', 'Grado', 'Equivalencia', 'Estado', f'Profesor en el ciclo actual{f" ({ciclo})" if ciclo else ""}'])
     for materia in materias.iterator(chunk_size=500):
+        plan = getattr(materia, 'plan_actual', [])
+        if not plan:
+            profesores = 'Fuera del plan' if ciclo and materia.grado_id else ''
+        else:
+            profesores = '; '.join(str(mg.profesor) if mg.profesor_id else 'Sin profesor' for mg in plan)
         escritor.writerow([proteger_celda_csv(valor) for valor in [
-            materia.clave, materia.nombre, 'Activa' if materia.activa else 'Baja', '; '.join(grados_por_materia.get(materia.pk, [])),
+            materia.clave, materia.nombre, str(materia.grado) if materia.grado_id else 'Sin grado',
+            materia.grado.equivalencia_texto if materia.grado_id else '', 'Activa' if materia.activa else 'Baja', profesores,
         ]])
     return respuesta
 
@@ -411,7 +456,8 @@ def _plan_de_copia(origen, destino):
     existentes = set(MateriaGrado.objects.filter(ciclo=destino).values_list('materia_id', 'grado_id'))
     fuente = (
         MateriaGrado.objects.filter(ciclo=origen, activa=True, materia__activa=True, grado__activo=True)
-        .select_related('materia', 'grado', 'profesor').prefetch_related('horarios')
+        .filter(Q(materia__grado__isnull=True) | Q(materia__grado=F('grado')))   # una materia, solo en su grado
+        .select_related('materia', 'grado', 'profesor').prefetch_related('horarios', 'profesor__niveles')
         .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'materia__nombre')
     )
     filas = {}
@@ -430,9 +476,12 @@ def _plan_de_copia(origen, destino):
 
 
 def _profesor_vigente(asignacion):
-    """El profesor de la asignación de origen, si todavía está activo (a quien está de baja no se le copian materias)."""
+    """El profesor de la asignación de origen, si todavía está activo y da clases en el nivel del grado (a quien está de
+    baja o ya no da clases en ese nivel no se le copian materias)."""
     profesor = asignacion.profesor
-    return profesor if profesor and profesor.estatus == 'ACTIVO' else None
+    if profesor and profesor.estatus == 'ACTIVO' and asignacion.grado.nivel in profesor.niveles_lista:
+        return profesor
+    return None
 
 
 def _profesores_que_se_conservan(por_copiar, destino, con_horarios):
@@ -560,7 +609,7 @@ def _ejecutar_copia(request):
             quedaron = f'{sin_profesor} materias quedaron' if sin_profesor != 1 else '1 materia quedó'
             messages.warning(
                 request,
-                f'{quedaron} sin profesor (porque está de baja o porque se empalmaría con otra de sus clases). '
+                f'{quedaron} sin profesor (porque está de baja, no da clases en ese nivel o se empalmaría con otra de sus clases). '
                 f'Asígnalas desde el perfil del grado o del profesor.',
             )
     else:

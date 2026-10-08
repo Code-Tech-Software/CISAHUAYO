@@ -158,7 +158,7 @@
                   <td class="table__cell table__cell--actions">
                     {% if editable and perms.Alumnos.change_materiagrado and carga.total_materias %}
                       <button type="button" class="btn btn--sm" data-modal-open="modal-transferir" data-transferir
-                              data-origen="{{ profesor.pk }}" data-nombre="{{ profesor }}" data-clases="{{ carga.total_materias }}">
+                              data-origen="{{ profesor.pk }}" data-nombre="{{ profesor }}" data-clases="{{ carga.total_materias }}" data-niveles="{{ carga.niveles }}">
                         {% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Pasar clases
                       </button>
                     {% endif %}
@@ -212,11 +212,11 @@
               <select class="field__control field__control--select" id="transferir-destino" name="destino">
                 <option value="-">Elige a quién pasárselas</option>
                 {% for p in profesores_activos %}
-                  <option value="{{ p.pk }}">{{ p }}{% if p.especialidad %} · {{ p.especialidad }}{% endif %}</option>
+                  <option value="{{ p.pk }}" data-niveles="{{ p.niveles_lista|join:',' }}">{{ p }}{% if p.niveles_texto %} · {{ p.niveles_texto }}{% endif %}</option>
                 {% endfor %}
                 <option value="ninguno">Dejarlas sin profesor</option>
               </select>
-              <p class="field__hint">Si una materia se empalma con otra clase del nuevo profesor, esa se queda con quien estaba y se te avisa.</p>
+              <p class="field__hint">Solo aparecen quienes dan clases en el nivel de alguna de sus materias. Una materia de un nivel en el que el nuevo profesor no da clases, o que se empalma con otra de sus clases, se queda con quien estaba y se te avisa.</p>
             </div>
           </div>
           <footer class="modal__footer">

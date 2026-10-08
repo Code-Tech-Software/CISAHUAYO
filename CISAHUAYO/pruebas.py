@@ -10,6 +10,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from Alumnos.models import (
+    ORDEN_NIVELES,
     Alumno,
     CicloEscolar,
     ConfiguracionAsistencia,
@@ -57,10 +58,14 @@ def crear_tutor(**cambios):
     return Tutor.objects.create(**datos)
 
 
-def crear_profesor(**cambios):
+def crear_profesor(niveles=ORDEN_NIVELES, **cambios):
+    """Un profesor que, si no se indica otra cosa, da clases en todos los niveles (un profesor solo imparte materias de
+    sus niveles: así se le puede asignar cualquiera). `niveles=()` para uno sin niveles registrados."""
     datos = {'nombre': 'Marta', 'apellido_paterno': 'Rangel', 'apellido_materno': 'Soto', 'telefono': '3534445566'}
     datos.update(cambios)
-    return Profesor.objects.create(**datos)
+    profesor = Profesor.objects.create(**datos)
+    profesor.establecer_niveles(niveles)
+    return profesor
 
 
 def vincular(tutor, alumno, **cambios):

@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar materia{% else %}Nueva materia{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Corrige la clave o el nombre de {{ materia }}.{% elif form.grados %}Escribe su nombre y elige los grados donde se imparte: la clave se propone sola y se agrega al plan del ciclo {{ form.ciclo }}.{% else %}Registra la materia en el catálogo. Después la asignas a los grados que la imparten en cada ciclo.{% endif %}
+        {% if es_edicion %}Corrige la clave, el nombre o el grado de {{ materia }}.{% elif form.agrega_al_plan %}Escribe su nombre y elige el grado que la imparte: la clave se propone sola y se agrega al plan del ciclo {{ form.ciclo }}.{% else %}Registra la materia y el grado que la imparte. Después la agregas a su plan en cada ciclo.{% endif %}
       </p>
     </div>
   </header>
@@ -54,32 +54,62 @@
       </div>
     </section>
 
-    {% if form.grados %}
-      <section class="card" aria-labelledby="seccion-grados">
+    {% if form.hay_grados %}
+      {# Un solo grado por materia; al registrarla, el profesor (opcional) solo puede ser de su nivel: materia-form.js #}
+      <section class="card" aria-labelledby="seccion-grado">
         <header class="card__header card__header--icon">
-          {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grados">Grados</h2>
+          {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grado">{% if form.profesor %}Grado y profesor{% else %}Grado{% endif %}</h2>
         </header>
-        <fieldset class="card__body field{% if form.grados.errors %} is-invalid{% endif %}">
-          <legend class="field__label field__label--required">{{ form.grados.label }}</legend>
-          {% for grupo in form.grados_por_nivel %}
-            <div class="nivel-casillas">
-              <p class="nivel-casillas__titulo">{{ grupo.nombre }}</p>
-              <div class="choice-group">
-                {% for casilla in grupo.casillas %}
-                  <label class="choice choice--check" for="{{ casilla.id_for_label }}">
-                    {{ casilla.tag }}
-                    <span class="choice__box">{{ casilla.choice_label }}</span>
-                  </label>
-                {% endfor %}
+        <div class="card__body">
+          <fieldset class="field{% if form.grado.errors %} is-invalid{% endif %}">
+            <legend class="field__label{% if form.grado_obligatorio %} field__label--required{% endif %}">{{ form.grado.label }}</legend>
+            {% for grupo in form.grados_por_nivel %}
+              <div class="nivel-casillas" data-nivel="{{ grupo.nivel }}">
+                <p class="nivel-casillas__titulo">{{ grupo.nombre }}</p>
+                <div class="choice-group">
+                  {% for opcion in grupo.opciones %}
+                    <label class="choice" for="{{ opcion.id_for_label }}">
+                      {{ opcion.tag }}
+                      <span class="choice__box">{{ opcion.choice_label }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
               </div>
+            {% endfor %}
+            <p class="field__hint">{{ form.grado.help_text }}</p>
+            {% for error in form.grado.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </fieldset>
+
+          {% if form.profesor %}
+            <div class="field materia-profesor{% if form.profesor.errors %} is-invalid{% endif %}">
+              <label class="field__label" for="{{ form.profesor.id_for_label }}">{{ form.profesor.label }}</label>
+              {{ form.profesor }}
+              <p class="field__hint" data-profesor-ayuda>{{ form.profesor.help_text }}</p>
+              {% for error in form.profesor.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
             </div>
-          {% endfor %}
-          <p class="field__hint">{{ form.grados.help_text }}</p>
-          {% for error in form.grados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
-        </fieldset>
+          {% endif %}
+        </div>
       </section>
+      {% if form.motivo_sin_plan %}
+        <p class="field__hint">{{ form.motivo_sin_plan }}: la materia se registra con su grado y después se agrega a su plan desde su perfil.</p>
+      {% endif %}
     {% elif not es_edicion %}
-      <p class="field__hint">{{ form.motivo_sin_grados }}: la materia se registra en el catálogo y después se agrega a los grados desde su perfil.</p>
+      <p class="field__hint">Todavía no hay grados activos: la materia se registra sin grado. Elígelo al editarla cuando haya grados.</p>
+    {% endif %}
+
+    {% if form.profesor %}
+      {# Registrarla sin profesor se puede, pero se confirma. El «Sí» envía sin_profesor=1 #}
+      <div class="alert alert--warning" role="alert" data-sin-profesor-aviso{% if not form.pide_confirmacion %} hidden{% endif %}>
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <div class="alert__body">
+          <p><strong>¿Seguro que quieres agregar la materia sin asignarle profesor?</strong></p>
+          <p>Puedes hacerlo y asignárselo después desde su perfil o en Asignaciones.</p>
+          <div class="alert__acciones">
+            <button type="submit" class="btn btn--sm btn--primary" name="sin_profesor" value="1" data-sin-profesor-si{% if form.pide_confirmacion %} autofocus{% endif %}>Sí, registrarla sin profesor</button>
+            <button type="button" class="btn btn--sm btn--ghost" data-elegir-profesor>Elegir un profesor</button>
+          </div>
+        </div>
+      </div>
     {% endif %}
 
     <footer class="action-bar">

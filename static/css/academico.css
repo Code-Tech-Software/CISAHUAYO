@@ -287,6 +287,17 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* Cuatro selectores (materias): desde escritorio, la búsqueda en su propia fila y los selectores juntos debajo */
+@media (min-width: 64rem) {
+  .filters--cuatro {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  }
+
+  .filters--cuatro .filters__search {
+    grid-column: 1 / -1;
+  }
+}
+
 .table__row.is-inactive .table__cell {
   color: var(--color-text-muted);
 }
@@ -601,7 +612,7 @@ a.slot__name:hover {
   min-width: 11rem;
 }
 
-/* Grados agrupados por nivel en el alta de una materia (casillas con el nombre del nivel encima) */
+/* Grados agrupados por nivel en el alta de una materia (opciones con el nombre del nivel encima) */
 .nivel-casillas + .nivel-casillas {
   margin-top: var(--space-4);
 }
@@ -613,4 +624,18 @@ a.slot__name:hover {
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
+}
+
+/* El profesor que imparte la materia, debajo del grado (en el alta) */
+.materia-profesor {
+  max-width: 28rem;
+  margin-top: var(--space-5);
+}
+
+/* Botones dentro de un aviso que pide confirmar algo (registrar una materia sin profesor) */
+.alert__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }

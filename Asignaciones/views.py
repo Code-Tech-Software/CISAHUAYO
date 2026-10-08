@@ -77,7 +77,7 @@ def tablero(request):
         'por_pagina_defecto': POR_PAGINA_TABLERO,
         'opciones_por_pagina': OPCIONES_POR_PAGINA,
         'resumen': resumen_del_ciclo(ciclo),
-        'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO')) if editable else [],
+        'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO').prefetch_related('niveles')) if editable else [],
         'seccion': 'tablero',
     })
 
@@ -93,6 +93,8 @@ def carga(request):
     # Los profesores activos y, aunque estén de baja, los que todavía imparten algo en el ciclo
     profesores = Profesor.objects.filter(Q(estatus='ACTIVO') | Q(asignaciones__ciclo=ciclo, asignaciones__activa=True)).distinct() if ciclo else Profesor.objects.none()
     todas = carga_de_profesores(ciclo, profesores)
+    for fila in todas:   # los niveles de sus clases: al pasarlas, solo se ofrecen profesores de alguno de esos niveles
+        fila['niveles'] = ','.join(sorted({asignacion.grado.nivel for asignacion in fila['asignaciones']}))
     cargas = filtro.filtrar(todas)
 
     conteos = {estado: sum(1 for c in todas if c['estado'] == estado) for estado in ('sobrecarga', 'completa', 'libre')}
@@ -110,7 +112,7 @@ def carga(request):
         'total': len(todas),
         'conteos': conteos,
         'de_baja_con_clases': de_baja_con_clases,
-        'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO')) if editable else [],
+        'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO').prefetch_related('niveles')) if editable else [],
         'seccion': 'carga',
     })
 

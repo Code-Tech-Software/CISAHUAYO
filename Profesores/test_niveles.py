@@ -40,16 +40,16 @@ class NivelesDelModeloTests(BaseTestCase):
         self.assertEqual(ProfesorNivel.objects.filter(profesor=profesor).count(), 2)
 
     def test_sin_niveles(self):
-        profesor = crear_profesor()
+        profesor = crear_profesor(niveles=())
         self.assertEqual((profesor.niveles_lista, profesor.niveles_texto), ([], ''))
 
     def test_la_migracion_los_deduce_de_lo_que_ya_imparte(self):
         migracion = importlib.import_module('Alumnos.migrations.0014_profesor_niveles')
         ciclo = ciclo_actual_de_prueba()
         primaria, secundaria = crear_grado('PRIMARIA', 3), crear_grado('SECUNDARIA', 1)
-        marta = crear_profesor(nombre='Marta')
-        beto = crear_profesor(nombre='Beto', telefono='3530000002')
-        sin_materias = crear_profesor(nombre='Ceci', telefono='3530000003')
+        marta = crear_profesor(nombre='Marta', niveles=())
+        beto = crear_profesor(nombre='Beto', telefono='3530000002', niveles=())
+        sin_materias = crear_profesor(nombre='Ceci', telefono='3530000003', niveles=())
         materia_en_grado('MAT', primaria, ciclo, profesor=marta)
         materia_en_grado('ESP', secundaria, ciclo, profesor=marta, dia=1)
         materia_en_grado('CIE', secundaria, ciclo, profesor=beto, dia=2)
@@ -98,7 +98,7 @@ class FormularioTests(BaseTestCase):
         self.assertEqual(Profesor.objects.get(pk=profesor.pk).niveles_lista, ['PREPARATORIA'])
 
     def test_un_profesor_anterior_sin_niveles_debe_elegirlos_al_editarlo(self):
-        profesor = crear_profesor(nombre='Ana', apellido_paterno='Lara')
+        profesor = crear_profesor(nombre='Ana', apellido_paterno='Lara', niveles=())
         datos = datos_profesor()
         datos.pop('niveles')
         respuesta = self.client.post(reverse('profesores:editar', args=[profesor.pk]), datos)
@@ -111,7 +111,7 @@ class ListadoYPerfilTests(BaseTestCase):
         super().setUp()
         self.marta = con_niveles(crear_profesor(nombre='Marta', apellido_paterno='Rangel'), 'PRIMARIA', 'SECUNDARIA')
         self.beto = con_niveles(crear_profesor(nombre='Beto', apellido_paterno='Aguilar', telefono='3530000002'), 'PREESCOLAR')
-        self.ceci = crear_profesor(nombre='Ceci', apellido_paterno='Bravo', telefono='3530000003')
+        self.ceci = crear_profesor(nombre='Ceci', apellido_paterno='Bravo', telefono='3530000003', niveles=())
 
     def nombres(self, **filtros):
         respuesta = self.client.get(reverse('profesores:lista'), filtros)

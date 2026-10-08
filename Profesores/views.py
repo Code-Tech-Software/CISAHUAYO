@@ -170,11 +170,12 @@ def profesor_detalle(request, pk):
     minutos = minutos_semanales(bloques)
     editable = ciclo_editable(ciclo) and profesor.estatus == 'ACTIVO'
 
-    # Materias del ciclo que todavía no tienen profesor: de ahí se le asignan
+    # Materias del ciclo que todavía no tienen profesor, de los niveles en los que da clases: de ahí se le asignan
     pendientes = []
     if ciclo and editable:
         sin_profesor = (
             MateriaGrado.objects.filter(ciclo=ciclo, activa=True, profesor__isnull=True, materia__activa=True, grado__activo=True)
+            .filter(grado__nivel__in=profesor.niveles.values('nivel'))
             .select_related('materia', 'grado').order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'materia__nombre')
         )
         pendientes = [

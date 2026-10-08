@@ -129,7 +129,7 @@
           <select class="field__control field__control--select bulk-bar__select" id="masiva-profesor" name="profesor" data-masiva-profesor>
             <option value="-">Elige un profesor</option>
             {% for p in profesores_activos %}
-              <option value="{{ p.pk }}">{{ p }}{% if p.especialidad %} · {{ p.especialidad }}{% endif %}</option>
+              <option value="{{ p.pk }}" data-niveles="{{ p.niveles_lista|join:',' }}">{{ p }}{% if p.niveles_texto %} · {{ p.niveles_texto }}{% endif %}</option>
             {% endfor %}
           </select>
           <button type="submit" class="btn btn--primary btn--sm" data-masiva-enviar disabled>Asignar marcadas</button>
@@ -159,7 +159,7 @@
                 {% if editable and perms.Alumnos.change_materiagrado and profesores_activos %}
                   <td class="table__cell table__cell--check">
                     <input class="row-check" type="checkbox" name="asignacion" value="{{ fila.pk }}" form="asignacion-masiva"
-                           aria-label="Marcar {{ fila.materia.nombre }} de {{ fila.grado }}" data-masiva-fila>
+                           aria-label="Marcar {{ fila.materia.nombre }} de {{ fila.grado }}" data-masiva-fila data-nivel="{{ fila.grado.nivel }}">
                   </td>
                 {% endif %}
                 <td class="table__cell table__cell--main">

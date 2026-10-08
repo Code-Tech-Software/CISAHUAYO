@@ -319,9 +319,17 @@ class Inscripcion(models.Model):
 
 
 class Materia(models.Model):
+    """Una materia la imparte un solo grado (`grado`): solo se agrega al plan de ese grado, ciclo tras ciclo.
+
+    `grado` vacío queda solo en materias registradas antes de esta regla que todavía no tienen el suyo; se les elige al
+    editarlas o al agregarlas por primera vez al plan de un grado.
+    """
 
     clave = models.CharField(max_length=20, unique=True, verbose_name='Clave')
     nombre = models.CharField(max_length=100, verbose_name='Nombre')
+    grado = models.ForeignKey(
+        'Grado', null=True, blank=True, on_delete=models.PROTECT, related_name='materias', verbose_name='Grado',
+    )
     activa = models.BooleanField(default=True, verbose_name='Activa')
 
     def __str__(self):
@@ -907,8 +915,8 @@ class Profesor(models.Model):
 class ProfesorNivel(models.Model):
     """Un nivel escolar en el que el profesor da clases (preescolar, primaria, secundaria o preparatoria).
 
-    Un profesor puede estar en varios. Sirve para ubicarlo (listado, filtro, perfil) y para sugerirlo primero al asignar
-    materias de un grado de ese nivel; no impide asignarle materias de otro.
+    Un profesor puede estar en varios. Sirve para ubicarlo (listado, filtro, perfil) y limita lo que se le asigna: solo
+    imparte materias de grados de sus niveles (ver Alumnos.docentes.asignar_profesor).
     """
     profesor = models.ForeignKey(Profesor, on_delete=models.CASCADE, related_name='niveles')
     nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, verbose_name='Nivel')

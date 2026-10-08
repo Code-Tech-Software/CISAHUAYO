@@ -272,7 +272,7 @@
             {% include "partials/icon.html" with name="book-open" icon_class="icon--lg empty-state__icon" %}
             <p class="empty-state__title">{% if ciclo %}No imparte materias en este ciclo{% else %}Aún no hay ciclos escolares{% endif %}</p>
             <p class="empty-state__text">
-              {% if ciclo %}Asígnale las materias de los grados que tienen su plan armado y aún no tienen profesor.{% else %}Crea un ciclo escolar para poder asignar materias.{% endif %}
+              {% if ciclo %}Asígnale las materias de los grados de sus niveles que tienen su plan armado y aún no tienen profesor.{% if not profesor.niveles_lista %} Primero registra en su ficha los niveles en los que da clases.{% endif %}{% else %}Crea un ciclo escolar para poder asignar materias.{% endif %}
             </p>
             {% if perms.Alumnos.change_materiagrado and editable and total_pendientes %}
               <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-asignar-materias">Asignar materias</button>
@@ -441,7 +441,7 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p>Elige las materias que imparte <strong>{{ profesor }}</strong> en el ciclo <strong>{{ ciclo }}</strong>. Solo salen las que todavía no tienen profesor.</p>
+          <p>Elige las materias que imparte <strong>{{ profesor }}</strong> en el ciclo <strong>{{ ciclo }}</strong>. Solo salen las que todavía no tienen profesor, de los niveles en los que da clases.</p>
           {% for grupo in pendientes %}
             <fieldset class="field">
               <legend class="field__label">{{ grupo.grado }}</legend>

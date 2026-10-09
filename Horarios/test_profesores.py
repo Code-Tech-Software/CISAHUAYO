@@ -27,7 +27,11 @@ def bloque(asignacion, dia, inicio, fin):
 
 
 def datos(asignacion, dias=(0,), inicio='10:00', fin='11:00'):
-    return {'materia_grado': asignacion.pk, 'dias': list(dias), 'hora_inicio': inicio, 'hora_fin': fin}
+    """Lo que envía el alta: la materia, los días marcados y la hora de cada uno (aquí, la misma para todos)."""
+    horas = {}
+    for dia in dias:
+        horas.update({f'inicio_{dia}': inicio, f'fin_{dia}': fin})
+    return {'materia_grado': asignacion.pk, 'dias': list(dias), **horas}
 
 
 class BaseProfesorTests(BaseTestCase):

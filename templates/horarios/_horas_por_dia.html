@@ -1,0 +1,41 @@
+{% comment %}
+  Los días con su propia hora cada uno (Horarios.forms.HorasPorDiaMixin): las casillas de los días y, debajo, una fila
+  con la hora de inicio y de fin de cada día marcado. static/js/horario-form.js muestra y quita las filas al marcar y
+  desmarcar. Va dentro de un .form-grid. Parámetro: form.
+{% endcomment %}
+<fieldset class="field form-grid__full{% if form.dias.errors %} is-invalid{% endif %}">
+  <legend class="field__label field__label--required">Días</legend>
+  <div class="choice-group">
+    {% for opcion in form.dias %}
+      <label class="choice choice--check" for="{{ opcion.id_for_label }}">
+        {{ opcion.tag }}
+        <span class="choice__box">{{ opcion.choice_label }}</span>
+      </label>
+    {% endfor %}
+  </div>
+  {% for error in form.dias.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+</fieldset>
+
+<div class="form-grid__full horario-dias" data-horario-dias>
+  <p class="field__hint" data-horario-vacio{% if form.dias_marcados %} hidden{% endif %}>Marca uno o varios días: para cada uno indicas a qué hora empieza y termina.</p>
+  {% for fila in form.horas_por_dia %}
+    <fieldset class="horario-dia" data-horario-dia="{{ fila.dia }}"{% if not fila.marcado %} hidden{% endif %}>
+      <legend class="horario-dia__nombre">{{ fila.nombre }}</legend>
+      <div class="horario-dia__horas">
+        <div class="field{% if fila.inicio.errors %} is-invalid{% endif %}">
+          <label class="field__label field__label--required" for="{{ fila.inicio.id_for_label }}">Hora de inicio <span class="visually-hidden">del {{ fila.nombre|lower }}</span></label>
+          {{ fila.inicio }}
+          {% for error in fila.inicio.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
+        <div class="field{% if fila.fin.errors %} is-invalid{% endif %}">
+          <label class="field__label field__label--required" for="{{ fila.fin.id_for_label }}">Hora de fin <span class="visually-hidden">del {{ fila.nombre|lower }}</span></label>
+          {{ fila.fin }}
+          {% for error in fila.fin.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
+      </div>
+    </fieldset>
+  {% endfor %}
+  <button type="button" class="btn btn--ghost btn--sm horario-dias__copiar" data-misma-hora hidden>
+    {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} <span data-misma-hora-texto>Usar la misma hora en todos los días</span>
+  </button>
+</div>

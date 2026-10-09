@@ -5,7 +5,7 @@ empalmarse con otra del mismo grado.
 """
 from collections import defaultdict
 
-from .models import HorarioMateria
+from .models import HorarioMateria, Recreo
 
 DIAS = dict(HorarioMateria.DIA_CHOICES)
 DIAS_CORTOS = {0: 'Lun', 1: 'Mar', 2: 'Mié', 3: 'Jue', 4: 'Vie', 5: 'Sáb', 6: 'Dom'}
@@ -92,6 +92,23 @@ def bloques_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=None):
     if excluir_pk is not None:
         bloques = bloques.exclude(pk=excluir_pk)
     return bloques
+
+
+def recreos_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=None):
+    """Recreos del grado en el ciclo que se empalman con el intervalo indicado (mismo día)."""
+    recreos = Recreo.objects.filter(
+        ciclo=ciclo, grado=grado, dia_semana=dia, hora_inicio__lt=fin, hora_fin__gt=inicio,
+    )
+    if excluir_pk is not None:
+        recreos = recreos.exclude(pk=excluir_pk)
+    return recreos
+
+
+def recreos_del_grado(grado, ciclo):
+    """Los recreos del grado en el ciclo, por día y hora."""
+    if ciclo is None:
+        return Recreo.objects.none()
+    return Recreo.objects.filter(grado=grado, ciclo=ciclo).order_by('dia_semana', 'hora_inicio')
 
 
 def se_empalman(a, b):

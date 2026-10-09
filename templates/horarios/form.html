@@ -20,7 +20,7 @@
       <h1 class="page-header__title">{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
       <p class="page-header__description">
         {{ grado }} · Ciclo {{ ciclo }}.
-        {% if es_edicion %}Cambia la materia, el día o la hora de este bloque.{% else %}Elige la materia y los días en que se da a la misma hora; puedes marcar varios.{% endif %}
+        {% if es_edicion %}Cambia la materia, el día o la hora de este bloque.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}
       </p>
     </div>
   </header>
@@ -49,7 +49,7 @@
 
       <section class="card" aria-labelledby="seccion-horario">
         <header class="card__header card__header--icon">
-          {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="seccion-horario">Materia, día y hora</h2>
+          {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="seccion-horario">{% if es_edicion %}Materia, día y hora{% else %}Materia, días y horas{% endif %}</h2>
         </header>
         <div class="card__body form-grid">
           {% include "partials/field.html" with campo=form.materia_grado clase="form-grid__full" %}
@@ -57,22 +57,13 @@
           {% if es_edicion %}
             {% include "partials/field.html" with campo=form.dia_semana clase="form-grid__full" %}
           {% else %}
-            <fieldset class="field form-grid__full{% if form.dias.errors %} is-invalid{% endif %}">
-              <legend class="field__label field__label--required">Días</legend>
-              <div class="choice-group">
-                {% for opcion in form.dias %}
-                  <label class="choice choice--check" for="{{ opcion.id_for_label }}">
-                    {{ opcion.tag }}
-                    <span class="choice__box">{{ opcion.choice_label }}</span>
-                  </label>
-                {% endfor %}
-              </div>
-              {% for error in form.dias.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
-            </fieldset>
+            {% include "horarios/_horas_por_dia.html" with form=form %}
           {% endif %}
 
-          {% include "partials/field.html" with campo=form.hora_inicio %}
-          {% include "partials/field.html" with campo=form.hora_fin %}
+          {% if es_edicion %}
+            {% include "partials/field.html" with campo=form.hora_inicio %}
+            {% include "partials/field.html" with campo=form.hora_fin %}
+          {% endif %}
         </div>
       </section>
 
@@ -112,4 +103,8 @@
       </dialog>
     {% endif %}
   {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  {% if not es_edicion %}<script src="{% static 'js/horario-form.js' %}" defer></script>{% endif %}
 {% endblock %}

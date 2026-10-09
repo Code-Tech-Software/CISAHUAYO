@@ -2,7 +2,7 @@
   Horario semanal como tabla accesible (una fila por franja, una columna por día).
   Parámetros: cuadricula (de Alumnos.horarios.cuadricula), etiqueta (texto para lectores de pantalla),
   modo ("grado": cada bloque muestra su clave y profesor, y se puede editar/quitar; "profesor": muestra el grado),
-  editable (bool, solo en modo grado).
+  editable (bool, solo en modo grado). En modo grado la cuadrícula también trae los recreos del grupo (Recreo.es_recreo).
 {% endcomment %}
 {% load alumnos_extras %}
 <div class="timetable-wrap" role="region" aria-label="{{ etiqueta }}" tabindex="0">
@@ -23,6 +23,26 @@
           {% for celda in fila.celdas %}
             <td class="timetable__cell">
               {% for bloque in celda %}
+                {% if bloque.es_recreo %}
+                  <div class="slot slot--recreo">
+                    <div class="slot__text">
+                      {% if editable and perms.Alumnos.change_horariomateria %}
+                        <a class="slot__name" href="{% url 'horarios:recreo_editar' bloque.pk %}" aria-label="Editar {{ bloque.nombre }}, {{ bloque.get_dia_semana_display }} de {{ bloque.hora_inicio|time:'H:i' }} a {{ bloque.hora_fin|time:'H:i' }}" data-modal-form>{{ bloque.nombre }}</a>
+                      {% else %}
+                        <span class="slot__name">{{ bloque.nombre }}</span>
+                      {% endif %}
+                      <span class="slot__code">Todo el grupo</span>
+                    </div>
+                    {% if editable and perms.Alumnos.delete_horariomateria %}
+                      <button type="button" class="slot__remove" data-modal-open="modal-eliminar-recreo" data-eliminar
+                              data-action="{% url 'horarios:recreo_eliminar' bloque.pk %}" data-materia="{{ bloque.nombre }}"
+                              data-detalle="{{ bloque.get_dia_semana_display }} {{ bloque.hora_inicio|time:'H:i' }}–{{ bloque.hora_fin|time:'H:i' }}"
+                              aria-label="Quitar {{ bloque.nombre }} del {{ bloque.get_dia_semana_display|lower }} a las {{ bloque.hora_inicio|time:'H:i' }}" data-tooltip="Quitar del horario">
+                        {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+                      </button>
+                    {% endif %}
+                  </div>
+                {% else %}
                 {% with asignacion=bloque.materia_grado materia=bloque.materia_grado.materia %}
                   <div class="slot slot--tone-{{ materia.pk|tono }}">
                     <div class="slot__text">
@@ -52,6 +72,7 @@
                     {% endif %}
                   </div>
                 {% endwith %}
+                {% endif %}
               {% endfor %}
             </td>
           {% endfor %}

@@ -25,7 +25,11 @@ def bloque(asignacion, dia, inicio, fin):
 
 
 def datos(asignacion, dias=(0,), inicio='10:00', fin='11:00'):
-    return {'materia_grado': asignacion.pk, 'dias': list(dias), 'hora_inicio': inicio, 'hora_fin': fin}
+    """Lo que envía el alta: la materia, los días marcados y la hora de cada uno (aquí, la misma para todos)."""
+    horas = {}
+    for dia in dias:
+        horas.update({f'inicio_{dia}': inicio, f'fin_{dia}': fin})
+    return {'materia_grado': asignacion.pk, 'dias': list(dias), **horas}
 
 
 # ---------------------------------------------------------------------------
@@ -291,27 +295,66 @@ class CrearTests(BaseTestCase):
     def test_agrega_varios_dias_con_la_misma_hora(self):
         respuesta = self.client.post(self.url, datos(self.mat, dias=(0, 2, 4), inicio='08:00', fin='08:50'), follow=True)
         self.assertRedirects(respuesta, self.volver())
-        self.assertContains(respuesta, 'Se agregó el horario de Matemáticas: Lun, Mié, Vie.')
+        self.assertContains(respuesta, 'Se agregó el horario de Matemáticas: Lun 08:00–08:50, Mié 08:00–08:50, Vie 08:00–08:50.')
         bloques = HorarioMateria.objects.filter(materia_grado=self.mat)
         self.assertEqual(sorted(b.dia_semana for b in bloques), [0, 2, 4])
         self.assertTrue(all((b.hora_inicio, b.hora_fin) == (time(8, 0), time(8, 50)) for b in bloques))
 
-    def test_hora_de_inicio_y_fin(self):
-        respuesta = self.client.post(self.url, datos(self.mat, inicio='11:00', fin='10:00'))
+    def test_cada_dia_con_su_propia_hora(self):
+        respuesta = self.client.post(self.url, {
+            'materia_grado': self.mat.pk, 'dias': [0, 2],
+            'inicio_0': '08:00', 'fin_0': '09:00', 'inicio_2': '10:00', 'fin_2': '11:00',
+        }, follow=True)
+        self.assertRedirects(respuesta, self.volver())
+        self.assertContains(respuesta, 'Lun 08:00–09:00, Mié 10:00–11:00')
+        self.assertEqual(
+            sorted(HorarioMateria.objects.filter(materia_grado=self.mat).values_list('dia_semana', 'hora_inicio', 'hora_fin')),
+            [(0, time(8), time(9)), (2, time(10), time(11))],
+        )
+
+    def test_un_dia_desmarcado_no_se_guarda_aunque_traiga_horas(self):
+        self.client.post(self.url, {
+            'materia_grado': self.mat.pk, 'dias': [0],
+            'inicio_0': '08:00', 'fin_0': '09:00', 'inicio_2': '10:00', 'fin_2': 'no es hora',
+        })
+        self.assertEqual(list(HorarioMateria.objects.values_list('dia_semana', flat=True)), [0])
+
+    def test_cada_dia_marcado_pide_sus_dos_horas(self):
+        respuesta = self.client.post(self.url, {'materia_grado': self.mat.pk, 'dias': [0, 2], 'inicio_0': '08:00', 'fin_0': '09:00', 'inicio_2': '10:00'})
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'La hora de inicio debe ser anterior a la hora de fin')
+        self.assertEqual(set(respuesta.context['form'].errors), {'fin_2'})
+        self.assertContains(respuesta, 'Indica la hora de fin del miércoles.')
+        self.assertFalse(HorarioMateria.objects.exists())                  # ni el lunes, que sí estaba completo
+        respuesta = self.client.post(self.url, {'materia_grado': self.mat.pk, 'dias': [1]})
+        self.assertEqual(set(respuesta.context['form'].errors), {'inicio_1', 'fin_1'})
+        self.assertContains(respuesta, 'Indica la hora de inicio del martes.')
+
+    def test_la_hora_de_fin_debe_ser_posterior_a_la_de_inicio(self):
+        respuesta = self.client.post(self.url, datos(self.mat, dias=(0, 2), inicio='11:00', fin='10:00'))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'La hora de fin del lunes debe ser posterior a la de inicio.')
+        self.assertContains(respuesta, 'La hora de fin del miércoles debe ser posterior a la de inicio.')
         respuesta = self.client.post(self.url, datos(self.mat, inicio='10:00', fin='10:00'))
         self.assertEqual(respuesta.status_code, 200)
         self.assertFalse(HorarioMateria.objects.exists())
 
+    def test_solo_se_muestran_las_horas_de_los_dias_marcados(self):
+        html = self.client.post(self.url, {'materia_grado': self.mat.pk, 'dias': [0, 2]}).content.decode()
+        self.assertIn('data-horario-dia="0">', html)
+        self.assertIn('data-horario-dia="2">', html)
+        self.assertIn('data-horario-dia="1" hidden>', html)
+        self.assertIn('js/horario-form.js', html)
+        html = self.client.get(f'{self.url}&dia=3').content.decode()
+        self.assertIn('data-horario-dia="3">', html)                      # el día de la celda en la que se dio clic
+
     def test_campos_obligatorios(self):
         respuesta = self.client.post(self.url, {})
-        self.assertEqual(set(respuesta.context['form'].errors), {'materia_grado', 'dias', 'hora_inicio', 'hora_fin'})
+        self.assertEqual(set(respuesta.context['form'].errors), {'materia_grado', 'dias'})
         self.assertContains(respuesta, 'Elige al menos un día')
 
     def test_horas_que_no_son_horas(self):
         respuesta = self.client.post(self.url, datos(self.mat, inicio='25:99'))
-        self.assertIn('hora_inicio', respuesta.context['form'].errors)
+        self.assertIn('inicio_0', respuesta.context['form'].errors)
 
     def test_dias_invalidos(self):
         respuesta = self.client.post(self.url, {**datos(self.mat), 'dias': ['9']})
@@ -324,7 +367,16 @@ class CrearTests(BaseTestCase):
         self.assertContains(respuesta, 'Se empalma con Español (lunes 08:00–09:00)')
         self.assertContains(respuesta, 'un grado solo tiene un grupo')
         self.assertFalse(HorarioMateria.objects.filter(materia_grado=self.mat).exists())     # no se guardó ni el martes
-        self.assertEqual(len(respuesta.context['form'].errors), 1)
+        self.assertEqual(list(respuesta.context['form'].errors), ['inicio_0'])              # el error va en el lunes
+
+    def test_el_empalme_se_revisa_con_la_hora_de_cada_dia(self):
+        bloque(self.esp, 0, (8, 0), (9, 0))
+        respuesta = self.client.post(self.url, {                            # el lunes a otra hora, el martes a las 8
+            'materia_grado': self.mat.pk, 'dias': [0, 1],
+            'inicio_0': '09:00', 'fin_0': '10:00', 'inicio_1': '08:00', 'fin_1': '09:00',
+        })
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(HorarioMateria.objects.filter(materia_grado=self.mat).count(), 2)
 
     def test_no_se_empalma_con_la_misma_materia(self):
         bloque(self.mat, 0, (8, 0), (9, 0))

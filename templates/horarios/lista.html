@@ -25,6 +25,12 @@
           Copiar plan de otro ciclo
         </a>
       {% endif %}
+      {% if perms.Alumnos.add_horariomateria and editable %}
+        <a class="btn btn--primary" href="{% url 'horarios:recreo_crear' %}?ciclo={{ ciclo.pk }}" data-modal-form>
+          {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
+          Agregar recreo
+        </a>
+      {% endif %}
     </div>
   </header>
 
@@ -82,6 +88,11 @@
                   {% endif %}
                 {% else %}
                   <p class="grade-card__meta">Sin materias asignadas</p>
+                {% endif %}
+                {% if fila.recreos %}
+                  <p class="grade-card__meta">Recreo: {{ fila.recreos|join:"; " }}</p>
+                {% elif ciclo and fila.grado.activo %}
+                  <p class="grade-card__meta"><span class="tag">Sin recreo</span></p>
                 {% endif %}
               </div>
             </article>

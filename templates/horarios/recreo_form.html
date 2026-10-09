@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if es_edicion %}Editar recreo{% else %}Agregar recreo{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:lista' %}?ciclo={{ ciclo.pk }}">Horarios</a></li>
+  {% if grado %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:grado' grado.pk %}?ciclo={{ ciclo.pk }}">{{ grado }}</a></li>
+  {% endif %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar recreo{% else %}Agregar recreo{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar recreo{% else %}Agregar recreo{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}{{ grado }} · Ciclo {{ ciclo }}. Cambia el nombre, el día o la hora de este recreo.
+        {% else %}Ciclo {{ ciclo }}. Elige los grupos que salen al recreo, los días y la hora de cada uno. Ninguna materia de esos grupos podrá ponerse a esa hora.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    {% if not es_edicion %}
+      <section class="card" aria-labelledby="seccion-grupos">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grupos">Grupos</h2>
+          <button type="button" class="btn btn--ghost btn--sm card__header-action" data-marcar-grados>Marcar todos</button>
+        </header>
+        <fieldset class="card__body field{% if form.grados.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">{{ form.grados.label }}</legend>
+          {% for grupo in form.grados_por_nivel %}
+            <div class="nivel-casillas">
+              <p class="nivel-casillas__titulo">{{ grupo.nombre }}</p>
+              <div class="choice-group">
+                {% for casilla in grupo.casillas %}
+                  <label class="choice choice--check" for="{{ casilla.id_for_label }}">
+                    {{ casilla.tag }}
+                    <span class="choice__box">{{ casilla.choice_label }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
+          {% empty %}
+            <p class="field__hint">Todavía no hay grados activos.</p>
+          {% endfor %}
+          {% for error in form.grados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
+      </section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-recreo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="seccion-recreo">{% if es_edicion %}Día y hora{% else %}Días y horas{% endif %}</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
+        {% if es_edicion %}
+          {% include "partials/field.html" with campo=form.dia_semana clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.hora_inicio %}
+          {% include "partials/field.html" with campo=form.hora_fin %}
+        {% else %}
+          {% include "horarios/_horas_por_dia.html" with form=form %}
+        {% endif %}
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <span class="action-bar__start">
+        <a class="btn btn--ghost" href="{{ volver }}">Cancelar</a>
+        {% if es_edicion and perms.Alumnos.delete_horariomateria %}
+          <button type="button" class="btn btn--ghost btn--danger-text" data-modal-open="modal-eliminar-recreo">
+            {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Quitar del horario
+          </button>
+        {% endif %}
+      </span>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Agregar recreo{% endif %}
+      </button>
+    </footer>
+  </form>
+
+  {% if es_edicion and perms.Alumnos.delete_horariomateria %}
+    <dialog class="modal" id="modal-eliminar-recreo" aria-labelledby="modal-eliminar-recreo-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'horarios:recreo_eliminar' recreo.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-eliminar-recreo-titulo">Quitar del horario</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong>{{ recreo.nombre }}</strong> de {{ grado }} dejará de estar el <strong>{{ recreo.get_dia_semana_display|lower }} de {{ recreo.hora_inicio|time:"H:i" }} a {{ recreo.hora_fin|time:"H:i" }}</strong>.</p>
+          <p class="text-muted">Solo se quita ese día de ese grado; los demás recreos siguen igual.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Quitar del horario</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  {% if not es_edicion %}<script src="{% static 'js/horario-form.js' %}" defer></script>{% endif %}
+{% endblock %}

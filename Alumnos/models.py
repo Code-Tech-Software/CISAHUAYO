@@ -436,6 +436,33 @@ class HorarioMateria(models.Model):
             )
         ]
 
+
+class Recreo(models.Model):
+    """Un recreo del grupo de un grado en un ciclo: un día con su hora. No es una clase (no tiene materia ni profesor),
+    pero ocupa el horario del grupo: ninguna materia se le puede empalmar."""
+
+    es_recreo = True   # para distinguirlo de un bloque de materia en la cuadrícula del horario
+
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='recreos')
+    grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='recreos')
+    nombre = models.CharField(max_length=40, default='Recreo', verbose_name='Nombre')
+    dia_semana = models.PositiveSmallIntegerField(choices=HorarioMateria.DIA_CHOICES, verbose_name='Día')
+    hora_inicio = models.TimeField(verbose_name='Hora de inicio')
+    hora_fin = models.TimeField(verbose_name='Hora de fin')
+
+    def clean(self):
+        if self.hora_inicio and self.hora_fin and self.hora_inicio >= self.hora_fin:
+            raise ValidationError('La hora de inicio debe ser anterior a la hora de fin.')
+
+    def __str__(self):
+        return f'{self.nombre} de {self.grado} - {self.get_dia_semana_display()} {self.hora_inicio:%H:%M}–{self.hora_fin:%H:%M}'
+
+    class Meta:
+        verbose_name = 'Recreo'
+        verbose_name_plural = 'Recreos'
+        ordering = ['dia_semana', 'hora_inicio']
+
+
 class AsistenciaGeneral(models.Model):
 
     ESTADO_CHOICES = [

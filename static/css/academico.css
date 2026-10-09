@@ -426,6 +426,13 @@
   --slot-tint: var(--color-tone-6-tint);
 }
 
+/* El recreo no es una materia: bloque neutro con borde punteado, para que se distinga de las clases a simple vista */
+.slot--recreo {
+  --slot-base: var(--color-border-strong);
+  --slot-tint: var(--color-surface-2);
+  border-left-style: dashed;
+}
+
 .slot__text {
   display: grid;
   min-width: 0;
@@ -638,4 +645,40 @@ a.slot__name:hover {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+/* Agregar horario: la hora de cada día marcado, en una tarjetita con el nombre del día y sus dos horas */
+.horario-dias {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.horario-dia {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.horario-dia__nombre {
+  float: left;
+  width: 100%;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.horario-dia__horas {
+  display: grid;
+  clear: both;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.horario-dias__copiar {
+  justify-self: start;
 }

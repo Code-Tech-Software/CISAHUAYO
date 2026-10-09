@@ -18,7 +18,7 @@
     <div>
       <h1 class="page-header__title">Horario de {{ grado }}</h1>
       <p class="page-header__description">
-        {% if ciclo %}Ciclo {{ ciclo }} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}.{% else %}Aún no hay ciclos escolares.{% endif %}
+        {% if ciclo %}Ciclo {{ ciclo }} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}.{% if resumen_recreos %} Recreo: {{ resumen_recreos|join:"; " }}.{% endif %}{% else %}Aún no hay ciclos escolares.{% endif %}
       </p>
     </div>
     <div class="page-header__actions">
@@ -32,6 +32,12 @@
         <a class="btn" href="{{ grado.get_absolute_url }}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">
           {% include "partials/icon.html" with name="layers" icon_class="icon--sm" %}
           Ver grado
+        </a>
+      {% endif %}
+      {% if perms.Alumnos.add_horariomateria and editable %}
+        <a class="btn" href="{% url 'horarios:recreo_crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>
+          {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
+          Agregar recreo
         </a>
       {% endif %}
       {% if perms.Alumnos.add_horariomateria and editable and asignaciones %}
@@ -169,6 +175,24 @@
         <div class="modal__body">
           <p><strong data-eliminar-materia>La materia</strong> dejará de darse el <strong data-eliminar-detalle>ese día</strong>.</p>
           <p class="text-muted">Solo se quita ese bloque del horario. La materia sigue asignada al grado y su asistencia no cambia.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Quitar del horario</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="modal-eliminar-recreo" aria-labelledby="modal-eliminar-recreo-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-eliminar-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-eliminar-recreo-titulo">Quitar el recreo</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-eliminar-materia>El recreo</strong> de {{ grado }} dejará de estar el <strong data-eliminar-detalle>ese día</strong>.</p>
+          <p class="text-muted">Solo se quita ese día de este grado; los demás recreos siguen igual.</p>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>

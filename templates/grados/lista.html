@@ -69,17 +69,27 @@
                   <p class="grade-card__meta">{{ fila.inscritos }} estudiante{{ fila.inscritos|pluralize }}{% if fila.materias %} · {{ fila.materias }} materia{{ fila.materias|pluralize }}{% endif %}</p>
                 {% endif %}
               </div>
-              {% if perms.Alumnos.change_grado %}
+              {% if perms.Alumnos.change_grado or perms.Alumnos.delete_grado and not viendo_bajas %}
                 <div class="grade-card__actions">
-                  {% if viendo_bajas %}
-                    <form method="post" action="{% url 'grados:reactivar' fila.grado.pk %}">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn--sm">Reactivar</button>
-                    </form>
-                  {% else %}
-                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'grados:editar' fila.grado.pk %}" aria-label="Editar {{ fila.grado }}" data-tooltip="Editar" data-modal-form>
-                      {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
-                    </a>
+                  {% if perms.Alumnos.change_grado %}
+                    {% if viendo_bajas %}
+                      <form method="post" action="{% url 'grados:reactivar' fila.grado.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn--sm">Reactivar</button>
+                      </form>
+                    {% else %}
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'grados:editar' fila.grado.pk %}" aria-label="Editar {{ fila.grado }}" data-tooltip="Editar" data-modal-form>
+                        {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                      </a>
+                    {% endif %}
+                  {% endif %}
+                  {% if perms.Alumnos.delete_grado and not viendo_bajas %}
+                    <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
+                            data-action="{% url 'grados:baja' fila.grado.pk %}" data-nombre="{{ fila.grado }}"
+                            data-aviso="{% if fila.inscritos %}Tiene {{ fila.inscritos }} estudiante{{ fila.inscritos|pluralize }} inscrito{{ fila.inscritos|pluralize }} en el ciclo actual. Seguirán inscritos, pero no podrás inscribir a nadie más.{% endif %}"
+                            aria-label="Dar de baja {{ fila.grado }}" data-tooltip="Dar de baja">
+                      {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                    </button>
                   {% endif %}
                 </div>
               {% endif %}
@@ -105,4 +115,32 @@
       </div>
     </div>
   {% endfor %}
+  {# Una sola ventana de confirmación para todas las tarjetas: baja-lista.js le pone el grado que corresponde #}
+  {% if perms.Alumnos.delete_grado and not viendo_bajas %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-baja-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja <span data-baja-nombre>el grado</span></h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-baja-nombre>El grado</strong> dejará de ofrecerse al inscribir estudiantes y de aparecer en el listado de grados activos.</p>
+          <div class="alert alert--warning" role="note" data-baja-aviso hidden>
+            {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+            <p class="alert__body" data-baja-aviso-texto></p>
+          </div>
+          <p class="text-muted">Es una baja lógica: no se borra nada. Sus inscripciones y su historial se conservan y podrás reactivarlo desde el filtro «Bajas».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/baja-lista.js' %}" defer></script>
 {% endblock %}

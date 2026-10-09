@@ -463,6 +463,85 @@ class Recreo(models.Model):
         ordering = ['dia_semana', 'hora_inicio']
 
 
+class PeriodoQuerySet(models.QuerySet):
+    def abiertos(self, fecha=None):
+        """Los periodos abiertos en esa fecha (hoy si no se indica): abiertos a mano, o por sus fechas si siguen sus
+        fechas. Los cerrados a mano nunca."""
+        fecha = fecha or timezone.localdate()
+        return self.filter(
+            models.Q(apertura=Periodo.ABIERTO)
+            | models.Q(apertura=Periodo.POR_FECHAS, fecha_inicio__lte=fecha, fecha_fin__gte=fecha)
+        )
+
+
+class Periodo(models.Model):
+    """Un periodo de evaluación de un nivel en un ciclo (parcial, bimestre, trimestre…, como lo llame el colegio).
+
+    Mientras está abierto, los profesores de ese nivel pueden capturar calificaciones. Por omisión se abre en su fecha
+    de inicio y se cierra al terminar su fecha de cierre; además se puede abrir o cerrar a mano (`apertura`), por
+    ejemplo para cerrarlo antes o para dar unos días más de captura, y después volver a sus fechas.
+    """
+
+    POR_FECHAS, ABIERTO, CERRADO = 'FECHAS', 'ABIERTO', 'CERRADO'
+    APERTURA_CHOICES = [
+        (POR_FECHAS, 'Según sus fechas'),
+        (ABIERTO, 'Abierto a mano'),
+        (CERRADO, 'Cerrado a mano'),
+    ]
+    PROXIMO = 'PROXIMO'
+    ESTADOS = {ABIERTO: 'Abierto', PROXIMO: 'Próximo', CERRADO: 'Cerrado'}
+
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='periodos', verbose_name='Ciclo escolar')
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, verbose_name='Nivel')
+    nombre = models.CharField(max_length=60, verbose_name='Nombre')
+    fecha_inicio = models.DateField(verbose_name='Se abre el')
+    fecha_fin = models.DateField(verbose_name='Se cierra el')
+    apertura = models.CharField(max_length=10, choices=APERTURA_CHOICES, default=POR_FECHAS, verbose_name='Apertura')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    objects = PeriodoQuerySet.as_manager()
+
+    def estado_en(self, fecha):
+        """ABIERTO, PROXIMO (todavía no llega su fecha de inicio) o CERRADO en esa fecha."""
+        if self.apertura in (self.ABIERTO, self.CERRADO):
+            return self.apertura
+        if fecha < self.fecha_inicio:
+            return self.PROXIMO
+        return self.ABIERTO if fecha <= self.fecha_fin else self.CERRADO
+
+    @property
+    def estado(self):
+        return self.estado_en(timezone.localdate())
+
+    @property
+    def estado_display(self):
+        return self.ESTADOS[self.estado]
+
+    @property
+    def esta_abierto(self):
+        return self.estado == self.ABIERTO
+
+    @property
+    def a_mano(self):
+        return self.apertura != self.POR_FECHAS
+
+    def clean(self):
+        if self.fecha_inicio and self.fecha_fin and self.fecha_fin < self.fecha_inicio:
+            raise ValidationError({'fecha_fin': 'La fecha de cierre no puede ser anterior a la de inicio.'})
+
+    def __str__(self):
+        return f'{self.nombre} de {self.get_nivel_display()} ({self.ciclo})'
+
+    class Meta:
+        verbose_name = 'Periodo de evaluación'
+        verbose_name_plural = 'Periodos de evaluación'
+        ordering = ['fecha_inicio', 'nombre']
+        constraints = [
+            models.UniqueConstraint(fields=['ciclo', 'nivel', 'nombre'], name='periodo_nombre_unico_por_nivel'),
+        ]
+
+
 class AsistenciaGeneral(models.Model):
 
     ESTADO_CHOICES = [

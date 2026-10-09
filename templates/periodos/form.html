@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if es_edicion %}Editar {{ periodo.nombre }}{% else %}Nuevo periodo{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'periodos:lista' %}?ciclo={{ ciclo.pk }}">Periodos de evaluación</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar{% else %}Nuevo periodo{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar periodo{% else %}Nuevo periodo{% endif %}</h1>
+      <p class="page-header__description">
+        Ciclo {{ ciclo }}. {% if es_edicion %}Ahora está {{ periodo.estado_display|lower }}{% if periodo.a_mano %} a mano{% endif %}.{% else %}Elige el nivel, su nombre y las fechas en que se abre y se cierra la captura.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-periodo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="seccion-periodo">Datos del periodo</h2>
+      </header>
+      <div class="card__body form-grid">
+        <fieldset class="field form-grid__full{% if form.nivel.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">{{ form.nivel.label }}</legend>
+          <div class="choice-group">
+            {% for opcion in form.nivel %}
+              <label class="choice" for="{{ opcion.id_for_label }}">
+                {{ opcion.tag }}
+                <span class="choice__box">{{ opcion.choice_label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          {% for error in form.nivel.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
+        {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.fecha_inicio %}
+        {% include "partials/field.html" with campo=form.fecha_fin %}
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'periodos:lista' %}?ciclo={{ ciclo.pk }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Agregar periodo{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}

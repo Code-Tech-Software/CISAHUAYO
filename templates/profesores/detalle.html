@@ -506,7 +506,7 @@
             <div class="choice-group">
               <label class="choice choice--check" for="quitar-del-ciclo">
                 <input class="choice__input" type="checkbox" name="quitar_del_ciclo" id="quitar-del-ciclo" checked>
-                <span class="choice__box">También quitarlo de sus {{ asignaciones_actuales }} materia{{ asignaciones_actuales|pluralize }} del ciclo actual</span>
+                <span class="choice__box">También quitarlo de su{{ asignaciones_actuales|pluralize }} {% if asignaciones_actuales != 1 %}{{ asignaciones_actuales }} {% endif %}materia{{ asignaciones_actuales|pluralize }} del ciclo actual</span>
               </label>
             </div>
           {% endif %}

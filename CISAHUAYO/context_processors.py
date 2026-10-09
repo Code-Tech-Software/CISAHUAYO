@@ -34,6 +34,7 @@ NAVEGACION = (
             {'etiqueta': 'Materias', 'icono': 'book-open', 'ruta': 'materias:lista', 'permiso': 'Alumnos.view_materia'},
             {'etiqueta': 'Asignaciones', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
             {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
+            {'etiqueta': 'Periodos', 'icono': 'clipboard-check', 'ruta': 'periodos:lista', 'permiso': 'Alumnos.view_periodo'},
             {
                 'etiqueta': 'Asistencias', 'icono': 'user-check', 'ruta': 'asistencias:inicio',
                 'destinos': (
@@ -64,6 +65,7 @@ ACCIONES_RAPIDAS = (
     {'etiqueta': 'Nuevo grado', 'icono': 'plus', 'ruta': 'grados:crear', 'permiso': 'Alumnos.add_grado'},
     {'etiqueta': 'Nueva materia', 'icono': 'plus', 'ruta': 'materias:crear', 'permiso': 'Alumnos.add_materia'},
     {'etiqueta': 'Nuevo profesor', 'icono': 'plus', 'ruta': 'profesores:crear', 'permiso': 'Alumnos.add_profesor'},
+    {'etiqueta': 'Nuevo periodo de evaluación', 'icono': 'plus', 'ruta': 'periodos:crear', 'permiso': 'Alumnos.add_periodo'},
     {'etiqueta': 'Pantalla de entrada', 'icono': 'user-check', 'ruta': 'asistencias:kiosco', 'permiso': 'Alumnos.add_asistenciageneral'},
     {'etiqueta': 'Nueva justificación', 'icono': 'plus', 'ruta': 'asistencias:justificacion_crear', 'permiso': 'Alumnos.add_justificacion'},
     {'etiqueta': 'Nuevo usuario', 'icono': 'plus', 'ruta': 'usuarios:crear', 'permiso': 'auth.add_user'},

@@ -156,6 +156,14 @@
                     </a>
                   {% endif %}
                 {% endif %}
+                {% if perms.Alumnos.delete_materia and not viendo_bajas %}
+                  <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
+                          data-action="{% url 'materias:baja' materia.pk %}" data-nombre="{{ materia }}"
+                          data-opcion-plan="{% if materia.plan_actual %}También quitarla del plan del ciclo {{ ciclo }}{% if materia.grado %} ({{ materia.grado }}){% endif %}{% endif %}"
+                          aria-label="Dar de baja la materia {{ materia }}" data-tooltip="Dar de baja">
+                    {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                  </button>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}
@@ -196,4 +204,34 @@
       </div>
     </div>
   {% endif %}
+  {# Una sola ventana de confirmación para todas las filas: baja-lista.js le pone la materia que corresponde #}
+  {% if perms.Alumnos.delete_materia and not viendo_bajas %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-baja-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja <span data-baja-nombre>la materia</span></h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-baja-nombre>La materia</strong> dejará de impartirse y de aparecer entre las materias activas.</p>
+          <div class="choice-group" data-baja-opcion="plan" hidden>
+            <label class="choice choice--check" for="baja-quitar-del-ciclo">
+              <input class="choice__input" type="checkbox" name="quitar_del_ciclo" id="baja-quitar-del-ciclo" disabled>
+              <span class="choice__box" data-baja-opcion-texto></span>
+            </label>
+          </div>
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su historial, su horario y su asistencia se conservan y podrás reactivarla desde el filtro «Bajas».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/baja-lista.js' %}" defer></script>
 {% endblock %}

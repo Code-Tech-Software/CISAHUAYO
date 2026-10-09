@@ -12,7 +12,7 @@ from .catalogo import con_requisitos, permisos_de_modulos
 from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
-ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'materias', 'horarios', 'asistencias')
+ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'materias', 'horarios', 'periodos', 'asistencias')
 
 
 def _direccion():
@@ -22,7 +22,7 @@ def _direccion():
 def _control_escolar():
     return (
         permisos_de_modulos('alumnos', 'tutores', 'inscripciones')
-        | permisos_de_modulos('profesores', 'ciclos', 'grados', 'materias', 'horarios', solo=('ver',))
+        | permisos_de_modulos('profesores', 'ciclos', 'grados', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.view_justificacion',
            'Alumnos.add_justificacion', 'Alumnos.change_justificacion', 'Alumnos.delete_justificacion'}
     )
@@ -30,7 +30,7 @@ def _control_escolar():
 
 def _docente():
     return (
-        permisos_de_modulos('alumnos', 'tutores', 'grados', 'materias', 'horarios', solo=('ver',))
+        permisos_de_modulos('alumnos', 'tutores', 'grados', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Alumnos.view_asistenciamateria', 'Alumnos.change_asistenciamateria', 'Alumnos.view_justificacion'}
     )
 

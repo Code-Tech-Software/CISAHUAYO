@@ -139,6 +139,16 @@
                     </a>
                   {% endif %}
                 {% endif %}
+                {% if perms.Alumnos.delete_profesor and profesor.estatus == "ACTIVO" %}
+                  <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
+                          data-action="{% url 'profesores:baja' profesor.pk %}" data-nombre="{{ profesor }}"
+                          data-aviso="{% if profesor.materias %}Imparte {{ profesor.materias }} materia{{ profesor.materias|pluralize }} en el ciclo actual. Si las deja sin profesor, tendrás que asignarles a alguien más.{% endif %}"
+                          data-opcion-materias="{% if profesor.materias %}También quitarlo de su{{ profesor.materias|pluralize }} {% if profesor.materias != 1 %}{{ profesor.materias }} {% endif %}materia{{ profesor.materias|pluralize }} del ciclo actual{% endif %}"
+                          data-opcion-cuenta="{% if profesor.puede_desactivar_cuenta %}También desactivar su cuenta «{{ profesor.usuario.username }}»{% endif %}"
+                          aria-label="Dar de baja a {{ profesor }}" data-tooltip="Dar de baja">
+                    {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                  </button>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}
@@ -179,4 +189,44 @@
       </div>
     </div>
   {% endif %}
+  {# Una sola ventana de confirmación para todas las filas: baja-lista.js le pone el profesor y sus opciones #}
+  {% if perms.Alumnos.delete_profesor %}
+    <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-baja-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja a <span data-baja-nombre>este profesor</span></h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p><strong data-baja-nombre>Este profesor</strong> dejará de aparecer entre los profesores activos y no se ofrecerá al asignar materias.</p>
+          <div class="alert alert--warning" role="note" data-baja-aviso hidden>
+            {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+            <p class="alert__body" data-baja-aviso-texto></p>
+          </div>
+          <div class="choice-group" data-baja-opcion="materias" hidden>
+            <label class="choice choice--check" for="baja-quitar-del-ciclo">
+              <input class="choice__input" type="checkbox" name="quitar_del_ciclo" id="baja-quitar-del-ciclo" disabled>
+              <span class="choice__box" data-baja-opcion-texto></span>
+            </label>
+          </div>
+          <div class="choice-group" data-baja-opcion="cuenta" hidden>
+            <label class="choice choice--check" for="baja-desactivar-cuenta">
+              <input class="choice__input" type="checkbox" name="desactivar_cuenta" id="baja-desactivar-cuenta" disabled>
+              <span class="choice__box" data-baja-opcion-texto></span>
+            </label>
+          </div>
+          <p class="text-muted">Es una baja lógica: no se borra nada. Su registro y el historial de los ciclos cerrados se conservan y podrás reactivarlo desde el filtro «Bajas».</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Dar de baja</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/baja-lista.js' %}" defer></script>
 {% endblock %}

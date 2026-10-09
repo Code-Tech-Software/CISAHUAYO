@@ -786,12 +786,12 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         etiquetas = self.enlaces_del_menu(self.html_de(self.admin))
         self.assertEqual(etiquetas[0], 'Panel de control')
         for esperado in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias',
-                         'Asignaciones', 'Horarios', 'Asistencias', 'Usuarios', 'Roles y permisos'):
+                         'Asignaciones', 'Horarios', 'Periodos', 'Asistencias', 'Usuarios', 'Roles y permisos'):
             self.assertIn(esperado, etiquetas)
 
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
-            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias'},
+            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias'},
             'Recepción': {'Estudiantes', 'Asistencias'},
         }
         for nombre_rol, esperados in casos.items():

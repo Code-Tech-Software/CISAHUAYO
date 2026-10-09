@@ -40,7 +40,7 @@ from .forms import FiltroProfesoresForm, ProfesorForm
 def profesor_lista(request):
     filtro = FiltroProfesoresForm(request.GET)
     ciclo = ciclo_actual()
-    profesores = filtro.filtrar(Profesor.objects.all(), ciclo).prefetch_related('niveles')
+    profesores = filtro.filtrar(Profesor.objects.all(), ciclo).select_related('usuario').prefetch_related('niveles')
     if ciclo:
         profesores = profesores.annotate(
             materias=Count('asignaciones', filter=Q(asignaciones__ciclo=ciclo, asignaciones__activa=True), distinct=True),
@@ -53,6 +53,8 @@ def profesor_lista(request):
     minutos = minutos_por_profesor([p.pk for p in pagina], ciclo)
     for profesor in pagina:
         profesor.duracion = formatear_duracion(minutos[profesor.pk]) if minutos[profesor.pk] else ''
+        # Para la baja desde el listado: si se puede desactivar también su cuenta (lo mismo que ofrece su perfil)
+        profesor.puede_desactivar_cuenta = profesor.estatus == 'ACTIVO' and puede_desactivar_su_cuenta(request.user, profesor)
 
     conteos = dict(Profesor.objects.order_by().values_list('estatus').annotate(total=Count('pk')))
     return render(request, 'profesores/lista.html', {

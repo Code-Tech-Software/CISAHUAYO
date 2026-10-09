@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'Profesores',
     'Asignaciones',
     'Asistencias',
+    'Periodos',
     'Usuarios',
     'Roles',
 ]

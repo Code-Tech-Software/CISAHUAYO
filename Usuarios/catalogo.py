@@ -113,6 +113,14 @@ MODULOS = (
             'baja': 'Quitar bloques y recreos del horario.',
         }),
     )),
+    Modulo('periodos', 'Periodos de evaluación', 'clipboard-check', 'Los parciales, bimestres o trimestres de cada nivel y cuándo se puede capturar en cada uno.', (
+        Funcion('Periodos de evaluación', _permisos('periodo'), ayuda={
+            'ver': 'Consultar los periodos de cada nivel y si están abiertos.',
+            'crear': 'Agregar periodos a un nivel.',
+            'editar': 'Editar un periodo, abrirlo o cerrarlo a mano y devolverlo a sus fechas.',
+            'baja': 'Eliminar un periodo.',
+        }),
+    )),
     Modulo('asistencias', 'Asistencias', 'user-check', 'La entrada al colegio, el pase de lista y las justificaciones.', (
         Funcion('Pantalla de entrada', {'crear': 'Alumnos.add_asistenciageneral'}, etiquetas={'crear': 'Usar'}, ayuda={
             'crear': 'Usar la pantalla de la entrada: registrar la asistencia con la credencial o la referencia del estudiante.',

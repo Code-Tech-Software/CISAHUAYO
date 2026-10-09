@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Periodos de evaluación | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Periodos de evaluación</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Periodos de evaluación</h1>
+      <p class="page-header__description">Los parciales, bimestres o trimestres de cada nivel. Mientras un periodo está abierto, los profesores de ese nivel pueden capturar calificaciones.</p>
+    </div>
+    {% if perms.Alumnos.add_periodo and editable %}
+      <div class="page-header__actions">
+        <a class="btn btn--primary" href="{% url 'periodos:crear' %}?ciclo={{ ciclo.pk }}" data-modal-form>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
+          Nuevo periodo
+        </a>
+      </div>
+    {% endif %}
+  </header>
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}
+          <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  {% if not ciclo %}
+    <div class="card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Aún no hay ciclos escolares</p>
+        <p class="empty-state__text">Los periodos de evaluación son de un ciclo: crea uno para agregarlos.</p>
+        {% if perms.Alumnos.add_cicloescolar %}
+          <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% if not editable %}
+      <div class="alert alert--info alert--spaced" role="note">
+        {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+        <p class="alert__body">El ciclo {{ ciclo }} está cerrado: sus periodos se conservan tal como quedaron y ya no se modifican.</p>
+      </div>
+    {% elif total %}
+      {# Lo que importa a diario: en qué periodos se puede capturar hoy #}
+      <div class="alert alert--{% if abiertos %}success{% else %}info{% endif %} alert--spaced" role="status">
+        {% include "partials/icon.html" with name=abiertos|yesno:"circle-check,info" icon_class="alert__icon" %}
+        <p class="alert__body">
+          {% if abiertos %}
+            <strong>Hoy se puede capturar en:</strong>
+            {% for periodo in abiertos %}{{ periodo.get_nivel_display }} · {{ periodo.nombre }}{% if not forloop.last %}; {% endif %}{% endfor %}.
+          {% else %}
+            Hoy no hay ningún periodo abierto: los profesores no pueden capturar calificaciones.
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
+
+    {% for nivel in niveles %}
+      <section class="level" aria-labelledby="nivel-{{ nivel.codigo|lower }}">
+        <header class="level__header">
+          <div>
+            <h2 class="level__title" id="nivel-{{ nivel.codigo|lower }}">{{ nivel.nombre }}</h2>
+            <p class="level__count">
+              {% if nivel.periodos %}{{ nivel.periodos|length }} periodo{{ nivel.periodos|length|pluralize }}{% if nivel.abiertos %} · {{ nivel.abiertos|length }} abierto{{ nivel.abiertos|length|pluralize }}{% endif %}{% else %}Sin periodos{% endif %}
+            </p>
+          </div>
+          {% if perms.Alumnos.add_periodo and editable %}
+            <a class="btn btn--sm" href="{% url 'periodos:crear' %}?ciclo={{ ciclo.pk }}&amp;nivel={{ nivel.codigo }}" data-modal-form>
+              {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar a {{ nivel.nombre }}
+            </a>
+          {% endif %}
+        </header>
+
+        {% if nivel.periodos %}
+          <ul class="grade-grid">
+            {% for periodo in nivel.periodos %}
+              <li>
+                <article class="grade-card grade-card--tone-{{ nivel.codigo|nivel_tono }} periodo-card periodo-card--{{ periodo.estado_actual|lower }}">
+                  <span class="grade-card__number" aria-hidden="true">{{ periodo.numero }}</span>
+                  <div class="grade-card__body">
+                    <h3 class="grade-card__name">{{ periodo.nombre }}</h3>
+                    <p class="grade-card__meta">{{ periodo.fecha_inicio|date:"j M" }} – {{ periodo.fecha_fin|date:"j M Y" }}</p>
+                    <p class="periodo-card__estado">
+                      <span class="tag tag--{% if periodo.estado_actual == 'ABIERTO' %}success{% elif periodo.estado_actual == 'PROXIMO' %}info{% else %}neutral{% endif %}">{{ periodo.estado_display }}{% if periodo.a_mano %} a mano{% endif %}</span>
+                      <span class="periodo-card__nota">{{ periodo.descripcion }}</span>
+                    </p>
+                  </div>
+
+                  {% if editable and perms.Alumnos.change_periodo or editable and perms.Alumnos.delete_periodo %}
+                    <div class="grade-card__actions menu" data-menu>
+                      <button type="button" class="btn btn--ghost btn--icon btn--sm menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-periodo-{{ periodo.pk }}" aria-label="Acciones de {{ periodo.nombre }} de {{ nivel.nombre }}">
+                        {% include "partials/icon.html" with name="more-horizontal" icon_class="icon--sm" %}
+                      </button>
+                      <div class="menu__panel" id="menu-periodo-{{ periodo.pk }}" data-menu-panel hidden>
+                        <ul class="menu__list">
+                          {% if perms.Alumnos.change_periodo %}
+                            <li>
+                              <a class="menu__item" href="{% url 'periodos:editar' periodo.pk %}" data-modal-form>{% include "partials/icon.html" with name="pencil" %} Editar</a>
+                            </li>
+                            <li>
+                              {% if periodo.estado_actual == 'ABIERTO' %}
+                                <form method="post" action="{% url 'periodos:cerrar' periodo.pk %}">
+                                  {% csrf_token %}
+                                  <button type="submit" class="menu__item">{% include "partials/icon.html" with name="lock" %} Cerrar ahora</button>
+                                </form>
+                              {% else %}
+                                <form method="post" action="{% url 'periodos:abrir' periodo.pk %}">
+                                  {% csrf_token %}
+                                  <button type="submit" class="menu__item">{% include "partials/icon.html" with name="key" %} Abrir ahora</button>
+                                </form>
+                              {% endif %}
+                            </li>
+                            {% if periodo.a_mano %}
+                              <li>
+                                <form method="post" action="{% url 'periodos:por_fechas' periodo.pk %}">
+                                  {% csrf_token %}
+                                  <button type="submit" class="menu__item">{% include "partials/icon.html" with name="calendar" %} Seguir sus fechas</button>
+                                </form>
+                              </li>
+                            {% endif %}
+                          {% endif %}
+                          {% if perms.Alumnos.delete_periodo %}
+                            <li>
+                              <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-eliminar-periodo" data-eliminar-periodo
+                                      data-action="{% url 'periodos:eliminar' periodo.pk %}" data-nombre="{{ periodo.nombre }} de {{ nivel.nombre }}">
+                                {% include "partials/icon.html" with name="trash" %} Eliminar
+                              </button>
+                            </li>
+                          {% endif %}
+                        </ul>
+                      </div>
+                    </div>
+                  {% endif %}
+                </article>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="card">
+            <div class="empty-state empty-state--inline">
+              <p class="empty-state__title">{{ nivel.nombre }} todavía no tiene periodos en {{ ciclo }}</p>
+              <p class="empty-state__text">Agrega sus parciales, bimestres o trimestres con las fechas en que se abre y se cierra cada uno.</p>
+            </div>
+          </div>
+        {% endif %}
+      </section>
+    {% endfor %}
+  {% endif %}
+
+  {% if editable and perms.Alumnos.delete_periodo %}
+    <dialog class="modal" id="modal-eliminar-periodo" aria-labelledby="modal-eliminar-periodo-titulo" data-modal>
+      <form class="modal__panel" method="post" action="" data-eliminar-periodo-form>
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-eliminar-periodo-titulo">Eliminar el periodo</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p>Se eliminará <strong data-eliminar-periodo-nombre>el periodo</strong>.</p>
+          <p class="text-muted">Si solo quieres que ya no se capture en él, mejor ciérralo: así se conserva.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger">Eliminar</button>
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/periodos.js' %}" defer></script>
+{% endblock %}

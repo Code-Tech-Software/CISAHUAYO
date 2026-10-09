@@ -243,9 +243,13 @@
   font-size: var(--text-sm);
 }
 
+/* Encima del enlace que cubre la tarjeta; varios botones (editar, dar de baja) quedan en fila */
 .grade-card__actions {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 
@@ -681,4 +685,37 @@ a.slot__name:hover {
 
 .horario-dias__copiar {
   justify-self: start;
+}
+
+/* ==========================================================================
+   PERIODOS DE EVALUACIÓN
+   Tarjetas como las de los grados (el número es el orden del periodo en su nivel); la abierta se resalta y la
+   cerrada se apaga, para ver de un vistazo en cuál se puede capturar.
+   ========================================================================== */
+.periodo-card--abierto {
+  border-color: var(--color-success-border);
+  box-shadow: 0 0 0 1px var(--color-success-border), var(--shadow-xs);
+}
+
+.periodo-card--cerrado {
+  background: var(--color-surface-2);
+  box-shadow: none;
+}
+
+.periodo-card--cerrado .grade-card__number {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.periodo-card__estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+.periodo-card__nota {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }

@@ -23,15 +23,16 @@ class MenuConRutasRealesTests(SimpleTestCase):
     def test_el_orden_del_menu(self):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Estudiantes', 'Tutores', 'Profesores', 'Inscripciones',
-            'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias', 'Usuarios', 'Roles y permisos',
+            'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias', 'Usuarios',
+            'Roles y permisos',
         ])
 
     def test_urls_de_las_secciones(self):
         self.assertEqual(
-            {k: self.items[k]['url'] for k in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Asistencias')},
+            {k: self.items[k]['url'] for k in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias')},
             {'Estudiantes': '/alumnos/', 'Tutores': '/tutores/', 'Profesores': '/profesores/', 'Inscripciones': '/inscripciones/',
              'Ciclos escolares': '/ciclos/', 'Grados': '/grados/', 'Materias': '/materias/', 'Asignaciones': '/asignaciones/',
-             'Horarios': '/horarios/', 'Asistencias': '/asistencias/'},
+             'Horarios': '/horarios/', 'Periodos': '/periodos/', 'Asistencias': '/asistencias/'},
         )
 
     def test_las_acciones_rapidas_existen_todas(self):

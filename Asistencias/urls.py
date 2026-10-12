@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_docente
 
 app_name = 'asistencias'
 
@@ -20,6 +20,11 @@ urlpatterns = [
     # Pase de lista por materia
     path('clases/', views.clases, name='clases'),
     path('clases/<int:pk>/', views.clase, name='clase'),
+
+    # Asistencia para docentes: la matriz de sus materias en el periodo abierto
+    path('docente/', views_docente.docente, name='docente'),
+    path('docente/<int:pk>/guardar/', views_docente.docente_guardar, name='docente_guardar'),
+    path('docente/reporte/', views_docente.docente_reporte, name='docente_reporte'),
 
     # Justificaciones
     path('justificaciones/', views.justificaciones, name='justificaciones'),

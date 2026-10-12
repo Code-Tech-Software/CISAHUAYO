@@ -24,7 +24,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Estudiantes', 'Tutores', 'Profesores', 'Inscripciones',
             'Ciclos escolares', 'Grados', 'Grupos', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias',
-            'Usuarios', 'Roles y permisos',
+            'Usuarios', 'Roles y permisos', 'Ajustes',
         ])
 
     def test_urls_de_las_secciones(self):

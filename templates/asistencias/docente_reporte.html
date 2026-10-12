@@ -1,0 +1,160 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Reporte de asistencia de una materia (Asistencia para docentes): lo mismo que se ve en la matriz (la materia y las
+  fechas elegidas), con los totales de cada estudiante, una tabla por mes y las observaciones. Listo para imprimir o
+  guardar en PDF desde el navegador, en hoja horizontal. Siempre en tema claro, como el papel (no carga preload.js).
+  Estilos: sección «Reporte del docente» de static/css/asistencias.css.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reporte de asistencia · {{ asignacion.materia }} · {{ asignacion.grupo }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <style>@page { size: A4 landscape; margin: 10mm; }</style>
+</head>
+<body class="hoja-reporte">
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la asistencia</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Reporte de asistencia</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Materia</dt><dd>{{ asignacion.materia }} · {{ asignacion.grupo }}</dd></div>
+        <div><dt>Profesor</dt><dd>{{ profesor }}</dd></div>
+        <div><dt>Periodo</dt><dd>{{ datos.periodo.nombre }} <span class="text-muted">({{ datos.periodo.fecha_inicio|date:"d/m/Y" }} al {{ datos.periodo.fecha_fin|date:"d/m/Y" }})</span></dd></div>
+        <div><dt>Fechas del reporte</dt><dd>Del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F \d\e Y"|lower }} <span class="text-muted">· {{ datos.columnas|length }} día{{ datos.columnas|length|pluralize }}</span></dd></div>
+        <div><dt>Generado</dt><dd>{{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
+      </dl>
+    </header>
+
+    <section class="reporte__seccion" aria-labelledby="titulo-resumen">
+      <h2 class="reporte__subtitulo" id="titulo-resumen">Resumen por estudiante</h2>
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead>
+            <tr>
+              <th scope="col">Estudiante</th>
+              <th scope="col">Presentes</th>
+              <th scope="col">Retardos</th>
+              <th scope="col">Faltas</th>
+              <th scope="col">Justificadas</th>
+              <th scope="col">Sin registro</th>
+              <th scope="col">Asistencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in reporte.filas %}
+              <tr>
+                <th scope="row">{{ fila.alumno.apellido_paterno }} {{ fila.alumno.apellido_materno }}, {{ fila.alumno.nombre }}</th>
+                <td>{{ fila.resumen.presentes }}</td>
+                <td>{{ fila.resumen.retardos }}</td>
+                <td>{{ fila.resumen.faltas }}</td>
+                <td>{{ fila.resumen.justificadas }}</td>
+                <td>{{ fila.resumen.sin_registro }}</td>
+                <td class="reporte__porcentaje">{% if fila.resumen.porcentaje is None %}—{% else %}{{ fila.resumen.porcentaje }} %{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Grupo · {{ reporte.filas|length }} estudiante{{ reporte.filas|length|pluralize }}</th>
+              <td>{{ reporte.totales.presentes }}</td>
+              <td>{{ reporte.totales.retardos }}</td>
+              <td>{{ reporte.totales.faltas }}</td>
+              <td>{{ reporte.totales.justificadas }}</td>
+              <td>{{ reporte.totales.sin_registro }}</td>
+              <td class="reporte__porcentaje">{% if reporte.totales.porcentaje is None %}—{% else %}{{ reporte.totales.porcentaje }} %{% endif %}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    {% for mes in reporte.meses %}
+      <section class="reporte__seccion reporte__mes" aria-label="{{ mes.nombre }}">
+        <h2 class="reporte__subtitulo">{{ mes.nombre|capfirst }}</h2>
+        <div class="reporte__marco-tabla">
+          <table class="reporte__tabla reporte__tabla--dias">
+            <thead>
+              <tr>
+                <th scope="col">Estudiante</th>
+                {% for columna in mes.columnas %}
+                  <th scope="col" class="{% if columna.inicio_semana %}is-inicio-semana{% endif %}{% if columna.suspension %} is-suspension{% endif %}"><span class="reporte__inicial">{{ columna.inicial }}</span><span>{{ columna.fecha.day }}</span></th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for fila in mes.filas %}
+                <tr>
+                  <th scope="row">{{ fila.alumno.apellido_paterno }} {{ fila.alumno.apellido_materno }}, {{ fila.alumno.nombre }}</th>
+                  {% for celda in fila.celdas %}<td class="{% if celda.inicio_semana %}is-inicio-semana{% endif %}">{% if celda.letra == '—' %}<span class="reporte__sin-registro">—</span>{% elif celda.letra %}<span class="indicador-asistencia indicador-asistencia--{{ celda.clase }}"{% if celda.observaciones %} data-observaciones{% endif %}>{{ celda.letra }}</span>{% endif %}</td>{% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endfor %}
+
+    {% if reporte.observaciones %}
+      <section class="reporte__seccion" aria-labelledby="titulo-observaciones">
+        <h2 class="reporte__subtitulo" id="titulo-observaciones">Observaciones</h2>
+        <div class="reporte__marco-tabla">
+          <table class="reporte__tabla reporte__tabla--notas">
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Estudiante</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Observación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for nota in reporte.observaciones %}
+                <tr>
+                  <td>{{ nota.fecha|date:"D j/m"|lower }}</td>
+                  <td>{{ nota.alumno.apellido_paterno }} {{ nota.alumno.apellido_materno }}, {{ nota.alumno.nombre }}</td>
+                  <td>{{ nota.estado }}</td>
+                  <td>{{ nota.observacion }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+
+    <ul class="reporte__leyenda" aria-label="Qué significa cada letra">
+      {% for letra, nombre in leyenda %}
+        <li><span class="indicador-asistencia indicador-asistencia--{% if letra == 'P' %}presente{% elif letra == 'F' %}falta{% elif letra == 'R' %}retardo{% elif letra == 'J' %}justificada{% else %}suspension{% endif %}" aria-hidden="true">{{ letra }}</span>{{ nombre }}</li>
+      {% endfor %}
+      <li><span class="reporte__sin-registro" aria-hidden="true">—</span>Sin registro</li>
+      <li><span class="indicador-asistencia indicador-asistencia--falta" data-observaciones aria-hidden="true">F</span>Con observación</li>
+      <li class="text-muted">En blanco: sin clase, fecha futura o aún no inscrito.</li>
+    </ul>
+
+    <div class="reporte__firmas">
+      <div><span class="reporte__linea"></span>{{ profesor }}<span class="text-muted">Profesor</span></div>
+      <div><span class="reporte__linea"></span>Dirección<span class="text-muted">Visto bueno</span></div>
+    </div>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

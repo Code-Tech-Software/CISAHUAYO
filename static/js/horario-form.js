@@ -43,15 +43,16 @@
     if (!primero) return;
     const [inicio, fin] = horasDe(primero);
     if (!inicio.value || !fin.value) {
-      (inicio.value ? fin : inicio).focus();
+      (inicio.value ? fin : inicio).focus();   /* con static/js/hora.js el foco pasa a su campo visible */
       return;
     }
     demas.forEach((fila) => {
       const [otroInicio, otroFin] = horasDe(fila);
       otroInicio.value = inicio.value;
       otroFin.value = fin.value;
+      /* Avisa de cada cambio: el campo de hora lo muestra y la ventana sabe que hubo cambios */
+      [otroInicio, otroFin].forEach((campo) => campo.dispatchEvent(new Event('change', { bubbles: true })));
     });
-    form.dispatchEvent(new Event('input', { bubbles: true }));   /* para que la ventana sepa que hubo cambios */
   });
 
   casillas.forEach((casilla) => casilla.addEventListener('change', actualizar));

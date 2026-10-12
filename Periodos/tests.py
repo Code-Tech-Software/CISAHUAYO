@@ -97,6 +97,12 @@ class ListaTests(BaseTestCase):
         self.assertIn('periodo-card--cerrado', html)
         self.assertIn('periodo-card--proximo', html)
 
+    def test_avisa_de_un_periodo_demasiado_largo(self):
+        self.assertNotContains(self.client.get(self.url), 'revisa sus fechas')
+        # Pasó con datos reales: «Periodo 1» de secundaria del 12/10/2025 al 18/12/2026
+        Periodo.objects.filter(pk=self.parcial.pk).update(fecha_inicio=dias(-365), fecha_fin=dias(60))
+        self.assertContains(self.client.get(self.url), 'Dura 14 meses: revisa sus fechas.', count=1)
+
     def test_dice_en_que_se_puede_capturar_hoy(self):
         self.assertContains(self.client.get(self.url), 'Hoy se puede capturar en:</strong>\n            Primaria · Segundo bimestre.')
         Periodo.objects.filter(pk=self.segundo.pk).update(apertura=Periodo.CERRADO)

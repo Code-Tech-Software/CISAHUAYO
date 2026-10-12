@@ -345,6 +345,8 @@ class CrearTests(BaseTestCase):
         self.assertIn('data-horario-dia="2">', html)
         self.assertIn('data-horario-dia="1" hidden>', html)
         self.assertIn('js/horario-form.js', html)
+        self.assertIn('js/hora.js', html)                                 # el selector de hora moderno
+        self.assertIn('<input type="time" name="inicio_0"', html)         # sin JavaScript, el del navegador
         html = self.client.get(f'{self.url}&dia=3').content.decode()
         self.assertIn('data-horario-dia="3">', html)                      # el día de la celda en la que se dio clic
 
@@ -458,6 +460,8 @@ class EditarTests(BaseTestCase):
         self.assertEqual(list(form.fields), ['materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin'])
         self.assertEqual(form.initial['dia_semana'], 0)
         self.assertContains(respuesta, 'Quitar del horario')
+        self.assertContains(respuesta, 'js/hora.js')                      # también al editar, el selector de hora
+        self.assertContains(respuesta, '<input type="time" name="hora_inicio" value="08:00"')
 
     def test_cambia_el_dia_y_la_hora_y_vuelve_al_horario(self):
         respuesta = self.client.post(self.url, self.datos(dia_semana=3, hora_inicio='12:00', hora_fin='13:00'), follow=True)

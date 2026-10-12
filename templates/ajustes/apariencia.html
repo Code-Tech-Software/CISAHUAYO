@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ajustes | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {# Las letras de todos los temas: cada tarjeta se muestra con la suya y el cambio al elegir es inmediato #}
+  <link rel="stylesheet" href="{{ todas_las_fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/ajustes.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Ajustes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes</h1>
+      <p class="page-header__description">Elige cómo se ve el sistema para ti. Solo cambia tu cuenta: cada persona elige el suyo.</p>
+    </div>
+  </header>
+
+  {# Con JavaScript cada cambio se ve y se guarda al momento (static/js/ajustes.js); sin él, con «Guardar» #}
+  <form method="post" class="ajustes" data-apariencia novalidate>
+    {% csrf_token %}
+
+    {% if form.errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for campo in form %}{% for error in campo.errors %}<p>{{ error }}</p>{% endfor %}{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="titulo-tema">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="palette" %}
+        <h2 class="card__title" id="titulo-tema">Tema de color</h2>
+        <span class="card__header-action ajustes__estado" data-guardado role="status" aria-live="polite"></span>
+      </header>
+      <div class="card__body">
+        <p class="card__lead text-muted">Cambia todo el aspecto del sistema: colores, letra, esquinas, sombras, botones, etiquetas, avisos, tarjetas y avatares. Se guarda en tu cuenta, así lo ves igual en cualquier equipo.</p>
+        <fieldset class="ajustes__grupo ajustes__grupo--temas">
+          <legend class="visually-hidden">Tema de color</legend>
+          {% for tema in form.opciones_de_tema %}
+            <label class="ajuste-opcion ajuste-opcion--tema" data-tema="{{ tema.clave }}">
+              <input class="ajuste-opcion__input" type="radio" name="tema" value="{{ tema.clave }}" data-color="{{ tema.color }}"{% if tema.elegido %} checked{% endif %}>
+              <span class="tema-muestra" aria-hidden="true">
+                <span class="tema-muestra__menu">
+                  <span class="tema-muestra__item tema-muestra__item--activo"></span>
+                  <span class="tema-muestra__item"></span>
+                  <span class="tema-muestra__item"></span>
+                </span>
+                <span class="tema-muestra__cuerpo">
+                  <span class="tema-muestra__letra">Aa</span>
+                  <span class="tema-muestra__titulo"></span>
+                  <span class="tema-muestra__texto"></span>
+                  <span class="tema-muestra__acciones">
+                    <span class="tema-muestra__boton"></span>
+                    <span class="tema-muestra__chip"></span>
+                    <span class="tema-muestra__punto"></span>
+                  </span>
+                  <span class="tema-muestra__tonos">
+                    {% for n in "123456" %}<span class="tema-muestra__tono tema-muestra__tono--{{ n }}"></span>{% endfor %}
+                  </span>
+                </span>
+              </span>
+              <span class="ajuste-opcion__texto">
+                <span class="ajuste-opcion__nombre">{{ tema.nombre }}</span>
+                <span class="ajuste-opcion__descripcion">{{ tema.descripcion }} Letra {{ tema.letra }}.</span>
+              </span>
+              <span class="ajuste-opcion__marca">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>
+            </label>
+          {% endfor %}
+        </fieldset>
+      </div>
+    </section>
+
+    {# El modo es de cada dispositivo (lo recuerda el navegador): sin JavaScript no se puede elegir aquí #}
+    <section class="card card--stacked" aria-labelledby="titulo-modo" data-modo hidden>
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="sun" %}
+        <h2 class="card__title" id="titulo-modo">Modo claro u oscuro</h2>
+      </header>
+      <div class="card__body">
+        <p class="card__lead text-muted">Se recuerda en este dispositivo: puedes usar el oscuro en tu teléfono y el claro en la computadora de la escuela. También lo cambias con el botón de la luna, arriba.</p>
+        <fieldset class="ajustes__grupo">
+          <legend class="visually-hidden">Modo</legend>
+          <label class="ajuste-opcion">
+            <input class="ajuste-opcion__input" type="radio" name="modo" value="light">
+            <span class="ajuste-opcion__icono" aria-hidden="true">{% include "partials/icon.html" with name="sun" %}</span>
+            <span class="ajuste-opcion__texto">
+              <span class="ajuste-opcion__nombre">Claro</span>
+              <span class="ajuste-opcion__descripcion">Fondo blanco, para el día.</span>
+            </span>
+            <span class="ajuste-opcion__marca">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>
+          </label>
+          <label class="ajuste-opcion">
+            <input class="ajuste-opcion__input" type="radio" name="modo" value="dark">
+            <span class="ajuste-opcion__icono" aria-hidden="true">{% include "partials/icon.html" with name="moon" %}</span>
+            <span class="ajuste-opcion__texto">
+              <span class="ajuste-opcion__nombre">Oscuro</span>
+              <span class="ajuste-opcion__descripcion">Descansa la vista de noche.</span>
+            </span>
+            <span class="ajuste-opcion__marca">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>
+          </label>
+          <label class="ajuste-opcion">
+            <input class="ajuste-opcion__input" type="radio" name="modo" value="auto">
+            <span class="ajuste-opcion__icono" aria-hidden="true">{% include "partials/icon.html" with name="monitor" %}</span>
+            <span class="ajuste-opcion__texto">
+              <span class="ajuste-opcion__nombre">Automático</span>
+              <span class="ajuste-opcion__descripcion">Como lo tenga el dispositivo.</span>
+            </span>
+            <span class="ajuste-opcion__marca">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>
+          </label>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card card--stacked" aria-labelledby="titulo-menu">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="panel-left" %}
+        <h2 class="card__title" id="titulo-menu">Menú lateral</h2>
+      </header>
+      <div class="card__body">
+        <p class="card__lead text-muted">Claro como el resto de la página, o con el color profundo de tu tema para que se vea más vivo.</p>
+        <fieldset class="ajustes__grupo">
+          <legend class="visually-hidden">Menú lateral</legend>
+          {% for opcion in form.opciones_de_menu %}
+            <label class="ajuste-opcion">
+              <input class="ajuste-opcion__input" type="radio" name="menu_lateral" value="{{ opcion.clave }}"{% if opcion.elegido %} checked{% endif %}>
+              <span class="menu-muestra menu-muestra--{{ opcion.clave }}" aria-hidden="true">
+                <span class="menu-muestra__menu"></span>
+                <span class="menu-muestra__cuerpo"></span>
+              </span>
+              <span class="ajuste-opcion__texto">
+                <span class="ajuste-opcion__nombre">{{ opcion.nombre }}</span>
+                <span class="ajuste-opcion__descripcion">{% if opcion.clave == 'color' %}Con el color de tu tema.{% else %}Como el resto de la página.{% endif %}</span>
+              </span>
+              <span class="ajuste-opcion__marca">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>
+            </label>
+          {% endfor %}
+        </fieldset>
+      </div>
+    </section>
+
+    <div class="ajustes__pie" data-guardar>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar
+      </button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/ajustes.js' %}" defer></script>
+{% endblock %}

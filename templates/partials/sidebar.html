@@ -15,6 +15,12 @@
     </button>
   </div>
 
+  {# En escritorio: contrae o expande el menú desde su orilla (static/js/app.js le cambia el nombre) #}
+  <button type="button" class="sidebar__toggle" data-sidebar-collapse aria-controls="sidebar" aria-expanded="true"
+          aria-label="Contraer menú" data-tooltip="Contraer menú" data-tooltip-placement="right">
+    {% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}
+  </button>
+
   <nav class="nav" aria-label="Navegación principal">
     {% for seccion in navegacion %}
       <div class="nav__section">

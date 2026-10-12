@@ -18,6 +18,7 @@ SOLO_CON_SESION = {
     'inicio': 'el panel de control: cada quien ve solo los accesos a lo que su rol permite',
     'cuenta:perfil': 'cada persona edita sus propios datos',
     'cuenta:contrasena': 'cada persona cambia su propia contraseña',
+    'ajustes:inicio': 'cada persona elige cómo ve el sistema (tema de color y menú lateral)',
 }
 SIN_SESION = {
     'login': 'iniciar sesión',

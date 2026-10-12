@@ -21,7 +21,8 @@
      - Las reglas de etiqueta de la sección 2 usan :where() (especificidad 0)
        para que cualquier clase las sobreescriba sin necesidad de !important.
      - Los componentes usan colores de ROL (--color-surface, --color-text,
-       --color-primary...); así el tema oscuro solo redefine roles. La paleta
+       --color-primary...); así el tema oscuro y los temas de color de cada
+       persona (static/css/temas.css) solo redefinen roles. La paleta
        cruda (--color-teal-400...) solo aparece fuera de la sección 1 en los
        detalles de marca que se ven igual en ambos temas (la franja tricolor).
      - Sin degradados: el color es plano; solo la veladura del fondo (--aurora)
@@ -139,6 +140,10 @@
   --color-brand: var(--color-crimson-600);
   --color-brand-soft: var(--color-crimson-50);
   --color-badge: var(--color-crimson-600);
+  /* Tercer color de la franja tricolor (guinda · amarillo · turquesa); cada tema de color pone el suyo */
+  --color-stripe: var(--color-teal-400);
+  /* Texto sobre el color de acento (la cifra del filtro activo) */
+  --color-on-accent: var(--color-slate-900);
 
   --color-tooltip-bg: var(--color-slate-900);
   --color-tooltip-fg: var(--color-white);
@@ -489,7 +494,7 @@ body {
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-teal-400) 58% 100%);
+  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
 }
 
 .sidebar__header {
@@ -500,7 +505,11 @@ body {
   gap: var(--space-2);
   height: var(--topbar-height);
   padding-inline: var(--space-4);
-  border-bottom: var(--border);
+}
+
+/* Botón para contraer el menú, montado en su orilla: solo en escritorio (ver la sección 6) */
+.sidebar__toggle {
+  display: none;
 }
 
 /* --- Topbar --------------------------------------------------------------- */
@@ -772,6 +781,138 @@ body {
   background-position: calc(100% - 1.25rem) 50%, calc(100% - 0.9rem) 50%;
   background-size: 0.4rem 0.4rem;
   background-repeat: no-repeat;
+}
+
+/* --- Listas desplegables modernas ---------------------------------------------------------------------
+   Donde el navegador lo permite (Chrome y Edge recientes: appearance: base-select) también la lista que se abre usa
+   el diseño del sistema: una tarjeta con sombra, opciones que se resaltan al pasar, la elegida con palomita y los
+   grupos (optgroup) con su título. Sigue siendo el <select> de siempre, así que formularios, filtros y scripts que
+   filtran opciones funcionan igual; en los demás navegadores se abre la lista del sistema operativo. */
+@supports (appearance: base-select) {
+  .field__control--select:not([multiple]) {
+    appearance: base-select;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-inline-end: var(--space-3);
+    background-image: none;
+    cursor: pointer;
+  }
+
+  /* La flecha: un ángulo que gira al abrir */
+  .field__control--select:not([multiple])::picker-icon {
+    content: "";
+    flex-shrink: 0;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin: -0.2rem 0.15rem 0 auto;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    transform: rotate(45deg);
+    transition: transform var(--transition-fast), margin var(--transition-fast);
+  }
+
+  .field__control--select:not([multiple]):open::picker-icon {
+    margin-top: 0.25rem;
+    transform: rotate(225deg);
+  }
+
+  .field__control--select:not([multiple]):open {
+    border-color: var(--color-focus);
+    box-shadow: var(--ring-focus);
+  }
+
+  /* La lista abierta */
+  .field__control--select:not([multiple])::picker(select) {
+    appearance: base-select;
+    max-height: min(22rem, 60vh);
+    margin-block: 0.375rem;
+    padding: var(--space-1);
+    border: var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+    color: var(--color-text);
+    scrollbar-color: var(--color-border-strong) transparent;
+    scrollbar-width: thin;
+    opacity: 1;
+    transform: none;
+    transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out),
+      overlay var(--duration-fast) allow-discrete, display var(--duration-fast) allow-discrete;
+  }
+
+  @starting-style {
+    .field__control--select:not([multiple])::picker(select):popover-open {
+      opacity: 0;
+      transform: translateY(-0.25rem);
+    }
+  }
+
+  .field__control--select option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 2.25rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+    letter-spacing: normal;
+    text-transform: none;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+  }
+
+  .field__control--select option:hover,
+  .field__control--select option:focus-visible {
+    outline: none;
+    background: var(--color-surface-hover);
+    color: var(--color-text-strong);
+  }
+
+  .field__control--select option:checked {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-text);
+    font-weight: var(--weight-semibold);
+  }
+
+  .field__control--select option:checked:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--color-focus);
+  }
+
+  /* La palomita de la elegida, al final y del color de acción */
+  .field__control--select option::checkmark {
+    order: 1;
+    margin-inline-start: auto;
+    color: var(--color-primary);
+    font-weight: var(--weight-bold);
+  }
+
+  /* La opción vacía («Selecciona un grado», «Todos…») se ve como texto de ayuda */
+  .field__control--select option[value=""] {
+    color: var(--color-text-muted);
+  }
+
+  .field__control--select option:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  /* Grupos de opciones (por ejemplo, los grados de cada nivel): su título en mayúsculas pequeñas */
+  .field__control--select optgroup {
+    padding: var(--space-2) 0 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-2xs);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .field__control--select optgroup + optgroup {
+    margin-top: var(--space-1);
+    border-top: var(--border);
+  }
 }
 
 .field__label--required::after {
@@ -1497,7 +1638,7 @@ body {
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-teal-400) 58% 100%);
+  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
 }
 
 @keyframes palette-in {
@@ -3704,7 +3845,7 @@ body {
 
 .error-state__code {
   margin: 0;
-  color: var(--color-teal-300);
+  color: var(--color-stripe);
   font-family: var(--font-display);
   font-size: clamp(4.5rem, 16vw, 7.5rem);
   font-weight: var(--weight-bold);
@@ -3719,7 +3860,7 @@ body {
   height: 4px;
   margin: var(--space-4) auto 0;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--color-brand) 0 34%, var(--color-accent) 34% 62%, var(--color-teal-400) 62% 100%);
+  background: linear-gradient(90deg, var(--color-brand) 0 34%, var(--color-accent) 34% 62%, var(--color-stripe) 62% 100%);
 }
 
 .error-state__title {
@@ -3765,7 +3906,7 @@ body {
   inset: 0 0 auto;
   z-index: 3;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-teal-400) 58% 100%);
+  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
 }
 
 @keyframes sheet-in {
@@ -3979,6 +4120,502 @@ body {
 }
 
 
+/* --- Campo de fecha y calendario (static/js/fecha.js; el de rango, static/js/calendario.js) ----------------
+   El campo se ve como los demás controles, con la fecha escrita («lun 12 oct 2026»); el calendario flota junto a
+   él. El campo de hora (static/js/hora.js) es este mismo, con un reloj. Colores de rol: cambian con el tema. */
+/* El contenedor de los dos campos no cuenta para la cuadrícula de los filtros: cada campo ocupa su lugar */
+.rango-fechas {
+  display: contents;
+}
+
+.campo-fecha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-height-md);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-field-bg);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.campo-fecha > .icon {
+  color: var(--color-primary-text);
+}
+
+.campo-fecha:hover {
+  border-color: var(--color-text-muted);
+}
+
+.campo-fecha:focus-visible,
+.campo-fecha[aria-expanded="true"] {
+  border-color: var(--color-focus);
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.campo-fecha__texto {
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campo-fecha.is-vacio .campo-fecha__texto {
+  color: var(--color-text-muted);
+}
+
+.calendario {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  width: 19.5rem;
+  max-width: calc(100vw - 1rem);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: menu-in var(--duration-base) var(--ease-out);
+}
+
+.calendario__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.calendario__mes {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  text-transform: capitalize;
+}
+
+.calendario__nav {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.calendario__nav:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.calendario__nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.calendario__nav:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.calendario__indicacion {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.calendario__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.calendario__tabla th {
+  padding-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+}
+
+.calendario__tabla td {
+  padding: 1px 0;
+  text-align: center;
+}
+
+/* Cada día: un círculo; el rango, una banda continua detrás de los días intermedios */
+.calendario__dia {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.calendario__dia:hover:not(:disabled) {
+  background: var(--color-primary-soft-hover);
+  color: var(--color-primary-text);
+}
+
+.calendario__dia:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.calendario__dia.is-finde {
+  color: var(--color-text-muted);
+}
+
+.calendario__dia.is-otro-mes {
+  color: var(--color-text-subtle);
+}
+
+.calendario__dia:disabled {
+  color: var(--color-text-subtle);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.calendario__dia.is-hoy {
+  box-shadow: inset 0 0 0 1.5px var(--color-primary);
+  font-weight: var(--weight-bold);
+}
+
+/* Los días intermedios ocupan toda su celda: el rango se ve como una banda continua */
+.calendario__dia.is-en-rango {
+  width: 100%;
+  border-radius: 0;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.calendario__dia.is-inicio,
+.calendario__dia.is-fin,
+.calendario__dia.is-elegido {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--weight-bold);
+}
+
+.calendario__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border);
+}
+
+.calendario__resumen {
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+/* --- Calendario de una fecha (static/js/fecha.js) ---------------------------------------------------------
+   El mismo .calendario, en la capa superior (popover) para quedar también sobre las ventanas de los formularios. El
+   título del mes lleva a los meses del año y de ahí a los años (.calendario__rejilla); abajo, «Hoy» y «Borrar». */
+/* El navegador centra los popover en la pantalla: este se coloca junto a su campo (top y left desde el script) */
+.calendario--emergente {
+  inset: auto;
+  margin: 0;
+  overflow: visible;
+  color: var(--color-text);
+}
+
+/* El nombre del campo, para saber qué fecha se está eligiendo */
+.calendario__para {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+}
+
+.calendario__titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.calendario__titulo .icon {
+  color: var(--color-text-muted);
+}
+
+.calendario__titulo:hover:not([aria-disabled="true"]) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.calendario__titulo:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* En los años ya no hay otra vista: el título solo informa */
+.calendario__titulo[aria-disabled="true"] {
+  cursor: default;
+}
+
+.calendario__titulo[aria-disabled="true"] .icon {
+  display: none;
+}
+
+/* Meses o años: tres columnas, del mismo alto que la tabla de días para que el calendario no salte */
+.calendario__rejilla {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: center;
+  gap: var(--space-2);
+  min-height: 15.625rem;
+}
+
+.calendario__celda {
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.calendario__celda:hover:not(:disabled) {
+  background: var(--color-primary-soft-hover);
+  color: var(--color-primary-text);
+}
+
+.calendario__celda:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.calendario__celda.is-actual {
+  box-shadow: inset 0 0 0 1.5px var(--color-primary);
+  font-weight: var(--weight-bold);
+}
+
+.calendario__celda.is-elegido {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--weight-bold);
+}
+
+.calendario__celda:disabled {
+  color: var(--color-text-subtle);
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* El campo desactivado (un día sin marcar en Agregar horario) y con error, como los demás controles */
+.campo-fecha:disabled {
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.campo-fecha[aria-invalid="true"],
+.field.is-invalid .campo-fecha {
+  border-color: var(--color-danger);
+}
+
+/* --- Selector de hora (static/js/hora.js) -------------------------------------------------------------
+   El campo es el mismo .campo-fecha, con un reloj; el selector, una tarjeta con dos columnas que se desplazan
+   (horas y minutos), atajos para :00 :15 :30 :45 y «Listo». Es un popover: queda en la capa superior, por encima de
+   la ventana de los formularios. Colores de rol: cambian con el tema. */
+.campo-hora .campo-fecha__texto {
+  font-weight: var(--weight-medium);
+}
+
+/* El navegador centra los popover en la pantalla: este se coloca junto a su campo (hora.js le pone top y left) */
+.reloj {
+  position: fixed;
+  inset: auto;
+  width: 16rem;
+  max-width: calc(100vw - 1rem);
+  margin: 0;
+  padding: var(--space-3);
+  overflow: visible;
+  border: var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+}
+
+.reloj:popover-open {
+  animation: menu-in var(--duration-base) var(--ease-out);
+}
+
+.reloj__titulo {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.reloj__columnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.reloj__encabezado {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Cada columna se desplaza sola; la hora elegida queda al centro al abrir */
+.reloj__lista {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 12rem;
+  padding: var(--space-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.reloj__opcion {
+  flex-shrink: 0;
+  min-height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.reloj__opcion:hover {
+  background: var(--color-primary-soft-hover);
+  color: var(--color-primary-text);
+}
+
+.reloj__opcion:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.reloj__opcion[aria-selected="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--weight-bold);
+}
+
+.reloj__rapidos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.reloj__rapido {
+  min-height: 1.875rem;
+  padding: 0;
+  border: var(--border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-soft);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.reloj__rapido:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.reloj__rapido[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.reloj__rapido:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.reloj__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border);
+}
+
+/* La hora que va quedando, grande */
+.reloj__valor {
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+
 /* ==========================================================================
    5. ESTADOS
    ========================================================================== */
@@ -4184,10 +4821,10 @@ body {
   color: var(--color-on-primary);
 }
 
-/* La cifra del filtro activo va en amarillo institucional */
+/* La cifra del filtro activo va en el color de acento */
 .pill.is-active .pill__count {
   background: var(--color-accent);
-  color: var(--color-slate-900);
+  color: var(--color-on-accent);
 }
 
 .pagination__link.is-current {
@@ -4372,22 +5009,70 @@ body {
     transition: grid-template-columns var(--transition-base);
   }
 
+  /* Por encima de la barra de arriba para que el botón de la orilla no quede debajo de ella; el encabezado
+     recorta el nombre del colegio mientras el menú se contrae */
   .sidebar {
     position: sticky;
     top: 0;
-    z-index: var(--z-sticky);
+    z-index: calc(var(--z-sticky) + 1);
     align-self: start;
     width: auto;
     height: 100vh;
     height: 100dvh;
+    overflow: visible;
     box-shadow: none;
     transform: none;
     visibility: visible;
   }
 
+  .sidebar__header {
+    overflow: hidden;
+  }
+
   .sidebar__close,
+  .topbar__toggle,
   .app__backdrop {
     display: none;
+  }
+
+  /* Un círculo a la altura del logo, mitad sobre el menú y mitad fuera; la flecha gira con el menú contraído */
+  .sidebar__toggle {
+    position: absolute;
+    top: calc(var(--topbar-height) / 2);
+    inset-inline-end: 0;
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: var(--border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text-soft);
+    cursor: pointer;
+    transform: translate(50%, -50%);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  }
+
+  .sidebar__toggle:hover {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  .sidebar__toggle:focus-visible {
+    outline: none;
+    box-shadow: var(--ring-focus);
+  }
+
+  .sidebar__toggle .icon {
+    --size: 0.875rem;
+    transition: transform var(--transition-base);
+  }
+
+  .is-sidebar-collapsed .sidebar__toggle .icon {
+    transform: rotate(180deg);
   }
 }
 

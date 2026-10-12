@@ -1,6 +1,18 @@
 """Datos disponibles en todas las plantillas."""
 from django.db import DatabaseError
 from django.urls import NoReverseMatch, reverse
+from django.utils.functional import SimpleLazyObject
+
+from CISAHUAYO import temas
+
+
+def _es_docente_que_pasa_lista(usuario):
+    """Una cuenta de profesor que puede ver la asistencia por materia: su entrada a Asistencias es «Mis materias»."""
+    if not usuario.has_perm('Alumnos.view_asistenciamateria'):
+        return False
+    from Usuarios.docentes import profesor_de
+    return profesor_de(usuario) is not None
+
 
 # Navegación lateral. `ruta` es el nombre de la URL (con namespace si lo tiene).
 # Mientras una ruta no exista, el enlace del menú apunta a "#" y se activará
@@ -9,7 +21,7 @@ from django.urls import NoReverseMatch, reverse
 # Cada elemento se muestra solo a quien tiene el permiso indicado en `permiso` (el de «ver» de ese módulo; sin
 # `permiso`, a todo el que haya iniciado sesión). Si una sección tiene varias pantallas de entrada, `destinos` lista
 # (permiso, ruta) en orden de preferencia: el enlace lleva a la primera a la que la persona tiene acceso, así nadie
-# aterriza en una página que le negaría el paso.
+# aterriza en una página que le negaría el paso. El permiso de un destino también puede ser una función del usuario.
 NAVEGACION = (
     {
         'titulo': None,
@@ -40,6 +52,7 @@ NAVEGACION = (
                 'etiqueta': 'Asistencias', 'icono': 'user-check', 'ruta': 'asistencias:inicio',
                 'destinos': (
                     ('Alumnos.view_asistenciageneral', 'asistencias:inicio'),
+                    (_es_docente_que_pasa_lista, 'asistencias:docente'),   # un profesor entra a sus materias
                     ('Alumnos.view_asistenciamateria', 'asistencias:clases'),
                     ('Alumnos.view_justificacion', 'asistencias:justificaciones'),
                     ('Alumnos.add_asistenciageneral', 'asistencias:kiosco'),
@@ -53,11 +66,14 @@ NAVEGACION = (
         'elementos': (
             {'etiqueta': 'Usuarios', 'icono': 'user', 'ruta': 'usuarios:lista', 'permiso': 'auth.view_user'},
             {'etiqueta': 'Roles y permisos', 'icono': 'shield-check', 'ruta': 'roles:lista', 'permiso': 'Usuarios.view_rol'},
+            # Sin permiso: cada quien elige cómo ve el sistema
+            {'etiqueta': 'Ajustes', 'icono': 'settings', 'ruta': 'ajustes:inicio'},
         ),
     },
 )
 
-# Acciones del buscador de comandos (Ctrl+K). Solo aparecen cuando su ruta existe y la persona tiene el permiso.
+# Acciones del buscador de comandos (Ctrl+K). Solo aparecen cuando su ruta existe y la persona tiene el permiso (las que
+# no piden permiso, a todos).
 ACCIONES_RAPIDAS = (
     {'etiqueta': 'Nuevo estudiante', 'icono': 'plus', 'ruta': 'alumnos:crear', 'permiso': 'Alumnos.add_alumno'},
     {'etiqueta': 'Nuevo tutor', 'icono': 'plus', 'ruta': 'tutores:crear', 'permiso': 'Alumnos.add_tutor'},
@@ -71,6 +87,7 @@ ACCIONES_RAPIDAS = (
     {'etiqueta': 'Nueva justificación', 'icono': 'plus', 'ruta': 'asistencias:justificacion_crear', 'permiso': 'Alumnos.add_justificacion'},
     {'etiqueta': 'Nuevo usuario', 'icono': 'plus', 'ruta': 'usuarios:crear', 'permiso': 'auth.add_user'},
     {'etiqueta': 'Nuevo rol', 'icono': 'plus', 'ruta': 'roles:crear', 'permiso': 'Usuarios.add_rol'},
+    {'etiqueta': 'Cambiar el tema de color', 'icono': 'palette', 'ruta': 'ajustes:inicio'},
 )
 
 # Si existe una URL con este nombre, el buscador ofrece "Buscar «texto» en todo
@@ -88,13 +105,14 @@ def _resolver(ruta):
 def _destino_permitido(usuario, elemento):
     """La ruta a la que el usuario puede entrar para este elemento del menú, o None si no puede ver ninguna.
 
-    Sin usuario en la petición (pruebas con RequestFactory) no se filtra nada.
+    El permiso de un destino puede ser también una función que recibe al usuario. Sin usuario en la petición (pruebas
+    con RequestFactory) no se filtra nada.
     """
     if usuario is None:
         return elemento['ruta']
     destinos = elemento.get('destinos') or ((elemento.get('permiso'), elemento['ruta']),)
     for permiso, ruta in destinos:
-        if permiso is None or usuario.has_perm(permiso):
+        if permiso is None or (permiso(usuario) if callable(permiso) else usuario.has_perm(permiso)):
             return ruta
     return None
 
@@ -136,7 +154,7 @@ def navegacion(request):
     acciones = []
     for accion in ACCIONES_RAPIDAS:
         url = _resolver(accion['ruta'])
-        if url and (usuario is None or usuario.has_perm(accion['permiso'])):
+        if url and (usuario is None or accion.get('permiso') is None or usuario.has_perm(accion['permiso'])):
             acciones.append({**accion, 'url': url})
 
     contexto = {
@@ -152,3 +170,28 @@ def navegacion(request):
             # Aún no se han aplicado las migraciones de Usuarios: el resto del sistema debe seguir funcionando
             contexto['rol_usuario'] = None
     return contexto
+
+
+def apariencia(request):
+    """El tema de color y el menú lateral de quien navega (los predeterminados sin sesión o sin perfil todavía).
+
+    Se consulta solo si la plantilla lo usa (base.html lo pone en <html> para que la página se pinte ya con sus colores).
+    """
+    def calcular():
+        clave, menu = temas.PREDETERMINADO, temas.MENU_CLARO
+        usuario = getattr(request, 'user', None)
+        if usuario is not None and usuario.is_authenticated:
+            from Usuarios.models import PerfilUsuario
+            try:
+                fila = PerfilUsuario.objects.filter(usuario=usuario).values_list('tema', 'menu_lateral').first()
+            except DatabaseError:   # aún no se aplica la migración de Usuarios
+                fila = None
+            if fila:
+                clave, menu = fila
+        tema = temas.tema(clave)
+        return {
+            'tema': tema['clave'], 'color': tema['color'], 'menu_de_color': menu == temas.MENU_DE_COLOR,
+            'fuentes': temas.url_de_fuentes(tema['clave']),
+        }
+
+    return {'apariencia': SimpleLazyObject(calcular)}

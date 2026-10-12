@@ -23,19 +23,22 @@
       de CISAHUAYO/context_processors.py que ya tengan URL. Si existe una URL llamada
       'buscar', ofrece además buscar «texto» en todo el sistema (?q=texto).
     - Tema claro/oscuro: botón en la barra superior; se recuerda en el navegador.
-  Estilos y comportamiento: static/css/app.css y static/js/app.js.
+    - Tema de color y menú lateral de cada persona (Ajustes): data-tema y data-menu en <html>, con los colores de
+      static/css/temas.css (ver CISAHUAYO/temas.py y el procesador de contexto «apariencia»).
+  Estilos y comportamiento: static/css/app.css, static/css/temas.css y static/js/app.js.
 {% endcomment %}
-<html lang="es">
+<html lang="es" data-tema="{{ apariencia.tema }}"{% if apariencia.menu_de_color %} data-menu="color"{% endif %}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#245a62">
+  <meta name="theme-color" content="{{ apariencia.color }}">
   <title>{% block title %}CISAHUAYO{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
   <script src="{% static 'js/preload.js' %}"></script>
   {% block extra_head %}{% endblock %}
 </head>
@@ -48,7 +51,7 @@
     <div class="app__main" data-app-main>
       <header class="topbar" data-topbar>
         <div class="topbar__start">
-          <button type="button" class="btn btn--ghost btn--icon" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Menú lateral" data-tooltip="Menú lateral">
+          <button type="button" class="btn btn--ghost btn--icon topbar__toggle" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Menú lateral" data-tooltip="Menú lateral">
             {% include "partials/icon.html" with name="panel-left" %}
           </button>
 
@@ -125,6 +128,8 @@
   {% include "partials/modal_formulario.html" %}
 
   <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/fecha.js' %}" defer></script>
+  <script src="{% static 'js/hora.js' %}" defer></script>
   <script src="{% static 'js/modal-form.js' %}" defer></script>
   {% block extra_js %}{% endblock %}
 </body>

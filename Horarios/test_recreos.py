@@ -156,6 +156,11 @@ class EditarYQuitarRecreoTests(RecreoTestCase):
         datos.update(cambios)
         return datos
 
+    def test_las_horas_usan_el_selector_de_hora(self):
+        for url in (self.url, self.url_editar):
+            self.assertContains(self.client.get(url), 'js/hora.js')
+        self.assertContains(self.client.get(self.url_editar), '<input type="time" name="hora_fin" value="11:00"')
+
     def test_cambia_su_hora_y_regresa_al_horario_del_grupo(self):
         respuesta = self.client.post(self.url_editar, self.datos(hora_inicio='11:00', hora_fin='11:30', nombre='Receso largo'), follow=True)
         self.assertRedirects(respuesta, self.del_grado(self.primero))

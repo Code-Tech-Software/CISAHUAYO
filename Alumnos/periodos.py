@@ -48,6 +48,23 @@ def describir(periodo, hoy=None):
     return f'Se cerró el {date_format(periodo.fecha_fin, "j \\d\\e F").lower()}.'
 
 
+# Un periodo de evaluación (parcial, bimestre, trimestre, semestre) no pasa de unos seis meses: uno más largo casi
+# seguro tiene una fecha mal escrita (pasó: «Periodo 1» de secundaria del 12/10/2025 al 18/12/2026)
+DIAS_DE_UN_PERIODO_NORMAL = 184
+
+
+def meses_si_es_muy_largo(periodo):
+    """Cuántos meses dura el periodo si es más largo de lo normal; None si no."""
+    dias = (periodo.fecha_fin - periodo.fecha_inicio).days + 1
+    return round(dias / 30.44) if dias > DIAS_DE_UN_PERIODO_NORMAL else None
+
+
+def aviso_de_duracion(periodo):
+    """«Dura 14 meses: revisa sus fechas.» si el periodo es más largo de lo normal; None si no."""
+    meses = meses_si_es_muy_largo(periodo)
+    return f'Dura {meses} meses: revisa sus fechas.' if meses else None
+
+
 def periodos_por_nivel(ciclo, hoy=None):
     """Los cuatro niveles en orden escolar, cada uno con sus periodos del ciclo (en orden, numerados y descritos)."""
     hoy = hoy or timezone.localdate()
@@ -63,6 +80,7 @@ def periodos_por_nivel(ciclo, hoy=None):
             periodo.numero = numero
             periodo.estado_actual = periodo.estado_en(hoy)
             periodo.descripcion = describir(periodo, hoy)
+            periodo.aviso_duracion = aviso_de_duracion(periodo)
         niveles.append({
             'codigo': nivel,
             'nombre': nombres[nivel],

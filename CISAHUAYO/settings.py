@@ -30,7 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     "https://cisahuayo.up.railway.app",
-    "https://4254-2806-261-5480-fe4-b0b7-72ee-b70e-e958.ngrok-free.app"
+    "https://0f9c-2806-261-5480-fe4-8525-cb29-1fbd-5649.ngrok-free.app"
 ]
 
 # Application definition
@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'Asistencias',
     'Periodos',
     'Grupos',
+    'Ajustes',
     'Usuarios',
     'Roles',
 ]
@@ -104,6 +105,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'CISAHUAYO.context_processors.navegacion',
+                'CISAHUAYO.context_processors.apariencia',
             ],
         },
     },
@@ -127,10 +129,10 @@ DATABASES = {
 }
 
 #DATABASES = {
-#    'default': {
-#       'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
+ #   'default': {
+  #     'ENGINE': 'django.db.backends.sqlite3',
+   #     'NAME': BASE_DIR / 'db.sqlite3',
+    #}
 #}
 
 # Password validation

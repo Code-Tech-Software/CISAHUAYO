@@ -6,17 +6,18 @@
   escanear, y ese aviso se quita solo en pocos segundos (o al tocar, teclear o escanear de nuevo).
   Comportamiento en static/js/asistencias-kiosco.js; estilos en static/css/asistencias.css (sección «Pantalla de la entrada»).
 {% endcomment %}
-<html lang="es">
+<html lang="es" data-tema="{{ apariencia.tema }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#245a62">
+  <meta name="theme-color" content="{{ apariencia.color }}">
   <title>Registro de entrada | CISAHUAYO</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
   <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
   <script src="{% static 'js/preload.js' %}"></script>
 </head>

@@ -818,21 +818,24 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         for nombre_rol, esperados in casos.items():
             with self.subTest(rol=nombre_rol):
                 usuario = crear_usuario(f'u_{nombre_rol[:3].lower()}', Rol.objects.get(grupo__name=nombre_rol))
-                etiquetas = set(self.enlaces_del_menu(self.html_de(usuario))) - {'Panel de control'}
+                etiquetas = set(self.enlaces_del_menu(self.html_de(usuario))) - {'Panel de control', 'Ajustes'}
                 self.assertEqual(etiquetas, esperados)
 
-    def test_sin_permisos_solo_queda_el_panel_de_control(self):
+    def test_sin_permisos_solo_quedan_el_panel_de_control_y_los_ajustes(self):
+        # Los ajustes (tema de color, menú lateral) son de cada persona: no piden permiso
         etiquetas = self.enlaces_del_menu(self.html_de(self.sin_permisos))
-        self.assertEqual(etiquetas, ['Panel de control'])
+        self.assertEqual(etiquetas, ['Panel de control', 'Ajustes'])
 
     def test_las_secciones_vacias_no_se_dibujan(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
         self.assertIn('Gestión escolar', html)
-        self.assertNotIn('Sistema', self.enlaces_del_menu(html))
+        etiquetas = self.enlaces_del_menu(html)
+        self.assertNotIn('Usuarios', etiquetas)
+        self.assertNotIn('Roles y permisos', etiquetas)
         import re
-        titulos = re.findall(r'nav__title[^>]*>([^<]+)<', html)
-        self.assertNotIn('Sistema', [t.strip() for t in titulos])
-        self.assertNotIn('Académico', [t.strip() for t in titulos])
+        titulos = [t.strip() for t in re.findall(r'nav__title[^>]*>([^<]+)<', html)]
+        self.assertNotIn('Académico', titulos)
+        self.assertEqual(titulos, ['Gestión escolar', 'Sistema'])   # «Sistema» solo con «Ajustes»
 
     def test_el_tablero_ofrece_solo_accesos_permitidos(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))

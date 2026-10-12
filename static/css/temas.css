@@ -1,0 +1,640 @@
+/* ==========================================================================
+   CISAHUAYO · Temas de color
+   Cada persona elige el suyo en Ajustes (lista en CISAHUAYO/temas.py) y base.html lo pone en
+   <html data-tema="…">; con «Menú lateral de color» lleva además data-menu="color".
+
+   Cómo funciona
+     1. Cada tema define sus colores de ENTRADA (--t-*), los mismos en tema claro y oscuro. Van en
+        [data-tema="…"] y no solo en :root para que las tarjetas de Ajustes muestren cada tema con
+        sus propios colores.
+     2. De esas entradas salen TODOS los colores de rol de app.css, en claro y en oscuro: acción,
+        acento, marca, fondos, bordes, textos, estados (éxito, aviso, peligro, información: etiquetas,
+        avisos, asistencia) y los seis tonos (tarjetas de grado, avatares, horario, roles). Ningún
+        componente tiene colores propios, así que al cambiar de tema cambia todo el sistema.
+        El institucional no se recalcula: usa los roles afinados a mano en app.css.
+     3. Con el menú lateral de color, el menú toma el color profundo del tema (--t-sidebar).
+     4. Cada tema tiene además su personalidad: letra (Google Fonts, ver CISAHUAYO/temas.py),
+        esquinas, sombras y la forma de botones y etiquetas.
+
+   Reglas
+     - Sin degradados: solo la franja tricolor y la veladura del fondo, como en app.css.
+     - Los estados toman los colores del tema (información suele ser su color principal); dentro de
+       cada tema los cuatro se distinguen entre sí.
+     - Contraste AA (4.5:1) en claro, oscuro y menú de color: lo comprueba Ajustes/tests.py con las
+       mismas mezclas de color de este archivo. Un tema nuevo debe pasarla.
+   ========================================================================== */
+
+
+/* --- 1. Entradas de cada tema ------------------------------------------------------------------
+   --t-primary        acción principal en tema claro (lleva texto blanco encima)
+   --t-primary-hover  la misma al pasar el ratón (también con texto blanco)
+   --t-primary-text   (opcional) enlaces y elemento activo, si no deben ser del color de acción
+   --t-primary-dark   acción principal en tema oscuro (lleva texto oscuro encima)
+   --t-accent         el detalle que resalta: pestaña activa, cifras, franja (lleva texto oscuro)
+   --t-accent-text    texto sobre el fondo tenue del acento, en tema claro
+   --t-brand          marca: nombre del colegio, barra del elemento activo del menú, insignias
+   --t-brand-dark     la marca en tema oscuro
+   --t-stripe         tercer color de la franja tricolor y de la veladura del fondo
+   --t-sidebar        fondo del menú lateral de color (texto blanco encima)
+   --t-fondo          fondo de la página en tema claro
+   --t-success, --t-warning, --t-danger, --t-info
+                      cada estado como texto en tema claro (sus fondos y la versión oscura salen de él)
+   --t-tone-N         el tono N como texto sobre su fondo tenue, en tema claro
+   --t-tone-N-base    el tono N vivo: filetes, puntos y de él salen su fondo tenue y su versión oscura
+   --t-font-sans, --t-font-display, --t-radius-sm…xl
+                      letra del texto y de los títulos, y radios de las esquinas */
+[data-tema="institucional"] {
+  /* Colores */
+  --t-primary: #245a62;
+  --t-primary-hover: #1a4349;
+  --t-primary-dark: #91c7cb;
+  --t-accent: #fabd5c;
+  --t-accent-text: #744710;
+  --t-brand: #ba1346;
+  --t-brand-dark: #f0709a;
+  --t-stripe: #91c7cb;
+  --t-sidebar: #1f4d54;
+  --t-fondo: #f5f8f9;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #1f7a4d;
+  --t-warning: #9c6010;
+  --t-danger: #ba1346;
+  --t-info: #1f6fa8;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #2f737c;
+  --t-tone-1-base: #6db0b6;
+  --t-tone-2: #9c6010;
+  --t-tone-2-base: #fabd5c;
+  --t-tone-3: #ba1346;
+  --t-tone-3-base: #d33a6b;
+  --t-tone-4: #2c6a9a;
+  --t-tone-4-base: #4a8bc2;
+  --t-tone-5: #23704a;
+  --t-tone-5-base: #3a9468;
+  --t-tone-6: #45585f;
+  --t-tone-6-base: #93a6ac;
+  /* Letra y forma */
+  --t-font-sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Sora", "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.5rem;
+  --t-radius-md: 0.625rem;
+  --t-radius-lg: 0.875rem;
+  --t-radius-xl: 1.25rem;
+}
+
+[data-tema="oceano"] {
+  /* Colores */
+  --t-primary: #3c50d0;
+  --t-primary-hover: #3141b0;
+  --t-primary-dark: #6aa8fb;
+  --t-accent: #f4c16f;
+  --t-accent-text: #7a4b0f;
+  --t-brand: #e11d48;
+  --t-brand-dark: #fb7185;
+  --t-stripe: #38bdf8;
+  --t-sidebar: #1e3a8a;
+  --t-fondo: #edf3fe;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #0f766e;
+  --t-warning: #c2410c;
+  --t-danger: #be123c;
+  --t-info: #3c50d0;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #3c50d0;
+  --t-tone-1-base: #3b82f6;
+  --t-tone-2: #7a4b0f;
+  --t-tone-2-base: #f4c16f;
+  --t-tone-3: #be123c;
+  --t-tone-3-base: #fb7185;
+  --t-tone-4: #4338ca;
+  --t-tone-4-base: #818cf8;
+  --t-tone-5: #0f766e;
+  --t-tone-5-base: #2dd4bf;
+  --t-tone-6: #475569;
+  --t-tone-6-base: #94a3b8;
+  /* Letra y forma */
+  --t-font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Lexend", "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.5rem;
+  --t-radius-md: 0.75rem;
+  --t-radius-lg: 1.125rem;
+  --t-radius-xl: 1.5rem;
+}
+
+[data-tema="esmeralda"] {
+  /* Colores */
+  --t-primary: #047857;
+  --t-primary-hover: #065f46;
+  --t-primary-dark: #34d399;
+  --t-accent: #a3e635;
+  --t-accent-text: #3f6212;
+  --t-brand: #be185d;
+  --t-brand-dark: #f472b6;
+  --t-stripe: #2dd4bf;
+  --t-sidebar: #065141;
+  --t-fondo: #ebf7f1;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #047857;
+  --t-warning: #854d0e;
+  --t-danger: #be185d;
+  --t-info: #0369a1;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #047857;
+  --t-tone-1-base: #10b981;
+  --t-tone-2: #3f6212;
+  --t-tone-2-base: #a3e635;
+  --t-tone-3: #be185d;
+  --t-tone-3-base: #f472b6;
+  --t-tone-4: #0f766e;
+  --t-tone-4-base: #2dd4bf;
+  --t-tone-5: #0369a1;
+  --t-tone-5-base: #38bdf8;
+  --t-tone-6: #4b5563;
+  --t-tone-6-base: #9ca3af;
+  /* Letra y forma */
+  --t-font-sans: "Nunito Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Nunito", "Nunito Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.625rem;
+  --t-radius-md: 0.875rem;
+  --t-radius-lg: 1.25rem;
+  --t-radius-xl: 1.75rem;
+}
+
+[data-tema="frambuesa"] {
+  /* Colores */
+  --t-primary: #be185d;
+  --t-primary-hover: #9d174d;
+  --t-primary-dark: #f472b6;
+  --t-accent: #fb923c;
+  --t-accent-text: #9a3412;
+  --t-brand: #7c3aed;
+  --t-brand-dark: #b49afb;
+  --t-stripe: #f9a8d4;
+  --t-sidebar: #74143d;
+  --t-fondo: #fcf0f5;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #0f766e;
+  --t-warning: #9a3412;
+  --t-danger: #be123c;
+  --t-info: #7c3aed;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #be185d;
+  --t-tone-1-base: #ec4899;
+  --t-tone-2: #9a3412;
+  --t-tone-2-base: #fb923c;
+  --t-tone-3: #6d28d9;
+  --t-tone-3-base: #a78bfa;
+  --t-tone-4: #be123c;
+  --t-tone-4-base: #fb7185;
+  --t-tone-5: #a21caf;
+  --t-tone-5-base: #e879f9;
+  --t-tone-6: #52525b;
+  --t-tone-6-base: #a1a1aa;
+  /* Letra y forma */
+  --t-font-sans: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.75rem;
+  --t-radius-md: 1rem;
+  --t-radius-lg: 1.5rem;
+  --t-radius-xl: 2rem;
+}
+
+[data-tema="mandarina"] {
+  /* Colores */
+  --t-primary: #c2410c;
+  --t-primary-hover: #9a3412;
+  --t-primary-dark: #fb923c;
+  --t-accent: #facc15;
+  --t-accent-text: #854d0e;
+  --t-brand: #0f766e;
+  --t-brand-dark: #2dd4bf;
+  --t-stripe: #fdba74;
+  --t-sidebar: #7c2d12;
+  --t-fondo: #fff3e8;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #4d7c0f;
+  --t-warning: #854d0e;
+  --t-danger: #b91c1c;
+  --t-info: #0f766e;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #9a3412;
+  --t-tone-1-base: #f97316;
+  --t-tone-2: #854d0e;
+  --t-tone-2-base: #facc15;
+  --t-tone-3: #0f766e;
+  --t-tone-3-base: #2dd4bf;
+  --t-tone-4: #b91c1c;
+  --t-tone-4-base: #f87171;
+  --t-tone-5: #92400e;
+  --t-tone-5-base: #f59e0b;
+  --t-tone-6: #57534e;
+  --t-tone-6-base: #a8a29e;
+  /* Letra y forma */
+  --t-font-sans: "Rubik", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Rubik", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.625rem;
+  --t-radius-md: 0.875rem;
+  --t-radius-lg: 1.125rem;
+  --t-radius-xl: 1.5rem;
+}
+
+[data-tema="violeta"] {
+  /* Colores */
+  --t-primary: #6d28d9;
+  --t-primary-hover: #5b21b6;
+  --t-primary-dark: #a78bfa;
+  --t-accent: #fbbf24;
+  --t-accent-text: #92400e;
+  --t-brand: #c026d3;
+  --t-brand-dark: #f0abfc;
+  --t-stripe: #c4b5fd;
+  --t-sidebar: #4c1d95;
+  --t-fondo: #f4f0fe;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #047857;
+  --t-warning: #92400e;
+  --t-danger: #a21caf;
+  --t-info: #6d28d9;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #6d28d9;
+  --t-tone-1-base: #8b5cf6;
+  --t-tone-2: #92400e;
+  --t-tone-2-base: #fbbf24;
+  --t-tone-3: #a21caf;
+  --t-tone-3-base: #e879f9;
+  --t-tone-4: #4338ca;
+  --t-tone-4-base: #818cf8;
+  --t-tone-5: #be185d;
+  --t-tone-5-base: #f472b6;
+  --t-tone-6: #52525b;
+  --t-tone-6-base: #a1a1aa;
+  /* Letra y forma */
+  --t-font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Space Grotesk", "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.375rem;
+  --t-radius-md: 0.5rem;
+  --t-radius-lg: 0.75rem;
+  --t-radius-xl: 1rem;
+}
+
+[data-tema="grafito"] {
+  /* Colores */
+  --t-primary: #334155;
+  --t-primary-hover: #1e293b;
+  --t-primary-dark: #cbd5e1;
+  --t-accent: #facc15;
+  --t-accent-text: #854d0e;
+  --t-brand: #dc2626;
+  --t-brand-dark: #f87171;
+  --t-stripe: #94a3b8;
+  --t-sidebar: #1e293b;
+  --t-fondo: #eeeff1;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #166534;
+  --t-warning: #854d0e;
+  --t-danger: #b91c1c;
+  --t-info: #334155;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #334155;
+  --t-tone-1-base: #64748b;
+  --t-tone-2: #854d0e;
+  --t-tone-2-base: #facc15;
+  --t-tone-3: #b91c1c;
+  --t-tone-3-base: #f87171;
+  --t-tone-4: #1d4ed8;
+  --t-tone-4-base: #60a5fa;
+  --t-tone-5: #166534;
+  --t-tone-5-base: #4ade80;
+  --t-tone-6: #3f3f46;
+  --t-tone-6-base: #a1a1aa;
+  /* Letra y forma */
+  --t-font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.125rem;
+  --t-radius-md: 0.25rem;
+  --t-radius-lg: 0.375rem;
+  --t-radius-xl: 0.5rem;
+}
+
+[data-tema="nextlevel"] {
+  /* Colores */
+  --t-primary: #142c45;
+  --t-primary-hover: #1e3a5f;
+  --t-primary-text: #047857;
+  --t-primary-dark: #34d399;
+  --t-accent: #10b981;
+  --t-accent-text: #065f46;
+  --t-brand: #047857;
+  --t-brand-dark: #34d399;
+  --t-stripe: #38bdf8;
+  --t-sidebar: #142c45;
+  --t-fondo: #edf4fe;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #047857;
+  --t-warning: #92400e;
+  --t-danger: #b91c1c;
+  --t-info: #1d4ed8;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #142c45;
+  --t-tone-1-base: #5b7fa6;
+  --t-tone-2: #065f46;
+  --t-tone-2-base: #10b981;
+  --t-tone-3: #1d4ed8;
+  --t-tone-3-base: #3b82f6;
+  --t-tone-4: #6d28d9;
+  --t-tone-4-base: #8b5cf6;
+  --t-tone-5: #b45309;
+  --t-tone-5-base: #fbbf24;
+  --t-tone-6: #475569;
+  --t-tone-6-base: #94a3b8;
+  /* Letra y forma */
+  --t-font-sans: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Fredoka", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.75rem;
+  --t-radius-md: 1rem;
+  --t-radius-lg: 1.25rem;
+  --t-radius-xl: 1.75rem;
+}
+
+
+/* --- 2. Roles a partir de las entradas ---------------------------------------------------------
+   Los neutros (fondos, bordes y textos) llevan un hilo del color del tema para que todo combine. Los
+   fondos tenues de los tonos (--color-tone-N-tint) los calcula app.css con la superficie de cada tema. */
+
+/* Tema claro */
+:root[data-tema]:not([data-tema="institucional"]):not([data-theme="dark"]) {
+  --color-bg: var(--t-fondo);
+  --color-surface-2: color-mix(in srgb, var(--t-primary) 5%, #eef0f3);
+  --color-surface-hover: color-mix(in srgb, var(--t-primary) 6%, #eef0f3);
+  --color-border: color-mix(in srgb, var(--t-primary) 9%, #e2e5ea);
+  --color-border-strong: color-mix(in srgb, var(--t-primary) 12%, #cbd0d8);
+  --color-border-control: color-mix(in srgb, var(--t-primary) 22%, #7a8490);
+  --color-hover-tint: color-mix(in srgb, var(--t-primary) 7%, transparent);
+  --color-overlay: color-mix(in srgb, var(--t-sidebar) 55%, transparent);
+
+  --color-text: color-mix(in srgb, var(--t-primary) 14%, #1a1f26);
+  --color-text-strong: color-mix(in srgb, var(--t-primary) 10%, #0c1015);
+  --color-text-soft: color-mix(in srgb, var(--t-primary) 14%, #48505c);
+  --color-text-muted: color-mix(in srgb, var(--t-primary) 12%, #5d6672);
+  --color-text-subtle: color-mix(in srgb, var(--t-primary) 10%, #97a0aa);
+  --color-tooltip-bg: color-mix(in srgb, var(--t-primary) 22%, #0c1015);
+
+  --color-primary: var(--t-primary);
+  --color-primary-hover: var(--t-primary-hover);
+  --color-link-hover: var(--t-primary-hover);
+  --color-on-primary: #ffffff;
+  --color-primary-soft: color-mix(in srgb, var(--t-primary) 7%, #ffffff);
+  --color-primary-soft-hover: color-mix(in srgb, var(--t-primary) 13%, #ffffff);
+  --color-primary-text: var(--t-primary-text, var(--t-primary));
+  --color-primary-border: color-mix(in srgb, var(--t-primary) 36%, #ffffff);
+  --color-focus: var(--t-primary);
+
+  --color-accent: var(--t-accent);
+  --color-accent-soft: color-mix(in srgb, var(--t-accent) 22%, #ffffff);
+  --color-accent-text: var(--t-accent-text);
+  --color-on-accent: color-mix(in srgb, var(--t-primary) 18%, #0c1015);
+  --color-brand: var(--t-brand);
+  --color-brand-soft: color-mix(in srgb, var(--t-brand) 7%, #ffffff);
+  --color-badge: var(--t-brand);
+  --color-stripe: var(--t-stripe);
+
+  --color-success: var(--t-success);
+  --color-success-bg: color-mix(in srgb, var(--t-success) 8%, #ffffff);
+  --color-success-border: color-mix(in srgb, var(--t-success) 28%, #ffffff);
+  --color-warning: var(--t-warning);
+  --color-warning-bg: color-mix(in srgb, var(--t-warning) 8%, #ffffff);
+  --color-warning-border: color-mix(in srgb, var(--t-warning) 28%, #ffffff);
+  --color-danger: var(--t-danger);
+  --color-danger-strong: color-mix(in srgb, var(--t-danger) 80%, #000000);
+  --color-danger-bg: color-mix(in srgb, var(--t-danger) 8%, #ffffff);
+  --color-danger-border: color-mix(in srgb, var(--t-danger) 28%, #ffffff);
+  --color-info: var(--t-info);
+  --color-info-bg: color-mix(in srgb, var(--t-info) 8%, #ffffff);
+  --color-info-border: color-mix(in srgb, var(--t-info) 28%, #ffffff);
+
+  --color-tone-1: var(--t-tone-1);
+  --color-tone-2: var(--t-tone-2);
+  --color-tone-3: var(--t-tone-3);
+  --color-tone-4: var(--t-tone-4);
+  --color-tone-5: var(--t-tone-5);
+  --color-tone-6: var(--t-tone-6);
+  --color-tone-1-base: var(--t-tone-1-base);
+  --color-tone-2-base: var(--t-tone-2-base);
+  --color-tone-3-base: var(--t-tone-3-base);
+  --color-tone-4-base: var(--t-tone-4-base);
+  --color-tone-5-base: var(--t-tone-5-base);
+  --color-tone-6-base: var(--t-tone-6-base);
+
+  --aurora: radial-gradient(46rem 22rem at 100% -6%, color-mix(in srgb, var(--t-stripe) 22%, transparent), transparent 70%);
+}
+
+/* Tema oscuro */
+:root[data-theme="dark"][data-tema]:not([data-tema="institucional"]) {
+  --color-bg: color-mix(in srgb, var(--t-primary) 7%, #090c10);
+  --color-surface: color-mix(in srgb, var(--t-primary) 9%, #0f1319);
+  --color-surface-2: color-mix(in srgb, var(--t-primary) 11%, #151a22);
+  --color-surface-hover: color-mix(in srgb, var(--t-primary) 14%, #1c222c);
+  --color-surface-glass: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  --color-field-bg: var(--color-bg);
+  --color-border: color-mix(in srgb, var(--t-primary) 22%, #232a34);
+  --color-border-strong: color-mix(in srgb, var(--t-primary) 26%, #303947);
+  --color-border-control: color-mix(in srgb, var(--t-primary-dark) 28%, #56616e);
+
+  --color-text: color-mix(in srgb, var(--t-primary-dark) 10%, #e7e9ec);
+  --color-text-strong: #ffffff;
+  --color-text-soft: color-mix(in srgb, var(--t-primary-dark) 12%, #c4c9d0);
+  --color-text-muted: color-mix(in srgb, var(--t-primary-dark) 12%, #9aa2ad);
+  --color-text-subtle: color-mix(in srgb, var(--t-primary-dark) 10%, #626b77);
+  --color-tooltip-bg: var(--color-text);
+  --color-tooltip-fg: var(--color-bg);
+
+  --color-primary: var(--t-primary-dark);
+  --color-primary-hover: color-mix(in srgb, var(--t-primary-dark) 78%, #ffffff);
+  --color-link-hover: color-mix(in srgb, var(--t-primary-dark) 60%, #ffffff);
+  --color-on-primary: color-mix(in srgb, var(--t-primary) 30%, #05070a);
+  --color-primary-soft: color-mix(in srgb, var(--t-primary-dark) 13%, transparent);
+  --color-primary-soft-hover: color-mix(in srgb, var(--t-primary-dark) 20%, transparent);
+  --color-primary-text: color-mix(in srgb, var(--t-primary-dark) 78%, #ffffff);
+  --color-primary-border: color-mix(in srgb, var(--t-primary-dark) 40%, transparent);
+  --color-focus: color-mix(in srgb, var(--t-primary-dark) 78%, #ffffff);
+
+  --color-accent: var(--t-accent);
+  --color-accent-soft: color-mix(in srgb, var(--t-accent) 16%, transparent);
+  --color-accent-text: color-mix(in srgb, var(--t-accent) 70%, #ffffff);
+  --color-on-accent: color-mix(in srgb, var(--t-primary) 18%, #0c1015);
+  --color-brand: var(--t-brand-dark);
+  --color-brand-soft: color-mix(in srgb, var(--t-brand-dark) 14%, transparent);
+  --color-badge: var(--t-brand);
+  --color-stripe: var(--t-stripe);
+
+  --color-success: color-mix(in srgb, var(--t-success) 50%, #ffffff);
+  --color-success-bg: color-mix(in srgb, var(--t-success) 18%, var(--color-surface));
+  --color-success-border: color-mix(in srgb, var(--t-success) 40%, var(--color-surface));
+  --color-warning: color-mix(in srgb, var(--t-warning) 50%, #ffffff);
+  --color-warning-bg: color-mix(in srgb, var(--t-warning) 18%, var(--color-surface));
+  --color-warning-border: color-mix(in srgb, var(--t-warning) 40%, var(--color-surface));
+  --color-danger: color-mix(in srgb, var(--t-danger) 50%, #ffffff);
+  --color-danger-strong: color-mix(in srgb, var(--t-danger) 30%, #ffffff);
+  --color-danger-bg: color-mix(in srgb, var(--t-danger) 18%, var(--color-surface));
+  --color-danger-border: color-mix(in srgb, var(--t-danger) 40%, var(--color-surface));
+  --color-info: color-mix(in srgb, var(--t-info) 50%, #ffffff);
+  --color-info-bg: color-mix(in srgb, var(--t-info) 18%, var(--color-surface));
+  --color-info-border: color-mix(in srgb, var(--t-info) 40%, var(--color-surface));
+
+  --color-tone-1: color-mix(in srgb, var(--t-tone-1-base) 55%, #ffffff);
+  --color-tone-2: color-mix(in srgb, var(--t-tone-2-base) 55%, #ffffff);
+  --color-tone-3: color-mix(in srgb, var(--t-tone-3-base) 55%, #ffffff);
+  --color-tone-4: color-mix(in srgb, var(--t-tone-4-base) 55%, #ffffff);
+  --color-tone-5: color-mix(in srgb, var(--t-tone-5-base) 55%, #ffffff);
+  --color-tone-6: color-mix(in srgb, var(--t-tone-6-base) 55%, #ffffff);
+  --color-tone-1-base: var(--t-tone-1-base);
+  --color-tone-2-base: var(--t-tone-2-base);
+  --color-tone-3-base: var(--t-tone-3-base);
+  --color-tone-4-base: var(--t-tone-4-base);
+  --color-tone-5-base: var(--t-tone-5-base);
+  --color-tone-6-base: var(--t-tone-6-base);
+
+  --aurora: radial-gradient(46rem 22rem at 100% -6%, color-mix(in srgb, var(--t-stripe) 12%, transparent), transparent 70%);
+}
+
+
+/* --- 3. Menú lateral de color ------------------------------------------------------------------
+   Dentro del menú se redefinen los roles: fondo profundo del tema, texto blanco, y el acento para el nombre
+   del colegio y la barra del elemento activo. */
+:root[data-menu="color"] .sidebar {
+  --sidebar-fondo: var(--t-sidebar);
+  --color-surface: var(--sidebar-fondo);
+  --color-surface-2: color-mix(in srgb, #ffffff 10%, var(--sidebar-fondo));
+  --color-surface-hover: color-mix(in srgb, #ffffff 12%, var(--sidebar-fondo));
+  --color-border: color-mix(in srgb, #ffffff 16%, var(--sidebar-fondo));
+  --color-hover-tint: rgb(255 255 255 / 0.1);
+  --color-text: #ffffff;
+  --color-text-strong: #ffffff;
+  --color-text-soft: color-mix(in srgb, #ffffff 86%, var(--sidebar-fondo));
+  --color-text-muted: color-mix(in srgb, #ffffff 72%, var(--sidebar-fondo));
+  --color-primary: #ffffff;
+  --color-primary-hover: #ffffff;
+  --color-on-primary: var(--sidebar-fondo);
+  --color-primary-soft: rgb(255 255 255 / 0.15);
+  --color-primary-soft-hover: rgb(255 255 255 / 0.22);
+  --color-primary-text: #ffffff;
+  --color-brand: var(--t-accent);
+  --color-focus: #ffffff;
+  border-inline-end-color: transparent;
+}
+
+/* En el tema oscuro, un poco más profundo para no deslumbrar */
+:root[data-menu="color"][data-theme="dark"] .sidebar {
+  --sidebar-fondo: color-mix(in srgb, var(--t-sidebar) 76%, #000000);
+}
+
+
+/* --- 4. Personalidad de cada tema --------------------------------------------------------------
+   Además de los colores, cada tema trae su letra, sus esquinas (entradas --t-font-* y --t-radius-*), sus
+   sombras y su manera de dibujar botones y etiquetas: así cada uno se siente como otro sitio.
+     Océano     Figtree y Lexend · redondeado · sombras azuladas que flotan · etiquetas suaves con borde
+     Esmeralda  Nunito · muy redondeado · sombras verdes suaves · etiquetas suaves
+     Frambuesa  Outfit · botones de píldora · resplandor rosado · etiquetas sólidas
+     Mandarina  Rubik · redondeado · sombras cálidas · etiquetas sólidas
+     Violeta    DM Sans y Space Grotesk · esquinas justas · contorno fino · etiquetas de contorno
+     Grafito    IBM Plex Sans · esquinas rectas · plano, sin sombras · etiquetas de contorno rectas
+     Next Level Nunito y Fredoka (como la plataforma) · gordito · botones y tarjetas en «3D» · etiquetas sólidas */
+
+/* Letra y esquinas (en claro y en oscuro) */
+:root[data-tema]:not([data-tema="institucional"]) {
+  --font-sans: var(--t-font-sans);
+  --font-display: var(--t-font-display);
+  --radius-sm: var(--t-radius-sm);
+  --radius-md: var(--t-radius-md);
+  --radius-lg: var(--t-radius-lg);
+  --radius-xl: var(--t-radius-xl);
+}
+
+/* Sombras teñidas del color del tema */
+:root:is([data-tema="oceano"], [data-tema="esmeralda"], [data-tema="mandarina"]) {
+  --shadow-xs: 0 1px 2px color-mix(in srgb, var(--t-primary) 12%, transparent);
+  --shadow-sm: 0 2px 6px color-mix(in srgb, var(--t-primary) 12%, transparent), 0 1px 2px color-mix(in srgb, var(--t-primary) 8%, transparent);
+  --shadow-md: 0 12px 28px -12px color-mix(in srgb, var(--t-primary) 32%, transparent), 0 3px 8px -3px color-mix(in srgb, var(--t-primary) 12%, transparent);
+  --shadow-lg: 0 28px 56px -18px color-mix(in srgb, var(--t-primary) 40%, transparent), 0 8px 16px -8px color-mix(in srgb, var(--t-primary) 16%, transparent);
+  --shadow-press: 0 3px 10px -3px color-mix(in srgb, var(--t-primary) 60%, transparent);
+  --shadow-press-hover: 0 8px 20px -6px color-mix(in srgb, var(--t-primary) 65%, transparent);
+}
+
+/* Frambuesa: resplandor rosado y difuso, botones de píldora */
+:root[data-tema="frambuesa"] {
+  --shadow-xs: 0 1px 3px color-mix(in srgb, var(--t-primary) 12%, transparent);
+  --shadow-sm: 0 4px 14px -4px color-mix(in srgb, var(--t-primary) 22%, transparent);
+  --shadow-md: 0 18px 40px -16px color-mix(in srgb, var(--t-primary) 42%, transparent);
+  --shadow-lg: 0 32px 64px -20px color-mix(in srgb, var(--t-primary) 48%, transparent);
+  --shadow-press: 0 6px 16px -6px color-mix(in srgb, var(--t-primary) 70%, transparent);
+  --shadow-press-hover: 0 10px 24px -8px color-mix(in srgb, var(--t-primary) 75%, transparent);
+}
+
+:root[data-tema="frambuesa"] .btn {
+  border-radius: var(--radius-full);
+}
+
+/* Violeta: contorno fino del color del tema en lugar de sombra blanda */
+:root[data-tema="violeta"] {
+  --shadow-xs: 0 0 0 1px color-mix(in srgb, var(--t-primary) 8%, transparent);
+  --shadow-sm: 0 0 0 1px color-mix(in srgb, var(--t-primary) 10%, transparent), 0 2px 4px color-mix(in srgb, var(--t-primary) 10%, transparent);
+  --shadow-md: 0 0 0 1px color-mix(in srgb, var(--t-primary) 12%, transparent), 0 14px 32px -14px color-mix(in srgb, var(--t-primary) 40%, transparent);
+  --shadow-lg: 0 0 0 1px color-mix(in srgb, var(--t-primary) 14%, transparent), 0 30px 60px -20px color-mix(in srgb, var(--t-primary) 45%, transparent);
+  --shadow-press: 0 0 0 1px color-mix(in srgb, var(--t-primary) 40%, #000000);
+  --shadow-press-hover: 0 0 0 1px color-mix(in srgb, var(--t-primary) 40%, #000000), 0 6px 16px -6px color-mix(in srgb, var(--t-primary) 60%, transparent);
+}
+
+/* Grafito: plano, el relieve lo dan los bordes */
+:root[data-tema="grafito"] {
+  --shadow-xs: none;
+  --shadow-sm: 0 1px 0 var(--color-border);
+  --shadow-md: 0 8px 18px -10px rgb(0 0 0 / 0.28);
+  --shadow-lg: 0 20px 40px -16px rgb(0 0 0 / 0.36);
+  --shadow-press: none;
+  --shadow-press-hover: none;
+}
+
+/* Next Level: relieve «3D» de la plataforma (una sombra sólida debajo de botones y tarjetas) */
+:root[data-tema="nextlevel"] {
+  --shadow-xs: 0 2px 0 var(--color-border);
+  --shadow-sm: 0 3px 0 var(--color-border-strong);
+  --shadow-md: 0 4px 0 var(--color-border-strong), 0 16px 28px -18px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 28px 56px -18px rgb(0 0 0 / 0.36);
+  --shadow-press: 0 3px 0 color-mix(in srgb, var(--color-primary) 55%, #000000);
+  --shadow-press-hover: 0 4px 0 color-mix(in srgb, var(--color-primary) 55%, #000000);
+}
+
+:root[data-tema="nextlevel"] .btn:not(.btn--ghost):not(.btn--primary):not(.btn--danger) {
+  box-shadow: 0 3px 0 var(--color-border-strong);
+}
+
+:root[data-tema="nextlevel"] .btn:active {
+  transform: translateY(2px);
+}
+
+/* Etiquetas sólidas: el color lleno y el texto del color de la superficie (blanco en claro, oscuro en oscuro) */
+:root:is([data-tema="frambuesa"], [data-tema="mandarina"], [data-tema="nextlevel"]) .tag:is(
+  .tag--success, .tag--warning, .tag--danger, .tag--info, .tag--primary,
+  .tag--tono-1, .tag--tono-2, .tag--tono-3, .tag--tono-4
+) {
+  background: var(--tag-fg);
+  color: var(--color-surface);
+}
+
+:root[data-tema="nextlevel"] .tag {
+  font-weight: var(--weight-bold);
+}
+
+/* Etiquetas suaves con borde (Océano) y de contorno (Violeta, Grafito) */
+:root[data-tema="oceano"] .tag {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tag-fg) 28%, transparent);
+}
+
+:root:is([data-tema="violeta"], [data-tema="grafito"]) .tag {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+:root[data-tema="grafito"] .tag {
+  border-radius: var(--radius-sm);
+}

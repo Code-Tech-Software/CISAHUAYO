@@ -20,8 +20,8 @@
      initReveal    Botones [data-reveal] que muestran u ocultan una contraseña
      initAutosubmit    Filtros de listados que se envían solos ([data-autosubmit])
 
-   Expone window.CISAHUAYO.icon(nombre), .liveSearch(opciones), .alumnoResult(alumno) y .forms (CURP, teléfonos,
-   errores) a otros scripts.
+   Expone window.CISAHUAYO.icon(nombre), .liveSearch(opciones), .alumnoResult(alumno), .forms (CURP, teléfonos,
+   errores) y .pickers (la base de los selectores de fecha y de hora) a otros scripts.
 */
 (() => {
   'use strict';
@@ -248,7 +248,116 @@
     return { CURP_RE, normalizeCurp, parseCurp, phoneDigits, formatPhone, clearError, showError };
   })();
 
-  window.CISAHUAYO = Object.freeze({ icon, liveSearch, alumnoResult, forms });
+  /* ------------------------------------------------------- Campos con selector propio */
+  /* Base de los selectores de fecha (static/js/fecha.js) y de hora (static/js/hora.js). El <input> se queda en el
+     formulario, oculto: es el que se envía. En su lugar se ve un botón .campo-fecha con el valor escrito que abre un
+     selector flotante (popover). Lo que otros scripts le hagan al <input> se refleja en el botón: asignarle .value,
+     desactivarlo, marcarlo con error, enfocarlo (el foco pasa al botón) o reiniciar el formulario. */
+  const pickers = (() => {
+    const nativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+    /* Mejora cada elemento que cumpla el selector: los de ahora y los que lleguen después (formularios en ventana) */
+    const watch = (selector, enhance) => {
+      const scan = (node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        if (node.matches(selector)) enhance(node);
+        node.querySelectorAll(selector).forEach(enhance);
+      };
+      scan(document.body);
+      new MutationObserver((records) => records.forEach((record) => record.addedNodes.forEach(scan)))
+        .observe(document.body, { childList: true, subtree: true });
+    };
+
+    /* opciones: icon (nombre del icono), describe(valor) → { text, empty }, open(input, button) y emptyMessage (el
+       aviso cuando el navegador lo encuentra vacío siendo obligatorio) */
+    const field = (input, { icon: iconName, describe, open, emptyMessage }) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      /* Conserva las clases propias del campo (p. ej. su ancho), salvo las del control nativo */
+      button.className = ['campo-fecha', ...[...input.classList].filter((name) => !name.startsWith('field__control'))].join(' ');
+      if (input.id) {
+        button.id = input.id;            /* la etiqueta (for) apunta ahora al botón */
+        input.id = `${input.id}-valor`;
+      }
+      button.setAttribute('aria-haspopup', 'dialog');
+      button.setAttribute('aria-expanded', 'false');
+      ['aria-describedby', 'aria-label', 'title'].forEach((name) => {
+        if (input.hasAttribute(name)) button.setAttribute(name, input.getAttribute(name));
+      });
+      const text = document.createElement('span');
+      text.className = 'campo-fecha__texto';
+      button.append(icon(iconName), text);
+      input.hidden = true;
+      input.after(button);
+
+      const paint = () => {
+        const { text: label, empty } = describe(nativeValue.get.call(input));
+        text.textContent = label;
+        button.classList.toggle('is-vacio', empty);
+        button.disabled = input.disabled;
+        if (input.getAttribute('aria-invalid') === 'true') {
+          button.setAttribute('aria-invalid', 'true');
+        } else {
+          button.removeAttribute('aria-invalid');
+        }
+      };
+
+      Object.defineProperty(input, 'value', {
+        configurable: true,
+        get() { return nativeValue.get.call(this); },
+        set(value) {
+          nativeValue.set.call(this, value);
+          paint();
+        },
+      });
+      input.focus = (options) => button.focus(options);
+      input.scrollIntoView = (...args) => button.scrollIntoView(...args);
+      /* Al elegir un valor se quita el error que tuviera, como en los demás campos al corregirlos */
+      ['input', 'change'].forEach((type) => input.addEventListener(type, () => {
+        const invalid = input.closest('.field.is-invalid');
+        if (invalid && nativeValue.get.call(input)) forms.clearError(invalid);
+        paint();
+      }));
+      new MutationObserver(paint).observe(input, { attributes: true, attributeFilter: ['disabled', 'aria-invalid'] });
+      input.form?.addEventListener('reset', () => window.setTimeout(paint));
+
+      /* El navegador no puede mostrar su globo en un campo oculto: el aviso va debajo, como los demás errores */
+      input.addEventListener('invalid', (event) => {
+        event.preventDefault();
+        forms.showError(input, input.validity.valueMissing ? emptyMessage : input.validationMessage);
+        window.setTimeout(() => {
+          if (input.form?.querySelector('input:invalid, select:invalid, textarea:invalid') === input) button.focus();
+        });
+      });
+
+      button.addEventListener('click', () => open(input, button));
+      paint();
+      return { button, paint };
+    };
+
+    /* Coloca el selector junto a su campo: abajo o, si no cabe, arriba */
+    const place = (panel, button) => {
+      const anchor = button.getBoundingClientRect();
+      const box = panel.getBoundingClientRect();
+      let top = anchor.bottom + 6;
+      if (top + box.height > window.innerHeight - 8) top = Math.max(8, anchor.top - box.height - 6);
+      const left = Math.max(8, Math.min(anchor.left, window.innerWidth - box.width - 8));
+      panel.style.top = `${top}px`;
+      panel.style.left = `${left}px`;
+    };
+
+    /* Lo abre en la capa superior; dentro de la ventana modal del campo si la hay (lo de fuera de ella queda inerte) */
+    const show = (panel, input, button) => {
+      const host = input.closest('dialog') || document.body;
+      if (panel.parentElement !== host) host.append(panel);
+      if (!panel.matches(':popover-open')) panel.showPopover();
+      place(panel, button);
+    };
+
+    return { watch, field, place, show };
+  })();
+
+  window.CISAHUAYO = Object.freeze({ icon, liveSearch, alumnoResult, forms, pickers });
 
   const store = {
     set(key, value) {
@@ -272,6 +381,7 @@
     if (!sidebar || !toggle || !main) return;
 
     const closeButton = qs('[data-sidebar-close]', sidebar);
+    const collapseButton = qs('[data-sidebar-collapse]', sidebar); /* el de la orilla, solo en escritorio */
     const backdrop = qs('[data-sidebar-backdrop]');
 
     const isCollapsed = () => root.classList.contains('is-sidebar-collapsed');
@@ -280,6 +390,12 @@
     /* aria-expanded: en escritorio indica sidebar expandido; en móvil, abierto. */
     const syncToggle = () => {
       toggle.setAttribute('aria-expanded', String(DESKTOP.matches ? !isCollapsed() : isOpen()));
+      if (collapseButton) {
+        const label = isCollapsed() ? 'Expandir menú' : 'Contraer menú';
+        collapseButton.setAttribute('aria-expanded', String(!isCollapsed()));
+        collapseButton.setAttribute('aria-label', label);
+        collapseButton.dataset.tooltip = label;
+      }
     };
 
     const setCollapsed = (collapsed) => {
@@ -314,6 +430,7 @@
     };
 
     toggle.addEventListener('click', toggleSidebar);
+    collapseButton?.addEventListener('click', () => setCollapsed(!isCollapsed()));
     document.addEventListener('app:toggle-sidebar', toggleSidebar);
 
     closeButton?.addEventListener('click', () => close());
@@ -581,20 +698,37 @@
     });
   }
 
-  /* --------------------------------------------------------------------- Tema */
+  /* --------------------------------------------------------------------- Tema
+     Modo claro u oscuro de este dispositivo: 'dark', 'auto' (el del sistema) o nada (claro). El botón de la barra
+     superior alterna claro/oscuro; en Ajustes también se puede elegir «Automático» (evento app:set-theme-mode). */
   function initTheme() {
     const toggles = qsa('[data-theme-toggle]');
+    const deviceDark = window.matchMedia('(prefers-color-scheme: dark)');
     const isDark = () => root.dataset.theme === 'dark';
+    const storedMode = () => {
+      try {
+        return localStorage.getItem(THEME_KEY) || 'light';
+      } catch (error) {
+        return 'light';
+      }
+    };
 
-    const apply = (dark) => {
+    const paint = (dark) => {
       if (dark) {
         root.dataset.theme = 'dark';
       } else {
         delete root.dataset.theme;
       }
-      store.set(THEME_KEY, dark ? 'dark' : null);
       toggles.forEach((button) => button.setAttribute('aria-pressed', String(dark)));
     };
+
+    const setMode = (mode) => {
+      store.set(THEME_KEY, mode === 'light' ? null : mode);
+      paint(mode === 'dark' || (mode === 'auto' && deviceDark.matches));
+      document.dispatchEvent(new CustomEvent('app:theme-mode-changed', { detail: mode }));
+    };
+
+    const apply = (dark) => setMode(dark ? 'dark' : 'light');
 
     /* Revelado circular desde el botón con la API de View Transitions, si existe. */
     const toggleTheme = (origin) => {
@@ -622,6 +756,11 @@
 
     toggles.forEach((button) => button.addEventListener('click', () => toggleTheme(button)));
     document.addEventListener('app:toggle-theme', () => toggleTheme(null));
+    document.addEventListener('app:set-theme-mode', (event) => setMode(event.detail));
+    /* En «Automático» se sigue al sistema también con la página abierta (p. ej. al anochecer) */
+    deviceDark.addEventListener('change', () => {
+      if (storedMode() === 'auto') paint(deviceDark.matches);
+    });
     toggles.forEach((button) => button.setAttribute('aria-pressed', String(isDark())));
   }
 

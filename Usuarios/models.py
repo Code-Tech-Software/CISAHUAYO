@@ -4,13 +4,16 @@ Un **rol** es un grupo de permisos de Django (`auth.Group`) con nombre, descripc
 permisos, así que cualquier cambio en un rol llega al instante a todos los usuarios que lo tienen, sin tocar a ninguno
 (Django calcula los permisos de cada usuario a partir de sus grupos en cada petición). Cada usuario tiene un solo rol.
 
-El **perfil** guarda lo que el modelo de usuario de Django no tiene (teléfono, cargo) y la marca de «debe cambiar su
-contraseña» que se activa al crear la cuenta o al restablecerla.
+El **perfil** guarda lo que el modelo de usuario de Django no tiene (teléfono, cargo), la marca de «debe cambiar su
+contraseña» que se activa al crear la cuenta o al restablecerla y cómo quiere ver el sistema (tema de color y menú
+lateral, en Ajustes).
 """
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db import models
 from django.urls import reverse
+
+from CISAHUAYO import temas
 
 
 class Rol(models.Model):
@@ -63,6 +66,8 @@ class PerfilUsuario(models.Model):
         help_text='Si está activo, en su siguiente acceso deberá elegir una contraseña propia. Es opcional: se pide al '
                   'crear la cuenta o al restablecer su contraseña.',
     )
+    tema = models.CharField('tema de color', max_length=20, choices=temas.opciones, default=temas.PREDETERMINADO)
+    menu_lateral = models.CharField('menú lateral', max_length=10, choices=temas.MENUS, default=temas.MENU_CLARO)
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

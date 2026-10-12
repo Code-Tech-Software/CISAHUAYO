@@ -25,7 +25,7 @@
   const confirmacion = qs('[data-form-modal-confirm]');
 
   const ENCABEZADOS = { 'X-Requested-With': 'XMLHttpRequest', 'X-Modal-Form': '1' };
-  const DE_LA_BASE = new Set(['app.js', 'preload.js', 'modal-form.js']);   /* los de la plantilla base no se recargan */
+  const DE_LA_BASE = new Set(['app.js', 'preload.js', 'modal-form.js', 'fecha.js', 'hora.js']);   /* los de la plantilla base no se recargan */
   const FORMULARIO = 'form.form-page, form.wizard';
 
   let direccion = '';

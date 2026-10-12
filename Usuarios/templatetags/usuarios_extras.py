@@ -30,3 +30,10 @@ def tono_de_usuario(usuario):
         return int(usuario.pk) % 6 + 1
     except (TypeError, ValueError):
         return 1
+
+
+@register.filter
+def es_docente(usuario):
+    """Si la cuenta es de un profesor (tiene ficha de profesor vinculada)."""
+    from ..docentes import profesor_de
+    return profesor_de(usuario) is not None

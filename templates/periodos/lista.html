@@ -101,6 +101,9 @@
                       <span class="tag tag--{% if periodo.estado_actual == 'ABIERTO' %}success{% elif periodo.estado_actual == 'PROXIMO' %}info{% else %}neutral{% endif %}">{{ periodo.estado_display }}{% if periodo.a_mano %} a mano{% endif %}</span>
                       <span class="periodo-card__nota">{{ periodo.descripcion }}</span>
                     </p>
+                    {% if periodo.aviso_duracion %}
+                      <p class="periodo-card__aviso">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %}{{ periodo.aviso_duracion }}</p>
+                    {% endif %}
                   </div>
 
                   {% if editable and perms.Alumnos.change_periodo or editable and perms.Alumnos.delete_periodo %}

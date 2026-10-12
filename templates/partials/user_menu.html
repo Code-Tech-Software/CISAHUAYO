@@ -5,6 +5,7 @@
 {% url 'login' as login_url %}
 {% url 'logout' as logout_url %}
 {% url 'cuenta:perfil' as cuenta_url %}
+{% url 'ajustes:inicio' as ajustes_url %}
 {% if user.is_authenticated %}
   {% with nombre=user.get_full_name|default:user.get_username %}
     <div class="menu" data-menu>
@@ -25,6 +26,14 @@
               <a class="menu__item" href="{{ cuenta_url }}">
                 {% include "partials/icon.html" with name="user" %}
                 Mi cuenta
+              </a>
+            </li>
+          {% endif %}
+          {% if ajustes_url %}
+            <li>
+              <a class="menu__item" href="{{ ajustes_url }}">
+                {% include "partials/icon.html" with name="palette" %}
+                Ajustes y apariencia
               </a>
             </li>
           {% endif %}

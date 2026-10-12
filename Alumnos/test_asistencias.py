@@ -21,6 +21,7 @@ from CISAHUAYO.pruebas import (
     ciclo_cerrado_de_prueba,
     crear_alumno,
     crear_grado,
+    grupo_de,
     hoy,
     inscribir_antes,
     lunes,
@@ -103,13 +104,13 @@ class EstadosTests(BaseAsistenciaTestCase):
 @PRUEBAS
 class ClasesTests(BaseAsistenciaTestCase):
     def test_las_clases_del_dia_van_en_orden_de_hora(self):
-        clases = reglas.clases_del_dia(self.grado, self.ciclo, lunes())
+        clases = reglas.clases_del_dia(grupo_de(self.grado), self.ciclo, lunes())
         self.assertEqual([(c.asignacion.materia.clave, c.inicio, c.fin) for c in clases],
                          [('MAT', time(8), time(9)), ('ESP', time(9), time(10)), ('CIE', time(11), time(12))])
 
     def test_varios_bloques_de_una_materia_el_mismo_dia_son_una_sola_clase(self):
         HorarioMateria.objects.create(materia_grado=self.mat, dia_semana=0, hora_inicio=time(12), hora_fin=time(13))
-        clase = next(c for c in reglas.clases_del_dia(self.grado, self.ciclo, lunes()) if c.asignacion == self.mat)
+        clase = next(c for c in reglas.clases_del_dia(grupo_de(self.grado), self.ciclo, lunes()) if c.asignacion == self.mat)
         self.assertEqual((clase.inicio, clase.fin), (time(8), time(13)))
         self.assertEqual(clase.bloques, ((time(8), time(9)), (time(12), time(13))))
 
@@ -118,14 +119,14 @@ class ClasesTests(BaseAsistenciaTestCase):
         materia_en_grado('QUI', self.grado, self.ciclo, activa=False)
         materia_en_grado('BAJ', self.grado, self.ciclo)
         Materia.objects.filter(clave='BAJ').update(activa=False)
-        claves = [c.asignacion.materia.clave for c in reglas.clases_del_dia(self.grado, self.ciclo, lunes())]
+        claves = [c.asignacion.materia.clave for c in reglas.clases_del_dia(grupo_de(self.grado), self.ciclo, lunes())]
         self.assertEqual(claves, ['MAT', 'ESP', 'CIE'])
 
-    def test_clases_por_grado_separa_los_grados(self):
+    def test_clases_por_grupo_separa_los_grupos(self):
         otro = crear_grado('PRIMARIA', 5)
         materia_en_grado('HIS', otro, self.ciclo)
-        por_grado = reglas.clases_por_grado(self.ciclo, lunes())
-        self.assertEqual({g: len(c) for g, c in por_grado.items()}, {self.grado.pk: 3, otro.pk: 1})
+        por_grupo = reglas.clases_por_grupo(self.ciclo, lunes())
+        self.assertEqual({g: len(c) for g, c in por_grupo.items()}, {grupo_de(self.grado).pk: 3, grupo_de(otro).pk: 1})
 
     def test_inscripciones_del_dia(self):
         baja = inscribir_antes(crear_alumno(estatus='BAJA'), self.ciclo, self.grado)

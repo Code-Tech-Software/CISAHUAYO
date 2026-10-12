@@ -104,48 +104,43 @@
                   </div>
 
                   {% if editable and perms.Alumnos.change_periodo or editable and perms.Alumnos.delete_periodo %}
-                    <div class="grade-card__actions menu" data-menu>
-                      <button type="button" class="btn btn--ghost btn--icon btn--sm menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-periodo-{{ periodo.pk }}" aria-label="Acciones de {{ periodo.nombre }} de {{ nivel.nombre }}">
-                        {% include "partials/icon.html" with name="more-horizontal" icon_class="icon--sm" %}
-                      </button>
-                      <div class="menu__panel" id="menu-periodo-{{ periodo.pk }}" data-menu-panel hidden>
-                        <ul class="menu__list">
-                          {% if perms.Alumnos.change_periodo %}
-                            <li>
-                              <a class="menu__item" href="{% url 'periodos:editar' periodo.pk %}" data-modal-form>{% include "partials/icon.html" with name="pencil" %} Editar</a>
-                            </li>
-                            <li>
-                              {% if periodo.estado_actual == 'ABIERTO' %}
-                                <form method="post" action="{% url 'periodos:cerrar' periodo.pk %}">
-                                  {% csrf_token %}
-                                  <button type="submit" class="menu__item">{% include "partials/icon.html" with name="lock" %} Cerrar ahora</button>
-                                </form>
-                              {% else %}
-                                <form method="post" action="{% url 'periodos:abrir' periodo.pk %}">
-                                  {% csrf_token %}
-                                  <button type="submit" class="menu__item">{% include "partials/icon.html" with name="key" %} Abrir ahora</button>
-                                </form>
-                              {% endif %}
-                            </li>
-                            {% if periodo.a_mano %}
-                              <li>
-                                <form method="post" action="{% url 'periodos:por_fechas' periodo.pk %}">
-                                  {% csrf_token %}
-                                  <button type="submit" class="menu__item">{% include "partials/icon.html" with name="calendar" %} Seguir sus fechas</button>
-                                </form>
-                              </li>
-                            {% endif %}
-                          {% endif %}
-                          {% if perms.Alumnos.delete_periodo %}
-                            <li>
-                              <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-eliminar-periodo" data-eliminar-periodo
-                                      data-action="{% url 'periodos:eliminar' periodo.pk %}" data-nombre="{{ periodo.nombre }} de {{ nivel.nombre }}">
-                                {% include "partials/icon.html" with name="trash" %} Eliminar
-                              </button>
-                            </li>
-                          {% endif %}
-                        </ul>
-                      </div>
+                    {# Las acciones a la vista, como iconos dentro de la tarjeta #}
+                    <div class="grade-card__actions periodo-card__acciones">
+                      {% if perms.Alumnos.change_periodo %}
+                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'periodos:editar' periodo.pk %}" aria-label="Editar {{ periodo.nombre }} de {{ nivel.nombre }}" data-tooltip="Editar" data-modal-form>
+                          {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                        </a>
+                        {% if periodo.estado_actual == 'ABIERTO' %}
+                          <form method="post" action="{% url 'periodos:cerrar' periodo.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Cerrar ahora {{ periodo.nombre }} de {{ nivel.nombre }}" data-tooltip="Cerrar ahora">
+                              {% include "partials/icon.html" with name="lock" icon_class="icon--sm" %}
+                            </button>
+                          </form>
+                        {% else %}
+                          <form method="post" action="{% url 'periodos:abrir' periodo.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Abrir ahora {{ periodo.nombre }} de {{ nivel.nombre }}" data-tooltip="Abrir ahora">
+                              {% include "partials/icon.html" with name="key" icon_class="icon--sm" %}
+                            </button>
+                          </form>
+                        {% endif %}
+                        {% if periodo.a_mano %}
+                          <form method="post" action="{% url 'periodos:por_fechas' periodo.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Que {{ periodo.nombre }} de {{ nivel.nombre }} siga sus fechas" data-tooltip="Seguir sus fechas">
+                              {% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}
+                            </button>
+                          </form>
+                        {% endif %}
+                      {% endif %}
+                      {% if perms.Alumnos.delete_periodo %}
+                        <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-eliminar-periodo" data-eliminar-periodo
+                                data-action="{% url 'periodos:eliminar' periodo.pk %}" data-nombre="{{ periodo.nombre }} de {{ nivel.nombre }}"
+                                aria-label="Eliminar {{ periodo.nombre }} de {{ nivel.nombre }}" data-tooltip="Eliminar">
+                          {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                        </button>
+                      {% endif %}
                     </div>
                   {% endif %}
                 </article>

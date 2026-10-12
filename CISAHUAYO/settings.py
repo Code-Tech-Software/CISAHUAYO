@@ -30,7 +30,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     "https://cisahuayo.up.railway.app",
-    "https://ffe1-2806-261-5480-fe4-7d45-f684-6f1e-e933.ngrok-free.app"
+    "https://4254-2806-261-5480-fe4-b0b7-72ee-b70e-e958.ngrok-free.app"
 ]
 
 # Application definition
@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'Asignaciones',
     'Asistencias',
     'Periodos',
+    'Grupos',
     'Usuarios',
     'Roles',
 ]
@@ -121,16 +122,16 @@ LOGIN_REDIRECT_URL = 'inicio'
 
 
 
-DATABASES = {
-   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
-}
-
 #DATABASES = {
-#    'default': {
-#       'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
+#   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
 #}
+
+DATABASES = {
+    'default': {
+       'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators

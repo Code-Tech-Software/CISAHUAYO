@@ -94,7 +94,24 @@ def ciclo_cerrado_de_prueba(nombre='2025-2026'):
 
 
 def crear_grado(nivel='PRIMARIA', numero=1, **cambios):
-    return Grado.objects.create(nivel=nivel, numero=numero, **cambios)
+    """Un grado con su grupo «A», como queda al registrarlo desde Grados."""
+    grado = Grado.objects.create(nivel=nivel, numero=numero, **cambios)
+    grupo_de(grado)
+    return grado
+
+
+def grupo_de(grado):
+    """El grupo principal del grado (se le crea el «A» si todavía no tiene): para un grado de un solo grupo, su grupo."""
+    from Alumnos.models import Grupo
+    return Grupo.principal_de(grado)
+
+
+def crear_grupo(grado, nombre):
+    """Otro grupo del grado («B», «C»…), con su nombre en el catálogo."""
+    from Alumnos.models import Grupo, NombreGrupo
+    grupo_de(grado)   # el primero, «A», antes que los demás
+    letra, _ = NombreGrupo.objects.get_or_create(nombre=nombre, defaults={'orden': NombreGrupo.objects.count() + 1})
+    return Grupo.objects.create(grado=grado, nombre=letra)
 
 
 def inscribir(alumno, ciclo, grado, **cambios):

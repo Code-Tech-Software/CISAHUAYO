@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .academico import ciclo_actual as ciclo_activo, motivo_no_inscribible
-from .models import Alumno, CicloEscolar, Grado, Inscripcion, Tutor, TutorAlumno
+from .models import Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Tutor, TutorAlumno
 from .utils import (
     CURP_RE,
     compactar_espacios as _compactar,
@@ -458,7 +458,66 @@ def grados_disponibles(incluir=None):
     return Grado.objects.filter(condicion).academicos()
 
 
-class InscripcionInicialForm(EstiloCamposMixin, forms.Form):
+# ---------------------------------------------------------------------------
+# El grupo dentro del grado elegido
+# ---------------------------------------------------------------------------
+class SelectorDeGrupo(forms.Select):
+    """Cada opción lleva el grado de su grupo (data-grado): grupo-del-grado.js deja solo los del grado elegido."""
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        opcion = super().create_option(name, value, label, selected, index, subindex, attrs)
+        instancia = getattr(value, 'instance', None)
+        if instancia is not None:
+            opcion['attrs']['data-grado'] = instancia.grado_id
+        return opcion
+
+
+class GrupoChoiceField(forms.ModelChoiceField):
+    widget = SelectorDeGrupo
+
+    def label_from_instance(self, grupo):
+        return f'Grupo {grupo.nombre}'
+
+
+def grupos_disponibles(incluir=None):
+    """Grupos activos de grados activos (y `incluir`, aunque ya no lo esté), en orden escolar."""
+    condicion = Q(activo=True, grado__activo=True)
+    if incluir is not None:
+        condicion |= Q(pk=incluir.pk)
+    return Grupo.objects.filter(condicion).select_related('grado', 'nombre').academicos()
+
+
+class GrupoDelGradoMixin:
+    """Para los formularios que eligen un grado: el campo `grupo` con los grupos de ese grado.
+
+    Si el grado tiene un solo grupo no hace falta elegirlo (la pantalla ni lo muestra); con varios, se pide. Al limpiar
+    deja en `cleaned_data['grupo']` el grupo que corresponde.
+    """
+
+    def agregar_campo_grupo(self, campo_grado='grado', incluir=None):
+        self.campo_grado = campo_grado
+        self.fields['grupo'] = GrupoChoiceField(
+            grupos_disponibles(incluir), required=False, label='Grupo', empty_label='Selecciona el grupo',
+            error_messages={'invalid_choice': 'Elige un grupo de la lista.'},
+        )
+        self.fields['grupo'].widget.attrs['data-grupo-de'] = self.add_prefix(campo_grado)
+
+    def limpiar_grupo(self, datos):
+        grado, grupo = datos.get(self.campo_grado), datos.get('grupo')
+        if grado is None:
+            return datos
+        if grupo is not None and grupo.grado_id != grado.pk:
+            self.add_error('grupo', f'Ese grupo no es de {grado}.')
+        elif grupo is None:
+            activos = list(grado.grupos.filter(activo=True))
+            if len(activos) > 1:
+                self.add_error('grupo', f'Elige el grupo de {grado}.')
+            else:
+                datos['grupo'] = activos[0] if activos else Grupo.principal_de(grado)
+        return datos
+
+
+class InscripcionInicialForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.Form):
     """Inscripción opcional al registrar al alumno."""
 
     inscribir = forms.BooleanField(required=False, label='Inscribir al estudiante ahora', widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
@@ -468,6 +527,7 @@ class InscripcionInicialForm(EstiloCamposMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['grado'].queryset = grados_disponibles()
+        self.agregar_campo_grupo()
         if not self.is_bound:
             self.fields['ciclo'].initial = ciclo_activo()
         self.aplicar_estilo()
@@ -478,21 +538,22 @@ class InscripcionInicialForm(EstiloCamposMixin, forms.Form):
             for campo, etiqueta in (('ciclo', 'el ciclo escolar'), ('grado', 'el grado')):
                 if not datos.get(campo) and campo not in self.errors:
                     self.add_error(campo, f'Elige {etiqueta}.')
+            self.limpiar_grupo(datos)
         return datos
 
     def guardar(self, alumno):
         datos = self.cleaned_data
         if datos.get('inscribir'):
-            return Inscripcion.objects.create(alumno=alumno, ciclo=datos['ciclo'], grado=datos['grado'])
+            return Inscripcion.objects.create(alumno=alumno, ciclo=datos['ciclo'], grado=datos['grado'], grupo=datos.get('grupo'))
         return None
 
 
-class InscribirForm(EstiloCamposMixin, forms.ModelForm):
+class InscribirForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.ModelForm):
     """Inscribir a un alumno que ya existe (desde su perfil)."""
 
     class Meta:
         model = Inscripcion
-        fields = ['ciclo', 'grado', 'fecha_inscripcion']
+        fields = ['ciclo', 'grado', 'grupo', 'fecha_inscripcion']
         field_classes = {'ciclo': CicloChoiceField, 'grado': GradoChoiceField}
         widgets = {'fecha_inscripcion': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
 
@@ -502,6 +563,7 @@ class InscribirForm(EstiloCamposMixin, forms.ModelForm):
         self.fields['ciclo'].empty_label = 'Selecciona un ciclo'
         self.fields['grado'].empty_label = 'Selecciona un grado'
         self.fields['grado'].queryset = grados_disponibles()
+        self.agregar_campo_grupo()
         if not self.is_bound:
             self.fields['ciclo'].initial = ciclo_activo()
         self.aplicar_estilo()
@@ -513,7 +575,7 @@ class InscribirForm(EstiloCamposMixin, forms.ModelForm):
         return fecha
 
     def clean(self):
-        datos = super().clean()
+        datos = self.limpiar_grupo(super().clean())
         motivo = motivo_no_inscribible(self.instance.alumno)
         if motivo:
             raise ValidationError(motivo)

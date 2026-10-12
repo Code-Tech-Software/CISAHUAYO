@@ -127,7 +127,7 @@
                               {% include "partials/avatar.html" with persona=alumno tamano="sm" %}
                               <span class="student-chip__text">
                                 <span class="student-chip__name">{{ alumno.nombre }} {{ alumno.apellido_paterno }}</span>
-                                <span class="student-chip__meta">{{ v.get_parentesco_display }} · {% if inscripcion %}{{ inscripcion.grado }}{% else %}Sin inscripción{% endif %}</span>
+                                <span class="student-chip__meta">{{ v.get_parentesco_display }} · {% if inscripcion %}{{ inscripcion.grupo }}{% else %}Sin inscripción{% endif %}</span>
                               </span>
                             </a>
                           </li>

@@ -2,7 +2,7 @@ import csv
 from itertools import groupby
 
 from django.contrib import messages
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from Alumnos.academico import ciclo_actual, ciclo_editable, elegir_ciclo, materias_por_asignar, siguiente_grado
 from Alumnos.docentes import con_habilitados
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion
-from Alumnos.models import CicloEscolar, Grado, Inscripcion, MateriaGrado, Profesor
+from Alumnos.models import CicloEscolar, Grado, Grupo, Inscripcion, MateriaGrado, Profesor
 from Alumnos.utils import proteger_celda_csv
 from Alumnos.vinculos import prefetch_vinculos_activos
 from CISAHUAYO.permisos import requiere_permisos
@@ -19,11 +19,11 @@ from CISAHUAYO.permisos import requiere_permisos
 from .forms import GradoForm
 
 
-def _conteos(modelo, ciclo, **filtros):
+def _conteos(modelo, ciclo, contar='pk', **filtros):
     """{id de grado: cantidad} de los registros del ciclo; vacío si no hay ciclo."""
     if ciclo is None:
         return {}
-    filas = modelo.objects.filter(ciclo=ciclo, **filtros).order_by().values_list('grado_id').annotate(total=Count('pk'))
+    filas = modelo.objects.filter(ciclo=ciclo, **filtros).order_by().values_list('grado_id').annotate(total=Count(contar, distinct=True))
     return dict(filas)
 
 
@@ -35,9 +35,11 @@ def grado_lista(request):
     viendo_bajas = request.GET.get('estado') == 'BAJA'
     ciclo = ciclo_actual()
     inscritos = _conteos(Inscripcion, ciclo, activa=True)
-    materias = _conteos(MateriaGrado, ciclo, activa=True)
+    materias = _conteos(MateriaGrado, ciclo, contar='materia', activa=True)   # el plan es del grado: una por materia
 
-    grados = Grado.objects.filter(activo=not viendo_bajas).academicos()
+    grados = Grado.objects.filter(activo=not viendo_bajas).academicos().prefetch_related(
+        Prefetch('grupos', queryset=Grupo.objects.filter(activo=True).select_related('nombre').order_by('nombre__orden', 'nombre__nombre'), to_attr='grupos_activos'),
+    )
     niveles = []
     for nivel, del_nivel in groupby(grados, key=lambda grado: grado.nivel):
         filas = [
@@ -80,7 +82,8 @@ def grado_crear(request):
     if request.method == 'POST':
         if form.is_valid():
             grado = form.save()
-            messages.success(request, f'El grado {grado} fue registrado.')
+            grupos = ', '.join(str(g.nombre) for g in form.grupos_agregados)
+            messages.success(request, f'El grado {grado} fue registrado con {"los grupos" if len(form.grupos_agregados) > 1 else "el grupo"} {grupos}.')
             return redirect('grados:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
@@ -93,14 +96,21 @@ def grado_editar(request, pk):
     if request.method == 'POST':
         if form.is_valid():
             form.save()
-            messages.success(request, f'El grado {grado} se actualizó.')
+            detalle = ''
+            if form.grupos_agregados:
+                varios = len(form.grupos_agregados) > 1
+                detalle += f' {"Se agregaron los grupos" if varios else "Se agregó el grupo"} {", ".join(str(g.nombre) for g in form.grupos_agregados)} con su plan de materias.'
+            if form.grupos_quitados:
+                varios = len(form.grupos_quitados) > 1
+                detalle += f' {"Se dieron de baja los grupos" if varios else "Se dio de baja el grupo"} {", ".join(str(g.nombre) for g in form.grupos_quitados)}.'
+            messages.success(request, f'El grado {grado} se actualizó.{detalle}')
             return redirect('grados:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form, grado)
 
 
 # ---------------------------------------------------------------------------
-# Perfil del grado: el listado de alumnos de un ciclo (con un solo grupo por grado, es la lista del salón)
+# Perfil del grado: sus alumnos de un ciclo, grupo por grupo, y su plan de materias
 # ---------------------------------------------------------------------------
 def _ciclo_elegido(request, ciclos):
     return elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
@@ -111,8 +121,8 @@ def _alumnos_del_grado(grado, ciclo):
         return Inscripcion.objects.none()
     return (
         Inscripcion.objects.filter(grado=grado, ciclo=ciclo, activa=True)
-        .select_related('alumno')
-        .order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')
+        .select_related('alumno', 'grupo__nombre', 'grupo__grado')
+        .order_by('grupo__nombre__orden', 'grupo__nombre__nombre', 'alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')
     )
 
 
@@ -127,12 +137,14 @@ def grado_detalle(request, pk):
 
     # Plan de materias del grado en el ciclo (con las quitadas, marcadas) y su resumen de horario
     materias = con_habilitados(con_resumen_de_horario(
-        MateriaGrado.objects.filter(grado=grado, ciclo=ciclo).select_related('materia', 'profesor')
-        .prefetch_related('horarios').order_by('materia__nombre')
+        MateriaGrado.objects.filter(grado=grado, ciclo=ciclo).select_related('materia', 'profesor', 'grupo__nombre', 'grupo__grado')
+        .prefetch_related('horarios').order_by('materia__nombre', 'grupo__nombre__orden', 'grupo__nombre__nombre')
         if ciclo else MateriaGrado.objects.none()
     ))
     materias_vigentes = [asignacion for asignacion in materias if asignacion.activa]
-    minutos = sum(asignacion.minutos for asignacion in materias_vigentes)
+    grupos = list(grado.grupos.filter(activo=True).select_related('nombre', 'grado').order_by('nombre__orden', 'nombre__nombre'))
+    # Horas por semana de un grupo (el primero): todos los grupos llevan el mismo plan
+    minutos = sum(asignacion.minutos for asignacion in materias_vigentes if grupos and asignacion.grupo_id == grupos[0].pk)
     editable = ciclo_editable(ciclo)
     historial = (
         Inscripcion.objects.filter(grado=grado).order_by()
@@ -151,7 +163,9 @@ def grado_detalle(request, pk):
         'ciclo': ciclo,
         'inscripciones': inscripciones,
         'materias': materias,
-        'total_materias': len(materias_vigentes),
+        'total_materias': len({asignacion.materia_id for asignacion in materias_vigentes}),
+        'grupos': grupos,
+        'varios_grupos': len(grupos) > 1,
         'horas_semanales': formatear_duracion(minutos) if minutos else '',
         'plan_editable': editable and grado.activo,
         'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO')) if editable and grado.activo else [],

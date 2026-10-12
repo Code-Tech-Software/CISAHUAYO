@@ -559,7 +559,28 @@ class RestablecerContrasenaTests(BaseUsuariosTestCase):
         self.assertTrue(self.usuario.check_password(temporal))
         self.assertFalse(self.usuario.check_password('VieJa-clave-77'))
         self.assertFalse(self.usuario.perfil.debe_cambiar_contrasena)   # cambiarla al entrar es opcional
-        self.assertTrue(bitacora(self.usuario, CHANGE).filter(change_message__contains='restablecida').exists())
+        self.assertTrue(bitacora(self.usuario, CHANGE).filter(change_message__contains='Contraseña cambiada').exists())
+
+    def test_se_puede_escribir_la_contrasena_nueva(self):
+        respuesta = self.client.post(reverse('usuarios:restablecer', args=[self.usuario.pk]), {'contrasena': 'Colegio-Nuevo-2026'}, follow=True)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password('Colegio-Nuevo-2026'))
+        self.assertContains(respuesta, 'Se cambió la contraseña de')
+        self.assertEqual(self.client.session.get('credenciales_usuario'), None)   # ya se mostró en la página
+        self.assertContains(respuesta, 'Contraseña nueva')
+
+    def test_una_contrasena_escrita_debil_se_rechaza_y_no_cambia_nada(self):
+        respuesta = self.client.post(reverse('usuarios:restablecer', args=[self.usuario.pk]), {'contrasena': '1234'}, follow=True)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password('VieJa-clave-77'))
+        self.assertContains(respuesta, 'No se cambió la contraseña de')
+
+    def test_el_detalle_la_deja_cambiar_a_la_vista(self):
+        html = self.client.get(reverse('usuarios:detalle', args=[self.usuario.pk])).content.decode()
+        self.assertRegex(html, r'<button[^>]*identity__fact-action[^>]*data-modal-open="modal-restablecer"')
+        ventana = re.search(r'<dialog[^>]*id="modal-restablecer".*?</dialog>', html, re.S).group(0)
+        self.assertIn('name="contrasena"', ventana)
+        self.assertIn('Déjala vacía para generar una', ventana)
 
     def test_al_restablecer_se_puede_pedir_que_la_cambie(self):
         self.client.post(reverse('usuarios:restablecer', args=[self.usuario.pk]), {'pedir_cambio': 'on'})
@@ -791,7 +812,7 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
 
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
-            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias'},
+            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias'},
             'Recepción': {'Estudiantes', 'Asistencias'},
         }
         for nombre_rol, esperados in casos.items():

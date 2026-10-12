@@ -18,7 +18,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar inscripción{% else %}Nueva inscripción{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Cambia el grado o la fecha de inscripción de {{ alumno }}. El estudiante y el ciclo no cambian: eso sería otra inscripción.{% else %}Elige al estudiante, el ciclo y el grado en el que se inscribe.{% endif %}
+        {% if es_edicion %}Cambia el grado, el grupo o la fecha de inscripción de {{ alumno }}. El estudiante y el ciclo no cambian: eso sería otra inscripción.{% else %}Elige al estudiante, el ciclo, el grado y el grupo en el que se inscribe.{% endif %}
       </p>
     </div>
   </header>
@@ -101,6 +101,7 @@
           {% include "partials/field.html" with campo=form.ciclo %}
         {% endif %}
         {% include "partials/field.html" with campo=form.grado %}
+        {% include "partials/field.html" with campo=form.grupo %}
         {% include "partials/field.html" with campo=form.fecha_inscripcion %}
       </div>
     </section>
@@ -117,4 +118,5 @@
 
 {% block extra_js %}
   {% if not es_edicion %}<script src="{% static 'js/inscripciones-form.js' %}" defer></script>{% endif %}
+  <script src="{% static 'js/grupo-del-grado.js' %}" defer></script>
 {% endblock %}

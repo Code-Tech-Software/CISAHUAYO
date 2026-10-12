@@ -178,7 +178,15 @@
 
   const irA = (destino) => {
     navegando = true;
-    window.location.assign(destino);
+    const url = new URL(destino, location.href);
+    if (url.hash && url.pathname === location.pathname && url.search === location.search) {
+      // Solo cambia el «#»: el navegador se quedaría en la página sin recargarla (ni el cambio ni el mensaje se verían)
+      history.replaceState(history.state, '', url.href);
+      history.scrollRestoration = 'manual';   // al recargar, ir al «#» y no a donde estaba
+      window.location.reload();
+    } else {
+      window.location.assign(url.href);
+    }
   };
 
   /* --------------------------------------------------------------------------- Pintar el formulario */

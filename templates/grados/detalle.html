@@ -68,6 +68,10 @@
       <dl class="identity__facts">
         <div class="identity__fact"><dt>Nivel</dt><dd>{{ grado.get_nivel_display }}</dd></div>
         <div class="identity__fact"><dt>Grado</dt><dd>{{ grado.numero }}°</dd></div>
+        <div class="identity__fact">
+          <dt>Grupos</dt>
+          <dd>{% for grupo in grupos %}{% if perms.Alumnos.view_grupo %}<a href="{{ grupo.get_absolute_url }}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">{{ grupo.nombre }}</a>{% else %}{{ grupo.nombre }}{% endif %}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">Sin grupos</span>{% endfor %}</dd>
+        </div>
         <div class="identity__fact"><dt>Equivalencia</dt><dd>{% if grado.equivalencia %}{{ grado.equivalencia_texto }}{% else %}<span class="text-muted">Sin equivalencia</span>{% endif %}</dd></div>
         <div class="identity__fact"><dt>Ciclo consultado</dt><dd>{{ ciclo|default:"—" }}</dd></div>
         <div class="identity__fact"><dt>Materias</dt><dd>{{ total_materias }}</dd></div>
@@ -115,7 +119,7 @@
       <button type="button" class="tabs__tab" role="tab" id="tab-historial" aria-controls="historial" aria-selected="false">Historial</button>
     </div>
 
-    {# --- Alumnos: la lista del grado (un solo grupo) ------------------------------ #}
+    {# --- Alumnos: los del grado, grupo por grupo ---------------------------------- #}
     <section class="tabs__panel" role="tabpanel" id="alumnos" aria-labelledby="tab-alumnos">
       {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo %}
         <div class="panel-actions">
@@ -132,6 +136,7 @@
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Estudiante</th>
+                {% if varios_grupos %}<th class="table__th" scope="col">Grupo</th>{% endif %}
                 <th class="table__th table__col--wide" scope="col">Edad</th>
                 <th class="table__th" scope="col">Tutor principal</th>
                 <th class="table__th table__col--wide" scope="col">Inscrito el</th>
@@ -151,6 +156,7 @@
                         </span>
                       </a>
                     </td>
+                    {% if varios_grupos %}<td class="table__cell" data-label="Grupo">{{ inscripcion.grupo.nombre }}</td>{% endif %}
                     <td class="table__cell table__col--wide" data-label="Edad">{{ alumno.edad }} años</td>
                     <td class="table__cell" data-label="Tutor principal">
                       {% with vinculo=alumno.vinculos_activos.0 %}
@@ -208,9 +214,11 @@
 
       <div class="panel-actions">
         {% if total_materias and perms.Alumnos.view_horariomateria %}
-          <a class="btn btn--sm" href="{% url 'horarios:grado' grado.pk %}?ciclo={{ ciclo.pk }}">
-            {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Ver horario{% if horas_semanales %} · {{ horas_semanales }}{% endif %}
-          </a>
+          {% for grupo in grupos %}
+            <a class="btn btn--sm" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">
+              {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Horario{% if varios_grupos %} de {{ grupo.corto }}{% elif horas_semanales %} · {{ horas_semanales }}{% endif %}
+            </a>
+          {% endfor %}
         {% endif %}
         {% if perms.Alumnos.add_materiagrado and materias_por_asignar %}
           <button type="button" class="btn btn--sm" data-modal-open="modal-asignar-materias">
@@ -226,6 +234,7 @@
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Materia</th>
+                {% if varios_grupos %}<th class="table__th" scope="col">Grupo</th>{% endif %}
                 <th class="table__th" scope="col">Profesor</th>
                 <th class="table__th" scope="col">Horario</th>
                 <th class="table__th table__col--wide" scope="col">Por semana</th>
@@ -240,6 +249,7 @@
                     {% if perms.Alumnos.view_materia %}<a class="link-subtle" href="{{ item.materia.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ item.materia.nombre }}</a>{% else %}{{ item.materia.nombre }}{% endif %}
                     <code class="code">{{ item.materia.clave }}</code>
                   </td>
+                  {% if varios_grupos %}<td class="table__cell" data-label="Grupo">{{ item.grupo.nombre }}</td>{% endif %}
                   <td class="table__cell" data-label="Profesor">
                     {% if item.profesor %}
                       {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ item.profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ item.profesor }}</a>{% else %}{{ item.profesor }}{% endif %}
@@ -261,7 +271,7 @@
                   <td class="table__cell table__cell--actions">
                     {% if plan_editable and item.activa and perms.Alumnos.change_materiagrado %}
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
-                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ grado }}" data-profesor="{{ item.profesor_id|default_if_none:'' }}"
+                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ item.grupo }}" data-profesor="{{ item.profesor_id|default_if_none:'' }}"
                               data-habilitados="{{ item.habilitados }}" data-del-nivel="{{ item.del_nivel }}" data-nivel="{{ grado.get_nivel_display }}"
                               aria-label="{% if item.profesor %}Cambiar al profesor de {{ item.materia }}{% else %}Asignar profesor a {{ item.materia }}{% endif %}"
                               data-tooltip="{% if item.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">

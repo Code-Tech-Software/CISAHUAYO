@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Corrige el nivel o el número de {{ grado }}.{% else %}Elige el nivel y el número del grado. Después podrás inscribir estudiantes en él.{% endif %}
+        {% if es_edicion %}Corrige el nivel o el grado de {{ grado }}, o cambia sus grupos.{% else %}Elige el nivel, el grado y sus grupos. Después podrás inscribir estudiantes en cada grupo.{% endif %}
       </p>
     </div>
   </header>
@@ -50,8 +50,21 @@
         {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grado">Datos del grado</h2>
       </header>
       <div class="card__body form-grid">
-        {% include "partials/field.html" with campo=form.nivel %}
+        {% include "partials/field.html" with campo=form.nivel clase="form-grid__full" %}
         {% include "partials/field.html" with campo=form.numero %}
+        <fieldset class="field{% if form.grupos.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">{{ form.grupos.label }}</legend>
+          <div class="choice-group">
+            {% for casilla in form.grupos %}
+              <label class="choice choice--check" for="{{ casilla.id_for_label }}">
+                {{ casilla.tag }}
+                <span class="choice__box">{{ casilla.choice_label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <p class="field__hint">{{ form.grupos.help_text }}{% if perms.Alumnos.add_nombregrupo %} <a href="{% url 'grupos:lista' %}#catalogo">Agregar otro nombre</a>{% endif %}</p>
+          {% for error in form.grupos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
         {% include "partials/field.html" with campo=form.equivalencia clase="form-grid__full" %}
       </div>
     </section>

@@ -131,10 +131,28 @@
 .grade-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  grid-auto-rows: 1fr;   /* todas las filas tan altas como la más alta: las tarjetas miden lo mismo */
   gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.grade-grid > li {
+  display: flex;
+  min-width: 0;
+}
+
+.grade-grid > li > .grade-card {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Una línea de la tarjeta que no crece: si el texto no cabe, termina en puntos suspensivos */
+.grade-card__linea {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .grade-card {
@@ -250,6 +268,21 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* Con los botones en la esquina de arriba, las líneas de abajo usan todo el ancho de la tarjeta */
+.grade-card--acciones-arriba {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.grade-card--acciones-arriba .grade-card__actions {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.grade-card--acciones-arriba .grade-card__name {
+  padding-right: 4.5rem;   /* lo que ocupan los botones */
 }
 
 
@@ -718,4 +751,13 @@ a.slot__name:hover {
 .periodo-card__nota {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
+}
+
+/* Los iconos de acción, a la vista en una fila al pie de la tarjeta */
+.periodo-card__acciones {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  margin-top: calc(var(--space-2) * -1);
+  padding-top: var(--space-2);
+  border-top: var(--border);
 }

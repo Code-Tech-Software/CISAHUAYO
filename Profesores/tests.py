@@ -398,7 +398,7 @@ class DetalleTests(BaseTestCase):
         libre = asignar(crear_materia('CIE', 'Ciencias'), self.p1, self.actual)
         respuesta = self.detalle()
         self.assertEqual(respuesta.context['total_pendientes'], 1)
-        self.assertEqual([(str(g['grado']), [a.pk for a in g['asignaciones']]) for g in respuesta.context['pendientes']], [('1° Primaria', [libre.pk])])
+        self.assertEqual([(str(g['grupo'].grado), [a.pk for a in g['asignaciones']]) for g in respuesta.context['pendientes']], [('1° Primaria', [libre.pk])])
         self.assertContains(respuesta, 'modal-asignar-materias')
 
     def test_no_ofrece_materias_quitadas_ni_de_baja_ni_de_grados_de_baja(self):
@@ -608,7 +608,7 @@ class AsignarTests(BaseTestCase):
         respuesta = self.client.post(self.url, {'asignacion': [self.a2.pk], 'profesor': self.profesor.pk}, follow=True)
         self.assertContains(respuesta, 'No se pudo asignar')
         self.assertContains(respuesta, 'un profesor no puede estar en dos grupos a la vez')
-        self.assertContains(respuesta, 'Matemáticas en 1° Primaria (lunes 08:00–09:00)')
+        self.assertContains(respuesta, 'Matemáticas en 1° A Primaria (lunes 08:00–09:00)')
         self.a2.refresh_from_db()
         self.assertIsNone(self.a2.profesor)
 

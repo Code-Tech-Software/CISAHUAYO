@@ -1,6 +1,8 @@
 """Reglas académicas que comparten las secciones de ciclos, grados e inscripciones.
 
-El colegio maneja un solo grupo por grado: el grado es la unidad (no existen grupos ni secciones).
+Cada grado tiene uno o varios grupos (1° A, 1° B). El plan de materias es del grado y lo comparten sus grupos: una
+materia del grado tiene una asignación (`MateriaGrado`) por grupo, con su profesor, su horario y su asistencia. Los
+estudiantes se inscriben en un grupo.
 """
 import re
 from datetime import date, timedelta
@@ -9,7 +11,7 @@ from django.db import transaction
 from django.db.models import Max, Prefetch, Q
 from django.utils import timezone
 
-from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion, Materia, MateriaGrado
+from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Materia, MateriaGrado
 
 # Número máximo de grado por nivel (en preparatoria caben semestres o años).
 LIMITE_GRADOS = {'PREESCOLAR': 3, 'PRIMARIA': 6, 'SECUNDARIA': 3, 'PREPARATORIA': 6}
@@ -93,18 +95,55 @@ def grados_vigentes_fuera_de(materia, grado):
     return list(Grado.objects.filter(pk__in=en_el_plan).exclude(pk=grado.pk).academicos())
 
 
+def grupos_del_grado(grado):
+    """Los grupos activos del grado, en orden (A, B…). Si todavía no tiene ninguno, se le crea el primero."""
+    grupos = list(grado.grupos.filter(activo=True).select_related('nombre', 'grado').order_by('nombre__orden', 'nombre__nombre'))
+    return grupos or [Grupo.principal_de(grado)]
+
+
+def agregar_al_plan(materia, grado, ciclo):
+    """Deja la materia en el plan del grado en el ciclo: una asignación por cada grupo activo del grado (crea las que
+    faltan y reactiva las quitadas). Devuelve (asignaciones, cuántas eran nuevas o reactivadas)."""
+    asignaciones, cambios = [], 0
+    for grupo in grupos_del_grado(grado):
+        asignacion, creada = MateriaGrado.objects.get_or_create(
+            ciclo=ciclo, grupo=grupo, materia=materia, defaults={'grado': grado},
+        )
+        if creada:
+            cambios += 1
+        elif not asignacion.activa:
+            asignacion.activa = True
+            asignacion.save(update_fields=['activa'])
+            cambios += 1
+        asignaciones.append(asignacion)
+    return asignaciones, cambios
+
+
 def asegurar_en_el_plan(materia, ciclo=None):
-    """Una materia activa con grado se imparte en su grado: la deja en el plan del ciclo (el actual si no se indica),
-    creando la asignación o reactivando la que estaba quitada. Devuelve la asignación, o None si no aplica (sin ciclo
-    actual, ciclo cerrado, materia de baja o sin grado, o grado de baja)."""
+    """Una materia activa con grado se imparte en su grado: la deja en el plan del ciclo (el actual si no se indica)
+    en cada grupo del grado. Devuelve sus asignaciones (una por grupo), o [] si no aplica (sin ciclo actual, ciclo
+    cerrado, materia de baja o sin grado, o grado de baja)."""
     ciclo = ciclo if ciclo is not None else ciclo_actual()
     if not ciclo_editable(ciclo) or not materia.activa or not materia.grado_id or not materia.grado.activo:
-        return None
-    asignacion, _ = MateriaGrado.objects.get_or_create(ciclo=ciclo, grado_id=materia.grado_id, materia=materia)
-    if not asignacion.activa:
-        asignacion.activa = True
-        asignacion.save(update_fields=['activa'])
-    return asignacion
+        return []
+    return agregar_al_plan(materia, materia.grado, ciclo)[0]
+
+
+def extender_plan_al_grupo(grupo):
+    """Un grupo nuevo (o reactivado) toma el plan de su grado en el ciclo actual y en los próximos: cada materia que
+    el grado ya imparte ahí también queda en el grupo, todavía sin profesor ni horario. Devuelve cuántas agregó."""
+    vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+    plan = set(
+        MateriaGrado.objects.filter(vigentes, grado=grupo.grado, activa=True, materia__activa=True)
+        .values_list('ciclo_id', 'materia_id')
+    )
+    agregadas = 0
+    for ciclo_id, materia_id in sorted(plan):
+        _, creada = MateriaGrado.objects.get_or_create(
+            ciclo_id=ciclo_id, grupo=grupo, materia_id=materia_id, defaults={'grado_id': grupo.grado_id},
+        )
+        agregadas += creada
+    return agregadas
 
 
 def _vigentes_en_otros_grados(materia, grado):
@@ -131,14 +170,18 @@ def pasar_al_grado(materia):
     """Tras elegirle o cambiarle el grado a la materia, mueve su plan del ciclo actual y de los próximos a ese grado.
 
     Cada asignación vigente en otro grado (sin horario ni asistencia: ver `motivo_para_no_cambiar_de_grado`) pasa al
-    grado nuevo; si en ese ciclo ya estaba en él, la otra solo se quita. Su profesor se queda si da clases en el nivel
-    del grado nuevo. Al final la materia queda en el plan del ciclo actual. Devuelve los profesores que se quitaron.
+    grupo del grado nuevo que se llama igual (o al primero); si en ese ciclo ya estaba en él, la otra solo se quita. Su
+    profesor se queda si da clases en el nivel del grado nuevo. Al final la materia queda en el plan del ciclo actual
+    en todos los grupos del grado. Devuelve los profesores que se quitaron.
     """
     grado = materia.grado
+    grupos = grupos_del_grado(grado)
+    por_nombre = {grupo.nombre_id: grupo for grupo in grupos}
     sin_profesor = []
     with transaction.atomic():
-        for asignacion in _vigentes_en_otros_grados(materia, grado).select_related('profesor').order_by('ciclo_id', 'pk'):
-            ya_esta = MateriaGrado.objects.filter(ciclo_id=asignacion.ciclo_id, grado=grado, materia=materia).first()
+        for asignacion in _vigentes_en_otros_grados(materia, grado).select_related('profesor', 'grupo').order_by('ciclo_id', 'pk'):
+            destino = por_nombre.get(asignacion.grupo.nombre_id, grupos[0])
+            ya_esta = MateriaGrado.objects.filter(ciclo_id=asignacion.ciclo_id, grupo=destino, materia=materia).first()
             if ya_esta is not None:
                 if not ya_esta.activa:
                     ya_esta.activa = True
@@ -146,13 +189,13 @@ def pasar_al_grado(materia):
                 asignacion.activa = False
                 asignacion.save(update_fields=['activa'])
                 continue
-            asignacion.grado = grado
+            asignacion.grado, asignacion.grupo = grado, destino
             if asignacion.profesor_id and not asignacion.profesor.niveles.filter(nivel=grado.nivel).exists():
                 sin_profesor.append(asignacion.profesor)
                 asignacion.profesor = None
-            asignacion.save(update_fields=['grado', 'profesor'])
+            asignacion.save(update_fields=['grado', 'grupo', 'profesor'])
         asegurar_en_el_plan(materia)
-    return sin_profesor
+    return list(dict.fromkeys(sin_profesor))
 
 
 def motivo_para_no_agregar(materia, grado):
@@ -178,7 +221,7 @@ def prefetch_inscripciones_actuales(desde=''):
         f'{desde}inscripciones',
         queryset=(
             Inscripcion.objects.filter(activa=True, ciclo__activo=True)
-            .select_related('grado', 'ciclo')
+            .select_related('grado', 'grupo__nombre', 'grupo__grado', 'ciclo')
             .order_by('-ciclo__fecha_inicio')
         ),
         to_attr='inscripciones_actuales',

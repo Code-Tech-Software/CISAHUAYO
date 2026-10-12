@@ -11,9 +11,9 @@ ADMINISTRAN = ('change_cicloescolar',)
 def conceder_periodos(apps, schema_editor):
     # Los permisos de un modelo nuevo se crean al terminar de migrar; aquí se necesitan ya
     alumnos = apps.get_app_config('Alumnos')
-    alumnos.models_module = True
+    original, alumnos.models_module = getattr(alumnos, 'models_module', None), True   # en el registro real, se restaura
     create_permissions(alumnos, verbosity=0, apps=apps)
-    alumnos.models_module = None
+    alumnos.models_module = original
 
     Permission = apps.get_model('auth', 'Permission')
     Group = apps.get_model('auth', 'Group')

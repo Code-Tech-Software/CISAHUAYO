@@ -1,8 +1,8 @@
 """Reglas del control de asistencia: entrada del alumno, asistencia por materia, cierre del día y justificaciones.
 
-Cómo funciona (el colegio tiene un solo grupo por grado):
+Cómo funciona (cada grupo tiene su horario):
 - Al llegar, el alumno registra su entrada con su credencial (UID) o su número de referencia. Eso crea su asistencia
-  general del día y, de una vez, la de cada materia que su grado tiene ese día, para que el profesor ya la encuentre
+  general del día y, de una vez, la de cada materia que su grupo tiene ese día, para que el profesor ya la encuentre
   al empezar la clase y solo corrija lo que haga falta.
 - Quien llega cuando una clase ya empezó o terminó queda con retardo o falta en esa materia.
 - Al cerrar el día se generan las faltas de quien nunca registró entrada.
@@ -131,8 +131,9 @@ def asistencia_editable(fecha):
 # ---------------------------------------------------------------------------
 # Quiénes asisten y a qué clases
 # ---------------------------------------------------------------------------
-def inscripciones_del_dia(fecha, ciclo=None, grado=None):
-    """Inscripciones vigentes que deben asistir ese día: alumnos activos, ya inscritos, en el ciclo del día."""
+def inscripciones_del_dia(fecha, ciclo=None, grado=None, grupo=None):
+    """Inscripciones vigentes que deben asistir ese día: alumnos activos, ya inscritos, en el ciclo del día (de un grado
+    o de un grupo, si se indica)."""
     ciclo = ciclo or ciclo_de_fecha(fecha)
     if ciclo is None:
         return Inscripcion.objects.none()
@@ -141,6 +142,8 @@ def inscripciones_del_dia(fecha, ciclo=None, grado=None):
     )
     if grado is not None:
         inscripciones = inscripciones.filter(grado=grado)
+    if grupo is not None:
+        inscripciones = inscripciones.filter(grupo=grupo)
     return inscripciones
 
 
@@ -150,27 +153,29 @@ def _bloques_del_dia(ciclo, fecha, **filtros):
             materia_grado__ciclo=ciclo, materia_grado__activa=True, materia_grado__materia__activa=True,
             dia_semana=fecha.weekday(), **filtros,
         )
-        .select_related('materia_grado__materia', 'materia_grado__profesor', 'materia_grado__grado')
+        .select_related('materia_grado__materia', 'materia_grado__profesor', 'materia_grado__grado', 'materia_grado__grupo__nombre', 'materia_grado__grupo__grado')
         .order_by('hora_inicio')
     )
 
 
-def clases_por_grado(ciclo, fecha, **filtros):
-    """{id de grado: [Clase, …]} de las materias que se imparten ese día, en orden de hora."""
+def clases_por_grupo(ciclo, fecha, **filtros):
+    """{id de grupo: [Clase, …]} de las materias que se imparten ese día, en orden de hora (cada grupo tiene su
+    horario)."""
     horas = {}
     for bloque in _bloques_del_dia(ciclo, fecha, **filtros):
         horas.setdefault(bloque.materia_grado.pk, (bloque.materia_grado, set()))[1].add((bloque.hora_inicio, bloque.hora_fin))
     clases = defaultdict(list)
     for asignacion, bloques in horas.values():
         bloques = tuple(sorted(bloques))
-        clases[asignacion.grado_id].append(Clase(asignacion, bloques[0][0], max(fin for _, fin in bloques), bloques))
+        clases[asignacion.grupo_id].append(Clase(asignacion, bloques[0][0], max(fin for _, fin in bloques), bloques))
     for lista in clases.values():
         lista.sort(key=lambda clase: (clase.inicio, clase.asignacion.materia.nombre))
     return clases
 
 
-def clases_del_dia(grado, ciclo, fecha):
-    return clases_por_grado(ciclo, fecha, materia_grado__grado=grado).get(grado.pk, [])
+def clases_del_dia(grupo, ciclo, fecha):
+    """Las clases del grupo ese día, en orden de hora."""
+    return clases_por_grupo(ciclo, fecha, materia_grado__grupo=grupo).get(grupo.pk, [])
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +236,7 @@ def crear_asistencias_de_materias(inscripcion, fecha, hora, tolerancia, clases=N
     Con `hora=None` (no se sabe a qué hora llegó) todas quedan presentes. Nunca toca las que ya existen.
     Devuelve cuántas creó.
     """
-    clases = clases if clases is not None else clases_del_dia(inscripcion.grado, inscripcion.ciclo, fecha)
+    clases = clases if clases is not None else clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
     existentes = set(
         AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha).values_list('materia_grado_id', flat=True)
     )
@@ -329,7 +334,7 @@ def fijar_asistencia_general(inscripcion, fecha, estado, hora=None, observacione
 
 def _propagar_a_materias(asistencia, configuracion, usuario):
     inscripcion, fecha = asistencia.inscripcion, asistencia.fecha
-    clases = clases_del_dia(inscripcion.grado, inscripcion.ciclo, fecha)
+    clases = clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
     registros = AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha)
     ahora = timezone.now()
 
@@ -418,7 +423,7 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
     configuracion = ConfiguracionAsistencia.cargar()
     inscripciones = list(inscripciones_del_dia(fecha, ciclo).select_related('grado'))
     generales = {a.inscripcion_id: a for a in AsistenciaGeneral.objects.filter(fecha=fecha, inscripcion__ciclo=ciclo)}
-    clases = clases_por_grado(ciclo, fecha)
+    clases = clases_por_grupo(ciclo, fecha)
     registradas = defaultdict(set)  # id de inscripción -> materias que ya tienen asistencia ese día
     for inscripcion_id, asignacion_id in AsistenciaMateria.objects.filter(fecha=fecha, inscripcion__ciclo=ciclo).values_list('inscripcion_id', 'materia_grado_id'):
         registradas[inscripcion_id].add(asignacion_id)
@@ -427,7 +432,7 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
         nuevas_generales, nuevas_materias = [], []
         for inscripcion in inscripciones:
             general = generales.get(inscripcion.pk)
-            clases_del_grado = clases.get(inscripcion.grado_id, [])
+            clases_del_grado = clases.get(inscripcion.grupo_id, [])
             if general is None or general.estado == 'FALTA':
                 if general is None:
                     nuevas_generales.append(AsistenciaGeneral(

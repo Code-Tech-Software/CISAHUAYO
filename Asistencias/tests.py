@@ -348,7 +348,7 @@ class KioscoTests(BaseAsistenciaTestCase):
         self.assertTrue(datos['ok'])
         self.assertEqual((datos['tipo'], datos['estado'], datos['hora'], datos['materias']), ('REGISTRADA', 'PRESENTE', '08:05', 3))
         self.assertEqual(datos['alumno']['nombre'], str(self.alumno))
-        self.assertEqual(datos['alumno']['grado'], '4° Primaria')
+        self.assertEqual(datos['alumno']['grado'], '4° A Primaria')
         self.assertIn('Bienvenido', datos['mensaje'])
         general = AsistenciaGeneral.objects.get()
         self.assertEqual((general.origen, general.registrado_por, general.hora_entrada), ('UID', self.admin, time(8, 5)))

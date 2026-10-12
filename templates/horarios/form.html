@@ -10,7 +10,7 @@
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:lista' %}?ciclo={{ ciclo.pk }}">Horarios</a></li>
-  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:grado' grado.pk %}?ciclo={{ ciclo.pk }}">{{ grado }}</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">{{ grupo }}</a></li>
   <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar{% else %}Agregar horario{% endif %}</span></li>
 {% endblock %}
 
@@ -19,7 +19,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
       <p class="page-header__description">
-        {{ grado }} · Ciclo {{ ciclo }}.
+        {{ grupo }} · Ciclo {{ ciclo }}.
         {% if es_edicion %}Cambia la materia, el día o la hora de este bloque.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}
       </p>
     </div>
@@ -29,10 +29,10 @@
     <div class="card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="book-open" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">{{ grado }} no tiene materias en este ciclo</p>
-        <p class="empty-state__text">Primero asigna las materias que imparte; después armas su horario.</p>
+        <p class="empty-state__title">{{ grupo }} no tiene materias en este ciclo</p>
+        <p class="empty-state__text">Primero asigna las materias de su grado; después armas su horario.</p>
         {% if perms.Alumnos.view_grado %}
-          <a class="btn btn--primary btn--sm" href="{{ grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">Asignar materias</a>
+          <a class="btn btn--primary btn--sm" href="{{ grupo.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">Asignar materias</a>
         {% endif %}
       </div>
     </div>
@@ -69,7 +69,7 @@
 
       <footer class="action-bar">
         <span class="action-bar__start">
-          <a class="btn btn--ghost" href="{% url 'horarios:grado' grado.pk %}?ciclo={{ ciclo.pk }}">Cancelar</a>
+          <a class="btn btn--ghost" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">Cancelar</a>
           {% if es_edicion and perms.Alumnos.delete_horariomateria %}
             <button type="button" class="btn btn--ghost btn--danger-text" data-modal-open="modal-eliminar">
               {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Quitar del horario

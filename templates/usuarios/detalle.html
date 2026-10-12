@@ -49,7 +49,7 @@
                   {% if puede_restablecer %}
                     <li>
                       <button type="button" class="menu__item" data-modal-open="modal-restablecer">
-                        {% include "partials/icon.html" with name="key" %} Restablecer contraseña
+                        {% include "partials/icon.html" with name="key" %} Cambiar contraseña
                       </button>
                     </li>
                   {% endif %}
@@ -79,7 +79,17 @@
         {% endif %}
         <div class="identity__fact"><dt>Último acceso</dt><dd>{% if usuario.last_login %}{{ usuario.last_login|date:"j M Y, H:i" }}{% else %}Aún no entra{% endif %}</dd></div>
         <div class="identity__fact"><dt>Cuenta creada</dt><dd>{{ usuario.date_joined|date:"j M Y" }}</dd></div>
-        <div class="identity__fact"><dt>Contraseña</dt><dd>{% if perfil.debe_cambiar_contrasena %}<span class="tag tag--warning">Debe cambiarla al entrar</span>{% else %}Vigente{% endif %}</dd></div>
+        <div class="identity__fact">
+          <dt>Contraseña</dt>
+          <dd>
+            {% if perfil.debe_cambiar_contrasena %}<span class="tag tag--warning">Debe cambiarla al entrar</span>{% else %}Vigente{% endif %}
+            {% if puede_restablecer %}
+              <button type="button" class="btn btn--ghost btn--sm identity__fact-action" data-modal-open="modal-restablecer">
+                {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Cambiar
+              </button>
+            {% endif %}
+          </dd>
+        </div>
       </dl>
     </section>
   {% endwith %}
@@ -151,11 +161,16 @@
       <form class="modal__panel" method="post" action="{% url 'usuarios:restablecer' usuario.pk %}">
         {% csrf_token %}
         <header class="modal__header">
-          <h2 class="modal__title" id="modal-restablecer-titulo">Restablecer la contraseña de {{ usuario.first_name|default:usuario.username }}</h2>
+          <h2 class="modal__title" id="modal-restablecer-titulo">Cambiar la contraseña de {{ usuario.first_name|default:usuario.username }}</h2>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p>Se generará una <strong>contraseña nueva</strong> y la que tenía dejará de servir. Verás la nueva una sola vez para entregarla.</p>
+          <p>Asigna una contraseña nueva a <strong>{{ usuario.username }}</strong>; la que tenía dejará de servir. La verás una sola vez para entregarla.</p>
+          <div class="field">
+            <label class="field__label" for="restablecer-contrasena">Nueva contraseña</label>
+            <input class="field__control field__control--mono" id="restablecer-contrasena" name="contrasena" type="text" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Déjala vacía para generar una" aria-describedby="restablecer-contrasena-ayuda">
+            <p class="field__hint" id="restablecer-contrasena-ayuda">Al menos 8 caracteres, que no sean solo números ni se parezcan al usuario. Si la dejas vacía, se genera una segura.</p>
+          </div>
           <label class="choice choice--check" for="restablecer-pedir-cambio">
             <input type="checkbox" class="choice__input" name="pedir_cambio" id="restablecer-pedir-cambio">
             <span class="choice__box">Pedir que la cambie al entrar</span>
@@ -164,7 +179,7 @@
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>
-          <button type="submit" class="btn btn--primary">Restablecer contraseña</button>
+          <button type="submit" class="btn btn--primary">Cambiar contraseña</button>
         </footer>
       </form>
     </dialog>

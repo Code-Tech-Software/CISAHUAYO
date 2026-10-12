@@ -8,6 +8,7 @@ from CISAHUAYO.pruebas import (
     ciclo_cerrado_de_prueba,
     ciclo_proximo_de_prueba,
     crear_grado,
+    grupo_de,
 )
 
 from .academico import ciclo_editable, elegir_ciclo, grados_por_asignar, materias_por_asignar
@@ -92,7 +93,7 @@ class EmpalmesTests(TestCase):
         self.lunes = HorarioMateria.objects.create(materia_grado=self.mat, dia_semana=0, hora_inicio=time(8, 0), hora_fin=time(9, 0))
 
     def hay(self, dia, inicio, fin, **extra):
-        return list(bloques_empalmados(self.grado, self.ciclo, dia, time(*inicio), time(*fin), **extra))
+        return list(bloques_empalmados(grupo_de(self.grado), self.ciclo, dia, time(*inicio), time(*fin), **extra))
 
     def test_detecta_el_empalme_parcial_y_el_total(self):
         self.assertEqual(self.hay(0, (8, 30), (9, 30)), [self.lunes])
@@ -109,9 +110,9 @@ class EmpalmesTests(TestCase):
 
     def test_otro_grado_u_otro_ciclo_no_cuentan(self):
         otro = crear_grado('PRIMARIA', 5)
-        self.assertEqual(list(bloques_empalmados(otro, self.ciclo, 0, time(8, 0), time(9, 0))), [])
+        self.assertEqual(list(bloques_empalmados(grupo_de(otro), self.ciclo, 0, time(8, 0), time(9, 0))), [])
         proximo = ciclo_proximo_de_prueba()
-        self.assertEqual(list(bloques_empalmados(self.grado, proximo, 0, time(8, 0), time(9, 0))), [])
+        self.assertEqual(list(bloques_empalmados(grupo_de(self.grado), proximo, 0, time(8, 0), time(9, 0))), [])
 
     def test_una_materia_quitada_no_estorba(self):
         self.mat.activa = False

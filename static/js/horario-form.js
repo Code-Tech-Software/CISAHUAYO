@@ -1,9 +1,9 @@
-/* CISAHUAYO · agregar horario o recreo
+/* CISAHUAYO · agregar horario o receso
 
    Cada día marcado muestra su propia hora de inicio y de fin (una fila [data-horario-dia] por día de la semana). Al
    desmarcar un día su fila se quita de la vista y sus campos se desactivan, así que no se envían ni se guardan; si se
    vuelve a marcar, aparece con lo que ya tenía. Con dos o más días aparece «Usar la hora del <día> en los demás días»,
-   que copia la del primero (para cuando sí es la misma). En el recreo, [data-marcar-grados] marca o desmarca todos los
+   que copia la del primero (para cuando sí es la misma). En el receso, [data-marcar-grados] marca o desmarca todos los
    grupos. El servidor vuelve a revisar todo al guardar.
 */
 (() => {
@@ -57,10 +57,10 @@
   casillas.forEach((casilla) => casilla.addEventListener('change', actualizar));
   actualizar();
 
-  /* Recreo: marcar o desmarcar todos los grupos de una vez */
+  /* Receso: marcar o desmarcar todos los grupos de una vez */
   const marcarGrados = form.querySelector('[data-marcar-grados]');
   if (marcarGrados) {
-    const grados = [...form.querySelectorAll('input[name="grados"]')];
+    const grados = [...form.querySelectorAll('input[name="grupos"]')];
     const rotular = () => {
       marcarGrados.textContent = grados.length && grados.every((grado) => grado.checked) ? 'Desmarcar todos' : 'Marcar todos';
     };

@@ -16,6 +16,7 @@ from CISAHUAYO.pruebas import (
     ciclo_cerrado_de_prueba,
     ciclo_proximo_de_prueba,
     crear_grado,
+    grupo_de,
     crear_profesor,
 )
 
@@ -369,7 +370,7 @@ class DetalleTests(BaseTestCase):
         self.assertContains(respuesta, 'Reactivar materia')
 
     def test_enlaza_con_el_horario_del_grado(self):
-        self.assertContains(self.detalle(), reverse('horarios:grado', args=[self.p1.pk]))
+        self.assertContains(self.detalle(), reverse('horarios:grupo', args=[grupo_de(self.p1).pk]))
 
     def test_consultas_constantes(self):
         with CaptureQueriesContext(connection) as pocas:
@@ -591,7 +592,7 @@ class QuitarTests(BaseTestCase):
 
     def test_el_horario_de_una_materia_quitada_no_aparece_ni_estorba(self):
         self.quitar()
-        respuesta = self.client.get(reverse('horarios:grado', args=[self.grado.pk]))
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(self.grado).pk]))
         self.assertEqual(respuesta.context['cuadricula']['filas'], [])
 
     def test_quitar_dos_veces_es_inofensivo(self):
@@ -716,7 +717,7 @@ class CopiarPlanTests(BaseTestCase):
     def test_la_vista_previa_cuenta_materias_bloques_y_existentes(self):
         asignar(self.esp, self.p1, self.destino)            # esa ya estaba en el destino
         respuesta = self.client.get(self.url, self.parametros())
-        plan = {str(f['grado']): f for f in respuesta.context['plan']}
+        plan = {str(f['grupo'].grado): f for f in respuesta.context['plan']}
         self.assertEqual((plan['1° Primaria']['materias'], plan['1° Primaria']['bloques'], plan['1° Primaria']['ya_existen']), (1, 2, 1))
         self.assertEqual((plan['2° Primaria']['materias'], plan['2° Primaria']['bloques']), (1, 0))
         self.assertEqual((respuesta.context['total_materias'], respuesta.context['total_bloques'], respuesta.context['total_existentes']), (2, 2, 1))
@@ -727,7 +728,7 @@ class CopiarPlanTests(BaseTestCase):
         self.esp.activa = False
         self.esp.save()
         respuesta = self.client.get(self.url, self.parametros())
-        self.assertEqual([(str(f['grado']), f['materias']) for f in respuesta.context['plan']], [('1° Primaria', 1)])
+        self.assertEqual([(str(f['grupo'].grado), f['materias']) for f in respuesta.context['plan']], [('1° Primaria', 1)])
         self.p1.activo = False
         self.p1.save()
         self.assertEqual(self.client.get(self.url, self.parametros()).context['plan'], [])

@@ -187,6 +187,7 @@
             <div class="form-grid enroll__fields" data-enroll-fields>
               {% include "partials/field.html" with campo=inscripcion.ciclo %}
               {% include "partials/field.html" with campo=inscripcion.grado %}
+              {% include "partials/field.html" with campo=inscripcion.grupo %}
             </div>
           </div>
         {% endif %}
@@ -274,4 +275,5 @@
 
 {% block extra_js %}
   <script src="{% static 'js/alumnos-form.js' %}" defer></script>
+  <script src="{% static 'js/grupo-del-grado.js' %}" defer></script>
 {% endblock %}

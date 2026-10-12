@@ -1,7 +1,7 @@
 """Enlace al horario del grado desde el perfil del alumno."""
 from django.urls import reverse
 
-from CISAHUAYO.pruebas import PRUEBAS, BaseTestCase, ciclo_actual_de_prueba, crear_alumno, crear_grado, inscribir
+from CISAHUAYO.pruebas import PRUEBAS, BaseTestCase, ciclo_actual_de_prueba, crear_alumno, crear_grado, grupo_de, inscribir
 
 
 @PRUEBAS
@@ -12,7 +12,7 @@ class PerfilConHorarioTests(BaseTestCase):
         self.grado = crear_grado('PRIMARIA', 4)
         self.alumno = crear_alumno()
         self.inscripcion = inscribir(self.alumno, self.ciclo, self.grado)
-        self.enlace = f"{reverse('horarios:grado', args=[self.grado.pk])}?ciclo={self.ciclo.pk}"
+        self.enlace = f"{reverse('horarios:grupo', args=[grupo_de(self.grado).pk])}?ciclo={self.ciclo.pk}"
 
     def test_la_inscripcion_enlaza_con_el_horario_de_su_grado(self):
         self.assertContains(self.client.get(self.alumno.get_absolute_url()), self.enlace)

@@ -4,8 +4,8 @@ Hay dos niveles, y conviene no confundirlos:
 
 - **Habilitación** (`ProfesorMateria`): qué materias puede impartir un profesor. No depende del ciclo ni del grado;
   sirve para sugerir a las personas adecuadas al asignar.
-- **Asignación** (`MateriaGrado.profesor`): quién imparte de verdad cada materia en cada grado y ciclo. Como el colegio
-  tiene un solo grupo por grado, una asignación es un grupo.
+- **Asignación** (`MateriaGrado.profesor`): quién imparte de verdad cada materia en cada grupo y ciclo (cada grupo
+  del grado tiene su propia asignación de cada materia del plan).
 
 Aquí vive la lógica que comparten las pantallas que asignan profesores (el perfil del profesor, del grado, de la materia y
 el tablero de asignaciones) y los cálculos de carga de trabajo.

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if es_edicion %}Editar recreo{% else %}Agregar recreo{% endif %} | CISAHUAYO{% endblock %}
+{% block title %}{% if es_edicion %}Editar receso{% else %}Agregar receso{% endif %} | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -10,19 +10,19 @@
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:lista' %}?ciclo={{ ciclo.pk }}">Horarios</a></li>
-  {% if grado %}
-    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:grado' grado.pk %}?ciclo={{ ciclo.pk }}">{{ grado }}</a></li>
+  {% if grupo %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">{{ grupo }}</a></li>
   {% endif %}
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar recreo{% else %}Agregar recreo{% endif %}</span></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar receso{% else %}Agregar receso{% endif %}</span></li>
 {% endblock %}
 
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar recreo{% else %}Agregar recreo{% endif %}</h1>
+      <h1 class="page-header__title">{% if es_edicion %}Editar receso{% else %}Agregar receso{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}{{ grado }} · Ciclo {{ ciclo }}. Cambia el nombre, el día o la hora de este recreo.
-        {% else %}Ciclo {{ ciclo }}. Elige los grupos que salen al recreo, los días y la hora de cada uno. Ninguna materia de esos grupos podrá ponerse a esa hora.{% endif %}
+        {% if es_edicion %}{{ grupo }} · Ciclo {{ ciclo }}. Cambia el nombre, el día o la hora de este receso.
+        {% else %}Ciclo {{ ciclo }}. Elige los grupos que salen al receso, los días y la hora de cada uno. Ninguna materia de esos grupos podrá ponerse a esa hora.{% endif %}
       </p>
     </div>
   </header>
@@ -43,13 +43,13 @@
           {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-grupos">Grupos</h2>
           <button type="button" class="btn btn--ghost btn--sm card__header-action" data-marcar-grados>Marcar todos</button>
         </header>
-        <fieldset class="card__body field{% if form.grados.errors %} is-invalid{% endif %}">
-          <legend class="field__label field__label--required">{{ form.grados.label }}</legend>
-          {% for grupo in form.grados_por_nivel %}
+        <fieldset class="card__body field{% if form.grupos.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">{{ form.grupos.label }}</legend>
+          {% for nivel in form.grupos_por_nivel %}
             <div class="nivel-casillas">
-              <p class="nivel-casillas__titulo">{{ grupo.nombre }}</p>
+              <p class="nivel-casillas__titulo">{{ nivel.nombre }}</p>
               <div class="choice-group">
-                {% for casilla in grupo.casillas %}
+                {% for casilla in nivel.casillas %}
                   <label class="choice choice--check" for="{{ casilla.id_for_label }}">
                     {{ casilla.tag }}
                     <span class="choice__box">{{ casilla.choice_label }}</span>
@@ -58,9 +58,9 @@
               </div>
             </div>
           {% empty %}
-            <p class="field__hint">Todavía no hay grados activos.</p>
+            <p class="field__hint">Todavía no hay grupos activos.</p>
           {% endfor %}
-          {% for error in form.grados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          {% for error in form.grupos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
         </fieldset>
       </section>
     {% endif %}
@@ -92,7 +92,7 @@
       </span>
       <button type="submit" class="btn btn--primary">
         {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
-        {% if es_edicion %}Guardar cambios{% else %}Agregar recreo{% endif %}
+        {% if es_edicion %}Guardar cambios{% else %}Agregar receso{% endif %}
       </button>
     </footer>
   </form>
@@ -106,8 +106,8 @@
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p><strong>{{ recreo.nombre }}</strong> de {{ grado }} dejará de estar el <strong>{{ recreo.get_dia_semana_display|lower }} de {{ recreo.hora_inicio|time:"H:i" }} a {{ recreo.hora_fin|time:"H:i" }}</strong>.</p>
-          <p class="text-muted">Solo se quita ese día de ese grado; los demás recreos siguen igual.</p>
+          <p><strong>{{ recreo.nombre }}</strong> de {{ grupo }} dejará de estar el <strong>{{ recreo.get_dia_semana_display|lower }} de {{ recreo.hora_inicio|time:"H:i" }} a {{ recreo.hora_fin|time:"H:i" }}</strong>.</p>
+          <p class="text-muted">Solo se quita ese día de ese grupo; los demás recesos siguen igual.</p>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>

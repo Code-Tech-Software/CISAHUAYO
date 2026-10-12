@@ -82,7 +82,7 @@
                     <span class="person__text"><span class="person__name">{{ asignacion.materia }}</span></span>
                   </a>
                 </td>
-                <td class="table__cell" data-label="Grado">{{ asignacion.grado }}</td>
+                <td class="table__cell" data-label="Grado">{{ asignacion.grupo }}</td>
                 <td class="table__cell table__col--wide" data-label="Profesor">
                   {% if asignacion.profesor %}
                     {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ asignacion.profesor.get_absolute_url }}">{{ asignacion.profesor }}</a>{% else %}{{ asignacion.profesor }}{% endif %}

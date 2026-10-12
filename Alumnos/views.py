@@ -193,7 +193,7 @@ def _resumen_asistencia(inscripcion):
 @requiere_permisos('Alumnos.view_alumno')
 def alumno_detalle(request, pk):
     alumno = get_object_or_404(Alumno, pk=pk)
-    inscripciones = list(alumno.inscripciones.select_related('grado', 'ciclo').order_by('-ciclo__fecha_inicio', '-fecha_inscripcion'))
+    inscripciones = list(alumno.inscripciones.select_related('grado', 'grupo__nombre', 'grupo__grado', 'ciclo').order_by('-ciclo__fecha_inicio', '-fecha_inscripcion'))
     inscripcion_actual = next((i for i in inscripciones if i.activa and i.ciclo.activo), None)
     vinculos = list(alumno.tutores_relacionados.select_related('tutor').order_by('-tutor_principal', 'tutor__apellido_paterno'))
     # El primero (los principales van antes) con vínculo activo y tutor vigente es el contacto principal
@@ -471,7 +471,7 @@ def alumno_buscar(request):
             'nombre': str(alumno),
             'iniciales': alumno.iniciales,
             'referencia': alumno.referencia,
-            'grado': str(inscripcion.grado) if inscripcion else '',
+            'grado': str(inscripcion.grupo) if inscripcion else '',
             'estatus': alumno.get_estatus_display(),
         })
     return JsonResponse({'resultados': resultados})

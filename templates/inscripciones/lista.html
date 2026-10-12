@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Inscripciones</h1>
-      <p class="page-header__description">En qué grado y ciclo está cada estudiante. Como hay un solo grupo por grado, la inscripción es lo que lo ubica en su salón.</p>
+      <p class="page-header__description">En qué grupo y ciclo está cada estudiante: la inscripción es lo que lo ubica en su salón.</p>
     </div>
     <div class="page-header__actions">
       {% if pagina.paginator.count %}
@@ -134,7 +134,7 @@
                   </a>
                 </td>
                 <td class="table__cell" data-label="Grado">
-                  {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ inscripcion.grado.get_absolute_url }}?ciclo={{ inscripcion.ciclo_id }}">{{ inscripcion.grado }}</a>{% else %}{{ inscripcion.grado }}{% endif %}
+                  {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ inscripcion.grado.get_absolute_url }}?ciclo={{ inscripcion.ciclo_id }}">{{ inscripcion.grupo }}</a>{% else %}{{ inscripcion.grupo }}{% endif %}
                 </td>
                 <td class="table__cell table__col--wide" data-label="Ciclo">{{ inscripcion.ciclo }}</td>
                 <td class="table__cell table__col--wide" data-label="Inscrito el">{{ inscripcion.fecha_inscripcion|date:"j M Y" }}</td>
@@ -151,7 +151,7 @@
                     {% if perms.Alumnos.delete_inscripcion %}
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
                               data-action="{% url 'inscripciones:baja' inscripcion.pk %}"
-                              data-alumno="{{ alumno }}" data-detalle="{{ inscripcion.grado }} · {{ inscripcion.ciclo }}"
+                              data-alumno="{{ alumno }}" data-detalle="{{ inscripcion.grupo }} · {{ inscripcion.ciclo }}"
                               aria-label="Dar de baja la inscripción de {{ alumno }}" data-tooltip="Dar de baja">
                         {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
                       </button>

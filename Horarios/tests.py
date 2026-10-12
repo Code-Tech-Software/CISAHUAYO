@@ -12,6 +12,7 @@ from CISAHUAYO.pruebas import (
     ciclo_cerrado_de_prueba,
     ciclo_proximo_de_prueba,
     crear_grado,
+    grupo_de,
 )
 
 
@@ -45,7 +46,7 @@ class PermisosTests(BaseTestCase):
         self.bloque = bloque(self.asignacion, 0, (8, 0), (9, 0))
 
     def paginas(self):
-        return (('lista', []), ('grado', [self.grado.pk]), ('crear', [self.grado.pk]), ('editar', [self.bloque.pk]))
+        return (('lista', []), ('grupo', [grupo_de(self.grado).pk]), ('crear', [grupo_de(self.grado).pk]), ('editar', [self.bloque.pk]))
 
     def test_anonimo_es_enviado_al_login(self):
         self.client.logout()
@@ -66,11 +67,11 @@ class PermisosTests(BaseTestCase):
 
     def test_cada_accion_pide_su_permiso(self):
         self.con_permisos('view_horariomateria')
-        self.assertEqual(self.client.get(reverse('horarios:grado', args=[self.grado.pk])).status_code, 200)
-        self.assertEqual(self.client.get(reverse('horarios:crear', args=[self.grado.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse('horarios:grupo', args=[grupo_de(self.grado).pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse('horarios:crear', args=[grupo_de(self.grado).pk])).status_code, 403)
         self.assertEqual(self.client.get(reverse('horarios:editar', args=[self.bloque.pk])).status_code, 403)
         self.con_permisos('view_horariomateria', 'add_horariomateria')
-        self.assertEqual(self.client.get(reverse('horarios:crear', args=[self.grado.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse('horarios:crear', args=[grupo_de(self.grado).pk])).status_code, 200)
         self.con_permisos('view_horariomateria', 'change_horariomateria')
         self.assertEqual(self.client.get(reverse('horarios:editar', args=[self.bloque.pk])).status_code, 200)
         self.assertEqual(self.client.post(reverse('horarios:eliminar', args=[self.bloque.pk])).status_code, 403)
@@ -79,7 +80,7 @@ class PermisosTests(BaseTestCase):
 
     def test_sin_permisos_de_cambio_no_se_ofrecen_acciones(self):
         self.con_permisos('view_horariomateria')
-        respuesta = self.client.get(reverse('horarios:grado', args=[self.grado.pk]))
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(self.grado).pk]))
         self.assertNotContains(respuesta, 'Agregar horario')
         self.assertNotContains(respuesta, 'data-eliminar')
         self.assertNotContains(respuesta, reverse('horarios:editar', args=[self.bloque.pk]))
@@ -106,7 +107,7 @@ class ListaTests(BaseTestCase):
     def filas(self, **filtros):
         respuesta = self.client.get(reverse('horarios:lista'), filtros)
         self.assertEqual(respuesta.status_code, 200)
-        return respuesta, {str(f['grado']): f for n in respuesta.context['niveles'] for f in n['filas']}
+        return respuesta, {str(f['grupo'].grado): f for n in respuesta.context['niveles'] for f in n['filas']}
 
     def test_agrupa_por_nivel_en_orden_escolar(self):
         respuesta, _ = self.filas()
@@ -183,7 +184,7 @@ class GradoTests(BaseTestCase):
         bloque(self.esp, 0, (9, 0), (10, 0))
 
     def pedir(self, **filtros):
-        respuesta = self.client.get(reverse('horarios:grado', args=[self.grado.pk]), filtros)
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(self.grado).pk]), filtros)
         self.assertEqual(respuesta.status_code, 200)
         return respuesta
 
@@ -228,14 +229,14 @@ class GradoTests(BaseTestCase):
 
     def test_grado_sin_materias_remite_a_asignarlas(self):
         otro = crear_grado('PRIMARIA', 5)
-        respuesta = self.client.get(reverse('horarios:grado', args=[otro.pk]))
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(otro).pk]))
         self.assertContains(respuesta, 'no tiene materias en este ciclo')
         self.assertContains(respuesta, 'Asignar materias')
 
     def test_grado_con_materias_pero_sin_horario(self):
         otro = crear_grado('PRIMARIA', 5)
         asignar('MAT', 'Matemáticas', otro, self.ciclo)
-        respuesta = self.client.get(reverse('horarios:grado', args=[otro.pk]))
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(otro).pk]))
         self.assertContains(respuesta, 'Todavía no hay horario')
 
     def test_sin_ciclos_no_falla(self):
@@ -273,10 +274,10 @@ class CrearTests(BaseTestCase):
         self.grado = crear_grado('PRIMARIA', 4)
         self.mat = asignar('MAT', 'Matemáticas', self.grado, self.ciclo)
         self.esp = asignar('ESP', 'Español', self.grado, self.ciclo)
-        self.url = f"{reverse('horarios:crear', args=[self.grado.pk])}?ciclo={self.ciclo.pk}"
+        self.url = f"{reverse('horarios:crear', args=[grupo_de(self.grado).pk])}?ciclo={self.ciclo.pk}"
 
     def volver(self):
-        return f"{reverse('horarios:grado', args=[self.grado.pk])}?ciclo={self.ciclo.pk}"
+        return f"{reverse('horarios:grupo', args=[grupo_de(self.grado).pk])}?ciclo={self.ciclo.pk}"
 
     def test_el_formulario_solo_ofrece_las_materias_vigentes_del_grado(self):
         asignar('QUI', 'Quitada', self.grado, self.ciclo, activa=False)
@@ -365,7 +366,7 @@ class CrearTests(BaseTestCase):
         respuesta = self.client.post(self.url, datos(self.mat, dias=(0, 1), inicio='08:30', fin='09:30'))
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, 'Se empalma con Español (lunes 08:00–09:00)')
-        self.assertContains(respuesta, 'un grado solo tiene un grupo')
+        self.assertContains(respuesta, 'un grupo no puede estar en dos materias a la vez')
         self.assertFalse(HorarioMateria.objects.filter(materia_grado=self.mat).exists())     # no se guardó ni el martes
         self.assertEqual(list(respuesta.context['form'].errors), ['inicio_0'])              # el error va en el lunes
 
@@ -406,15 +407,15 @@ class CrearTests(BaseTestCase):
 
     def test_un_ciclo_cerrado_no_se_modifica(self):
         otra = asignar('HIS', 'Historia', self.grado, self.cerrado)
-        url = f"{reverse('horarios:crear', args=[self.grado.pk])}?ciclo={self.cerrado.pk}"
+        url = f"{reverse('horarios:crear', args=[grupo_de(self.grado).pk])}?ciclo={self.cerrado.pk}"
         respuesta = self.client.post(url, datos(otra), follow=True)
         self.assertContains(respuesta, 'está cerrado')
         self.assertFalse(HorarioMateria.objects.exists())
-        self.assertRedirects(self.client.get(url), f"{reverse('horarios:grado', args=[self.grado.pk])}?ciclo={self.cerrado.pk}")
+        self.assertRedirects(self.client.get(url), f"{reverse('horarios:grupo', args=[grupo_de(self.grado).pk])}?ciclo={self.cerrado.pk}")
 
     def test_sin_materias_remite_a_asignarlas(self):
         otro = crear_grado('PRIMARIA', 5)
-        respuesta = self.client.get(f"{reverse('horarios:crear', args=[otro.pk])}?ciclo={self.ciclo.pk}")
+        respuesta = self.client.get(f"{reverse('horarios:crear', args=[grupo_de(otro).pk])}?ciclo={self.ciclo.pk}")
         self.assertTrue(respuesta.context['sin_materias'])
         self.assertContains(respuesta, 'no tiene materias en este ciclo')
 
@@ -423,7 +424,7 @@ class CrearTests(BaseTestCase):
         HorarioMateria.objects.all().delete()
         MateriaGrado.objects.all().delete()
         CicloEscolar.objects.all().delete()
-        self.assertRedirects(self.client.get(reverse('horarios:crear', args=[self.grado.pk])), reverse('horarios:lista'))
+        self.assertRedirects(self.client.get(reverse('horarios:crear', args=[grupo_de(self.grado).pk])), reverse('horarios:lista'))
 
     def test_grado_inexistente_da_404(self):
         self.assertEqual(self.client.get(reverse('horarios:crear', args=[9999])).status_code, 404)
@@ -444,7 +445,7 @@ class EditarTests(BaseTestCase):
         self.bloque = bloque(self.mat, 0, (8, 0), (9, 0))
         self.otro = bloque(self.esp, 0, (9, 0), (10, 0))
         self.url = reverse('horarios:editar', args=[self.bloque.pk])
-        self.volver = f"{reverse('horarios:grado', args=[self.grado.pk])}?ciclo={self.ciclo.pk}"
+        self.volver = f"{reverse('horarios:grupo', args=[grupo_de(self.grado).pk])}?ciclo={self.ciclo.pk}"
 
     def datos(self, **cambios):
         datos = {'materia_grado': self.mat.pk, 'dia_semana': 0, 'hora_inicio': '08:00', 'hora_fin': '09:00'}
@@ -522,7 +523,7 @@ class EliminarTests(BaseTestCase):
 
     def test_quita_el_bloque_y_vuelve_al_horario_con_mensaje(self):
         respuesta = self.client.post(reverse('horarios:eliminar', args=[self.bloque.pk]), follow=True)
-        self.assertRedirects(respuesta, f"{reverse('horarios:grado', args=[self.grado.pk])}?ciclo={self.ciclo.pk}")
+        self.assertRedirects(respuesta, f"{reverse('horarios:grupo', args=[grupo_de(self.grado).pk])}?ciclo={self.ciclo.pk}")
         self.assertContains(respuesta, 'Se quitó Matemáticas del horario (lunes 08:00–09:00)')
         self.assertFalse(HorarioMateria.objects.filter(pk=self.bloque.pk).exists())
 

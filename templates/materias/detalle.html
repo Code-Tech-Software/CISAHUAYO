@@ -92,7 +92,7 @@
         <div class="details__item">
           <dt class="details__label">Grado</dt>
           <dd class="details__value">
-            {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ clase.grado.get_absolute_url }}">{{ clase.grado }}</a>{% else %}{{ clase.grado }}{% endif %}
+            {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ clase.grupo.get_absolute_url }}">{{ clase.grupo }}</a>{% else %}{{ clase.grupo }}{% endif %}
             {% if clase.grado.equivalencia_frase %}<span class="details__note">{{ clase.grado.equivalencia_frase }}</span>{% endif %}
           </dd>
         </div>
@@ -121,13 +121,13 @@
         <div class="card__body card__actions">
           {% if editable and perms.Alumnos.change_materiagrado %}
             <button type="button" class="btn btn--sm{% if not clase.profesor %} btn--primary{% endif %}" data-modal-open="modal-asignar-profesor" data-asignar-profesor
-                    data-asignacion="{{ clase.pk }}" data-descripcion="{{ materia }} de {{ clase.grado }}" data-profesor="{{ clase.profesor_id|default_if_none:'' }}"
+                    data-asignacion="{{ clase.pk }}" data-descripcion="{{ materia }} de {{ clase.grupo }}" data-profesor="{{ clase.profesor_id|default_if_none:'' }}"
                     data-habilitados="{{ habilitados_csv }}" data-del-nivel="{{ clase.del_nivel }}" data-nivel="{{ clase.grado.get_nivel_display }}">
               {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %} {% if clase.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}
             </button>
           {% endif %}
           {% if perms.Alumnos.view_horariomateria %}
-            <a class="btn btn--sm" href="{% url 'horarios:grado' clase.grado_id %}?ciclo={{ ciclo.pk }}">
+            <a class="btn btn--sm" href="{% url 'horarios:grupo' clase.grupo_id %}?ciclo={{ ciclo.pk }}">
               {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} {% if clase.lineas %}Ver horario{% else %}Armar horario{% endif %}
             </a>
           {% endif %}
@@ -186,7 +186,7 @@
             {% for anterior in historial %}
               <tr class="table__row">
                 <td class="table__cell table__cell--main">{{ anterior.ciclo }} <span class="text-muted">· {{ anterior.ciclo.estado_display|lower }}</span></td>
-                <td class="table__cell" data-label="Grado">{{ anterior.grado }}</td>
+                <td class="table__cell" data-label="Grupo">{{ anterior.grupo }}</td>
                 <td class="table__cell" data-label="Profesor">{{ anterior.profesor|default:"Sin profesor" }}</td>
               </tr>
             {% endfor %}

@@ -3,6 +3,7 @@
 Puede ser un número (1.° de secundaria es el 7) o un código con letras (K1 para 1.° de preescolar).
 """
 import importlib
+import re
 from pathlib import Path
 
 from django.apps import apps as registro
@@ -182,7 +183,8 @@ class EquivalenciaEnLasPantallasTests(BaseTestCase):
         html = self.client.get(reverse('grados:lista')).content.decode()
         self.assertIn('Equivale al 7°', html)
         self.assertIn('Equivale a K1', html)
-        self.assertEqual(html.count('grade-card__eq"'), 2)
+        self.assertEqual(len(re.findall(r'grade-card__eq[^>]*>Equivale', html)), 2)
+        self.assertIn('Sin equivalencia', html)
 
     def test_el_perfil_del_grado_muestra_su_equivalencia(self):
         grado = crear_grado('SECUNDARIA', 1, equivalencia='7')

@@ -256,7 +256,7 @@ class CrearTests(BaseTestCase):
     def test_inscribe_y_vuelve_al_listado_del_ciclo_con_mensaje(self):
         respuesta = self.client.post(self.url, self.datos(), follow=True)
         self.assertRedirects(respuesta, lista(self.actual))
-        self.assertContains(respuesta, f'{self.alumno} fue inscrito en 3° Primaria (2026-2027)')
+        self.assertContains(respuesta, f'{self.alumno} fue inscrito en 3° A Primaria (2026-2027)')
         inscripcion = Inscripcion.objects.get()
         self.assertEqual((inscripcion.alumno, inscripcion.ciclo, inscripcion.grado, inscripcion.activa), (self.alumno, self.actual, self.grado, True))
         self.assertContains(respuesta, self.alumno.apellido_paterno)       # ya se ve en el listado
@@ -340,14 +340,14 @@ class EditarTests(BaseTestCase):
 
     def test_solo_se_editan_el_grado_y_la_fecha(self):
         respuesta = self.client.get(self.url)
-        self.assertEqual(sorted(respuesta.context['form'].fields), ['fecha_inscripcion', 'grado'])
+        self.assertEqual(sorted(respuesta.context['form'].fields), ['fecha_inscripcion', 'grado', 'grupo'])
         self.assertContains(respuesta, str(self.alumno))
         self.assertContains(respuesta, '2026-2027')
 
     def test_cambia_de_grado_y_vuelve_al_listado_del_ciclo(self):
         respuesta = self.client.post(self.url, {'grado': self.otro.pk, 'fecha_inscripcion': hoy().isoformat()}, follow=True)
         self.assertRedirects(respuesta, lista(self.ciclo))
-        self.assertContains(respuesta, 'se actualizó: 4° Primaria')
+        self.assertContains(respuesta, 'se actualizó: 4° A Primaria')
         self.inscripcion.refresh_from_db()
         self.assertEqual(self.inscripcion.grado, self.otro)
 

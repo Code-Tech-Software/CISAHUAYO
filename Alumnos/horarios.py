@@ -1,7 +1,7 @@
 """Ayudantes de horarios: resumen de bloques, horas por semana, cuadrícula semanal y empalmes.
 
-Con un solo grupo por grado, el horario de un grado en un ciclo es el horario de su salón: una materia no puede
-empalmarse con otra del mismo grado.
+El horario es de cada grupo (su salón): una materia no puede empalmarse con otra del mismo grupo ni con uno de sus
+recesos. Un profesor tampoco puede estar en dos grupos a la vez.
 """
 from collections import defaultdict
 
@@ -83,10 +83,10 @@ def cuadricula(bloques):
     }
 
 
-def bloques_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=None):
-    """Bloques de las materias vigentes del grado que se empalman con el intervalo indicado (mismo día)."""
+def bloques_empalmados(grupo, ciclo, dia, inicio, fin, excluir_pk=None):
+    """Bloques de las materias vigentes del grupo que se empalman con el intervalo indicado (mismo día)."""
     bloques = HorarioMateria.objects.filter(
-        materia_grado__ciclo=ciclo, materia_grado__grado=grado, materia_grado__activa=True,
+        materia_grado__ciclo=ciclo, materia_grado__grupo=grupo, materia_grado__activa=True,
         dia_semana=dia, hora_inicio__lt=fin, hora_fin__gt=inicio,
     ).select_related('materia_grado__materia')
     if excluir_pk is not None:
@@ -94,21 +94,21 @@ def bloques_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=None):
     return bloques
 
 
-def recreos_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=None):
-    """Recreos del grado en el ciclo que se empalman con el intervalo indicado (mismo día)."""
+def recreos_empalmados(grupo, ciclo, dia, inicio, fin, excluir_pk=None):
+    """Recesos del grupo en el ciclo que se empalman con el intervalo indicado (mismo día)."""
     recreos = Recreo.objects.filter(
-        ciclo=ciclo, grado=grado, dia_semana=dia, hora_inicio__lt=fin, hora_fin__gt=inicio,
+        ciclo=ciclo, grupo=grupo, dia_semana=dia, hora_inicio__lt=fin, hora_fin__gt=inicio,
     )
     if excluir_pk is not None:
         recreos = recreos.exclude(pk=excluir_pk)
     return recreos
 
 
-def recreos_del_grado(grado, ciclo):
-    """Los recreos del grado en el ciclo, por día y hora."""
+def recreos_del_grupo(grupo, ciclo):
+    """Los recesos del grupo en el ciclo, por día y hora."""
     if ciclo is None:
         return Recreo.objects.none()
-    return Recreo.objects.filter(grado=grado, ciclo=ciclo).order_by('dia_semana', 'hora_inicio')
+    return Recreo.objects.filter(grupo=grupo, ciclo=ciclo).order_by('dia_semana', 'hora_inicio')
 
 
 def se_empalman(a, b):
@@ -116,25 +116,25 @@ def se_empalman(a, b):
     return a[0] == b[0] and a[1] < b[2] and b[1] < a[2]
 
 
-def bloques_del_profesor_empalmados(profesor, ciclo, dia, inicio, fin, excluir_pk=None, excluir_grado=None):
+def bloques_del_profesor_empalmados(profesor, ciclo, dia, inicio, fin, excluir_pk=None, excluir_grupo=None):
     """Bloques de las materias vigentes que el profesor da en el ciclo y que se empalman con el intervalo (mismo día).
 
-    `excluir_grado` deja fuera a un grado: sus empalmes ya se revisan aparte, como empalmes del grupo.
+    `excluir_grupo` deja fuera a un grupo: sus empalmes ya se revisan aparte, como empalmes del grupo.
     """
     bloques = HorarioMateria.objects.filter(
         materia_grado__profesor=profesor, materia_grado__ciclo=ciclo, materia_grado__activa=True,
         dia_semana=dia, hora_inicio__lt=fin, hora_fin__gt=inicio,
-    ).select_related('materia_grado__materia', 'materia_grado__grado')
+    ).select_related('materia_grado__materia', 'materia_grado__grupo__grado', 'materia_grado__grupo__nombre')
     if excluir_pk is not None:
         bloques = bloques.exclude(pk=excluir_pk)
-    if excluir_grado is not None:
-        bloques = bloques.exclude(materia_grado__grado=excluir_grado)
+    if excluir_grupo is not None:
+        bloques = bloques.exclude(materia_grado__grupo=excluir_grupo)
     return bloques
 
 
 def mensaje_de_empalme_profesor(profesor, bloques):
     partes = [
-        f'{b.materia_grado.materia} en {b.materia_grado.grado} ({DIAS[b.dia_semana].lower()} {b.hora_inicio:%H:%M}–{b.hora_fin:%H:%M})'
+        f'{b.materia_grado.materia} en {b.materia_grado.grupo} ({DIAS[b.dia_semana].lower()} {b.hora_inicio:%H:%M}–{b.hora_fin:%H:%M})'
         for b in bloques
     ]
     return f'{profesor} ya da {", ".join(partes)}: un profesor no puede estar en dos grupos a la vez.'

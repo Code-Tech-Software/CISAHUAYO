@@ -2,7 +2,8 @@
   Horario semanal como tabla accesible (una fila por franja, una columna por día).
   Parámetros: cuadricula (de Alumnos.horarios.cuadricula), etiqueta (texto para lectores de pantalla),
   modo ("grado": cada bloque muestra su clave y profesor, y se puede editar/quitar; "profesor": muestra el grado),
-  editable (bool, solo en modo grado). En modo grado la cuadrícula también trae los recreos del grupo (Recreo.es_recreo).
+  editable (bool, solo en modo grado). En modo grado (el horario de un grupo) la cuadrícula también trae los recesos del
+  grupo (Recreo.es_recreo).
 {% endcomment %}
 {% load alumnos_extras %}
 <div class="timetable-wrap" role="region" aria-label="{{ etiqueta }}" tabindex="0">
@@ -48,11 +49,11 @@
                     <div class="slot__text">
                       {% if modo == "profesor" %}
                         {% if perms.Alumnos.view_horariomateria %}
-                          <a class="slot__name" href="{% url 'horarios:grado' asignacion.grado_id %}?ciclo={{ asignacion.ciclo_id }}">{{ materia.nombre }}</a>
+                          <a class="slot__name" href="{% url 'horarios:grupo' asignacion.grupo_id %}?ciclo={{ asignacion.ciclo_id }}">{{ materia.nombre }}</a>
                         {% else %}
                           <span class="slot__name">{{ materia.nombre }}</span>
                         {% endif %}
-                        <span class="slot__code">{{ asignacion.grado }}</span>
+                        <span class="slot__code">{{ asignacion.grupo }}</span>
                       {% else %}
                         {% if editable and perms.Alumnos.change_horariomateria %}
                           <a class="slot__name" href="{% url 'horarios:editar' bloque.pk %}" aria-label="Editar {{ materia.nombre }}, {{ bloque.get_dia_semana_display }} de {{ bloque.hora_inicio|time:'H:i' }} a {{ bloque.hora_fin|time:'H:i' }}" data-modal-form>{{ materia.nombre }}</a>

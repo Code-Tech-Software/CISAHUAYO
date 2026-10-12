@@ -13,6 +13,7 @@ from CISAHUAYO.pruebas import (
     ciclo_actual_de_prueba,
     ciclo_cerrado_de_prueba,
     crear_grado,
+    grupo_de,
     crear_profesor,
 )
 
@@ -61,7 +62,7 @@ class AyudantesTests(BaseProfesorTests):
         self.assertEqual(len(bloques_del_profesor_empalmados(self.profesor, self.ciclo, 0, time(8, 30), time(9, 30))), 1)
         self.assertEqual(len(bloques_del_profesor_empalmados(self.profesor, self.ciclo, 0, time(9), time(10))), 0)
         self.assertEqual(len(bloques_del_profesor_empalmados(self.profesor, self.cerrado, 0, time(8), time(9))), 0)
-        self.assertEqual(len(bloques_del_profesor_empalmados(self.profesor, self.ciclo, 0, time(8), time(9), excluir_grado=self.g1)), 0)
+        self.assertEqual(len(bloques_del_profesor_empalmados(self.profesor, self.ciclo, 0, time(8), time(9), excluir_grupo=grupo_de(self.g1))), 0)
 
     def test_minutos_por_profesor(self):
         bloque(self.esp, 1, (10, 0), (10, 45))
@@ -79,13 +80,13 @@ class AyudantesTests(BaseProfesorTests):
 class CrearConProfesorTests(BaseProfesorTests):
     def setUp(self):
         super().setUp()
-        self.url = f"{reverse('horarios:crear', args=[self.g2.pk])}?ciclo={self.ciclo.pk}"
+        self.url = f"{reverse('horarios:crear', args=[grupo_de(self.g2).pk])}?ciclo={self.ciclo.pk}"
 
     def test_rechaza_empalmar_al_profesor_con_otro_grupo(self):
         respuesta = self.client.post(self.url, datos(self.esp, dias=(0,), inicio='08:30', fin='09:30'))
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, 'un profesor no puede estar en dos grupos a la vez')
-        self.assertContains(respuesta, 'Matemáticas en 1° Primaria (lunes 08:00–09:00)')
+        self.assertContains(respuesta, 'Matemáticas en 1° A Primaria (lunes 08:00–09:00)')
         self.assertFalse(HorarioMateria.objects.filter(materia_grado=self.esp).exists())
 
     def test_con_varios_dias_basta_un_empalme_para_no_guardar_nada(self):
@@ -164,18 +165,18 @@ class EditarConProfesorTests(BaseProfesorTests):
 class PantallasConProfesorTests(BaseProfesorTests):
     def test_el_horario_del_grado_cuenta_las_materias_sin_profesor(self):
         asignar('CIE', 'Ciencias', self.g1, self.ciclo)
-        respuesta = self.client.get(reverse('horarios:grado', args=[self.g1.pk]), {'ciclo': self.ciclo.pk})
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(self.g1).pk]), {'ciclo': self.ciclo.pk})
         self.assertEqual([a.materia.clave for a in respuesta.context['sin_profesor']], ['CIE'])
         self.assertContains(respuesta, 'Sin profesor')
 
     def test_el_horario_del_grado_muestra_al_profesor_en_cada_bloque(self):
-        respuesta = self.client.get(reverse('horarios:grado', args=[self.g1.pk]), {'ciclo': self.ciclo.pk})
+        respuesta = self.client.get(reverse('horarios:grupo', args=[grupo_de(self.g1).pk]), {'ciclo': self.ciclo.pk})
         self.assertContains(respuesta, 'Rangel')
 
     def test_el_indice_marca_los_grados_con_materias_sin_profesor(self):
         asignar('CIE', 'Ciencias', self.g1, self.ciclo)
         respuesta = self.client.get(reverse('horarios:lista'), {'ciclo': self.ciclo.pk})
-        filas = {str(f['grado']): f for n in respuesta.context['niveles'] for f in n['filas']}
+        filas = {str(f['grupo'].grado): f for n in respuesta.context['niveles'] for f in n['filas']}
         self.assertEqual((filas['1° Primaria']['sin_profesor'], filas['2° Primaria']['sin_profesor']), (1, 0))
         self.assertContains(respuesta, '1 sin profesor')
 

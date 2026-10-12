@@ -16,19 +16,19 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Horarios</h1>
-      <p class="page-header__description">El horario semanal de cada grado. Como hay un solo grupo por grado, es el horario de su salón: una materia no puede empalmarse con otra.</p>
+      <p class="page-header__description">El horario semanal de cada grupo, que es el de su salón: una materia no puede empalmarse con otra ni con un receso del grupo.</p>
     </div>
     <div class="page-header__actions">
       {% if perms.Alumnos.add_materiagrado %}
         <a class="btn" href="{% url 'materias:copiar' %}{% if ciclo %}?destino={{ ciclo.pk }}{% endif %}">
           {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
-          Copiar plan de otro ciclo
+          Copiar de otro ciclo
         </a>
       {% endif %}
       {% if perms.Alumnos.add_horariomateria and editable %}
         <a class="btn btn--primary" href="{% url 'horarios:recreo_crear' %}?ciclo={{ ciclo.pk }}" data-modal-form>
           {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
-          Agregar recreo
+          Agregar receso
         </a>
       {% endif %}
     </div>
@@ -73,30 +73,24 @@
       </header>
       <ul class="grade-grid">
         {% for fila in nivel.filas %}
-          <li>
-            <article class="grade-card grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
-              <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}°</span>
-              <div class="grade-card__body">
-                <h3 class="grade-card__name"><a class="grade-card__link" href="{% url 'horarios:grado' fila.grado.pk %}?ciclo={{ ciclo.pk }}">{{ fila.grado }}</a></h3>
-                {% if fila.materias %}
-                  <p class="grade-card__meta">{{ fila.materias }} materia{{ fila.materias|pluralize }}{% if fila.duracion %} · {{ fila.duracion }} por semana{% endif %}</p>
-                  {% if fila.sin_horario or fila.sin_profesor %}
-                    <p class="grade-card__meta">
-                      {% if fila.sin_horario %}<span class="tag tag--warning">{{ fila.sin_horario }} sin horario</span>{% endif %}
-                      {% if fila.sin_profesor %}<span class="tag tag--warning">{{ fila.sin_profesor }} sin profesor</span>{% endif %}
-                    </p>
-                  {% endif %}
-                {% else %}
-                  <p class="grade-card__meta">Sin materias asignadas</p>
-                {% endif %}
-                {% if fila.recreos %}
-                  <p class="grade-card__meta">Recreo: {{ fila.recreos|join:"; " }}</p>
-                {% elif ciclo and fila.grado.activo %}
-                  <p class="grade-card__meta"><span class="tag">Sin recreo</span></p>
-                {% endif %}
-              </div>
-            </article>
-          </li>
+          {% with grupo=fila.grupo %}
+            <li>
+              {# Siempre las mismas cuatro líneas (de una sola línea cada una): todas las tarjetas miden lo mismo #}
+              <article class="grade-card grade-card--tone-{{ grupo.grado.nivel|nivel_tono }}{% if not grupo.activo or not grupo.grado.activo %} is-inactive{% endif %}">
+                <span class="grade-card__number" aria-hidden="true">{{ grupo.grado.numero }}°{% if grupo.nombre.nombre|length <= 2 %}{{ grupo.nombre }}{% endif %}</span>
+                <div class="grade-card__body">
+                  <h3 class="grade-card__name grade-card__linea"><a class="grade-card__link" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">{{ grupo }}</a></h3>
+                  <p class="grade-card__meta grade-card__linea">{% if fila.materias %}{{ fila.materias }} materia{{ fila.materias|pluralize }}{% if fila.duracion %} · {{ fila.duracion }} por semana{% endif %}{% else %}Sin materias asignadas{% endif %}</p>
+                  <p class="grade-card__meta grade-card__linea">
+                    {% if fila.sin_horario %}<span class="tag tag--warning">{{ fila.sin_horario }} sin horario</span>{% endif %}
+                    {% if fila.sin_profesor %}<span class="tag tag--warning">{{ fila.sin_profesor }} sin profesor</span>{% endif %}
+                    {% if fila.materias and not fila.sin_horario and not fila.sin_profesor %}<span class="tag tag--success">Completo</span>{% elif not fila.materias %}<span class="text-muted">—</span>{% endif %}
+                  </p>
+                  <p class="grade-card__meta grade-card__linea">{% if fila.recesos %}Receso: {{ fila.recesos|join:"; " }}{% else %}<span class="tag">Sin receso</span>{% endif %}</p>
+                </div>
+              </article>
+            </li>
+          {% endwith %}
         {% endfor %}
       </ul>
     </section>

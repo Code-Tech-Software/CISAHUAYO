@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from Alumnos.academico import ciclo_actual, motivo_no_inscribible
-from Alumnos.forms import CicloChoiceField, EstiloCamposMixin, GradoChoiceField, grados_disponibles
+from Alumnos.forms import CicloChoiceField, EstiloCamposMixin, GradoChoiceField, GrupoDelGradoMixin, grados_disponibles
 from Alumnos.models import Alumno, CicloEscolar, Grado, Inscripcion, orden_de_nivel
 
 FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
@@ -13,8 +13,8 @@ FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
 # ---------------------------------------------------------------------------
 # Alta y edición
 # ---------------------------------------------------------------------------
-class InscripcionForm(EstiloCamposMixin, forms.ModelForm):
-    """Inscribe a un alumno en un ciclo y grado. Al editar solo cambian el grado y la fecha."""
+class InscripcionForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.ModelForm):
+    """Inscribe a un alumno en un ciclo, grado y grupo. Al editar solo cambian el grado, el grupo y la fecha."""
 
     alumno = forms.ModelChoiceField(
         Alumno.objects.all(),
@@ -24,12 +24,11 @@ class InscripcionForm(EstiloCamposMixin, forms.ModelForm):
 
     class Meta:
         model = Inscripcion
-        fields = ['alumno', 'ciclo', 'grado', 'fecha_inscripcion']
+        fields = ['alumno', 'ciclo', 'grado', 'grupo', 'fecha_inscripcion']
         field_classes = {'ciclo': CicloChoiceField, 'grado': GradoChoiceField}
         widgets = {'fecha_inscripcion': FECHA}
         help_texts = {
             'ciclo': 'Se puede inscribir en el ciclo actual o en uno próximo.',
-            'grado': 'Solo hay un grupo por grado.',
         }
 
     def __init__(self, *args, **kwargs):
@@ -41,12 +40,14 @@ class InscripcionForm(EstiloCamposMixin, forms.ModelForm):
         self.fields['grado'].empty_label = 'Selecciona un grado'
         if self.creando:
             self.fields['grado'].queryset = grados_disponibles()
+            self.agregar_campo_grupo()
             if not self.is_bound:
                 self.initial.setdefault('ciclo', ciclo_actual())
         else:
             # El alumno y el ciclo no cambian: otro alumno u otro ciclo sería otra inscripción.
             del self.fields['alumno'], self.fields['ciclo']
             self.fields['grado'].queryset = grados_disponibles(incluir=self.instance.grado)
+            self.agregar_campo_grupo(incluir=self.instance.grupo)
         self.aplicar_estilo()
 
     def clean_fecha_inscripcion(self):
@@ -56,7 +57,7 @@ class InscripcionForm(EstiloCamposMixin, forms.ModelForm):
         return fecha
 
     def clean(self):
-        datos = super().clean()
+        datos = self.limpiar_grupo(super().clean())
         if not self.creando:
             return datos
 

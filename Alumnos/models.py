@@ -262,11 +262,98 @@ class Grado(models.Model):
         ]
 
 
+# ---------------------------------------------------------------------------
+# Grupos: cada grado tiene uno o varios (1° A, 1° B)
+# ---------------------------------------------------------------------------
+class NombreGrupo(models.Model):
+    """El catálogo de nombres de grupo que usa el colegio («A», «B», «Matutino»…). Renombrar uno renombra los grupos que
+    lo usan; uno dado de baja ya no se ofrece al crear grupos, pero los que ya lo tienen lo conservan."""
+
+    NOMBRE_INICIAL = 'A'
+
+    nombre = models.CharField(max_length=20, unique=True, verbose_name='Nombre')
+    orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    def __str__(self):
+        return self.nombre
+
+    @classmethod
+    def inicial(cls):
+        """El nombre que recibe el grupo de un grado que todavía no tiene ninguno: el primero activo o «A»."""
+        primero = cls.objects.filter(activo=True).order_by('orden', 'nombre').first()
+        if primero is not None:
+            return primero
+        nombre, _ = cls.objects.get_or_create(nombre=cls.NOMBRE_INICIAL)
+        return nombre
+
+    class Meta:
+        verbose_name = 'Nombre de grupo'
+        verbose_name_plural = 'Nombres de grupo'
+        ordering = ['orden', 'nombre']
+
+
+class GrupoQuerySet(models.QuerySet):
+    def academicos(self):
+        """Orden escolar: por nivel, por número de grado y por el orden del nombre (A, B…)."""
+        return self.order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
+
+
+class Grupo(models.Model):
+    """Un grupo de un grado (1° A, 1° B): su salón. Los estudiantes se inscriben en un grupo; el plan de materias es del
+    grado y lo comparten sus grupos, pero cada grupo tiene su profesor en cada materia, su horario y sus recesos."""
+
+    grado = models.ForeignKey(Grado, on_delete=models.CASCADE, related_name='grupos', verbose_name='Grado')
+    nombre = models.ForeignKey(NombreGrupo, on_delete=models.PROTECT, related_name='grupos', verbose_name='Grupo')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+
+    objects = GrupoQuerySet.as_manager()
+
+    def __str__(self):
+        return f'{self.grado.numero}° {self.nombre} {self.grado.get_nivel_display()}'
+
+    @property
+    def corto(self):
+        """«1° A», sin el nivel."""
+        return f'{self.grado.numero}° {self.nombre}'
+
+    @classmethod
+    def principal_de(cls, grado):
+        """El primer grupo activo del grado; si todavía no tiene ninguno, se le crea uno con el nombre inicial. Lo usa
+        lo que solo conoce el grado (y para un grado de un solo grupo, es su grupo)."""
+        grupo = cls.objects.filter(grado=grado, activo=True).order_by('nombre__orden', 'nombre__nombre').first()
+        if grupo is None:
+            grupo = cls.objects.filter(grado=grado).order_by('nombre__orden', 'nombre__nombre').first()
+        if grupo is None:
+            grupo = cls.objects.create(grado=grado, nombre=NombreGrupo.inicial())
+        return grupo
+
+    def get_absolute_url(self):
+        return reverse('grupos:detalle', args=[self.pk])
+
+    class Meta:
+        verbose_name = 'Grupo'
+        verbose_name_plural = 'Grupos'
+        constraints = [
+            models.UniqueConstraint(fields=['grado', 'nombre'], name='grupo_grado_nombre_unico'),
+        ]
+
+
+def _con_grupo(registro):
+    """Antes de guardar algo que es de un grupo (inscripción, materia del plan, receso): si solo trae el grado, va al
+    grupo principal de ese grado; si trae el grupo, su grado es el del grupo."""
+    if registro.grupo_id is None and registro.grado_id is not None:
+        registro.grupo = Grupo.principal_de(registro.grado)
+    elif registro.grupo_id is not None and registro.grado_id != registro.grupo.grado_id:
+        registro.grado_id = registro.grupo.grado_id
+
+
 class Inscripcion(models.Model):
 
     alumno = models.ForeignKey(Alumno, on_delete=models.PROTECT, related_name='inscripciones', verbose_name='Estudiante')
     ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='inscripciones')
     grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='inscripciones')
+    grupo = models.ForeignKey(Grupo, on_delete=models.PROTECT, related_name='inscripciones', verbose_name='Grupo')
     fecha_inscripcion = models.DateField(default=timezone.localdate, verbose_name='Fecha de inscripción')
     activa = models.BooleanField(default=True, verbose_name='Activa')
     # Se desactivó sola al dar de baja al estudiante: al reactivarlo vuelve a estar activa. Una inscripción que se dio de
@@ -276,9 +363,13 @@ class Inscripcion(models.Model):
     def __str__(self):
         return (
             f"{self.alumno} - "
-            f"{self.grado} - "
+            f"{self.grupo if self.grupo_id else self.grado} - "
             f"{self.ciclo}"
         )
+
+    def save(self, *args, **kwargs):
+        _con_grupo(self)
+        super().save(*args, **kwargs)
 
     def clean(self):
 
@@ -348,6 +439,7 @@ class MateriaGrado(models.Model):
 
     ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='materias_grado')
     grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='materias_grado')
+    grupo = models.ForeignKey(Grupo, on_delete=models.PROTECT, related_name='materias_grupo', verbose_name='Grupo')
     materia = models.ForeignKey(Materia, on_delete=models.PROTECT, related_name='grados_materia')
     profesor = models.ForeignKey(
         'Profesor', null=True, blank=True, on_delete=models.PROTECT, related_name='asignaciones',
@@ -358,9 +450,13 @@ class MateriaGrado(models.Model):
     def __str__(self):
         return (
             f"{self.materia} - "
-            f"{self.grado} - "
+            f"{self.grupo if self.grupo_id else self.grado} - "
             f"{self.ciclo}"
         )
+
+    def save(self, *args, **kwargs):
+        _con_grupo(self)
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'Materia del grado'
@@ -372,14 +468,7 @@ class MateriaGrado(models.Model):
         ]
 
         constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    'ciclo',
-                    'grado',
-                    'materia'
-                ],
-                name='materia_grado_ciclo_unica'
-            )
+            models.UniqueConstraint(fields=['ciclo', 'grupo', 'materia'], name='materia_grupo_ciclo_unica'),
         ]
 
 class HorarioMateria(models.Model):
@@ -438,14 +527,15 @@ class HorarioMateria(models.Model):
 
 
 class Recreo(models.Model):
-    """Un recreo del grupo de un grado en un ciclo: un día con su hora. No es una clase (no tiene materia ni profesor),
-    pero ocupa el horario del grupo: ninguna materia se le puede empalmar."""
+    """Un receso de un grupo en un ciclo: un día con su hora. No es una clase (no tiene materia ni profesor), pero ocupa
+    el horario del grupo: ninguna materia se le puede empalmar. (En pantalla se llama «receso».)"""
 
     es_recreo = True   # para distinguirlo de un bloque de materia en la cuadrícula del horario
 
     ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='recreos')
     grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='recreos')
-    nombre = models.CharField(max_length=40, default='Recreo', verbose_name='Nombre')
+    grupo = models.ForeignKey(Grupo, on_delete=models.PROTECT, related_name='recreos', verbose_name='Grupo')
+    nombre = models.CharField(max_length=40, default='Receso', verbose_name='Nombre')
     dia_semana = models.PositiveSmallIntegerField(choices=HorarioMateria.DIA_CHOICES, verbose_name='Día')
     hora_inicio = models.TimeField(verbose_name='Hora de inicio')
     hora_fin = models.TimeField(verbose_name='Hora de fin')
@@ -455,11 +545,15 @@ class Recreo(models.Model):
             raise ValidationError('La hora de inicio debe ser anterior a la hora de fin.')
 
     def __str__(self):
-        return f'{self.nombre} de {self.grado} - {self.get_dia_semana_display()} {self.hora_inicio:%H:%M}–{self.hora_fin:%H:%M}'
+        return f'{self.nombre} de {self.grupo if self.grupo_id else self.grado} - {self.get_dia_semana_display()} {self.hora_inicio:%H:%M}–{self.hora_fin:%H:%M}'
+
+    def save(self, *args, **kwargs):
+        _con_grupo(self)
+        super().save(*args, **kwargs)
 
     class Meta:
-        verbose_name = 'Recreo'
-        verbose_name_plural = 'Recreos'
+        verbose_name = 'Receso'
+        verbose_name_plural = 'Recesos'
         ordering = ['dia_semana', 'hora_inicio']
 
 

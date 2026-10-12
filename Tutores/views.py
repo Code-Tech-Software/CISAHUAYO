@@ -153,7 +153,7 @@ def tutor_detalle(request, pk):
             'alumno__inscripciones',
             queryset=(
                 Inscripcion.objects.filter(activa=True, ciclo__activo=True)
-                .select_related('grado', 'ciclo')
+                .select_related('grado', 'grupo__nombre', 'grupo__grado', 'ciclo')
                 .order_by('-ciclo__fecha_inicio')
             ),
             to_attr='inscripciones_actuales',

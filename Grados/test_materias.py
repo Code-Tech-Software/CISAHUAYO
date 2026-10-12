@@ -13,6 +13,7 @@ from CISAHUAYO.pruebas import (
     ciclo_cerrado_de_prueba,
     ciclo_proximo_de_prueba,
     crear_grado,
+    grupo_de,
 )
 
 
@@ -88,7 +89,7 @@ class MateriasDelGradoTests(BaseTestCase):
 
     def test_enlaza_con_el_horario_y_con_la_materia(self):
         respuesta = self.detalle()
-        self.assertContains(respuesta, reverse('horarios:grado', args=[self.grado.pk]))
+        self.assertContains(respuesta, reverse('horarios:grupo', args=[grupo_de(self.grado).pk]))
         self.assertContains(respuesta, self.mat.get_absolute_url())
 
     def test_consultas_constantes(self):

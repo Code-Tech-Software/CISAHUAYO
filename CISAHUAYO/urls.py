@@ -27,6 +27,7 @@ urlpatterns = [
     path('asignaciones/', include('Asignaciones.urls')),
     path('asistencias/', include('Asistencias.urls')),
     path('periodos/', include('Periodos.urls')),
+    path('grupos/', include('Grupos.urls')),
 ]  # Para servir archivos multimedia en desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

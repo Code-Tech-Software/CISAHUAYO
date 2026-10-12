@@ -21,7 +21,7 @@ from . import lectura_csv
 from .academico import ciclo_actual
 from .forms import AlumnoForm
 from .lectura_csv import ERRORES_GUARDADOS, FILAS_MAXIMAS, Columna, ErrorDeArchivo, ErrorDeCelda
-from .models import Alumno, Grado, Inscripcion, Tutor, TutorAlumno
+from .models import Alumno, Grado, Grupo, Inscripcion, Tutor, TutorAlumno
 from .utils import (
     RELIGION_NINGUNA,
     clave_de_texto,
@@ -58,7 +58,7 @@ COLUMNAS = (
     Columna('fecha_ingreso', 'Fecha de ingreso', 'AAAA-MM-DD o DD/MM/AAAA. Si falta se usa la de hoy.'),
     Columna('escuela_procedencia', 'Escuela de procedencia', ''),
     Columna('estatus', 'Estatus', 'Activo, Egresado o Suspendido. Si falta queda Activo.'),
-    Columna('grado', 'Grado', 'Para inscribirlo en el ciclo actual: «1° Primaria», «3 Secundaria»… o su equivalencia (7, K1).'),
+    Columna('grado', 'Grado', 'Para inscribirlo en el ciclo actual: «1° Primaria», «3 Secundaria»… o su equivalencia (7, K1). Si el grado tiene varios grupos, con el grupo: «1° A Primaria».'),
     Columna('contrasena', 'Contraseña', 'La que se le asigna (4 caracteres o más). Si falta se genera una.'),
     Columna('tutor_nombre', 'Nombre del tutor', 'Si lo escribes, también hacen falta su apellido paterno, su teléfono y su parentesco.', ('Nombre del tutor principal',)),
     Columna('tutor_apellido_paterno', 'Apellido paterno del tutor', ''),
@@ -162,7 +162,8 @@ def _clave_de_grado(texto):
 
 
 class _Grados:
-    """Los grados activos, para reconocer «1° Primaria», «primero de secundaria» o una equivalencia («7», «K1»)."""
+    """Los grados y grupos activos, para reconocer «1° Primaria», «1° A Primaria», «primero de secundaria» o una
+    equivalencia («7», «K1»). Devuelve el grupo: el que se escribió o, si el grado tiene uno solo, ese."""
 
     def __init__(self):
         self.indice = {}
@@ -172,12 +173,22 @@ class _Grados:
                 self.indice[clave] = grado
         for grado in Grado.objects.filter(activo=True).exclude(equivalencia=''):
             self.indice.setdefault(clave_de_texto(grado.equivalencia), grado)
+        for grupo in Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre'):
+            nivel, numero = clave_de_texto(grupo.grado.get_nivel_display()), grupo.grado.numero
+            letra = clave_de_texto(grupo.nombre.nombre)
+            for clave in (f'{numero} {letra} {nivel}', f'{numero} {nivel} {letra}', f'{nivel} {numero} {letra}'):
+                self.indice[_clave_de_grado(clave)] = grupo
 
     def buscar(self, texto):
-        grado = self.indice.get(_clave_de_grado(texto))
-        if grado is None:
-            raise ErrorDeCelda(f'Grado: «{texto}» no existe o está dado de baja. Escríbelo como «1° Primaria».')
-        return grado
+        encontrado = self.indice.get(_clave_de_grado(texto))
+        if encontrado is None:
+            raise ErrorDeCelda(f'Grado: «{texto}» no existe o está dado de baja. Escríbelo como «1° Primaria» o «1° A Primaria».')
+        if isinstance(encontrado, Grupo):
+            return encontrado
+        grupos = list(encontrado.grupos.filter(activo=True).select_related('grado', 'nombre').order_by('nombre__orden', 'nombre__nombre'))
+        if len(grupos) > 1:
+            raise ErrorDeCelda(f'Grado: {encontrado} tiene varios grupos; escribe también el grupo, por ejemplo «{grupos[0]}».')
+        return grupos[0] if grupos else Grupo.principal_de(encontrado)
 
 
 # ---------------------------------------------------------------------------
@@ -373,8 +384,8 @@ class Importador:
                         tutor=self._tutor(tutor, alumno), alumno=alumno, parentesco=tutor['parentesco'],
                         tutor_principal=True, recibe_notificaciones=True,
                     )
-                if grado:
-                    Inscripcion.objects.create(alumno=alumno, ciclo=self.ciclo, grado=grado)
+                if grado:   # es el grupo
+                    Inscripcion.objects.create(alumno=alumno, ciclo=self.ciclo, grado=grado.grado, grupo=grado)
         except IntegrityError:
             # Si la transacción se deshizo, el tutor creado en ella ya no existe: no se debe reutilizar
             self.tutores.clear()

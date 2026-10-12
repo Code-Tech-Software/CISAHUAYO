@@ -164,8 +164,8 @@ def profesor_detalle(request, pk):
     if ciclo:
         asignaciones = con_resumen_de_horario(
             MateriaGrado.objects.filter(profesor=profesor, ciclo=ciclo, activa=True)
-            .select_related('materia', 'grado').prefetch_related('horarios')
-            .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'materia__nombre')
+            .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado').prefetch_related('horarios')
+            .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'materia__nombre')
         )
     # Cada bloque ya trae su asignación (con materia y grado) gracias al prefetch: sin consultas por celda
     bloques = [bloque for asignacion in asignaciones for bloque in asignacion.horarios.all()]
@@ -178,18 +178,19 @@ def profesor_detalle(request, pk):
         sin_profesor = (
             MateriaGrado.objects.filter(ciclo=ciclo, activa=True, profesor__isnull=True, materia__activa=True, grado__activo=True)
             .filter(grado__nivel__in=profesor.niveles.values('nivel'))
-            .select_related('materia', 'grado').order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'materia__nombre')
+            .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado')
+            .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')
         )
         pendientes = [
-            {'grado': grado, 'asignaciones': list(grupo)}
-            for grado, grupo in groupby(sin_profesor, key=lambda asignacion: asignacion.grado)
+            {'grupo': grupo, 'asignaciones': list(del_grupo)}
+            for grupo, del_grupo in groupby(sin_profesor, key=lambda asignacion: asignacion.grupo)
         ]
 
     # Habilitación: las materias que puede impartir, y cuáles da de hecho en el ciclo consultado
     habilitaciones = list(ProfesorMateria.objects.filter(profesor=profesor).select_related('materia').order_by('materia__nombre'))
     imparte = defaultdict(list)
     for asignacion in asignaciones:
-        imparte[asignacion.materia_id].append(asignacion.grado)
+        imparte[asignacion.materia_id].append(asignacion.grupo)
     habilitadas = [
         {'materia': h.materia, 'grados': imparte.get(h.materia_id, [])} for h in habilitaciones
     ]

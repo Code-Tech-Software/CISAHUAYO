@@ -31,6 +31,7 @@ NAVEGACION = (
         'elementos': (
             {'etiqueta': 'Ciclos escolares', 'icono': 'calendar-range', 'ruta': 'ciclos:lista', 'permiso': 'Alumnos.view_cicloescolar'},
             {'etiqueta': 'Grados', 'icono': 'layers', 'ruta': 'grados:lista', 'permiso': 'Alumnos.view_grado'},
+            {'etiqueta': 'Grupos', 'icono': 'users', 'ruta': 'grupos:lista', 'permiso': 'Alumnos.view_grupo'},
             {'etiqueta': 'Materias', 'icono': 'book-open', 'ruta': 'materias:lista', 'permiso': 'Alumnos.view_materia'},
             {'etiqueta': 'Asignaciones', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
             {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},

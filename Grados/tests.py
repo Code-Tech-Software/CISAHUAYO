@@ -143,7 +143,7 @@ class CrearTests(BaseTestCase):
     def test_el_formulario_no_ofrece_el_estado_activo(self):
         respuesta = self.client.get(self.url)
         self.assertEqual(respuesta.status_code, 200)
-        self.assertEqual(list(respuesta.context['form'].fields), ['nivel', 'numero', 'equivalencia'])
+        self.assertEqual(list(respuesta.context['form'].fields), ['nivel', 'numero', 'equivalencia', 'grupos'])
 
     def test_registra_y_redirige_al_listado_con_mensaje(self):
         respuesta = self.client.post(self.url, {'nivel': 'PRIMARIA', 'numero': 3}, follow=True)

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if es_edicion %}Editar grupo «{{ nombre }}»{% else %}Nuevo nombre de grupo{% endif %} | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'grupos:lista' %}">Grupos</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar nombre{% else %}Nuevo nombre{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar el grupo «{{ nombre }}»{% else %}Nuevo nombre de grupo{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Si lo renombras, cambia en todos los grados que lo usan.{% else %}Agrégalo al catálogo y después elígelo en los grados que lo tengan.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-nombre">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="users" %}<h2 class="card__title" id="seccion-nombre">Nombre del grupo</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nombre %}
+        {% include "partials/field.html" with campo=form.orden %}
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'grupos:lista' %}#catalogo">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        {% if es_edicion %}Guardar cambios{% else %}Agregar al catálogo{% endif %}
+      </button>
+    </footer>
+  </form>
+{% endblock %}

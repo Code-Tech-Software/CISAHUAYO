@@ -8,23 +8,23 @@ from Alumnos.horarios import (
     mensaje_de_empalme_profesor,
     recreos_empalmados,
 )
-from Alumnos.models import Grado, HorarioMateria, MateriaGrado, Recreo
+from Alumnos.models import Grado, Grupo, HorarioMateria, MateriaGrado, Recreo
 
 HORA = forms.TimeInput(attrs={'type': 'time'}, format='%H:%M')
 
 
 class AsignacionChoiceField(forms.ModelChoiceField):
-    """Selector de la materia de un grado: «Matemáticas (MAT)»."""
+    """Selector de la materia de un grupo: «Matemáticas (MAT)»."""
 
     def label_from_instance(self, asignacion):
         profesor = f' · {asignacion.profesor.apellido_paterno}' if asignacion.profesor_id else ''
         return f'{asignacion.materia.nombre} ({asignacion.materia.clave}){profesor}'
 
 
-def asignaciones_del_grado(grado, ciclo):
-    """Materias que el grado imparte de forma vigente en el ciclo."""
+def asignaciones_del_grupo(grupo, ciclo):
+    """Materias que el grupo imparte de forma vigente en el ciclo."""
     return (
-        MateriaGrado.objects.filter(grado=grado, ciclo=ciclo, activa=True)
+        MateriaGrado.objects.filter(grupo=grupo, ciclo=ciclo, activa=True)
         .select_related('materia', 'profesor').order_by('materia__nombre')
     )
 
@@ -34,24 +34,24 @@ def _franja(bloque):
 
 
 def mensaje_de_empalme(bloques, recreos=()):
-    """Con qué se empalma, en el horario del grupo: otras materias del grado o sus recreos."""
+    """Con qué se empalma, en el horario del grupo: otras materias del grupo o sus recesos."""
     partes = [f'{b.materia_grado.materia} ({_franja(b)})' for b in bloques]
     partes += [f'el {r.nombre.lower()} ({_franja(r)})' for r in recreos]
     if bloques:
-        return 'Se empalma con ' + ', '.join(partes) + ': un grado solo tiene un grupo y no puede estar en dos materias a la vez.'
-    return 'Se empalma con ' + ', '.join(partes) + ': a esa hora el grupo está en recreo.'
+        return 'Se empalma con ' + ', '.join(partes) + ': un grupo no puede estar en dos materias a la vez.'
+    return 'Se empalma con ' + ', '.join(partes) + ': a esa hora el grupo está en receso.'
 
 
-def empalmes_del_grupo(grado, ciclo, dia, inicio, fin, excluir_bloque=None, excluir_recreo=None):
-    """(bloques de materias, recreos) del grado que se empalman con el intervalo, o ([], []) si está libre."""
+def empalmes_del_grupo(grupo, ciclo, dia, inicio, fin, excluir_bloque=None, excluir_recreo=None):
+    """(bloques de materias, recesos) del grupo que se empalman con el intervalo, o ([], []) si está libre."""
     return (
-        list(bloques_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=excluir_bloque)),
-        list(recreos_empalmados(grado, ciclo, dia, inicio, fin, excluir_pk=excluir_recreo)),
+        list(bloques_empalmados(grupo, ciclo, dia, inicio, fin, excluir_pk=excluir_bloque)),
+        list(recreos_empalmados(grupo, ciclo, dia, inicio, fin, excluir_pk=excluir_recreo)),
     )
 
 
 # ---------------------------------------------------------------------------
-# Días con su propia hora cada uno (alta de una materia y de un recreo)
+# Días con su propia hora cada uno (alta de una materia y de un receso)
 # ---------------------------------------------------------------------------
 def campo_de_dias():
     return forms.TypedMultipleChoiceField(
@@ -120,7 +120,7 @@ class HorasPorDiaMixin:
 class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
     """Una materia en los días marcados, cada uno con su hora (ver `HorasPorDiaMixin`).
 
-    Se guarda todo o nada: si un día se empalma con otra materia o un recreo del grado, o con otra clase del profesor,
+    Se guarda todo o nada: si un día se empalma con otra materia o un receso del grupo, o con otra clase del profesor,
     no se guarda ninguno.
     """
 
@@ -130,11 +130,11 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
     )
     dias = campo_de_dias()
 
-    def __init__(self, *args, grado, ciclo, **kwargs):
+    def __init__(self, *args, grupo, ciclo, **kwargs):
         super().__init__(*args, **kwargs)
-        self.grado, self.ciclo = grado, ciclo
+        self.grupo, self.ciclo = grupo, ciclo
         self.bloques_pedidos = []   # (día, inicio, fin) de cada día marcado, ya validados
-        self.fields['materia_grado'].queryset = asignaciones_del_grado(grado, ciclo)
+        self.fields['materia_grado'].queryset = asignaciones_del_grupo(grupo, ciclo)
         self.agregar_horas_por_dia()
         self.aplicar_estilo()
         self.fields['dias'].widget.attrs['class'] = 'choice__input'  # el mixin le habría puesto la clase de los campos de texto
@@ -143,14 +143,14 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
         datos = super().clean()
         self.bloques_pedidos = self.limpiar_horas_por_dia(datos)
 
-        # Empalmes, día por día: con el grupo (otra materia o un recreo del grado) y con otra clase del profesor
+        # Empalmes, día por día: con el grupo (otra materia o un receso suyo) y con otra clase del profesor
         profesor = datos['materia_grado'].profesor if datos.get('materia_grado') else None
         for dia, inicio, fin in self.bloques_pedidos:
-            bloques, recreos = empalmes_del_grupo(self.grado, self.ciclo, dia, inicio, fin)
+            bloques, recreos = empalmes_del_grupo(self.grupo, self.ciclo, dia, inicio, fin)
             if bloques or recreos:
                 self.add_error(f'inicio_{dia}', mensaje_de_empalme(bloques, recreos))
             if profesor:
-                del_profesor = list(bloques_del_profesor_empalmados(profesor, self.ciclo, dia, inicio, fin, excluir_grado=self.grado))
+                del_profesor = list(bloques_del_profesor_empalmados(profesor, self.ciclo, dia, inicio, fin, excluir_grupo=self.grupo))
                 if del_profesor:
                     self.add_error(f'inicio_{dia}', mensaje_de_empalme_profesor(profesor, del_profesor))
         return datos
@@ -182,22 +182,22 @@ class HorarioEditarForm(EstiloCamposMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         asignacion = self.instance.materia_grado
-        self.grado, self.ciclo = asignacion.grado, asignacion.ciclo
-        self.fields['materia_grado'].queryset = asignaciones_del_grado(self.grado, self.ciclo)
+        self.grupo, self.ciclo = asignacion.grupo, asignacion.ciclo
+        self.fields['materia_grado'].queryset = asignaciones_del_grupo(self.grupo, self.ciclo)
         self.aplicar_estilo()
 
     def clean(self):
         datos = super().clean()
         inicio, fin, dia = datos.get('hora_inicio'), datos.get('hora_fin'), datos.get('dia_semana')
-        # El orden de las horas lo valida el modelo; aquí, que no se empalme con otra materia ni con un recreo del grado.
+        # El orden de las horas lo valida el modelo; aquí, que no se empalme con otra materia ni con un receso del grupo.
         if inicio and fin and inicio < fin and dia is not None:
-            bloques, recreos = empalmes_del_grupo(self.grado, self.ciclo, dia, inicio, fin, excluir_bloque=self.instance.pk)
+            bloques, recreos = empalmes_del_grupo(self.grupo, self.ciclo, dia, inicio, fin, excluir_bloque=self.instance.pk)
             if bloques or recreos:
                 self.add_error('hora_inicio', mensaje_de_empalme(bloques, recreos))
             asignacion = datos.get('materia_grado')
             if asignacion and asignacion.profesor:
                 del_profesor = list(bloques_del_profesor_empalmados(
-                    asignacion.profesor, self.ciclo, dia, inicio, fin, excluir_pk=self.instance.pk, excluir_grado=self.grado,
+                    asignacion.profesor, self.ciclo, dia, inicio, fin, excluir_pk=self.instance.pk, excluir_grupo=self.grupo,
                 ))
                 if del_profesor:
                     self.add_error('hora_inicio', mensaje_de_empalme_profesor(asignacion.profesor, del_profesor))
@@ -205,23 +205,28 @@ class HorarioEditarForm(EstiloCamposMixin, forms.ModelForm):
 
 
 # ---------------------------------------------------------------------------
-# Recreos: se agregan a uno o varios grados a la vez, cada día con su hora
+# Recesos: se agregan a uno o varios grupos a la vez, cada día con su hora
 # ---------------------------------------------------------------------------
-class RecreoCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
-    """El recreo de uno o varios grupos (grados) en el ciclo, en los días marcados y cada día con su hora.
+class GrupoCasillaField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, grupo):
+        return grupo.corto
 
-    Ocupa el horario de cada grupo: no se puede empalmar con sus materias ni con otro recreo suyo. Se guarda todo o
-    nada: si en un grado algún día choca, no se guarda en ninguno.
+
+class RecreoCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
+    """El receso de uno o varios grupos en el ciclo, en los días marcados y cada día con su hora.
+
+    Ocupa el horario de cada grupo: no se puede empalmar con sus materias ni con otro receso suyo. Se guarda todo o
+    nada: si en un grupo algún día choca, no se guarda en ninguno.
     """
 
-    grados = forms.ModelMultipleChoiceField(
-        Grado.objects.none(), label='Grupos que salen al recreo',
+    grupos = GrupoCasillaField(
+        Grupo.objects.none(), label='Grupos que salen al receso',
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'choice__input'}),
-        error_messages={'required': 'Elige al menos un grado.', 'invalid_choice': 'Elige grados de la lista.'},
+        error_messages={'required': 'Elige al menos un grupo.', 'invalid_choice': 'Elige grupos de la lista.'},
     )
     nombre = forms.CharField(
-        max_length=40, initial='Recreo', label='Nombre', help_text='Cómo aparece en el horario: «Recreo», «Recreo largo», «Almuerzo»…',
-        error_messages={'required': 'Escribe el nombre (por ejemplo, «Recreo»).'},
+        max_length=40, initial='Receso', label='Nombre', help_text='Cómo aparece en el horario: «Receso», «Receso largo», «Almuerzo»…',
+        error_messages={'required': 'Escribe el nombre (por ejemplo, «Receso»).'},
     )
     dias = campo_de_dias()
 
@@ -229,19 +234,19 @@ class RecreoCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.ciclo = ciclo
         self.recreos_pedidos = []   # (día, inicio, fin) de cada día marcado, ya validados
-        self.fields['grados'].queryset = Grado.objects.filter(activo=True).academicos()
+        self.fields['grupos'].queryset = Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre').academicos()
         self.agregar_horas_por_dia()
         self.aplicar_estilo()
-        for campo in ('grados', 'dias'):
+        for campo in ('grupos', 'dias'):
             self.fields[campo].widget.attrs['class'] = 'choice__input'
 
     @property
-    def grados_por_nivel(self):
-        """Las casillas de los grados agrupadas por nivel: [{'nombre': 'Primaria', 'casillas': [...]}, ...]."""
-        niveles = dict(self.fields['grados'].queryset.values_list('pk', 'nivel'))
+    def grupos_por_nivel(self):
+        """Las casillas de los grupos agrupadas por nivel: [{'nombre': 'Primaria', 'casillas': [...]}, ...]."""
+        niveles = dict(self.fields['grupos'].queryset.values_list('pk', 'grado__nivel'))
         nombres = dict(Grado.NIVEL_CHOICES)
         grupos = []
-        for casilla in self['grados']:
+        for casilla in self['grupos']:
             nombre = nombres[niveles[int(str(casilla.data['value']))]]
             if not grupos or grupos[-1]['nombre'] != nombre:
                 grupos.append({'nombre': nombre, 'casillas': []})
@@ -254,17 +259,20 @@ class RecreoCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
     def clean(self):
         datos = super().clean()
         self.recreos_pedidos = self.limpiar_horas_por_dia(datos)
-        for grado in datos.get('grados') or []:
+        for grupo in datos.get('grupos') or []:
             for dia, inicio, fin in self.recreos_pedidos:
-                bloques, recreos = empalmes_del_grupo(grado, self.ciclo, dia, inicio, fin)
+                bloques, recreos = empalmes_del_grupo(grupo, self.ciclo, dia, inicio, fin)
                 if bloques or recreos:
-                    self.add_error(f'inicio_{dia}', f'En {grado}: {mensaje_de_empalme(bloques, recreos)}')
+                    self.add_error(f'inicio_{dia}', f'En {grupo}: {mensaje_de_empalme(bloques, recreos)}')
         return datos
 
     def guardar(self):
         recreos = [
-            Recreo(ciclo=self.ciclo, grado=grado, nombre=self.cleaned_data['nombre'], dia_semana=dia, hora_inicio=inicio, hora_fin=fin)
-            for grado in self.cleaned_data['grados']
+            Recreo(
+                ciclo=self.ciclo, grado_id=grupo.grado_id, grupo=grupo, nombre=self.cleaned_data['nombre'],
+                dia_semana=dia, hora_inicio=inicio, hora_fin=fin,
+            )
+            for grupo in self.cleaned_data['grupos']
             for dia, inicio, fin in self.recreos_pedidos
         ]
         Recreo.objects.bulk_create(recreos)
@@ -272,13 +280,13 @@ class RecreoCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
 
 
 class RecreoEditarForm(EstiloCamposMixin, forms.ModelForm):
-    """Un recreo de un grado: su nombre, su día y su hora."""
+    """Un receso de un grupo: su nombre, su día y su hora."""
 
     class Meta:
         model = Recreo
         fields = ['nombre', 'dia_semana', 'hora_inicio', 'hora_fin']
         widgets = {'hora_inicio': HORA, 'hora_fin': HORA}
-        help_texts = {'nombre': 'Cómo aparece en el horario: «Recreo», «Recreo largo», «Almuerzo»…'}
+        help_texts = {'nombre': 'Cómo aparece en el horario: «Receso», «Receso largo», «Almuerzo»…'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -290,10 +298,10 @@ class RecreoEditarForm(EstiloCamposMixin, forms.ModelForm):
     def clean(self):
         datos = super().clean()
         inicio, fin, dia = datos.get('hora_inicio'), datos.get('hora_fin'), datos.get('dia_semana')
-        # El orden de las horas lo valida el modelo; aquí, que no se empalme con una materia ni con otro recreo del grado.
+        # El orden de las horas lo valida el modelo; aquí, que no se empalme con una materia ni con otro receso del grupo.
         if inicio and fin and inicio < fin and dia is not None:
             bloques, recreos = empalmes_del_grupo(
-                self.instance.grado, self.instance.ciclo, dia, inicio, fin, excluir_recreo=self.instance.pk,
+                self.instance.grupo, self.instance.ciclo, dia, inicio, fin, excluir_recreo=self.instance.pk,
             )
             if bloques or recreos:
                 self.add_error('hora_inicio', mensaje_de_empalme(bloques, recreos))

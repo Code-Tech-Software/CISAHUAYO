@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Asignaciones</h1>
-      <p class="page-header__description">Qué profesor imparte cada materia en cada grado. Asigna de una en una o marca varias y asígnalas de golpe.</p>
+      <p class="page-header__description">Qué profesor imparte cada materia en cada grupo. Asigna de una en una o marca varias y asígnalas de golpe.</p>
     </div>
     <div class="page-header__actions">
       {% if pagina.paginator.count %}
@@ -159,11 +159,11 @@
                 {% if editable and perms.Alumnos.change_materiagrado and profesores_activos %}
                   <td class="table__cell table__cell--check">
                     <input class="row-check" type="checkbox" name="asignacion" value="{{ fila.pk }}" form="asignacion-masiva"
-                           aria-label="Marcar {{ fila.materia.nombre }} de {{ fila.grado }}" data-masiva-fila data-nivel="{{ fila.grado.nivel }}">
+                           aria-label="Marcar {{ fila.materia.nombre }} de {{ fila.grupo }}" data-masiva-fila data-nivel="{{ fila.grado.nivel }}">
                   </td>
                 {% endif %}
                 <td class="table__cell table__cell--main">
-                  {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ fila.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.grado }}</a>{% else %}{{ fila.grado }}{% endif %}
+                  {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ fila.grupo.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.grupo }}</a>{% else %}{{ fila.grupo }}{% endif %}
                 </td>
                 <td class="table__cell" data-label="Materia">
                   {% if perms.Alumnos.view_materia %}<a class="link-subtle" href="{{ fila.materia.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.materia.nombre }}</a>{% else %}{{ fila.materia.nombre }}{% endif %}
@@ -197,15 +197,15 @@
                 <td class="table__cell table__cell--actions">
                   {% if editable and perms.Alumnos.change_materiagrado %}
                     <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
-                            data-asignacion="{{ fila.pk }}" data-descripcion="{{ fila.materia }} de {{ fila.grado }}" data-profesor="{{ fila.profesor_id|default_if_none:'' }}"
+                            data-asignacion="{{ fila.pk }}" data-descripcion="{{ fila.materia }} de {{ fila.grupo }}" data-profesor="{{ fila.profesor_id|default_if_none:'' }}"
                             data-habilitados="{{ fila.habilitados }}" data-del-nivel="{{ fila.del_nivel }}" data-nivel="{{ fila.grado.get_nivel_display }}"
-                            aria-label="{% if fila.profesor %}Cambiar al profesor de {{ fila.materia }} en {{ fila.grado }}{% else %}Asignar profesor a {{ fila.materia }} en {{ fila.grado }}{% endif %}"
+                            aria-label="{% if fila.profesor %}Cambiar al profesor de {{ fila.materia }} en {{ fila.grupo }}{% else %}Asignar profesor a {{ fila.materia }} en {{ fila.grupo }}{% endif %}"
                             data-tooltip="{% if fila.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
                       {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
                     </button>
                   {% endif %}
                   {% if perms.Alumnos.view_horariomateria %}
-                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grado' fila.grado_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ fila.grado }}" data-tooltip="Ver horario">
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grupo' fila.grupo_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ fila.grupo }}" data-tooltip="Ver horario">
                       {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
                     </a>
                   {% endif %}

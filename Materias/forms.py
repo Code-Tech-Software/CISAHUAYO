@@ -68,7 +68,7 @@ class MateriaForm(EstiloCamposMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.creando = self.instance._state.adding
         self.ciclo = ciclo
-        self.asignacion = None          # su clase en el plan del ciclo actual (al registrarla o al cambiarle el grado)
+        self.asignaciones = []          # sus clases (una por grupo) en el plan del ciclo actual, al registrarla o al cambiarle el grado
         self.cambio_de_grado = False
         self.profesores_quitados = []   # al pasar a otro grado, los que no dan clases en su nivel
         self.pide_confirmacion = False  # se eligió el grado pero no el profesor, y falta confirmarlo
@@ -198,10 +198,13 @@ class MateriaForm(EstiloCamposMixin, forms.ModelForm):
         if not commit or not materia.grado_id:
             return materia
         if self.agrega_al_plan:
-            self.asignacion = asegurar_en_el_plan(materia, self.ciclo)
+            self.asignaciones = asegurar_en_el_plan(materia, self.ciclo)
         elif self.cambio_de_grado:
             self.profesores_quitados = pasar_al_grado(materia)
-            self.asignacion = MateriaGrado.objects.filter(materia=materia, grado=materia.grado, ciclo__activo=True, activa=True).first()
+            self.asignaciones = list(
+                MateriaGrado.objects.filter(materia=materia, grado=materia.grado, ciclo__activo=True, activa=True)
+                .select_related('ciclo', 'grupo__nombre', 'grupo__grado')
+            )
         return materia
 
 

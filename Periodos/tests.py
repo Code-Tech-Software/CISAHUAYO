@@ -107,7 +107,10 @@ class ListaTests(BaseTestCase):
         self.assertIn(reverse('periodos:cerrar', args=[self.segundo.pk]), html)       # abierto: se puede cerrar
         self.assertIn(reverse('periodos:abrir', args=[self.primero.pk]), html)        # cerrado: se puede abrir
         self.assertNotIn(reverse('periodos:por_fechas', args=[self.primero.pk]), html)   # sigue sus fechas
-        self.assertIn(f'href="{reverse("periodos:editar", args=[self.primero.pk])}" data-modal-form', html)
+        self.assertRegex(html, rf'href="{reverse("periodos:editar", args=[self.primero.pk])}"[^>]*data-modal-form')
+        self.assertNotIn('data-menu-trigger', html.split('<main')[1].split('</main>')[0])   # sin menú de tres puntos: iconos a la vista
+        self.assertIn('data-tooltip="Cerrar ahora"', html)
+        self.assertIn('data-tooltip="Abrir ahora"', html)
         self.assertIn(f'{reverse("periodos:crear")}?ciclo={self.ciclo.pk}&amp;nivel=PREPARATORIA', html)
 
     def test_otro_ciclo(self):
@@ -117,13 +120,13 @@ class ListaTests(BaseTestCase):
         self.assertEqual(respuesta.context['niveles'][1]['periodos'], [viejo])
         self.assertFalse(respuesta.context['editable'])
         self.assertContains(respuesta, 'está cerrado')
-        self.assertNotContains(respuesta, 'aria-controls="menu-periodo')
+        self.assertNotContains(respuesta, 'periodo-card__acciones')
         self.assertNotContains(respuesta, f'href="{reverse("periodos:crear")}?ciclo=')
 
     def test_quien_solo_consulta_no_ve_acciones(self):
         self.con_permisos('view_periodo')
         html = self.client.get(self.url).content.decode()
-        self.assertNotIn('menu-periodo-', html)
+        self.assertNotIn('periodo-card__acciones', html)
         self.assertNotIn(reverse('periodos:crear'), html)
 
     def test_sin_ciclos(self):

@@ -237,7 +237,7 @@
                     <code class="code">{{ item.materia.clave }}</code>
                   </td>
                   <td class="table__cell" data-label="Grado">
-                    {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ item.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ item.grado }}</a>{% else %}{{ item.grado }}{% endif %}
+                    {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ item.grupo.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ item.grupo }}</a>{% else %}{{ item.grupo }}{% endif %}
                   </td>
                   <td class="table__cell" data-label="Horario">
                     {% if item.lineas %}
@@ -249,14 +249,14 @@
                   <td class="table__cell table__col--wide" data-label="Por semana">{{ item.duracion|default:"—" }}</td>
                   <td class="table__cell table__cell--actions">
                     {% if perms.Alumnos.view_horariomateria %}
-                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grado' item.grado_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ item.grado }}" data-tooltip="Ver horario del grado">
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grupo' item.grupo_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ item.grupo }}" data-tooltip="Ver horario del grupo">
                         {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
                       </a>
                     {% endif %}
                     {% if perms.Alumnos.change_materiagrado and ciclo_abierto %}
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-quitar-materia" data-quitar-prof
-                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ item.grado }}"
-                              aria-label="Quitar a {{ profesor }} de {{ item.materia }} en {{ item.grado }}" data-tooltip="Quitar al profesor">
+                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ item.grupo }}"
+                              aria-label="Quitar a {{ profesor }} de {{ item.materia }} en {{ item.grupo }}" data-tooltip="Quitar al profesor">
                         {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
                       </button>
                     {% endif %}
@@ -444,7 +444,7 @@
           <p>Elige las materias que imparte <strong>{{ profesor }}</strong> en el ciclo <strong>{{ ciclo }}</strong>. Solo salen las que todavía no tienen profesor, de los niveles en los que da clases.</p>
           {% for grupo in pendientes %}
             <fieldset class="field">
-              <legend class="field__label">{{ grupo.grado }}</legend>
+              <legend class="field__label">{{ grupo.grupo }}</legend>
               <div class="choice-group">
                 {% for item in grupo.asignaciones %}
                   <label class="choice choice--check" for="asignar-{{ item.pk }}">

@@ -428,32 +428,32 @@ class ExportarTests(AsignacionesTestCase):
         respuesta, filas = self.pedir()
         self.assertEqual(respuesta['Content-Type'], 'text/csv; charset=utf-8')
         self.assertIn('attachment; filename="asignaciones-', respuesta['Content-Disposition'])
-        self.assertEqual(filas[0], ['Ciclo', 'Nivel', 'Grado', 'Materia', 'Clave', 'Profesor', 'Puede impartirla', 'Horario', 'Horas por semana'])
+        self.assertEqual(filas[0], ['Ciclo', 'Nivel', 'Grado', 'Grupo', 'Materia', 'Clave', 'Profesor', 'Puede impartirla', 'Horario', 'Horas por semana'])
         self.assertEqual(len(filas), 5)
 
     def test_indica_si_el_profesor_esta_habilitado_y_el_horario(self):
         _, filas = self.pedir()
-        por_materia = {(f[3], f[2]): f for f in filas[1:]}
+        por_materia = {(f[4], f[2]): f for f in filas[1:]}
         marta = por_materia[('Matemáticas', '1° Primaria')]
-        self.assertEqual((marta[5], marta[6], marta[8]), ('Marta Rangel Soto', 'Sí', '1 h 30 min'))
-        self.assertIn('8:00', marta[7])
-        self.assertEqual(por_materia[('Matemáticas', '2° Primaria')][6], 'No')
+        self.assertEqual((marta[6], marta[7], marta[9]), ('Marta Rangel Soto', 'Sí', '1 h 30 min'))
+        self.assertIn('8:00', marta[8])
+        self.assertEqual(por_materia[('Matemáticas', '2° Primaria')][7], 'No')
         sin = por_materia[('Español', '1° Primaria')]
-        self.assertEqual((sin[5], sin[6], sin[7]), ('Sin profesor', '', ''))
+        self.assertEqual((sin[6], sin[7], sin[8]), ('Sin profesor', '', ''))
 
     def test_respeta_los_filtros_y_el_ciclo(self):
         _, filas = self.pedir(estado='sin_profesor')
-        self.assertEqual({f[3] for f in filas[1:]}, {'Español', 'Inglés'})
+        self.assertEqual({f[4] for f in filas[1:]}, {'Español', 'Inglés'})
         proximo = ciclo_proximo_de_prueba()
         asignar(self.esp, self.g2, proximo)
         _, filas = self.pedir(ciclo=proximo.pk)
-        self.assertEqual([(f[0], f[3]) for f in filas[1:]], [(proximo.nombre, 'Español')])
+        self.assertEqual([(f[0], f[4]) for f in filas[1:]], [(proximo.nombre, 'Español')])
 
     def test_neutraliza_formulas(self):
         self.mat.nombre = '=SUMA(1;1)'
         self.mat.save()
         _, filas = self.pedir(q='MAT')
-        self.assertTrue(all(f[3].startswith("'=") for f in filas[1:]))
+        self.assertTrue(all(f[4].startswith("'=") for f in filas[1:]))
 
     def test_sin_ciclos_solo_trae_los_encabezados(self):
         MateriaGrado.objects.all().delete()

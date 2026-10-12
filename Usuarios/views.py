@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -12,7 +12,7 @@ from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, pagina
 from CISAHUAYO.permisos import requiere_permisos
 
 from . import catalogo
-from .forms import CambioContrasenaForm, FiltroUsuariosForm, MiCuentaForm, UsuarioForm
+from .forms import CambioContrasenaForm, FiltroUsuariosForm, MiCuentaForm, UsuarioForm, validar_contrasena_inicial
 from .docentes import profesor_de
 from .models import PerfilUsuario
 from .seguridad import (
@@ -50,7 +50,7 @@ def _gestionable(request, usuario):
     return usuario
 
 
-def guardar_credenciales(request, usuario, contrasena, titulo, url=None, escrita=False, pedir_cambio=False):
+def guardar_credenciales(request, usuario, contrasena, titulo, url=None, escrita=False, pedir_cambio=False, etiqueta=None):
     """Deja en la sesión las credenciales de una cuenta para mostrarlas una sola vez (la contraseña no se guarda en claro)."""
     request.session[SESION_CREDENCIALES] = {
         'pk': usuario.pk,
@@ -59,7 +59,7 @@ def guardar_credenciales(request, usuario, contrasena, titulo, url=None, escrita
         'usuario': usuario.username,
         'contrasena': contrasena,
         'titulo': titulo,
-        'etiqueta': 'Contraseña inicial' if escrita else 'Contraseña generada',
+        'etiqueta': etiqueta or ('Contraseña inicial' if escrita else 'Contraseña generada'),
         'pedir_cambio': pedir_cambio,
     }
 
@@ -248,25 +248,39 @@ def usuario_reactivar(request, pk):
 @require_POST
 @requiere_permisos('auth.change_user')
 def usuario_restablecer(request, pk):
-    """Genera una contraseña nueva (se muestra una sola vez). Si se marca, la persona deberá cambiarla al entrar."""
+    """Cambia la contraseña de otra cuenta: la que se escriba (debe cumplir las reglas de seguridad) o, si se deja vacía,
+    una generada. Se muestra una sola vez. Si se marca, la persona deberá cambiarla al entrar."""
     usuario = _gestionable(request, get_object_or_404(Usuario, pk=pk))
     if usuario.pk == request.user.pk:
         messages.error(request, 'Para cambiar tu propia contraseña usa «Mi cuenta».')
         return redirect('usuarios:detalle', usuario.pk)
     if not usuario.is_active:
-        messages.error(request, 'Reactiva la cuenta antes de restablecer su contraseña.')
+        messages.error(request, 'Reactiva la cuenta antes de cambiar su contraseña.')
         return redirect('usuarios:detalle', usuario.pk)
 
-    contrasena = contrasena_temporal()
+    escrita = request.POST.get('contrasena', '')
+    try:
+        validar_contrasena_inicial(
+            escrita, username=usuario.username, email=usuario.email, first_name=usuario.first_name, last_name=usuario.last_name,
+        )
+    except ValidationError as error:
+        messages.error(request, f'No se cambió la contraseña de {nombre_de(usuario)}: {" ".join(error.messages)}')
+        return redirect('usuarios:detalle', usuario.pk)
+
+    contrasena = escrita or contrasena_temporal()
     usuario.set_password(contrasena)   # además cierra sus sesiones abiertas: el hash de la sesión deja de coincidir
     usuario.save(update_fields=['password'])
     pedir_cambio = bool(request.POST.get('pedir_cambio'))
     perfil = PerfilUsuario.de(usuario)
     perfil.debe_cambiar_contrasena = pedir_cambio
     perfil.save(update_fields=['debe_cambiar_contrasena', 'modificado'])
-    registrar(request.user, usuario, ACCION_CAMBIO, 'Contraseña restablecida' + (' (deberá cambiarla al entrar).' if pedir_cambio else '.'))
-    guardar_credenciales(request, usuario, contrasena, 'Contraseña restablecida', pedir_cambio=pedir_cambio)
-    messages.success(request, f'Se generó una contraseña nueva para {nombre_de(usuario)}. Entrégasela: no se volverá a mostrar.')
+    registrar(request.user, usuario, ACCION_CAMBIO, 'Contraseña cambiada' + (' (deberá cambiarla al entrar).' if pedir_cambio else '.'))
+    guardar_credenciales(request, usuario, contrasena, 'Contraseña cambiada', pedir_cambio=pedir_cambio,
+                         etiqueta='Contraseña nueva' if escrita else 'Contraseña generada')
+    if escrita:
+        messages.success(request, f'Se cambió la contraseña de {nombre_de(usuario)}.')
+    else:
+        messages.success(request, f'Se generó una contraseña nueva para {nombre_de(usuario)}. Entrégasela: no se volverá a mostrar.')
     return redirect('usuarios:detalle', usuario.pk)
 
 

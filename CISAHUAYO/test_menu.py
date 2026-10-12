@@ -23,8 +23,8 @@ class MenuConRutasRealesTests(SimpleTestCase):
     def test_el_orden_del_menu(self):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Estudiantes', 'Tutores', 'Profesores', 'Inscripciones',
-            'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias', 'Usuarios',
-            'Roles y permisos',
+            'Ciclos escolares', 'Grados', 'Grupos', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias',
+            'Usuarios', 'Roles y permisos',
         ])
 
     def test_urls_de_las_secciones(self):

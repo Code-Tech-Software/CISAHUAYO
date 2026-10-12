@@ -29,7 +29,7 @@
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ alumno.get_estatus_display }}</span>
             {% if inscripcion_actual %}
-              <span>{{ inscripcion_actual.grado }} · Ciclo {{ inscripcion_actual.ciclo }}</span>
+              <span>{{ inscripcion_actual.grupo }} · Ciclo {{ inscripcion_actual.ciclo }}</span>
             {% else %}
               <span class="text-muted">Sin inscripción en el ciclo actual</span>
             {% endif %}
@@ -325,9 +325,9 @@
                 {% for inscripcion in inscripciones %}
                   <li class="timeline__item timeline__item--stack">
                     <span class="timeline__main">
-                      {% if perms.Alumnos.view_grado %}<a class="link-subtle" href="{{ inscripcion.grado.get_absolute_url }}?ciclo={{ inscripcion.ciclo_id }}">{{ inscripcion.grado }}</a>{% else %}{{ inscripcion.grado }}{% endif %}
+                      {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ inscripcion.grupo.get_absolute_url }}?ciclo={{ inscripcion.ciclo_id }}">{{ inscripcion.grupo }}</a>{% else %}{{ inscripcion.grupo }}{% endif %}
                       {% if inscripcion.activa and perms.Alumnos.view_horariomateria %}
-                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grado' inscripcion.grado_id %}?ciclo={{ inscripcion.ciclo_id }}" aria-label="Ver el horario de {{ inscripcion.grado }}" data-tooltip="Ver horario">
+                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grupo' inscripcion.grupo_id %}?ciclo={{ inscripcion.ciclo_id }}" aria-label="Ver el horario de {{ inscripcion.grupo }}" data-tooltip="Ver horario">
                           {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
                         </a>
                       {% endif %}
@@ -394,6 +394,7 @@
         <div class="modal__body form-grid">
           {% include "partials/field.html" with campo=inscribir_form.ciclo clase="form-grid__full" %}
           {% include "partials/field.html" with campo=inscribir_form.grado %}
+          {% include "partials/field.html" with campo=inscribir_form.grupo %}
           {% include "partials/field.html" with campo=inscribir_form.fecha_inscripcion %}
         </div>
         <footer class="modal__footer">
@@ -403,4 +404,8 @@
       </form>
     </dialog>
   {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/grupo-del-grado.js' %}" defer></script>
 {% endblock %}

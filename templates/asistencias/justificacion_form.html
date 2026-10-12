@@ -45,7 +45,7 @@
             {% include "partials/avatar.html" with persona=alumno %}
             <div class="chosen__text">
               <p class="chosen__name"><a class="link-subtle" href="{% url 'asistencias:alumno' alumno.pk %}">{{ alumno }}</a></p>
-              <p class="chosen__meta">{{ inscripcion.grado }} · {{ justificacion.fecha|date:"l j \d\e F \d\e Y"|lower }}</p>
+              <p class="chosen__meta">{{ inscripcion.grupo }} · {{ justificacion.fecha|date:"l j \d\e F \d\e Y"|lower }}</p>
             </div>
           </div>
         {% else %}
@@ -67,7 +67,7 @@
               <span class="avatar avatar--tone-{{ alumno.pk|tono }}" data-picker-avatar aria-hidden="true">{{ alumno.iniciales }}</span>
               <div class="chosen__text">
                 <p class="chosen__name" data-picker-name>{{ alumno }}</p>
-                <p class="chosen__meta" data-picker-grado>{% if inscripcion %}{{ inscripcion.grado }}{% else %}Estudiante seleccionado{% endif %}</p>
+                <p class="chosen__meta" data-picker-grado>{% if inscripcion %}{{ inscripcion.grupo }}{% else %}Estudiante seleccionado{% endif %}</p>
               </div>
               <button type="button" class="btn btn--sm" data-picker-change>Cambiar</button>
             </div>
@@ -100,7 +100,7 @@
         {% include "partials/choices.html" with campo=form.materias_modo %}
 
         <div class="field attendance-subjects{% if form.materias.errors %} is-invalid{% endif %}" data-materias-bloque>
-          <p class="field__label">Materias <span class="text-muted" data-materias-grado>{% if inscripcion %}de {{ inscripcion.grado }}{% endif %}</span></p>
+          <p class="field__label">Materias <span class="text-muted" data-materias-grado>{% if inscripcion %}de {{ inscripcion.grupo }}{% endif %}</span></p>
           <div class="choice-group choice-group--stack" data-materias-lista>
             {% for opcion in form.materias %}
               <label class="choice choice--check" for="{{ opcion.id_for_label }}">

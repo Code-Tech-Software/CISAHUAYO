@@ -1,6 +1,6 @@
 /* CISAHUAYO · horario de un grado
 
-   Prepara la ventana de confirmación para quitar un bloque (de una materia o un recreo) con los datos del botón que la
+   Prepara la ventana de confirmación para quitar un bloque (de una materia o un receso) con los datos del botón que la
    abrió: cada botón [data-eliminar] abre su ventana (data-modal-open) y llena el formulario [data-eliminar-form] de ella.
 */
 (() => {

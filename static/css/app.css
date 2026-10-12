@@ -2049,6 +2049,12 @@ body {
   grid-column: 1 / -1; /* una CURP de 18 caracteres no cabe en media franja de un teléfono */
 }
 
+/* Un botón pequeño junto al dato («Cambiar» la contraseña) */
+.identity__fact-action {
+  margin-left: var(--space-1);
+  vertical-align: middle;
+}
+
 .identity__fact--mono dd {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: 0.03em;

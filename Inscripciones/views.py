@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from Alumnos.academico import alumnos_sin_inscribir, ciclo_actual, motivo_no_inscribible, siguiente_grado
+from Alumnos.academico import alumnos_sin_inscribir, ciclo_actual, grupos_del_grado, motivo_no_inscribible, siguiente_grado
 from Alumnos.models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
@@ -40,7 +40,7 @@ def _filtro(request):
 @requiere_permisos('Alumnos.view_inscripcion')
 def inscripcion_lista(request):
     filtro, ciclo_por_defecto = _filtro(request)
-    inscripciones = filtro.filtrar(Inscripcion.objects.select_related('alumno', 'grado', 'ciclo'))
+    inscripciones = filtro.filtrar(Inscripcion.objects.select_related('alumno', 'grado', 'grupo__nombre', 'grupo__grado', 'ciclo'))
     pagina, rango_paginas, por_pagina = paginar(request, inscripciones)
 
     # Los conteos de las pestañas respetan los demás filtros
@@ -96,9 +96,9 @@ def _alumno_elegido(form):
 
 
 def _iniciales(request):
-    """Datos que puede traer la URL: ?alumno=, ?ciclo= y ?grado= (desde el perfil o un ciclo)."""
+    """Datos que puede traer la URL: ?alumno=, ?ciclo=, ?grado= y ?grupo= (desde el perfil, un ciclo o un grupo)."""
     return {
-        campo: request.GET[campo] for campo in ('alumno', 'ciclo', 'grado') if request.GET.get(campo, '').isdigit()
+        campo: request.GET[campo] for campo in ('alumno', 'ciclo', 'grado', 'grupo') if request.GET.get(campo, '').isdigit()
     }
 
 
@@ -112,7 +112,7 @@ def inscripcion_crear(request):
         form = InscripcionForm(request.POST)
         if form.is_valid():
             inscripcion = form.save()
-            messages.success(request, f'{inscripcion.alumno} fue inscrito en {inscripcion.grado} ({inscripcion.ciclo}).')
+            messages.success(request, f'{inscripcion.alumno} fue inscrito en {inscripcion.grupo} ({inscripcion.ciclo}).')
             return redirect(_url_de_lista(inscripcion.ciclo_id))
         _error_de_formulario(request)
     else:
@@ -129,12 +129,12 @@ def inscripcion_crear(request):
 
 @requiere_permisos('Alumnos.change_inscripcion')
 def inscripcion_editar(request, pk):
-    inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado'), pk=pk)
+    inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado'), pk=pk)
     form = InscripcionForm(request.POST if request.method == 'POST' else None, instance=inscripcion)
     if request.method == 'POST':
         if form.is_valid():
             form.save()
-            messages.success(request, f'La inscripción de {inscripcion.alumno} se actualizó: {inscripcion.grado} ({inscripcion.ciclo}).')
+            messages.success(request, f'La inscripción de {inscripcion.alumno} se actualizó: {inscripcion.grupo} ({inscripcion.ciclo}).')
             return redirect(_url_de_lista(inscripcion.ciclo_id))
         _error_de_formulario(request)
 
@@ -153,7 +153,7 @@ def inscripcion_editar(request, pk):
 @requiere_permisos('Alumnos.delete_inscripcion')
 def inscripcion_baja(request, pk):
     """Baja lógica: la inscripción deja de contar, pero se conserva (y se puede reactivar)."""
-    inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado'), pk=pk)
+    inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado'), pk=pk)
     if not inscripcion.activa:
         messages.info(request, f'La inscripción de {inscripcion.alumno} ya estaba dada de baja.')
     else:
@@ -171,7 +171,7 @@ def inscripcion_baja(request, pk):
 @require_POST
 @requiere_permisos('Alumnos.change_inscripcion')
 def inscripcion_reactivar(request, pk):
-    inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado'), pk=pk)
+    inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado'), pk=pk)
     motivo = motivo_no_inscribible(inscripcion.alumno)
     if inscripcion.activa:
         messages.info(request, f'La inscripción de {inscripcion.alumno} ya está activa.')
@@ -192,7 +192,7 @@ def inscripcion_reactivar(request, pk):
 @requiere_permisos('Alumnos.view_inscripcion')
 def inscripcion_exportar(request):
     filtro, _ = _filtro(request)
-    inscripciones = filtro.filtrar(Inscripcion.objects.select_related('alumno', 'grado', 'ciclo'))
+    inscripciones = filtro.filtrar(Inscripcion.objects.select_related('alumno', 'grado', 'grupo__nombre', 'grupo__grado', 'ciclo'))
 
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="inscripciones-{timezone.localdate():%Y-%m-%d}.csv"'
@@ -224,9 +224,10 @@ def _plan_de_promocion(origen, destino):
     ya_inscritos = set(Inscripcion.objects.filter(ciclo=destino).values_list('alumno_id', flat=True))
 
     filas = {}
-    for inscripcion in Inscripcion.objects.filter(ciclo=origen, activa=True).select_related('alumno', 'grado'):
+    for inscripcion in Inscripcion.objects.filter(ciclo=origen, activa=True).select_related('alumno', 'grado', 'grupo'):
         fila = filas.setdefault(
-            inscripcion.grado_id, {'grado': inscripcion.grado, 'alumnos': [], 'ya_inscritos': 0, 'no_activos': 0},
+            inscripcion.grado_id,
+            {'grado': inscripcion.grado, 'alumnos': [], 'grupo_de': {}, 'ya_inscritos': 0, 'no_activos': 0},
         )
         if inscripcion.alumno_id in ya_inscritos:
             fila['ya_inscritos'] += 1
@@ -234,6 +235,7 @@ def _plan_de_promocion(origen, destino):
             fila['no_activos'] += 1
         else:
             fila['alumnos'].append(inscripcion.alumno_id)
+            fila['grupo_de'][inscripcion.alumno_id] = inscripcion.grupo.nombre_id   # pasa al grupo que se llama igual
 
     plan = sorted(filas.values(), key=lambda fila: posicion[fila['grado'].pk])
     for fila in plan:
@@ -321,8 +323,14 @@ def _ejecutar_promocion(request):
         if decision == 'egresar':
             egresan.extend(fila['alumnos'])
         else:
+            grado = next(g for g in activos if g.pk == int(decision))
+            grupos = {grupo.nombre_id: grupo for grupo in grupos_del_grado(grado)}
+            principal = next(iter(grupos.values()))
             nuevas.extend(
-                Inscripcion(alumno_id=alumno_id, ciclo=destino, grado_id=int(decision), fecha_inscripcion=fecha)
+                Inscripcion(
+                    alumno_id=alumno_id, ciclo=destino, grado=grado, fecha_inscripcion=fecha,
+                    grupo=grupos.get(fila['grupo_de'][alumno_id], principal),   # el mismo grupo (A → A) si existe
+                )
                 for alumno_id in fila['alumnos']
             )
 

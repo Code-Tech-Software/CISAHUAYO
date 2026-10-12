@@ -11,11 +11,10 @@ def agregar_al_ciclo_actual(apps, schema_editor):
     if ciclo is None:
         return
     ya_estan = set(MateriaGrado.objects.filter(ciclo=ciclo).values_list('materia_id', 'grado_id'))
-    MateriaGrado.objects.bulk_create([
-        MateriaGrado(ciclo=ciclo, grado_id=materia.grado_id, materia=materia)
-        for materia in Materia.objects.filter(activa=True, grado__isnull=False, grado__activo=True)
-        if (materia.pk, materia.grado_id) not in ya_estan
-    ])
+    # Una por una (no en bloque): así también sirve con el modelo actual, que completa el grupo al guardar
+    for materia in Materia.objects.filter(activa=True, grado__isnull=False, grado__activo=True):
+        if (materia.pk, materia.grado_id) not in ya_estan:
+            MateriaGrado.objects.create(ciclo=ciclo, grado_id=materia.grado_id, materia=materia)
 
 
 class Migration(migrations.Migration):

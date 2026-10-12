@@ -133,7 +133,7 @@
                       {% else %}
                         <span class="cell-stack__main"><span class="tag tag--warning">Sin profesor</span></span>
                       {% endif %}
-                      {% if asignacion.grado_id != materia.grado_id %}<span class="cell-stack__sub">En {{ asignacion.grado }}</span>{% endif %}
+                      {% if materia.plan_actual|length > 1 or asignacion.grado_id != materia.grado_id %}<span class="cell-stack__sub">{{ asignacion.grupo }}</span>{% endif %}
                     </span>
                   {% empty %}
                     {% if viendo_bajas or not materia.grado %}—{% else %}<span class="tag">Fuera del plan</span>{% endif %}

@@ -18,7 +18,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{{ asignacion.materia }} · {{ asignacion.grado }}</h1>
+      <h1 class="page-header__title">{{ asignacion.materia }} · {{ asignacion.grupo }}</h1>
       <p class="page-header__description">
         {{ fecha|date:"l" }}, {{ fecha|date:"DATE_FORMAT"|lower }}
         {% for bloque in bloques %}· {{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }} {% endfor %}
@@ -44,7 +44,7 @@
   {% elif not asignacion.activa %}
     <div class="alert alert--info alert--spaced" role="note">
       {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
-      <p class="alert__body">Esta materia ya no se imparte en {{ asignacion.grado }}: su lista se muestra solo para consulta.</p>
+      <p class="alert__body">Esta materia ya no se imparte en {{ asignacion.grupo }}: su lista se muestra solo para consulta.</p>
     </div>
   {% elif not se_imparte %}
     <div class="alert alert--info alert--spaced" role="note">
@@ -72,7 +72,7 @@
 
       <div class="table-card">
         <table class="table table--people">
-          <caption class="visually-hidden">Lista de {{ asignacion.materia }} de {{ asignacion.grado }} del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
+          <caption class="visually-hidden">Lista de {{ asignacion.materia }} de {{ asignacion.grupo }} del {{ fecha|date:"DATE_FORMAT"|lower }}</caption>
           <thead class="table__head">
             <tr>
               <th class="table__th" scope="col">Estudiante</th>
@@ -157,7 +157,7 @@
       <div class="empty-state">
         {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">No hay estudiantes en la lista</p>
-        <p class="empty-state__text">{{ asignacion.grado }} no tiene estudiantes inscritos vigentes ese día.</p>
+        <p class="empty-state__text">{{ asignacion.grupo }} no tiene estudiantes inscritos vigentes ese día.</p>
         {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
       </div>
     </div>

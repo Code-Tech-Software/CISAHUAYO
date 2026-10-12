@@ -16,7 +16,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Grados</h1>
-      <p class="page-header__description">Los grados del colegio, por nivel. Hay un solo grupo por grado, así que cada grado es una sola lista de estudiantes.</p>
+      <p class="page-header__description">Los grados del colegio, por nivel, con sus grupos (A, B…). El plan de materias es del grado y lo comparten sus grupos.</p>
     </div>
     <div class="page-header__actions">
       {% if perms.Alumnos.add_grado %}
@@ -58,16 +58,18 @@
       <ul class="grade-grid">
         {% for fila in nivel.filas %}
           <li>
-            <article class="grade-card grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
+            {# Siempre las mismas cuatro líneas (de una sola línea cada una): todas las tarjetas miden lo mismo #}
+            <article class="grade-card grade-card--acciones-arriba grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
               <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}°</span>
               <div class="grade-card__body">
-                <h3 class="grade-card__name"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado }}</a></h3>
-                {% if fila.grado.equivalencia %}<p class="grade-card__eq" title="Equivalencia en la continuidad escolar">{{ fila.grado.equivalencia_frase }}</p>{% endif %}
-                {% if viendo_bajas %}
-                  <p class="grade-card__meta">Dado de baja</p>
-                {% elif ciclo %}
-                  <p class="grade-card__meta">{{ fila.inscritos }} estudiante{{ fila.inscritos|pluralize }}{% if fila.materias %} · {{ fila.materias }} materia{{ fila.materias|pluralize }}{% endif %}</p>
-                {% endif %}
+                <h3 class="grade-card__name grade-card__linea"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado }}</a></h3>
+                <p class="grade-card__eq grade-card__linea" title="Equivalencia en la continuidad escolar">{% if fila.grado.equivalencia %}{{ fila.grado.equivalencia_frase }}{% else %}<span class="text-muted">Sin equivalencia</span>{% endif %}</p>
+                <p class="grade-card__meta grade-card__linea">
+                  {% with grupos=fila.grado.grupos_activos %}{% if grupos %}Grupo{{ grupos|length|pluralize }} {% for grupo in grupos %}{{ grupo.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}Sin grupos{% endif %}{% endwith %}
+                </p>
+                <p class="grade-card__meta grade-card__linea">
+                  {% if viendo_bajas %}Dado de baja{% elif ciclo %}{{ fila.inscritos }} estudiante{{ fila.inscritos|pluralize }} · {{ fila.materias }} materia{{ fila.materias|pluralize }}{% else %}—{% endif %}
+                </p>
               </div>
               {% if perms.Alumnos.change_grado or perms.Alumnos.delete_grado and not viendo_bajas %}
                 <div class="grade-card__actions">

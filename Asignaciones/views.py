@@ -48,8 +48,8 @@ def _asignaciones_filtradas(filtro, ciclo):
     consulta = asignaciones_vigentes(ciclo) if ciclo else MateriaGrado.objects.none()
     return (
         filtro.filtrar(consulta)
-        .select_related('grado', 'materia', 'profesor').prefetch_related('horarios')
-        .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'materia__nombre')
+        .select_related('grado', 'grupo__nombre', 'grupo__grado', 'materia', 'profesor').prefetch_related('horarios')
+        .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')
     )
 
 
@@ -235,13 +235,14 @@ def exportar(request):
     respuesta['Content-Disposition'] = f'attachment; filename="asignaciones-{timezone.localdate():%Y-%m-%d}.csv"'
     respuesta.write('﻿')  # para que Excel reconozca los acentos
     escritor = csv.writer(respuesta)
-    escritor.writerow(['Ciclo', 'Nivel', 'Grado', 'Materia', 'Clave', 'Profesor', 'Puede impartirla', 'Horario', 'Horas por semana'])
+    escritor.writerow(['Ciclo', 'Nivel', 'Grado', 'Grupo', 'Materia', 'Clave', 'Profesor', 'Puede impartirla', 'Horario', 'Horas por semana'])
     for fila in filas:
         sin_profesor = fila.profesor_id is None
         escritor.writerow([proteger_celda_csv(valor) for valor in (
             ciclo.nombre,
             fila.grado.get_nivel_display(),
             str(fila.grado),
+            str(fila.grupo.nombre),
             fila.materia.nombre,
             fila.materia.clave,
             'Sin profesor' if sin_profesor else str(fila.profesor),

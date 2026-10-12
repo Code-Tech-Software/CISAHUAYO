@@ -91,6 +91,17 @@ MODULOS = (
             'baja': 'Dar de baja un grado.',
         }),
     )),
+    Modulo('grupos', 'Grupos', 'users', 'Los grupos de cada grado (1° A, 1° B…) y el catálogo de nombres de grupo.', (
+        Funcion('Grupos', {'ver': 'Alumnos.view_grupo'}, ayuda={
+            'ver': 'Consultar los grupos con sus estudiantes, sus materias y sus profesores. Los grupos de un grado se eligen al editar el grado.',
+        }),
+        Funcion('Nombres de grupo', _permisos('nombregrupo'), ayuda={
+            'ver': 'Consultar el catálogo de nombres de grupo.',
+            'crear': 'Agregar nombres de grupo (A, B, Matutino…).',
+            'editar': 'Renombrar un grupo del catálogo o reactivarlo.',
+            'baja': 'Dar de baja un nombre de grupo del catálogo.',
+        }),
+    )),
     Modulo('materias', 'Materias', 'book-open', 'El catálogo de materias, su plan por grado y qué profesor imparte cada una.', (
         Funcion('Catálogo de materias', _permisos('materia'), ayuda={
             'ver': 'Consultar las materias, y exportarlas a CSV.',
@@ -107,10 +118,10 @@ MODULOS = (
     )),
     Modulo('horarios', 'Horarios', 'clock', 'El horario semanal de cada grado.', (
         Funcion('Horarios', _permisos('horariomateria'), ayuda={
-            'ver': 'Consultar los horarios por grado, profesor y materia, con los recreos de cada grupo.',
-            'crear': 'Agregar bloques y recreos al horario.',
-            'editar': 'Cambiar el día o la hora de un bloque o de un recreo.',
-            'baja': 'Quitar bloques y recreos del horario.',
+            'ver': 'Consultar los horarios por grupo, profesor y materia, con los recesos de cada grupo.',
+            'crear': 'Agregar bloques y recesos al horario.',
+            'editar': 'Cambiar el día o la hora de un bloque o de un receso.',
+            'baja': 'Quitar bloques y recesos del horario.',
         }),
     )),
     Modulo('periodos', 'Periodos de evaluación', 'clipboard-check', 'Los parciales, bimestres o trimestres de cada nivel y cuándo se puede capturar en cada uno.', (

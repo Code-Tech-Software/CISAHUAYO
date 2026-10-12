@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{{ grupo }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'grupos:lista' %}">Grupos</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ grupo }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with tono=grupo.activo|yesno:"success,danger" %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        <span class="identity__badge" aria-hidden="true">{{ grado.numero }}°{% if grupo.nombre.nombre|length <= 2 %}{{ grupo.nombre }}{% endif %}</span>
+
+        <div class="identity__text">
+          <p class="identity__eyebrow">Grupo · {{ grado.get_nivel_display }}</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ grupo }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{{ grupo.activo|yesno:"Activo,Dado de baja" }}</span>
+            {% if grado.equivalencia %}<span>{{ grado.equivalencia_frase }}</span>{% endif %}
+            {% if ciclo %}<span class="text-muted">{{ inscripciones|length }} estudiante{{ inscripciones|length|pluralize }} en el ciclo {{ ciclo }}</span>{% endif %}
+          </p>
+        </div>
+
+        <div class="identity__actions">
+          {% if perms.Alumnos.view_horariomateria %}
+            <a class="btn" href="{% url 'horarios:grupo' grupo.pk %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">
+              {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Ver horario
+            </a>
+          {% endif %}
+          {% if perms.Alumnos.change_grado %}
+            <a class="btn btn--primary" href="{% url 'grados:editar' grado.pk %}" data-modal-form>
+              {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Grupos de {{ grado }}
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="identity__facts">
+        <div class="identity__fact"><dt>Grado</dt><dd>{% if perms.Alumnos.view_grado %}<a href="{{ grado.get_absolute_url }}">{{ grado }}</a>{% else %}{{ grado }}{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Grupo</dt><dd>{{ grupo.nombre }}</dd></div>
+        <div class="identity__fact"><dt>Ciclo consultado</dt><dd>{{ ciclo|default:"—" }}</dd></div>
+        <div class="identity__fact"><dt>Materias</dt><dd>{{ materias|length }}{% if sin_profesor %} <span class="text-muted">({{ sin_profesor }} sin profesor)</span>{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Horas por semana</dt><dd>{{ horas_semanales|default:"—" }}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  {% if grupos_del_grado|length > 1 %}
+    <nav class="pills" aria-label="Grupos de {{ grado }}">
+      {% for otro in grupos_del_grado %}
+        <a class="pill{% if otro == grupo %} is-active{% endif %}" href="{{ otro.get_absolute_url }}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if otro == grupo %} aria-current="page"{% endif %}>{{ otro.corto }}</a>
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}
+          <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }}{% if c.activo %} · actual{% endif %}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  <div class="tabs" data-tabs>
+    <div class="tabs__list" role="tablist" aria-label="Secciones del grupo">
+      <button type="button" class="tabs__tab" role="tab" id="tab-estudiantes" aria-controls="estudiantes" aria-selected="true">
+        Estudiantes <span class="tabs__count">{{ inscripciones|length }}</span>
+      </button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-materias" aria-controls="materias" aria-selected="false">
+        Materias y profesores <span class="tabs__count">{{ materias|length }}</span>
+      </button>
+    </div>
+
+    {# --- Estudiantes del grupo ------------------------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="estudiantes" aria-labelledby="tab-estudiantes">
+      {% if perms.Alumnos.add_inscripcion and editable %}
+        <div class="panel-actions">
+          <a class="btn btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}&amp;grupo={{ grupo.pk }}" data-modal-form>
+            {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %} Inscribir estudiante
+          </a>
+        </div>
+      {% endif %}
+
+      {% if inscripciones %}
+        <div class="table-card">
+          <table class="table">
+            <caption class="visually-hidden">Estudiantes de {{ grupo }} en el ciclo {{ ciclo }}</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Estudiante</th>
+                <th class="table__th" scope="col">Tutor principal</th>
+                <th class="table__th table__col--wide" scope="col">Inscrito el</th>
+                <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for inscripcion in inscripciones %}
+                {% with alumno=inscripcion.alumno %}
+                  <tr class="table__row">
+                    <td class="table__cell table__cell--main">
+                      <a class="person" href="{{ alumno.get_absolute_url }}">
+                        {% include "partials/avatar.html" with persona=alumno %}
+                        <span class="person__text">
+                          <span class="person__name">{{ alumno }}</span>
+                          <span class="person__meta">Ref. {{ alumno.referencia }}</span>
+                        </span>
+                      </a>
+                    </td>
+                    <td class="table__cell" data-label="Tutor principal">
+                      {% with vinculo=alumno.vinculos_activos.0 %}
+                        {% if vinculo %}{{ vinculo.tutor }}{% else %}<span class="tag tag--warning">Sin tutor</span>{% endif %}
+                      {% endwith %}
+                    </td>
+                    <td class="table__cell table__col--wide" data-label="Inscrito el">{{ inscripcion.fecha_inscripcion|date:"j M Y" }}</td>
+                    <td class="table__cell table__cell--actions">
+                      {% if perms.Alumnos.change_inscripcion %}
+                        <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'inscripciones:editar' inscripcion.pk %}" aria-label="Cambiar de grupo a {{ alumno }}" data-tooltip="Editar inscripción" data-modal-form>
+                          {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                        </a>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endwith %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">{% if ciclo %}Sin estudiantes en este ciclo{% else %}Aún no hay ciclos escolares{% endif %}</p>
+            <p class="empty-state__text">{% if ciclo %}Los estudiantes que inscribas en {{ grupo }} aparecerán aquí.{% else %}Crea un ciclo escolar para poder inscribir estudiantes.{% endif %}</p>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {# --- Materias del grupo con su profesor ---------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="materias" aria-labelledby="tab-materias">
+      {% if materias %}
+        <div class="table-card">
+          <table class="table">
+            <caption class="visually-hidden">Materias de {{ grupo }} en el ciclo {{ ciclo }}</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Materia</th>
+                <th class="table__th" scope="col">Profesor</th>
+                <th class="table__th" scope="col">Horario</th>
+                <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for item in materias %}
+                <tr class="table__row">
+                  <td class="table__cell table__cell--main">
+                    {% if perms.Alumnos.view_materia %}<a class="link-subtle" href="{{ item.materia.get_absolute_url }}">{{ item.materia.nombre }}</a>{% else %}{{ item.materia.nombre }}{% endif %}
+                    <code class="code">{{ item.materia.clave }}</code>
+                  </td>
+                  <td class="table__cell" data-label="Profesor">
+                    {% if item.profesor %}
+                      {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ item.profesor.get_absolute_url }}">{{ item.profesor }}</a>{% else %}{{ item.profesor }}{% endif %}
+                    {% else %}<span class="tag tag--warning">Sin profesor</span>{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Horario">
+                    {% if item.lineas %}<span class="cell-stack">{% for linea in item.lineas %}<span class="cell-stack__main">{{ linea }}</span>{% endfor %}</span>{% else %}<span class="tag tag--warning">Sin horario</span>{% endif %}
+                  </td>
+                  <td class="table__cell table__cell--actions">
+                    {% if editable and perms.Alumnos.change_materiagrado %}
+                      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
+                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ grupo }}" data-profesor="{{ item.profesor_id|default_if_none:'' }}"
+                              data-habilitados="{{ item.habilitados }}" data-del-nivel="{{ item.del_nivel }}" data-nivel="{{ grado.get_nivel_display }}"
+                              aria-label="{% if item.profesor %}Cambiar al profesor de {{ item.materia }}{% else %}Asignar profesor a {{ item.materia }}{% endif %}"
+                              data-tooltip="{% if item.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
+                        {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
+                      </button>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            {% include "partials/icon.html" with name="clipboard-list" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">Sin materias en este ciclo</p>
+            <p class="empty-state__text">El plan de materias es de {{ grado }}: al agregarle materias, este grupo las tiene también.</p>
+            {% if perms.Alumnos.view_grado %}
+              <a class="btn btn--sm" href="{{ grado.get_absolute_url }}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}#materias">Ir a las materias de {{ grado }}</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if editable and perms.Alumnos.change_materiagrado %}
+    {% include "profesores/_modal_asignar.html" with ancla="#materias" %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/profesores.js' %}" defer></script>
+{% endblock %}

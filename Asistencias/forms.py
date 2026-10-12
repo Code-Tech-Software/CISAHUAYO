@@ -127,7 +127,7 @@ def _validar_comprobante(archivo):
 def _materias_de(inscripcion):
     """Materias vigentes del grado del alumno en el ciclo de su inscripción."""
     return (
-        MateriaGrado.objects.filter(ciclo=inscripcion.ciclo, grado=inscripcion.grado, activa=True, materia__activa=True)
+        MateriaGrado.objects.filter(ciclo=inscripcion.ciclo, grupo=inscripcion.grupo, activa=True, materia__activa=True)
         .select_related('materia').order_by('materia__nombre')
     )
 

@@ -7,11 +7,15 @@
 {% url 'cuenta:perfil' as cuenta_url %}
 {% url 'ajustes:inicio' as ajustes_url %}
 {% if user.is_authenticated %}
-  {% with nombre=user.get_full_name|default:user.get_username %}
+  {% with nombre=user.get_full_name|default:user.get_username perfil=rol_usuario.nombre|default:"Sin rol" %}
     <div class="menu" data-menu>
-      <button type="button" class="user-trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-usuario" aria-label="Menú de usuario, {{ nombre }}">
+      <button type="button" class="user-trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-usuario" aria-label="Menú de usuario, {{ nombre }} ({{ perfil }})">
         <span class="avatar avatar--ring" aria-hidden="true">{{ nombre|first|upper }}</span>
-        <span class="user-trigger__name" aria-hidden="true">{{ nombre }}</span>
+        {# El nombre y, debajo, el tipo de perfil (su rol) #}
+        <span class="user-trigger__text" aria-hidden="true">
+          <span class="user-trigger__name">{{ nombre }}</span>
+          <span class="user-trigger__role">{{ perfil }}</span>
+        </span>
         {% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm user-trigger__chevron" %}
       </button>
       <div class="menu__panel" id="menu-usuario" data-menu-panel hidden>

@@ -546,6 +546,11 @@ body {
   min-width: 0;
 }
 
+/* Los menús (avisos y usuario) conservan su ancho: si falta espacio, se encoge el buscador, no el nombre y el rol */
+.topbar__end > .menu {
+  flex-shrink: 0;
+}
+
 /* --- Footer --------------------------------------------------------------- */
 .app__footer {
   flex-shrink: 0;
@@ -1798,14 +1803,30 @@ body {
   background: var(--color-surface-hover);
 }
 
-.user-trigger__name {
+/* El nombre y, debajo, el tipo de perfil (rol); en pantallas chicas solo queda el avatar */
+.user-trigger__text {
   display: none;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.user-trigger__name,
+.user-trigger__role {
+  display: block;
   max-width: 10rem;
   overflow: hidden;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.user-trigger__name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.user-trigger__role {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
 }
 
 .user-trigger__chevron {
@@ -5142,8 +5163,8 @@ body {
     flex-basis: 20rem;
   }
 
-  .user-trigger__name {
-    display: block;
+  .user-trigger__text {
+    display: grid;
   }
 }
 

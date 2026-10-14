@@ -883,6 +883,12 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         self.assertRegex(html, r'menu__subtitle">\s*Docente\s*<')
         self.assertIn(f'href="{reverse("cuenta:perfil")}"', html)
 
+    def test_debajo_del_nombre_aparece_el_tipo_de_perfil(self):
+        html = self.html_de(crear_usuario('lupita', self.docente, first_name='Lupita', last_name='Soto'))
+        self.assertRegex(html, r'user-trigger__name">Lupita Soto</span>\s*<span class="user-trigger__role">Docente</span>')
+        self.assertIn('aria-label="Menú de usuario, Lupita Soto (Docente)"', html)
+        self.assertIn('user-trigger__role">Sin rol<', self.html_de(crear_usuario('sinrol', None)))
+
     def test_solo_el_personal_de_django_ve_la_administracion_de_django(self):
         self.assertNotIn('Administración de Django', self.html_de(crear_usuario('lupita', self.docente)))
         self.assertIn('Administración de Django', self.html_de(self.admin))

@@ -124,14 +124,14 @@ class AccesoTests(BaseDocenteTestCase):
         asistencias = next(e for s in respuesta.context['navegacion'] for e in s['elementos'] if e['etiqueta'] == 'Asistencias')
         self.assertEqual(asistencias['url'], URL)
         # Las demás pantallas de asistencias le ofrecen volver a sus materias…
-        self.assertContains(self.client.get(reverse('asistencias:clases')), '>Mis materias</a>')
+        self.assertContains(self.client.get(reverse('asistencias:justificaciones')), '>Mis materias</a>')
         self.client.force_login(self.admin)   # (sin ficha de profesor: sin esa pestaña)
-        self.assertNotContains(self.client.get(reverse('asistencias:clases')), '>Mis materias</a>')
+        self.assertNotContains(self.client.get(reverse('asistencias:materias')), '>Mis materias</a>')
 
     def test_la_seccion_del_docente_no_lleva_las_pestanas_de_asistencias(self):
         respuesta = self.client.get(URL)
         self.assertNotContains(respuesta, 'pills--section')
-        self.assertNotContains(respuesta, reverse('asistencias:clases'))
+        self.assertNotContains(respuesta, reverse('asistencias:materias'))
         self.assertNotContains(respuesta, reverse('asistencias:justificaciones'))
         # ni el enlace a «Asistencias» en la ruta, que un docente no puede abrir
         self.assertNotContains(respuesta, f'href="{reverse("asistencias:inicio")}"')
@@ -170,7 +170,7 @@ class MatrizTests(BaseDocenteTestCase):
         AsistenciaMateria.objects.create(inscripcion=self.inscripcion, materia_grado=self.mat, fecha=dia(-14), estado='PRESENTE')
         AsistenciaMateria.objects.create(inscripcion=self.inscripcion, materia_grado=self.mat, fecha=dia(-7), estado='FALTA')
         Justificacion.objects.create(inscripcion=self.inscripcion, fecha=dia(-7), motivo='Consulta médica', todas_materias=True)
-        DiaNoLectivo.objects.create(fecha=dia(-4), motivo='Consejo técnico')
+        DiaNoLectivo.registrar(fecha=dia(-4), motivo='Consejo técnico')
         celdas = self.celdas()
         self.assertEqual((celdas[dia(-14)].letra, celdas[dia(-14)].editable), ('P', True))
         self.assertEqual((celdas[dia(-7)].letra, celdas[dia(-7)].editable), ('J', False))       # justificada: bloqueada
@@ -182,6 +182,13 @@ class MatrizTests(BaseDocenteTestCase):
         self.assertEqual((celdas[dia(7)].letra, celdas[dia(7)].editable), ('', False))          # futura
         # la suspensión aplica a todos
         self.assertEqual(self.celdas(self.otra)[dia(-4)].letra, 'S')
+
+    def test_un_dia_sin_clases_de_otro_nivel_no_bloquea_la_materia(self):
+        otro = 'SECUNDARIA' if self.mat.grado.nivel != 'SECUNDARIA' else 'PRIMARIA'
+        DiaNoLectivo.registrar(fecha=dia(-4), motivo='Consejo técnico', niveles=[otro])
+        self.assertNotEqual(self.celdas()[dia(-4)].letra, 'S')
+        DiaNoLectivo.registrar(fecha=dia(-4), motivo='Consejo técnico', niveles=[self.mat.grado.nivel])
+        self.assertEqual(self.celdas()[dia(-4)].letra, 'S')
 
     def test_antes_de_inscribirse_queda_bloqueado(self):
         nuevo = inscribir_antes(crear_alumno(curp='LOGA130822MMNPRNA7', nombre='Ana'), self.ciclo, self.grado, fecha_inscripcion=dia(-3))
@@ -316,7 +323,7 @@ class GuardarTests(BaseDocenteTestCase):
         self.assertEqual(respuesta.json()['version'], version)
 
     def test_rechazos_del_servidor(self):
-        DiaNoLectivo.objects.create(fecha=dia(-4), motivo='Consejo técnico')
+        DiaNoLectivo.registrar(fecha=dia(-4), motivo='Consejo técnico')
         Justificacion.objects.create(inscripcion=self.inscripcion, fecha=dia(-14), motivo='Enfermedad', todas_materias=True)
         otro_grupo = inscribir_antes(crear_alumno(curp='RAMS120405HMNMRNA3', nombre='Raúl'), self.ciclo, crear_grado('PRIMARIA', 5))
         casos = {
@@ -398,10 +405,11 @@ class ObservacionesTests(BaseDocenteTestCase):
         self.assertContains(respuesta, '¿Por qué', count=0)   # el texto de la pregunta lo pone el JavaScript
         self.assertContains(respuesta, 'data-menu-observacion')
 
-    def test_se_ve_en_el_pase_de_lista(self):
+    def test_se_ve_en_la_asistencia_por_materia_de_la_administracion(self):
         self.guardar(dia(0), 'FALTA', observaciones='Enfermo, avisó su mamá')
-        respuesta = self.client.get(reverse('asistencias:clase', args=[self.mat.pk]), {'fecha': dia(0).isoformat()})
-        self.assertContains(respuesta, 'Enfermo, avisó su mamá')
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse('asistencias:materias'), {'materia': self.mat.pk})
+        self.assertContains(respuesta, 'data-observaciones="Enfermo, avisó su mamá"')
 
 
 # ---------------------------------------------------------------------------

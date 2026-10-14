@@ -356,6 +356,50 @@
   --t-radius-xl: 1.75rem;
 }
 
+/* Corporate (paleta del usuario, 2026-10-13): Brilliance #fcfdfd (tarjetas, sección 4), Springtime Rain #edeff3
+   (fondo), Wind Weaver #c6d1d7 (acento y marca en oscuro), Wild Thistle #9fa0b5 (tono 2), Soothing Sapphire
+   #2f7eda (franja, velo del fondo y tono 1) y Blackwater #555663 (marca y menú de color). Con texto blanco encima,
+   el zafiro exacto da 4.1:1: los botones y enlaces usan el mismo zafiro un poco más profundo para llegar a AA. */
+[data-tema="corporate"] {
+  /* Colores */
+  --t-primary: #2c76cd;
+  --t-primary-hover: #2665ae;
+  --t-primary-text: #286cbb;
+  --t-primary-dark: #6da5e5;
+  --t-accent: #c6d1d7;
+  --t-accent-text: #555663;
+  --t-brand: #555663;
+  --t-brand-dark: #c6d1d7;
+  --t-stripe: #2f7eda;
+  --t-sidebar: #555663;
+  --t-fondo: #edeff3;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #166534;
+  --t-warning: #92400e;
+  --t-danger: #b91c1c;
+  --t-info: #286cbb;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #235da1;
+  --t-tone-1-base: #2f7eda;
+  --t-tone-2: #555663;
+  --t-tone-2-base: #9fa0b5;
+  --t-tone-3: #0f766e;
+  --t-tone-3-base: #2dd4bf;
+  --t-tone-4: #92400e;
+  --t-tone-4-base: #fbbf24;
+  --t-tone-5: #6d28d9;
+  --t-tone-5-base: #a78bfa;
+  --t-tone-6: #45535b;
+  --t-tone-6-base: #c6d1d7;
+  /* Letra y forma */
+  --t-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.375rem;
+  --t-radius-md: 0.5rem;
+  --t-radius-lg: 0.625rem;
+  --t-radius-xl: 0.875rem;
+}
+
 
 /* --- 2. Roles a partir de las entradas ---------------------------------------------------------
    Los neutros (fondos, bordes y textos) llevan un hilo del color del tema para que todo combine. Los
@@ -538,7 +582,8 @@
      Mandarina  Rubik · redondeado · sombras cálidas · etiquetas sólidas
      Violeta    DM Sans y Space Grotesk · esquinas justas · contorno fino · etiquetas de contorno
      Grafito    IBM Plex Sans · esquinas rectas · plano, sin sombras · etiquetas de contorno rectas
-     Next Level Nunito y Fredoka (como la plataforma) · gordito · botones y tarjetas en «3D» · etiquetas sólidas */
+     Next Level Nunito y Fredoka (como la plataforma) · gordito · botones y tarjetas en «3D» · etiquetas sólidas
+     Corporate  Inter · esquinas medias · tarjetas Brilliance · sombras grises nítidas · etiquetas suaves con borde */
 
 /* Letra y esquinas (en claro y en oscuro) */
 :root[data-tema]:not([data-tema="institucional"]) {
@@ -612,6 +657,20 @@
   transform: translateY(2px);
 }
 
+/* Corporate: tarjetas Brilliance sobre el fondo Springtime Rain y sombras nítidas teñidas de Blackwater */
+:root[data-tema="corporate"] {
+  --shadow-xs: 0 1px 2px color-mix(in srgb, #555663 10%, transparent);
+  --shadow-sm: 0 1px 3px color-mix(in srgb, #555663 14%, transparent), 0 1px 2px color-mix(in srgb, #555663 8%, transparent);
+  --shadow-md: 0 10px 24px -12px color-mix(in srgb, #555663 30%, transparent), 0 2px 6px -2px color-mix(in srgb, #555663 12%, transparent);
+  --shadow-lg: 0 24px 48px -16px color-mix(in srgb, #555663 34%, transparent), 0 6px 12px -6px color-mix(in srgb, #555663 14%, transparent);
+  --shadow-press: 0 2px 6px -2px color-mix(in srgb, var(--t-primary) 55%, transparent);
+  --shadow-press-hover: 0 6px 14px -6px color-mix(in srgb, var(--t-primary) 60%, transparent);
+}
+
+:root[data-tema="corporate"]:not([data-theme="dark"]) {
+  --color-surface: #fcfdfd;
+}
+
 /* Etiquetas sólidas: el color lleno y el texto del color de la superficie (blanco en claro, oscuro en oscuro) */
 :root:is([data-tema="frambuesa"], [data-tema="mandarina"], [data-tema="nextlevel"]) .tag:is(
   .tag--success, .tag--warning, .tag--danger, .tag--info, .tag--primary,
@@ -625,8 +684,8 @@
   font-weight: var(--weight-bold);
 }
 
-/* Etiquetas suaves con borde (Océano) y de contorno (Violeta, Grafito) */
-:root[data-tema="oceano"] .tag {
+/* Etiquetas suaves con borde (Océano, Corporate) y de contorno (Violeta, Grafito) */
+:root:is([data-tema="oceano"], [data-tema="corporate"]) .tag {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tag-fg) 28%, transparent);
 }
 

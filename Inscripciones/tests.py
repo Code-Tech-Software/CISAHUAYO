@@ -534,11 +534,37 @@ class PromocionTests(BaseTestCase):
         return self.client.post(self.url, datos, follow=follow)
 
     # --- vista previa ---------------------------------------------------------------
-    def test_sin_ciclo_de_destino_avisa(self):
+    def test_con_solo_el_ciclo_actual_explica_que_falta_el_siguiente(self):
+        # El caso real: solo existe el ciclo actual. No es que falte un ciclo actual: falta el ciclo al que se reinscribe
         self.destino.delete()
         respuesta = self.client.get(self.url)
         self.assertFalse(respuesta.context['hay_destinos'])
-        self.assertContains(respuesta, 'No hay un ciclo al cual reinscribir')
+        self.assertEqual(respuesta.context['sin_destino'], 'UN_CICLO')
+        self.assertContains(respuesta, 'Falta el ciclo al que se reinscribe')
+        self.assertRegex(respuesta.content.decode(), r'solo existe el\s+ciclo 2026-2027, que es el actual')
+        self.assertContains(respuesta, 'crea el ciclo 2027-2028')
+        self.assertContains(respuesta, f'{reverse("inscripciones:crear")}?ciclo={self.origen.pk}')
+        self.assertNotContains(respuesta, 'márcalo como actual')
+
+    def test_sin_ciclos_o_sin_destino_lo_dice(self):
+        CicloEscolar.objects.update(activo=False, fecha_inicio=hoy() - timedelta(days=500), fecha_fin=hoy() - timedelta(days=200))
+        self.destino.fecha_inicio, self.destino.fecha_fin = hoy() - timedelta(days=900), hoy() - timedelta(days=600)
+        self.destino.save()
+        respuesta = self.client.get(self.url)
+        self.assertEqual(respuesta.context['sin_destino'], 'SIN_DESTINO')
+        self.assertContains(respuesta, 'No hay un ciclo actual ni uno próximo')
+        CicloEscolar.objects.all().delete()
+        respuesta = self.client.get(self.url)
+        self.assertEqual(respuesta.context['sin_destino'], 'SIN_CICLOS')
+        self.assertContains(respuesta, 'Aún no hay ciclos escolares')
+
+    def test_sin_ciclo_proximo_propone_del_anterior_al_actual(self):
+        self.destino.delete()
+        anterior = ciclo_cerrado_de_prueba()
+        inscribir(crear_alumno(), anterior, self.g1)
+        respuesta = self.client.get(self.url)
+        self.assertEqual((respuesta.context['origen'], respuesta.context['destino']), (anterior, self.origen))
+        self.assertEqual([f['cantidad'] for f in respuesta.context['plan']], [1])
 
     def test_propone_del_ciclo_actual_al_proximo(self):
         self.preparar()

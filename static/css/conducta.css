@@ -1,0 +1,1008 @@
+/* ==========================================================================
+   CISAHUAYO · Conducta
+   Registro de conducta, detalle, pendientes, reportes, el expediente del estudiante y Ajustes › Conducta. Se apoya en
+   los componentes de app.css (.card, .table, .filters, .tag, .stat, .details, .chosen, .modal…) y en las clases de la
+   hoja de reporte de asistencias.css (.reporte__*). Colores de rol: cambian con cada tema; sin degradados ni !important.
+
+   Índice
+     1. Etiquetas y textos
+     2. Filtros
+     3. Formulario de registro
+     4. Detalle
+     5. Pendientes
+     6. Ajustes › Conducta
+     7. Reportes
+     8. Línea de tiempo (expediente y historial individual)
+     9. Responsive e impresión
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. ETIQUETAS Y TEXTOS
+   ========================================================================== */
+.conducta-gravedad--leve {
+  --tag-fg: var(--color-info);
+  --tag-bg: var(--color-info-bg);
+}
+
+.conducta-gravedad--moderada {
+  --tag-fg: var(--color-warning);
+  --tag-bg: var(--color-warning-bg);
+}
+
+.conducta-gravedad--grave {
+  --tag-fg: var(--color-danger);
+  --tag-bg: var(--color-danger-bg);
+}
+
+.conducta-anulado {
+  --tag-fg: var(--color-text-muted);
+  --tag-bg: var(--color-surface-2);
+  text-decoration: line-through;
+}
+
+.conducta-insignia {
+  background: var(--color-danger);
+  color: var(--color-surface);
+}
+
+.conducta-texto {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.conducta-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.conducta-bloque {
+  display: block;
+}
+
+/* La tabla del registro: en pantallas medianas se desplaza dentro de su tarjeta (sin estirar la página) */
+.conducta-tabla-marco {
+  position: relative;
+  overflow-x: auto;
+}
+
+.table__row.is-muted .table__cell {
+  color: var(--color-text-muted);
+}
+
+.conducta-tabla .person__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.conducta-hora,
+.conducta-categoria {
+  display: block;
+  font-size: var(--text-xs);
+}
+
+.conducta-motivo {
+  display: block;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.conducta-medida {
+  display: block;
+  font-size: var(--text-sm);
+}
+
+.conducta-suspendido {
+  margin-top: var(--space-1);
+}
+
+
+/* ==========================================================================
+   2. FILTROS (registro y reportes: los mismos)
+   ========================================================================== */
+/* Una fila debajo de otra a cualquier ancho (la rejilla de .filters reparte columnas en pantallas medianas) */
+.filters.filtros-conducta {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.filtros-conducta__fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.filtros-conducta__mas {
+  border-top: var(--border);
+  padding-top: var(--space-3);
+}
+
+.filtros-conducta__resumen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.filtros-conducta__mas:not([open]) .filtros-conducta__resumen {
+  margin-bottom: 0;
+}
+
+/* Varios estudiantes (reportes): la búsqueda y los elegidos como chips */
+.filtros-conducta__estudiantes {
+  grid-column: span 2;
+}
+
+.conducta-elegidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-elegidos:empty {
+  display: none;
+}
+
+.conducta-elegido {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 1.75rem;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.conducta-elegido__quitar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.conducta-elegido__quitar:hover {
+  background: var(--color-primary-soft-hover);
+}
+
+
+/* ==========================================================================
+   3. FORMULARIO DE REGISTRO
+   ========================================================================== */
+.conducta-form__fecha {
+  margin-top: var(--space-4);
+}
+
+/* Lo que se toma de su inscripción */
+.conducta-contexto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+
+.conducta-contexto dt,
+.conducta-reporte__filtros dt,
+.conducta-expediente__totales dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.conducta-contexto dd {
+  margin: 0.125rem 0 0;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.conducta-archivos {
+  padding: var(--space-2);
+}
+
+.conducta-archivos__lista {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-archivos__item {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.conducta-archivos__item.is-invalido {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* Suspensión: dentro de las medidas, en un recuadro de peligro */
+.conducta-suspension {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-danger-bg);
+}
+
+.conducta-suspension > * {
+  margin: 0;
+}
+
+.conducta-suspension--finalizada {
+  border-color: var(--color-border);
+  background: var(--color-surface-2);
+}
+
+.conducta-confirmar {
+  margin-top: var(--space-2);
+}
+
+.conducta-form__aviso {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+
+/* ==========================================================================
+   4. DETALLE
+   ========================================================================== */
+.conducta-encabezado__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+}
+
+.conducta-acciones {
+  flex-wrap: wrap;
+}
+
+.conducta-peligro {
+  color: var(--color-danger);
+}
+
+.conducta-aviso__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.conducta-aviso__form .field__control {
+  flex: 1 1 16rem;
+  min-height: 2.5rem;
+}
+
+.conducta-detalle {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.conducta-detalle__principal,
+.conducta-detalle__lateral {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  min-width: 0;
+}
+
+.conducta-detalle__contexto {
+  margin-top: var(--space-4);
+}
+
+.conducta-medidas {
+  margin-bottom: var(--space-3);
+}
+
+/* Evidencias: miniaturas que abren el archivo (por la vista protegida) */
+.conducta-evidencias {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-evidencia {
+  display: grid;
+  overflow: hidden;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.conducta-evidencia__vista {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+.conducta-evidencia__vista img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.conducta-evidencia__vista:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.conducta-evidencia__icono {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+
+.conducta-evidencia__pie {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.conducta-evidencia__pie > .text-muted {
+  grid-column: 1;
+}
+
+.conducta-evidencia__pie form {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.conducta-evidencia__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Contactos con la familia */
+.conducta-contactos {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-contacto {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border);
+  font-size: var(--text-sm);
+}
+
+.conducta-contacto:last-child {
+  border-bottom: 0;
+}
+
+.conducta-contacto__titulo {
+  color: var(--color-text-strong);
+}
+
+.conducta-otros {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+.conducta-expediente,
+.conducta-registro-meta {
+  margin: 0;
+}
+
+/* Historial de cambios del registro */
+.conducta-historial {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--color-border);
+  list-style: none;
+}
+
+.conducta-historial__item {
+  position: relative;
+  font-size: var(--text-sm);
+}
+
+.conducta-historial__item::before {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  left: calc(var(--space-4) * -1 - 0.3125rem);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+}
+
+.conducta-historial__que,
+.conducta-historial__cuando,
+.conducta-historial__detalle {
+  margin: 0;
+}
+
+.conducta-historial__cuando {
+  font-size: var(--text-xs);
+}
+
+.conducta-historial__detalle {
+  margin-top: var(--space-1);
+  color: var(--color-text-soft);
+  overflow-wrap: anywhere;
+}
+
+.conducta-historial__cambios summary {
+  margin-top: var(--space-1);
+  color: var(--color-primary-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.conducta-historial__cambios dl {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+.conducta-historial__cambios dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+}
+
+.conducta-historial__cambios dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.conducta-historial__cambios del {
+  color: var(--color-danger);
+}
+
+.conducta-historial__cambios ins {
+  color: var(--color-success);
+  text-decoration: none;
+}
+
+/* Páginas de una acción: de qué registro se trata */
+.conducta-resumen-registro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border);
+}
+
+
+/* ==========================================================================
+   5. PENDIENTES
+   ========================================================================== */
+.conducta-pendientes {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.conducta-lista-pendientes {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-pendiente {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border);
+}
+
+.conducta-pendiente:last-child {
+  border-bottom: 0;
+}
+
+.conducta-pendiente p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.conducta-pendiente__titulo {
+  font-weight: var(--weight-semibold);
+}
+
+
+/* ==========================================================================
+   6. AJUSTES › CONDUCTA
+   ========================================================================== */
+/* El nivel: un control segmentado */
+.conducta-niveles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  margin-bottom: var(--space-4);
+  padding: 0.1875rem;
+  border: var(--border-width) solid var(--color-border-control);
+  border-radius: var(--radius-full);
+  background: var(--color-field-bg);
+}
+
+.conducta-niveles__opcion {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.conducta-niveles__opcion:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.conducta-niveles__opcion.is-active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.conducta-secciones {
+  margin-bottom: var(--space-4);
+}
+
+.conducta-secciones .tabs__tab {
+  text-decoration: none;
+}
+
+.conducta-config__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.conducta-config__barra p {
+  margin: 0;
+}
+
+.conducta-config__nombre {
+  display: block;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.conducta-config__descripcion {
+  display: block;
+  font-size: var(--text-xs);
+}
+
+.conducta-config__tabla .table__cell {
+  vertical-align: middle;
+}
+
+.conducta-config__tabla .tag + .tag,
+.conducta-config__tabla .tag + .text-muted {
+  margin-left: var(--space-1);
+}
+
+.conducta-config__acciones {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.conducta-regla {
+  display: grid;
+  gap: var(--space-4);
+}
+
+
+/* ==========================================================================
+   7. REPORTES
+   ========================================================================== */
+.conducta-reporte {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.conducta-reporte__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border);
+}
+
+.conducta-reporte__colegio,
+.conducta-reporte__generado {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.conducta-reporte__titulo {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.conducta-reporte__titulo span {
+  white-space: nowrap;   /* el «·» no empieza renglón en pantallas angostas */
+}
+
+.conducta-reporte__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.conducta-reporte__filtros dd {
+  margin: 0;
+  color: var(--color-text-strong);
+}
+
+.conducta-reporte__cuerpo {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.conducta-reporte__cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+}
+
+.conducta-reporte__nota {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.conducta-reporte__tablas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
+}
+
+.conducta-reporte__bloque {
+  min-width: 0;
+}
+
+.conducta-reporte__anulado td {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.conducta-conteo td:first-child {
+  overflow-wrap: anywhere;
+}
+
+/* Evolución: tabla con las cifras y barras finas (la leyenda dice qué es cada color; las cifras van en columnas) */
+.conducta-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  list-style: none;
+}
+
+.conducta-leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.conducta-leyenda__marca {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.conducta-leyenda__marca--incidencias,
+.conducta-barra--incidencias {
+  background: var(--color-tone-3-base);
+}
+
+.conducta-leyenda__marca--positivas,
+.conducta-barra--positivas {
+  background: var(--color-tone-1-base);
+}
+
+.conducta-evolucion__barras {
+  width: 45%;
+  min-width: 8rem;
+}
+
+.conducta-barra {
+  display: block;
+  width: max(var(--ancho), 2px);
+  height: 0.375rem;
+  border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.conducta-barra + .conducta-barra {
+  margin-top: 2px;
+}
+
+
+/* ==========================================================================
+   8. LÍNEA DE TIEMPO (expediente e historial individual)
+   ========================================================================== */
+.conducta-expediente__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.conducta-expediente__totales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  margin: 0;
+}
+
+.conducta-expediente__totales dd {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.conducta-expediente__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.conducta-linea {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-linea__item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-left: 4px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+}
+
+.conducta-linea__item > p {
+  margin: 0;
+}
+
+.conducta-linea__item--positiva {
+  border-left-color: var(--color-success);
+}
+
+.conducta-linea__item--anulado {
+  border-left-color: var(--color-border-strong);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+.conducta-linea__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
+
+/* ==========================================================================
+   9. RESPONSIVE E IMPRESIÓN
+   ========================================================================== */
+@media (min-width: 64rem) {
+  .conducta-detalle {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+    align-items: start;
+  }
+
+  .conducta-pendientes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .filtros-conducta__estudiantes {
+    grid-column: auto;
+  }
+
+  .conducta-niveles {
+    display: flex;
+    border-radius: var(--radius-lg);
+  }
+
+  .conducta-niveles__opcion {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* La hoja del reporte: en papel no hay barras de herramientas y las tablas no se cortan entre renglones */
+.conducta-hoja .conducta-reporte__cifras .stat {
+  box-shadow: none;
+}
+
+@media print {
+  .conducta-hoja .conducta-linea__item,
+  .conducta-hoja .reporte__tabla tr {
+    break-inside: avoid;
+  }
+
+  .conducta-hoja .conducta-barra,
+  .conducta-hoja .conducta-leyenda__marca,
+  .conducta-hoja .tag {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* 10. Aprobaciones, citas y compromisos (pedido del 2026-10-13: prefectura) ------------------------------------ */
+.conducta-alcance {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.conducta-medida--pendiente {
+  border-style: dashed;
+  color: var(--color-warning);
+}
+
+.conducta-medidas-lista {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-medida-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.conducta-medidas-historicas {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.conducta-suspension__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.conducta-cita__accion {
+  justify-self: start;
+  margin-top: var(--space-1);
+}
+
+.conducta-lista-simple {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conducta-lista-simple__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border);
+}
+
+.conducta-lista-simple__item:last-child {
+  border-bottom: 0;
+}
+
+.conducta-lista-simple__item p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.conducta-lista-simple__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.conducta-pendientes__bloque {
+  margin-bottom: var(--space-4);
+}
+
+.conducta-resolver__datos {
+  margin-bottom: var(--space-4);
+}

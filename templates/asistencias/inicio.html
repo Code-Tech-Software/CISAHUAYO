@@ -51,6 +51,13 @@
     </div>
   {% endif %}
 
+  {% if aviso_niveles %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="calendar" icon_class="alert__icon" %}
+      <p class="alert__body">{{ aviso_niveles }}</p>
+    </div>
+  {% endif %}
+
   {% if not ciclo %}
     <div class="table-card">
       <div class="empty-state">
@@ -72,10 +79,16 @@
   {% elif not total.inscritos %}
     <div class="table-card">
       <div class="empty-state">
-        {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No hay estudiantes inscritos este día</p>
-        <p class="empty-state__text">Inscribe a los estudiantes en el ciclo {{ ciclo }} para poder registrar su asistencia.</p>
-        {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
+        {% if aviso_niveles %}
+          {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">Ningún estudiante tiene clases este día</p>
+          <p class="empty-state__text">Los estudiantes inscritos son de niveles sin clases ese día (ver el aviso).</p>
+        {% else %}
+          {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">No hay estudiantes inscritos este día</p>
+          <p class="empty-state__text">Inscribe a los estudiantes en el ciclo {{ ciclo }} para poder registrar su asistencia.</p>
+          {% if perms.Alumnos.add_inscripcion %}<a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}" data-modal-form>Nueva inscripción</a>{% endif %}
+        {% endif %}
       </div>
     </div>
   {% else %}

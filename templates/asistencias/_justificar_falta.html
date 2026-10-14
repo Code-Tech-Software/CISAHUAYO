@@ -1,0 +1,90 @@
+{% comment %}
+  Ventana «Justificar falta» de la asistencia por materia (solo la administración; asistencia-justificar.js la abre
+  desde una F de la matriz y llena el estudiante y la fecha). La foto del comprobante es obligatoria: «Guardar» se
+  habilita cuando hay una que el navegador pudo abrir, y el servidor la vuelve a validar.
+  Parámetros: asignacion, url_justificar y tamano_maximo_mb.
+{% endcomment %}
+<dialog class="modal modal--wide justificar-falta" id="modal-justificar-falta" aria-labelledby="justificar-falta-titulo" aria-describedby="justificar-falta-nota" data-justificar-dialogo data-maximo-mb="{{ tamano_maximo_mb }}">
+  <form class="modal__panel" method="post" action="{{ url_justificar }}" enctype="multipart/form-data" novalidate data-no-busy data-justificar-form>
+    {% csrf_token %}
+    <input type="hidden" name="inscripcion" data-justificar-campo="inscripcion">
+    <input type="hidden" name="fecha" data-justificar-campo="fecha">
+    <input type="hidden" name="version" data-justificar-campo="version">
+    <header class="modal__header">
+      <h2 class="modal__title" id="justificar-falta-titulo">Justificar falta</h2>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-justificar-cerrar aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+    </header>
+    <div class="modal__body">
+      <dl class="details justificar-falta__datos">
+        <div class="details__item details__item--wide">
+          <dt class="details__label">Estudiante</dt>
+          <dd class="details__value" data-justificar-alumno></dd>
+        </div>
+        <div class="details__item">
+          <dt class="details__label">Materia</dt>
+          <dd class="details__value">{{ asignacion.materia }} <span class="details__note text-muted">{{ asignacion.grupo }}</span></dd>
+        </div>
+        <div class="details__item">
+          <dt class="details__label">Fecha de la falta</dt>
+          <dd class="details__value" data-justificar-fecha></dd>
+        </div>
+        <div class="details__item details__item--wide" data-justificar-observacion hidden>
+          <dt class="details__label">Observación de la falta</dt>
+          <dd class="details__value details__value--empty" data-justificar-observacion-texto></dd>
+        </div>
+      </dl>
+
+      <div class="field">
+        <label class="field__label" for="justificar-motivo">Motivo</label>
+        <textarea class="field__control justificar-falta__motivo" id="justificar-motivo" name="motivo" rows="2" maxlength="1000" required
+                  placeholder="Cita médica, enfermedad, trámite familiar…" aria-describedby="justificar-motivo-error" data-justificar-motivo></textarea>
+        <p class="field__error" id="justificar-motivo-error" data-error-de="motivo" hidden></p>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="justificar-foto-etiqueta">Fotografía del comprobante</span>
+        <div class="comprobante" data-comprobante>
+          <input class="comprobante__input visually-hidden" id="justificar-foto" type="file" name="comprobante" accept="image/jpeg,image/png,image/webp" required
+                 aria-labelledby="justificar-foto-etiqueta" aria-describedby="justificar-foto-ayuda justificar-foto-error" data-comprobante-input>
+          <label class="comprobante__vacio" for="justificar-foto" data-comprobante-vacio>
+            {% include "partials/icon.html" with name="camera" icon_class="icon--lg comprobante__icono" %}
+            <span class="comprobante__accion">Toma o elige la foto del comprobante</span>
+            <span class="comprobante__formatos">JPG, PNG o WEBP · hasta {{ tamano_maximo_mb }} MB (si pesa más, se reduce sola)</span>
+          </label>
+          <figure class="comprobante__vista" data-comprobante-vista hidden>
+            <img class="comprobante__img" alt="Vista previa del comprobante" data-comprobante-img>
+            <figcaption class="comprobante__pie">
+              <span class="comprobante__archivo">
+                {% include "partials/icon.html" with name="circle-check" icon_class="icon--sm comprobante__listo" %}
+                <span class="comprobante__nombre" data-comprobante-nombre></span>
+                <span class="text-muted" data-comprobante-peso></span>
+              </span>
+              <span class="comprobante__acciones">
+                <button type="button" class="btn btn--sm" data-comprobante-cambiar>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Cambiar foto</button>
+                <button type="button" class="btn btn--ghost btn--sm" data-comprobante-quitar>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Quitar</button>
+              </span>
+            </figcaption>
+          </figure>
+        </div>
+        <p class="field__help" id="justificar-foto-ayuda">Obligatoria: sin la foto no se puede guardar la justificación.</p>
+        <p class="field__error" id="justificar-foto-error" data-error-de="comprobante" hidden></p>
+      </div>
+
+      <div class="subida" data-justificar-progreso hidden>
+        <div class="subida__pista"><div class="subida__barra" data-justificar-barra></div></div>
+        <p class="subida__texto" role="status" aria-live="polite" data-justificar-progreso-texto>Subiendo el comprobante…</p>
+      </div>
+
+      <div class="alert alert--error" role="alert" data-justificar-error hidden>
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body"><p data-justificar-error-texto></p></div>
+      </div>
+
+      <p class="text-muted justificar-falta__nota" id="justificar-falta-nota">Quedará como «Falta justificada»: sigue contando como falta, no como asistencia. Se guardan el comprobante, la fecha y quién la justificó.</p>
+    </div>
+    <footer class="modal__footer">
+      <button type="button" class="btn" data-justificar-cerrar>Cancelar</button>
+      <button type="submit" class="btn btn--primary" data-justificar-guardar disabled>Guardar justificación</button>
+    </footer>
+  </form>
+</dialog>

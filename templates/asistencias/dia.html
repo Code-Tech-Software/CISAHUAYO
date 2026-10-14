@@ -33,6 +33,13 @@
   {% include "asistencias/_subnav.html" %}
   {% include "asistencias/_fecha_nav.html" with formulario="filtros-dia" %}
 
+  {% if aviso_niveles %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="calendar" icon_class="alert__icon" %}
+      <p class="alert__body">{{ aviso_niveles }}</p>
+    </div>
+  {% endif %}
+
   {% if not ciclo %}
     <form id="filtros-dia" method="get" hidden></form>
     <div class="table-card">
@@ -78,6 +85,7 @@
         <li><span class="count count--ok">{{ total.presentes }}</span> presentes</li>
         <li><span class="count count--late">{{ total.retardos }}</span> con retardo</li>
         <li><span class="count count--miss">{{ total.faltas }}</span> falta{{ total.faltas|pluralize }}{% if total.justificadas %} ({{ total.justificadas }} justificada{{ total.justificadas|pluralize }}){% endif %}</li>
+        {% if total.suspendidos %}<li><span class="indicador-asistencia indicador-asistencia--suspendido" aria-hidden="true">S</span> {{ total.suspendidos }} suspendido{{ total.suspendidos|pluralize }}</li>{% endif %}
         <li><span class="count">{{ total.sin_registro }}</span> sin entrada</li>
         <li class="attendance-strip__total">{{ total.inscritos }} inscritos{% if filtros_activos.grado %} en {{ filtros_activos.grado }}{% endif %}</li>
       </ul>
@@ -118,10 +126,17 @@
                     {% else %}—{% endif %}
                   </td>
                   <td class="table__cell" data-label="Asistencia">
-                    {% if general %}
-                      {% include "asistencias/_estado.html" with estado=general.estado justificada=general.justificada %}
+                    {% if inscripcion.suspension.aprobada %}
+                      <span class="estado-suspension" data-tooltip="Suspensión autorizada del {{ inscripcion.suspension.fecha_inicio|date:'d/m' }} al {{ inscripcion.suspension.fecha_fin|date:'d/m' }}: {{ inscripcion.suspension.motivo_nombre }}"><span class="indicador-asistencia indicador-asistencia--suspendido" aria-hidden="true">S</span> Suspendido</span>
                     {% else %}
-                      <span class="tag">{% if es_hoy %}Sin entrada{% else %}Sin registro{% endif %}</span>
+                      {% if general %}
+                        {% include "asistencias/_estado.html" with estado=general.estado justificada=general.justificada %}
+                      {% else %}
+                        <span class="tag">{% if es_hoy %}Sin entrada{% else %}Sin registro{% endif %}</span>
+                      {% endif %}
+                      {% if inscripcion.suspension %}
+                        <span class="estado-suspension" data-tooltip="Suspensión pendiente de autorizar del {{ inscripcion.suspension.fecha_inicio|date:'d/m' }} al {{ inscripcion.suspension.fecha_fin|date:'d/m' }}"><span class="indicador-asistencia indicador-asistencia--solicitado" aria-hidden="true">S</span> Por autorizar</span>
+                      {% endif %}
                     {% endif %}
                   </td>
                   <td class="table__cell table__col--wide" data-label="Materias del día">
@@ -132,7 +147,7 @@
                   </td>
                   <td class="table__cell table__cell--actions">
                     {% if general.estado == 'FALTA' or inscripcion.materias.faltas %}
-                      {% if perms.Alumnos.add_justificacion and editable %}
+                      {% if perms.Alumnos.add_justificacion and editable and not inscripcion.suspension.aprobada %}
                         <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'asistencias:justificacion_crear' %}?alumno={{ alumno.pk }}&amp;fecha={{ fecha|date:'Y-m-d' }}" aria-label="Justificar la falta de {{ alumno }}" data-tooltip="Justificar falta" data-modal-form>
                           {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %}
                         </a>
@@ -167,9 +182,15 @@
     {% else %}
       <div class="table-card">
         <div class="empty-state">
-          {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
-          <p class="empty-state__title">No hay estudiantes inscritos este día</p>
-          <p class="empty-state__text">Inscribe a los estudiantes en el ciclo {{ ciclo }} para registrar su asistencia.</p>
+          {% if aviso_niveles %}
+            {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">Ningún estudiante tiene clases este día</p>
+            <p class="empty-state__text">Los estudiantes inscritos son de niveles sin clases ese día (ver el aviso).</p>
+          {% else %}
+            {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">No hay estudiantes inscritos este día</p>
+            <p class="empty-state__text">Inscribe a los estudiantes en el ciclo {{ ciclo }} para registrar su asistencia.</p>
+          {% endif %}
         </div>
       </div>
     {% endif %}

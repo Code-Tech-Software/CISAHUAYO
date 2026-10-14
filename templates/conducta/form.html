@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{% if es_edicion %}Corregir registro de conducta{% else %}Registrar conducta{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'conducta:lista' %}">Registro de conducta</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Corregir{% else %}Registrar{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Corregir registro de conducta{% else %}Registrar conducta{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Cada cambio queda en el historial del registro (quién, cuándo, por qué y qué cambió: el valor anterior y el nuevo). El estudiante y su grupo de entonces no cambian.{% else %}Una incidencia o una conducta positiva de un estudiante{% if solo_prefectura %} de tu alcance{% else %} de cualquier grupo{% endif %}. Su nivel, grado y grupo se toman de su inscripción en el ciclo de la fecha del hecho y se conservan aunque después cambie de grupo.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <form class="form-page conducta-form" method="post" enctype="multipart/form-data" novalidate data-conducta-form
+        data-buscar-url="{{ url_buscar }}" data-opciones-url="{{ url_opciones }}"{% if es_edicion %} data-edicion{% endif %}
+        data-maximo-mb="{{ maximo_mb }}" data-por-envio="{{ por_envio }}" data-nivel="{{ form.nivel|default:'' }}"{% if aprueba %} data-aprueba{% endif %}>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    {# --- Estudiante y fecha ------------------------------------------------------------------------- #}
+    <section class="card" aria-labelledby="seccion-estudiante">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="seccion-estudiante">Estudiante y fecha</h2>
+      </header>
+      <div class="card__body">
+        {% if es_edicion %}
+          <div class="chosen chosen--static">
+            {% include "partials/avatar.html" with persona=alumno %}
+            <div class="chosen__text">
+              <p class="chosen__name">{{ alumno }}</p>
+              <p class="chosen__meta">{{ alumno.referencia }} · {{ registro.grupo_texto }}</p>
+            </div>
+          </div>
+        {% else %}
+          <div class="field{% if form.alumno.errors %} is-invalid{% endif %}">
+            {{ form.alumno }}
+            <div class="live-search" data-picker-search{% if alumno %} hidden{% endif %}>
+              <label class="field__label field__label--required" for="buscar-estudiante">Estudiante</label>
+              <div class="live-search__field">
+                {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
+                <input class="field__control live-search__input" id="buscar-estudiante" type="text" role="combobox" aria-expanded="false"
+                       aria-controls="resultados-estudiante" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+                       placeholder="Nombre, número de control o CURP…" data-picker-input>
+                <div class="live-search__results" id="resultados-estudiante" role="listbox" aria-label="Estudiantes encontrados" data-picker-results hidden></div>
+              </div>
+            </div>
+            <div class="chosen" data-picker-chosen{% if not alumno %} hidden{% endif %}>
+              <span class="avatar avatar--tone-{{ alumno.pk|tono }}" data-picker-avatar aria-hidden="true">{{ alumno.iniciales }}</span>
+              <div class="chosen__text">
+                <p class="chosen__name" data-picker-name>{{ alumno }}</p>
+                <p class="chosen__meta" data-picker-meta>{{ alumno.referencia }}</p>
+              </div>
+              <button type="button" class="btn btn--sm" data-picker-change>Cambiar</button>
+            </div>
+            {% for error in form.alumno.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            <p class="field__error" data-picker-error hidden>Busca y elige un estudiante.</p>
+          </div>
+        {% endif %}
+
+        <div class="form-grid conducta-form__fecha">
+          {% include "partials/field.html" with campo=form.fecha %}
+          {% include "partials/field.html" with campo=form.hora %}
+          {% include "partials/field.html" with campo=form.lugar %}
+          {% include "partials/field.html" with campo=form.reporta %}
+        </div>
+
+        {# Lo que se toma de su inscripción (con JavaScript se actualiza al elegir al estudiante o cambiar la fecha) #}
+        <dl class="conducta-contexto" data-contexto{% if not contexto %} hidden{% endif %} aria-live="polite">
+          <div><dt>Ciclo escolar</dt><dd data-contexto-ciclo>{{ contexto.ciclo }}</dd></div>
+          <div><dt>Nivel</dt><dd data-contexto-nivel>{{ nombre_de_nivel }}</dd></div>
+          <div><dt>Grado y grupo</dt><dd data-contexto-grupo>{{ contexto.grupo_texto }}</dd></div>
+          <div><dt>Periodo</dt><dd data-contexto-periodo>{% if contexto.periodo %}{{ contexto.periodo.nombre }} ({{ contexto.periodo.fecha_inicio|date:"d/m/Y" }} al {{ contexto.periodo.fecha_fin|date:"d/m/Y" }}){% else %}Sin periodo de evaluación en esa fecha{% endif %}</dd></div>
+        </dl>
+        <p class="field__error" data-contexto-error hidden></p>
+      </div>
+    </section>
+
+    {# --- La conducta ----------------------------------------------------------------------------- #}
+    <section class="card" aria-labelledby="seccion-conducta">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="flag" %}<h2 class="card__title" id="seccion-conducta">Descripción de la conducta</h2>
+      </header>
+      <div class="card__body">
+        {% include "partials/choices.html" with campo=form.tipo %}
+        <div class="form-grid">
+          <div class="field{% if form.categoria.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="id_categoria">Categoría</label>
+            <select class="field__control field__control--select" name="categoria" id="id_categoria" data-conducta-categoria>
+              <option value="">Elige la categoría…</option>
+              {% for categoria in form.fields.categoria.queryset %}
+                <option value="{{ categoria.pk }}" data-tipo="{{ categoria.tipo }}"{% if form.categoria.value|stringformat:"s" == categoria.pk|stringformat:"s" %} selected{% endif %}>{{ categoria.nombre }}{% if not categoria.activo %} (inactiva){% endif %}</option>
+              {% endfor %}
+            </select>
+            <p class="field__hint" data-sin-opciones hidden>No hay categorías activas de este tipo en el nivel: el administrador debe completar el catálogo en Ajustes › Conducta.</p>
+            {% for error in form.categoria.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field{% if form.motivo.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="id_motivo">Motivo</label>
+            <select class="field__control field__control--select" name="motivo" id="id_motivo" data-conducta-motivo>
+              <option value="">Elige el motivo…</option>
+              {% for motivo in form.fields.motivo.queryset %}
+                <option value="{{ motivo.pk }}" data-categoria="{{ motivo.categoria_id }}" data-gravedad="{{ motivo.gravedad }}"{% if form.motivo.value|stringformat:"s" == motivo.pk|stringformat:"s" %} selected{% endif %}>{{ motivo.nombre }}{% if not motivo.activo %} (inactivo){% endif %}</option>
+              {% endfor %}
+            </select>
+            {% for error in form.motivo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field{% if form.gravedad.errors %} is-invalid{% endif %}" data-solo-incidencia>
+            <label class="field__label" for="{{ form.gravedad.id_for_label }}">Gravedad</label>
+            {{ form.gravedad }}
+            <p class="field__hint">Se propone la del motivo; ajústala si hace falta.</p>
+            {% for error in form.gravedad.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+        {% include "partials/field.html" with campo=form.descripcion %}
+
+        <div class="field">
+          <label class="field__label" for="evidencias">Evidencias (opcional)</label>
+          <input class="field__control conducta-archivos" id="evidencias" type="file" name="evidencias" multiple accept="{{ acepta }}" aria-describedby="evidencias-ayuda" data-evidencias>
+          <p class="field__hint" id="evidencias-ayuda">Fotos (JPG, PNG o WEBP) o documentos PDF, hasta {{ maximo_mb }} MB cada uno y {{ por_envio }} a la vez. Solo los ve quien puede consultar el registro.{% if es_edicion and registro.evidencias.exists %} Las que ya tiene se administran desde el detalle.{% endif %}</p>
+          <ul class="conducta-archivos__lista" data-evidencias-lista hidden></ul>
+        </div>
+      </div>
+    </section>
+
+    {# --- Medidas y suspensión (solo incidencias) --------------------------------------------------- #}
+    <section class="card" aria-labelledby="seccion-medidas" data-solo-incidencia>
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="shield-check" %}<h2 class="card__title" id="seccion-medidas">Medidas disciplinarias</h2>
+      </header>
+      <div class="card__body">
+        <fieldset class="field{% if form.medidas.errors %} is-invalid{% endif %}">
+          <legend class="field__label">Medidas aplicadas <span class="text-muted">(ninguna, una o varias)</span></legend>
+          <div class="choice-group" data-conducta-medidas>
+            {% with elegidas=form.medidas.value %}
+              {% for medida in form.fields.medidas.queryset %}
+                <label class="choice choice--check" for="medida-{{ medida.pk }}">
+                  <input class="choice__input" type="checkbox" name="medidas" value="{{ medida.pk }}" id="medida-{{ medida.pk }}"
+                         {% if medida.implica_suspension %}data-suspension{% endif %} {% if medida.requiere_seguimiento %}data-seguimiento{% endif %}
+                         {% for elegida in elegidas %}{% if elegida|stringformat:"s" == medida.pk|stringformat:"s" %}checked{% endif %}{% endfor %}>
+                  <span class="choice__box">{{ medida.nombre }}{% if medida.implica_suspension %} · suspensión{% endif %}{% if medida.requiere_aprobacion or medida.implica_suspension %}{% if not aprueba %} · requiere aprobación{% endif %}{% endif %}{% if not medida.activo %} (inactiva){% endif %}</span>
+                </label>
+              {% empty %}
+                <p class="field__hint" data-medidas-vacio>{% if nombre_de_nivel %}{{ nombre_de_nivel }} no tiene medidas activas{% if solo_prefectura %} habilitadas para prefectura{% endif %}: el administrador debe completar el catálogo en Ajustes › Conducta.{% else %}Elige primero al estudiante para ver las medidas de su nivel.{% endif %}</p>
+              {% endfor %}
+            {% endwith %}
+          </div>
+          {% for error in form.medidas.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          {% if not aprueba %}<p class="field__hint">Las medidas que requieren aprobación (y toda suspensión) quedan pendientes hasta que las autorice la dirección del nivel del estudiante.</p>{% endif %}
+        </fieldset>
+        {% include "partials/field.html" with campo=form.observaciones_medidas %}
+
+        {# Se pide cuando alguna medida implica suspensión #}
+        <div class="conducta-suspension" data-suspension-bloque hidden>
+          <h3 class="subsection-title">{% if aprueba or aprueba_parcial %}Suspensión{% else %}Solicitud de suspensión{% endif %}</h3>
+          {% if aprueba_parcial %}<p class="field__hint">Si el estudiante es de un nivel que diriges, la suspensión queda autorizada; si no, se envía como solicitud a la dirección de su nivel (escribe la justificación).</p>
+          {% elif not aprueba %}<p class="field__hint">Se envía como solicitud: no se aplica hasta que la autorice la dirección del nivel del estudiante.</p>{% endif %}
+          <div class="form-grid">
+            {% include "partials/field.html" with campo=form.suspension_motivo clase="form-grid__full" %}
+            {% include "partials/field.html" with campo=form.suspension_inicio %}
+            {% include "partials/field.html" with campo=form.suspension_fin %}
+            {% if aprueba or aprueba_parcial %}
+              {% include "partials/field.html" with campo=form.suspension_autoriza clase="form-grid__full" %}
+            {% endif %}
+            {% if not aprueba or aprueba_parcial %}
+              {% include "partials/field.html" with campo=form.suspension_justificacion clase="form-grid__full" %}
+            {% endif %}
+            {% include "partials/field.html" with campo=form.suspension_observaciones clase="form-grid__full" %}
+          </div>
+          {% if form.confirmar_superposicion.errors or superpuestas %}
+            <div class="alert alert--warning" role="alert">
+              {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+              <div class="alert__body">
+                {% for error in form.confirmar_superposicion.errors %}<p>{{ error }}</p>{% endfor %}
+                <label class="choice choice--check conducta-confirmar">
+                  {{ form.confirmar_superposicion }}
+                  <span class="choice__box">{{ form.confirmar_superposicion.label }}</span>
+                </label>
+              </div>
+            </div>
+          {% endif %}
+          <p class="field__hint">Sus días se marcan en la asistencia con una S: «pendiente» mientras no se autorice; ya autorizada, no cuentan como faltas.</p>
+        </div>
+      </div>
+    </section>
+
+    {# --- Seguimiento ------------------------------------------------------------------------------ #}
+    <section class="card" aria-labelledby="seccion-seguimiento">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="seccion-seguimiento">Seguimiento</h2>
+      </header>
+      <div class="card__body">
+        <p class="field__hint conducta-form__aviso" data-aviso-seguimiento hidden>Una de las medidas requiere seguimiento: indica el responsable y la fecha de revisión.</p>
+        <div class="form-grid">
+          {% include "partials/field.html" with campo=form.responsable %}
+          {% include "partials/field.html" with campo=form.fecha_revision %}
+          {% include "partials/field.html" with campo=form.estado %}
+        </div>
+        {% include "partials/field.html" with campo=form.acuerdos %}
+        {% include "partials/field.html" with campo=form.observaciones_cierre %}
+      </div>
+    </section>
+
+    {% if es_edicion %}
+      <section class="card" aria-labelledby="seccion-motivo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="pencil" %}<h2 class="card__title" id="seccion-motivo">Motivo del cambio</h2>
+        </header>
+        <div class="card__body">
+          {% include "partials/field.html" with campo=form.motivo_cambio %}
+        </div>
+      </section>
+    {% endif %}
+
+    <div class="action-bar">
+      <a class="btn" href="{% if es_edicion %}{% url 'conducta:detalle' registro.pk %}{% else %}{% url 'conducta:lista' %}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">{% if es_edicion %}Guardar la corrección{% else %}Registrar{% endif %}</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/conducta.js' %}" defer></script>
+  <script src="{% static 'js/conducta-form.js' %}" defer></script>
+{% endblock %}

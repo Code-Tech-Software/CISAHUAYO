@@ -2,3 +2,8 @@
 document.querySelectorAll('[data-imprimir]').forEach((boton) => {
   boton.addEventListener('click', () => window.print());
 });
+
+/* Con [data-imprimir-al-abrir] en <body> (el botón «PDF» de los reportes), el diálogo se abre solo al cargar. */
+if (document.body.hasAttribute('data-imprimir-al-abrir')) {
+  window.addEventListener('load', () => window.print());
+}

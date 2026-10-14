@@ -790,11 +790,25 @@ class Justificacion(models.Model):
     todas_materias = models.BooleanField(default=False, verbose_name='Justificar todas las materias')
     materias = models.ManyToManyField(MateriaGrado, blank=True, related_name='justificaciones', verbose_name='Materias')
     documento = models.FileField(upload_to='justificaciones/%Y/%m/', blank=True, null=True, verbose_name='Comprobante')
+    # La falta de una materia que se justificó desde la asistencia por materia (con la foto del comprobante); vacío en
+    # las que se registran desde Justificaciones (por día). La de una falta cubre solo esa materia (`materias`).
+    asistencia = models.ForeignKey(
+        'AsistenciaMateria', null=True, blank=True, on_delete=models.CASCADE, related_name='justificaciones',
+        verbose_name='Falta justificada',
+    )
     activa = models.BooleanField(default=True, verbose_name='Vigente')
     registrada_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
         verbose_name='Registrada por',
     )
+    # Las que se registran juntas (prefectura: varias faltas o retardos de un rango de fechas con un mismo motivo y
+    # comprobante) comparten su lote; cada una apunta al registro de asistencia que cubre
+    lote = models.UUIDField(null=True, blank=True, db_index=True, editable=False)
+    revocada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+', verbose_name='Revocada por',
+    )
+    revocada_en = models.DateTimeField(null=True, blank=True, verbose_name='Revocada el')
+    motivo_revocacion = models.TextField(blank=True, verbose_name='Motivo de la revocación')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -811,16 +825,41 @@ class Justificacion(models.Model):
             '-fecha'
         ]
         constraints = [
-            # Una justificación vigente por alumno y día; las anuladas se conservan como historial
+            # Una justificación vigente por alumno y día (las de una falta de materia, aparte: una por falta); las
+            # anuladas se conservan como historial
             models.UniqueConstraint(
                 fields=[
                     'inscripcion',
                     'fecha'
                 ],
-                condition=models.Q(activa=True),
+                condition=models.Q(activa=True, asistencia__isnull=True),
                 name='justificacion_alumno_fecha_unica'
-            )
+            ),
+            models.UniqueConstraint(
+                fields=['asistencia'],
+                condition=models.Q(activa=True, asistencia__isnull=False),
+                name='justificacion_falta_unica'
+            ),
         ]
+
+
+class CambioJustificacion(models.Model):
+    """Bitácora de una justificación: quién la registró, revocó o reactivó, cuándo y por qué."""
+
+    CREADA, REVOCADA, REACTIVADA, EDITADA = 'CREADA', 'REVOCADA', 'REACTIVADA', 'EDITADA'
+    ACCIONES = [(CREADA, 'Justificó'), (REVOCADA, 'Revocó'), (REACTIVADA, 'Reactivó'), (EDITADA, 'Editó')]
+
+    justificacion = models.ForeignKey(Justificacion, on_delete=models.CASCADE, related_name='cambios')
+    accion = models.CharField(max_length=10, choices=ACCIONES)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    fecha = models.DateTimeField(auto_now_add=True)
+    motivo = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Cambio en una justificación'
+        verbose_name_plural = 'Cambios en justificaciones'
+        ordering = ['-fecha', '-pk']
+        default_permissions = ()
 
 
 class ConfiguracionAsistencia(models.Model):
@@ -849,20 +888,47 @@ class ConfiguracionAsistencia(models.Model):
         verbose_name_plural = 'Configuración de asistencia'
 
 
-class DiaNoLectivo(models.Model):
-    """Un día sin clases (asueto, suspensión, vacaciones): no se registra entrada ni se generan faltas."""
+class LimiteEntradaNivel(models.Model):
+    """La hora límite de entrada de un nivel (pedido del 2026-10-14). Quien registra su entrada después queda con
+    retardo en la entrada general, y la primera clase de su día le cuenta como falta. Un nivel sin límite usa la regla
+    general: la hora de entrada más la tolerancia."""
 
-    fecha = models.DateField(unique=True, verbose_name='Fecha')
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, unique=True, verbose_name='Nivel')
+    hora_limite = models.TimeField(verbose_name='Hora límite de entrada')
+
+    def __str__(self):
+        return f"{self.get_nivel_display()}: {self.hora_limite:%H:%M}"
+
+    class Meta:
+        verbose_name = 'Hora límite de entrada de un nivel'
+        verbose_name_plural = 'Horas límite de entrada por nivel'
+        default_permissions = ()   # se administran con los ajustes de asistencia
+
+
+class DiaNoLectivo(models.Model):
+    """Un día sin clases de un nivel (asueto, consejo técnico, vacaciones): sus estudiantes no registran entrada ni se
+    les generan faltas. Un día de todo el colegio se registra en cada nivel («Todos los niveles» en Ajustes ›
+    Asistencia)."""
+
+    fecha = models.DateField(verbose_name='Fecha')
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, verbose_name='Nivel')
     motivo = models.CharField(max_length=120, verbose_name='Motivo')
     creado = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.fecha} - {self.motivo}"
+        return f"{self.fecha} - {self.get_nivel_display()} - {self.motivo}"
+
+    @classmethod
+    def registrar(cls, fecha, motivo, niveles=None):
+        """Registra ese día sin clases en esos niveles (sin niveles, en todos). Devuelve los registros creados."""
+        niveles = niveles or [clave for clave, _ in Grado.NIVEL_CHOICES]
+        return cls.objects.bulk_create([cls(fecha=fecha, nivel=nivel, motivo=motivo) for nivel in niveles])
 
     class Meta:
         verbose_name = 'Día sin clases'
         verbose_name_plural = 'Días sin clases'
         ordering = ['fecha']
+        constraints = [models.UniqueConstraint(fields=['fecha', 'nivel'], name='dia_sin_clases_por_nivel')]
 
 
 class CierreDia(models.Model):

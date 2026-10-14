@@ -75,6 +75,14 @@ TEMAS = (
         'letra': 'Nunito y Fredoka',
         'fuentes': 'family=Nunito:wght@400;500;600;700;800&family=Fredoka:wght@500;600;700',
     },
+    {
+        'clave': 'corporate',
+        'nombre': 'Corporate',
+        'descripcion': 'Azul zafiro con grises fríos: sobrio y profesional.',
+        'color': '#2c76cd',
+        'letra': 'Inter',
+        'fuentes': 'family=Inter:wght@400;500;600;700',
+    },
 )
 
 POR_CLAVE = {tema['clave']: tema for tema in TEMAS}

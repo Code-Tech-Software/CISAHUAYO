@@ -1,0 +1,43 @@
+{% comment %}
+  Materia y fechas de la matriz de asistencia (docente y administración). Parámetros: selector (la plantilla con los
+  campos para elegir la materia), con_grupo (la administración elige además el grupo), asignacion, datos y atajos.
+  La materia (y el grupo) se cambian solos (asistencia-docente.js); las fechas, con «Ver» para no recargar a medio
+  escribir.
+{% endcomment %}
+<form class="filters asistencia-docente__filtros{% if con_grupo %} asistencia-docente__filtros--con-grupo{% endif %}" method="get" aria-label="Materia y fechas" data-filtros-docente>
+  {% include selector %}
+  {% if datos.limites %}
+    {# Con JavaScript, un calendario de rango (static/js/calendario.js) que al elegir el último día muestra ese rango #}
+    <div class="rango-fechas" data-rango-fechas data-rango-enviar>
+      <div class="filters__field">
+        <label class="field__label" for="desde">Desde</label>
+        <input class="field__control" id="desde" name="desde" type="date" value="{{ datos.desde|date:'Y-m-d' }}" min="{{ datos.limites.0|date:'Y-m-d' }}" max="{{ datos.limites.1|date:'Y-m-d' }}" required data-rango-desde>
+      </div>
+      <div class="filters__field">
+        <label class="field__label" for="hasta">Hasta</label>
+        <input class="field__control" id="hasta" name="hasta" type="date" value="{{ datos.hasta|date:'Y-m-d' }}" min="{{ datos.limites.0|date:'Y-m-d' }}" max="{{ datos.limites.1|date:'Y-m-d' }}" required data-rango-hasta>
+      </div>
+    </div>
+  {% endif %}
+  <div class="filters__actions">
+    <button type="submit" class="btn btn--primary btn--sm" data-rango-ver>Ver</button>
+  </div>
+  {% if atajos or datos.filas %}
+    <div class="asistencia-docente__fila-inferior">
+      {% if atajos %}
+        <nav class="asistencia-docente__atajos" aria-label="Rangos rápidos">
+          {% for atajo in atajos %}
+            <a class="pill{% if atajo.activo %} is-active{% endif %}" href="?materia={{ asignacion.pk }}&amp;desde={{ atajo.desde|date:'Y-m-d' }}&amp;hasta={{ atajo.hasta|date:'Y-m-d' }}"{% if atajo.activo %} aria-current="true"{% endif %}>{{ atajo.nombre }}</a>
+          {% endfor %}
+        </nav>
+      {% endif %}
+      {% if datos.filas and datos.columnas %}
+        {# Filtra las filas en la pantalla (asistencia-docente.js): no se envía con el formulario #}
+        <div class="asistencia-docente__buscar">
+          <label class="visually-hidden" for="buscar-estudiante">Buscar estudiante</label>
+          <input class="field__control" id="buscar-estudiante" type="search" placeholder="Buscar estudiante…" autocomplete="off" data-buscar-estudiante>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</form>

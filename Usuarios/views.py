@@ -203,7 +203,95 @@ def usuario_detalle(request, pk):
         ),
         'puede_restablecer': request.user.has_perm('auth.change_user') and gestionable and usuario.is_active and not es_yo,
         'credenciales': request.session.pop(SESION_CREDENCIALES, None),
+        'alcance': alcance_de_cuenta(usuario) if rol and rol.es_prefectura else None,
+        'direccion': direccion_de_cuenta(usuario, permisos),
     })
+
+
+def direccion_de_cuenta(usuario, permisos):
+    """Los niveles cuyas suspensiones y medidas autoriza (si su rol tiene el permiso de aprobar y no es administrador):
+    [(clave, nombre)], o None si no aplica."""
+    if usuario.is_superuser or 'Conducta.aprobar_suspension' not in permisos:
+        return None
+    from Alumnos.models import Grado
+    elegidos = set(PerfilUsuario.de(usuario).niveles_direccion)
+    return [(clave, nombre) for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos]
+
+
+@requiere_permisos('auth.change_user')
+def usuario_direccion(request, pk):
+    """Los niveles que dirige una cuenta con el permiso de aprobar: solo autoriza las suspensiones y medidas de ellos."""
+    from django import forms as formularios
+
+    from Alumnos.models import Grado
+
+    usuario = _gestionable(request, get_object_or_404(_consulta(), pk=pk))
+    perfil = PerfilUsuario.de(usuario)
+    permisos = permisos_efectivos(usuario) if usuario.is_active else permisos_de_cuenta(usuario)
+    if usuario.is_superuser or 'Conducta.aprobar_suspension' not in permisos:
+        messages.info(request, 'Solo las cuentas cuyo rol puede aprobar suspensiones dirigen un nivel (el administrador las autoriza todas).')
+        return redirect('usuarios:detalle', usuario.pk)
+    campo = formularios.MultipleChoiceField(choices=Grado.NIVEL_CHOICES, required=False)
+    elegidos = perfil.niveles_direccion
+    if request.method == 'POST':
+        try:
+            elegidos = campo.clean(request.POST.getlist('niveles'))
+        except ValidationError:
+            messages.error(request, 'Elige niveles de la lista.')
+        else:
+            perfil.niveles_direccion = list(elegidos)
+            perfil.save(update_fields=['niveles_direccion', 'modificado'])
+            nombres = ', '.join(nombre for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos) or 'ninguno'
+            registrar(request.user, usuario, ACCION_CAMBIO, f'Niveles que dirige: {nombres}.')
+            messages.success(request, f'{nombre_de(usuario)} autoriza las suspensiones y medidas de: {nombres}.')
+            return redirect('usuarios:detalle', usuario.pk)
+    return render(request, 'usuarios/direccion.html', {
+        'usuario': usuario, 'niveles': [(clave, nombre, clave in elegidos) for clave, nombre in Grado.NIVEL_CHOICES],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Alcance de una cuenta de prefectura
+# ---------------------------------------------------------------------------
+def alcance_de_cuenta(usuario):
+    """El alcance que tendría la cuenta (aunque esté desactivada), para mostrarlo en su ficha."""
+    from Prefectura.alcance import NINGUNO, Alcance
+    from Prefectura.models import AlcancePrefectura
+
+    fila = AlcancePrefectura.objects.filter(usuario=usuario).prefetch_related('grupos').first()
+    if fila is None:
+        return NINGUNO
+    return Alcance(restringido=True, todo=fila.todo_el_colegio, niveles=frozenset(fila.niveles),
+                   grupos=frozenset(g.pk for g in fila.grupos.all()))
+
+
+@requiere_permisos('auth.change_user')
+def usuario_alcance(request, pk):
+    """Los niveles completos y/o grupos que puede consultar una cuenta de prefectura (todo el colegio, expresamente)."""
+    from Prefectura.forms import AlcanceForm
+    from Prefectura.models import AlcancePrefectura
+
+    usuario = _gestionable(request, get_object_or_404(_consulta(), pk=pk))
+    rol = rol_de(usuario)
+    if not (rol and rol.es_prefectura):
+        messages.info(request, 'Solo las cuentas con un rol de prefectura tienen alcance: las demás ven lo que sus permisos les dejan ver.')
+        return redirect('usuarios:detalle', usuario.pk)
+    fila = AlcancePrefectura.objects.filter(usuario=usuario).first()
+    inicial = {'todo_el_colegio': fila.todo_el_colegio, 'niveles': fila.niveles, 'grupos': list(fila.grupos.values_list('pk', flat=True))} if fila else {}
+    form = AlcanceForm(request.POST or None, initial=inicial)
+    if request.method == 'POST':
+        if form.is_valid():
+            datos = form.cleaned_data
+            fila, _ = AlcancePrefectura.objects.update_or_create(usuario=usuario, defaults={
+                'todo_el_colegio': datos['todo_el_colegio'], 'niveles': list(datos['niveles']), 'modificado_por': request.user,
+            })
+            fila.grupos.set(datos['grupos'])
+            descripcion = alcance_de_cuenta(usuario).descripcion()
+            registrar(request.user, usuario, ACCION_CAMBIO, f'Alcance de prefectura: {descripcion}.')
+            messages.success(request, f'Alcance de {nombre_de(usuario)}: {descripcion}.')
+            return redirect('usuarios:detalle', usuario.pk)
+        messages.error(request, 'Revisa los datos: el alcance no se guardó.')
+    return render(request, 'usuarios/alcance.html', {'usuario': usuario, 'form': form})
 
 
 # ---------------------------------------------------------------------------

@@ -30,26 +30,27 @@
        data-sin-clases="{% if motivo %}1{% endif %}">
     {% csrf_token %}
 
+    {# El logotipo y el nombre del colegio, grandes y al centro; el reloj (con segundos) a la derecha #}
     <header class="kiosk__bar">
       <div class="kiosk__brand">
         <img class="kiosk__logo" src="{% static 'img/logointer.svg' %}" alt="">
-        <div>
-          <p class="kiosk__school">Colegio Interamericano de Sahuayo</p>
-          <p class="kiosk__title">Registro de entrada</p>
-        </div>
+        <p class="kiosk__school">Colegio Interamericano de Sahuayo</p>
+        <p class="kiosk__title">Registro de entrada</p>
       </div>
       <div class="kiosk__clock" aria-label="Fecha y hora">
-        <time class="kiosk__time" data-reloj>--:--</time>
+        <time class="kiosk__time" data-reloj><span data-reloj-hora>--:--</span><span class="kiosk__seconds" data-reloj-segundos>:--</span></time>
         <p class="kiosk__date" data-fecha-texto>{{ hoy|date:"l" }}, {{ hoy|date:"DATE_FORMAT"|lower }}</p>
       </div>
     </header>
 
     <main class="kiosk__stage">
-      <section class="kiosk__panel" data-panel data-vista="{% if motivo %}sin-clases{% else %}espera{% endif %}" data-tono="" aria-live="assertive" aria-atomic="true">
+      {# data-resultado: «ok» (verde) si la entrada quedó registrada, «error» (rojo) si no; el resultado cubre toda la pantalla #}
+      <section class="kiosk__panel" data-panel data-vista="{% if motivo %}sin-clases{% else %}espera{% endif %}" data-tono="" data-resultado="" aria-live="assertive" aria-atomic="true">
         <div class="kiosk__state kiosk__state--idle" data-estado-vista="espera">
           <span class="kiosk__rfid" aria-hidden="true">{% include "partials/icon.html" with name="credit-card" icon_class="icon--lg" %}</span>
           <h1 class="kiosk__headline">Acerca tu credencial</h1>
           <p class="kiosk__sub">Pásala por el lector y espera la confirmación en pantalla.</p>
+          {% if aviso_niveles %}<p class="kiosk__sub">{{ aviso_niveles }}</p>{% endif %}
         </div>
 
         <div class="kiosk__state kiosk__state--blocked" data-estado-vista="sin-clases">

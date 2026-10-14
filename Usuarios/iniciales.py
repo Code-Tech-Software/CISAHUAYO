@@ -12,7 +12,7 @@ from .catalogo import con_requisitos, permisos_de_modulos
 from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
-ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias')
+ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias', 'conducta')
 
 
 def _direccion():
@@ -25,6 +25,7 @@ def _control_escolar():
         | permisos_de_modulos('profesores', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.view_justificacion',
            'Alumnos.add_justificacion', 'Alumnos.change_justificacion', 'Alumnos.delete_justificacion'}
+        | {'Conducta.view_registroconducta', 'Conducta.add_registroconducta', 'Conducta.change_registroconducta'}
     )
 
 
@@ -42,16 +43,24 @@ def _recepcion():
     }
 
 
+def _prefectura():
+    # Corregir lo de otros y los casos cerrados (Prefectura.corregir_otros) lo concede el administrador si quiere
+    return permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}
+
+
 # nombre, descripción, color, permisos
 PREDETERMINADOS = (
     ('Dirección', 'Todos los módulos escolares. Consulta usuarios y roles, pero no los administra.', 1, _direccion),
     ('Control escolar', 'Altas y cambios de estudiantes, tutores e inscripciones; consulta del resto y justificaciones.', 2, _control_escolar),
     ('Docente', 'Consulta estudiantes, grados, materias y horarios, y pasa lista en sus clases.', 4, _docente),
     ('Recepción', 'Pantalla de entrada, asistencia del día y justificaciones.', 5, _recepcion),
+    ('Prefectura', 'Estudiantes, asistencia, conducta y seguimiento de los niveles o grupos que se le asignen.', 6, _prefectura),
 )
 
 # Roles cuyas cuentas son de profesores (al crearlas se registra o vincula su ficha de profesor)
 ROLES_DOCENTES = {'Docente'}
+# Roles de prefectura (sus cuentas solo ven los niveles o grupos que se les asignen)
+ROLES_PREFECTURA = {'Prefectura'}
 
 
 def _crear_rol(nombre, descripcion, tono, permisos=(), **extra):
@@ -73,7 +82,7 @@ def crear_roles_iniciales():
         es_sistema=True, acceso_total=True,
     )
     for nombre, descripcion, tono, permisos in PREDETERMINADOS:
-        _crear_rol(nombre, descripcion, tono, permisos(), es_docente=nombre in ROLES_DOCENTES)
+        _crear_rol(nombre, descripcion, tono, permisos(), es_docente=nombre in ROLES_DOCENTES, es_prefectura=nombre in ROLES_PREFECTURA)
 
     # Quien ya era superusuario pasa a tener el rol de administrador
     for usuario in get_user_model().objects.filter(is_superuser=True):

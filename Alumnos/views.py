@@ -46,7 +46,11 @@ PASOS_FORMULARIO = (
 
 @login_required
 def inicio(request):
-    """Panel de control: cualquier cuenta con sesión; cada quien ve solo los accesos a lo que su rol permite."""
+    """Panel de control: cualquier cuenta con sesión; cada quien ve solo los accesos a lo que su rol permite. Una cuenta
+    de prefectura tiene su propio panel (con lo de su alcance)."""
+    from CISAHUAYO.context_processors import _usa_prefectura
+    if _usa_prefectura(request.user):
+        return redirect('prefectura:inicio')
     return render(request, 'index.html')
 
 
@@ -217,7 +221,16 @@ def alumno_detalle(request, pk):
         'inscribir_form': InscribirForm(alumno=alumno),
         # La baja tiene su propia acción: el menú ofrece solo los demás estatus
         'estatus_opciones': [(v, e) for v, e in Alumno.ESTATUS_CHOICES if v != 'BAJA'],
+        'conducta': _conducta_de(request, alumno),
     })
+
+
+def _conducta_de(request, alumno):
+    """Su historial de conducta (pestaña «Conducta» del expediente), solo para quien puede consultarlo."""
+    if not request.user.has_perm('Conducta.view_registroconducta'):
+        return None
+    from Conducta.reglas import linea_de_tiempo
+    return linea_de_tiempo(alumno)
 
 
 # ---------------------------------------------------------------------------

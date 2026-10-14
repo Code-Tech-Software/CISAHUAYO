@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Prefectura</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="hero__eyebrow">{{ hoy|date:"l, j \d\e F \d\e Y"|capfirst }}</p>
+      <h1 class="page-header__title">Prefectura</h1>
+      <p class="page-header__description">Lo que necesita atención hoy en tu alcance. Cada cifra lleva a su lista con los filtros ya puestos.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if puede.registrar_conducta %}<a class="btn btn--primary btn--sm" href="{% url 'conducta:crear' %}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Registrar conducta</a>{% endif %}
+      {% if puede.registrar_acceso %}<a class="btn btn--sm" href="{% url 'prefectura:acceso_crear' %}" data-modal-form>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Entrada o salida</a>{% endif %}
+      {% if puede.justificar %}<a class="btn btn--sm" href="{% url 'prefectura:justificar' %}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %} Justificar</a>{% endif %}
+    </div>
+  </header>
+
+  {% include "prefectura/_alcance.html" %}
+
+  <section class="prefectura-bloque" aria-labelledby="titulo-asistencia">
+    <h2 class="section-title" id="titulo-asistencia">Asistencia de hoy</h2>
+    <div class="stat-grid prefectura-cifras">
+      <a class="stat stat--enlace{% if dia.faltas_sin_justificar %} stat--attention{% endif %}" href="{{ enlaces.faltas }}">
+        <span class="stat__label">Faltas por materia</span>
+        <span class="stat__value">{{ dia.faltas }}</span>
+        <span class="stat__hint">registros del pase de lista · {{ dia.faltas_sin_justificar }} sin justificar</span>
+      </a>
+      <a class="stat stat--enlace" href="{{ enlaces.estudiantes_con_falta }}">
+        <span class="stat__label">Estudiantes con inasistencia</span>
+        <span class="stat__value">{{ dia.estudiantes_con_falta }}</span>
+        <span class="stat__hint">cada estudiante una vez · {{ dia.faltas_de_entrada }} sin registrar entrada</span>
+      </a>
+      <a class="stat stat--enlace" href="{{ enlaces.retardos }}">
+        <span class="stat__label">Retardos por materia</span>
+        <span class="stat__value">{{ dia.retardos }}</span>
+        <span class="stat__hint">registros del pase de lista</span>
+      </a>
+      <a class="stat stat--enlace" href="{{ enlaces.retardos_de_entrada }}">
+        <span class="stat__label">Llegaron tarde</span>
+        <span class="stat__value">{{ dia.estudiantes_con_retardo_de_entrada }}</span>
+        <span class="stat__hint">estudiantes con retardo en la entrada o de ingreso</span>
+      </a>
+      <a class="stat stat--enlace" href="{{ enlaces.accesos }}">
+        <span class="stat__label">Entradas y salidas</span>
+        <span class="stat__value">{{ dia.accesos_total }}</span>
+        <span class="stat__hint">{{ dia.accesos.RETARDO }} retardo{{ dia.accesos.RETARDO|pluralize }} de ingreso · {{ dia.accesos.ENTRADA }} entrada{{ dia.accesos.ENTRADA|pluralize }} posterior{{ dia.accesos.ENTRADA|pluralize:"es" }} · {{ dia.accesos.SALIDA }} salida{{ dia.accesos.SALIDA|pluralize }} anticipada{{ dia.accesos.SALIDA|pluralize }}</span>
+      </a>
+    </div>
+    <p class="text-muted prefectura-nota">Una falta por materia es cada clase en la que el estudiante faltó; un estudiante con varias faltas cuenta una sola vez en «Estudiantes con inasistencia».</p>
+  </section>
+
+  <section class="prefectura-bloque" aria-labelledby="titulo-conducta">
+    <h2 class="section-title" id="titulo-conducta">Conducta y seguimiento</h2>
+    <div class="stat-grid prefectura-cifras">
+      <a class="stat stat--enlace" href="{{ enlaces.recientes }}">
+        <span class="stat__label">Incidencias recientes</span>
+        <span class="stat__value">{{ cuantas_recientes }}</span>
+        <span class="stat__hint">últimos 7 días · {{ positivas_recientes }} conducta{{ positivas_recientes|pluralize }} positiva{{ positivas_recientes|pluralize }}</span>
+      </a>
+      <a class="stat stat--enlace{% if vencidos %} stat--attention{% endif %}" href="{% if vencidos %}{{ enlaces.vencidos }}{% else %}{{ enlaces.abiertos }}{% endif %}">
+        <span class="stat__label">Casos por seguir</span>
+        <span class="stat__value">{{ abiertos }}</span>
+        <span class="stat__hint">abiertos o en seguimiento · {{ vencidos }} vencido{{ vencidos|pluralize }}</span>
+      </a>
+      <a class="stat stat--enlace{% if solicitudes_suspension or solicitudes_medidas %} stat--attention{% endif %}" href="{{ enlaces.solicitudes }}">
+        <span class="stat__label">Solicitudes pendientes</span>
+        <span class="stat__value">{{ solicitudes_suspension }}</span>
+        <span class="stat__hint">de suspensión · {{ solicitudes_medidas }} medida{{ solicitudes_medidas|pluralize }} por aprobar</span>
+      </a>
+      <a class="stat stat--enlace" href="{{ enlaces.suspendidos }}">
+        <span class="stat__label">Suspensiones vigentes</span>
+        <span class="stat__value">{{ suspendidos_hoy }}</span>
+        <span class="stat__hint">aprobadas · {{ suspensiones_proximas }} próxima{{ suspensiones_proximas|pluralize }}</span>
+      </a>
+      <a class="stat stat--enlace" href="{{ enlaces.citas }}">
+        <span class="stat__label">Citas y compromisos</span>
+        <span class="stat__value">{{ proximos }}</span>
+        <span class="stat__hint">en 7 días o vencidos</span>
+      </a>
+      <a class="stat stat--enlace{% if cuantos_avisos %} stat--attention{% endif %}" href="{{ enlaces.reincidencias }}">
+        <span class="stat__label">Reincidencias</span>
+        <span class="stat__value">{{ cuantos_avisos }}</span>
+        <span class="stat__hint">avisos sin revisar · solo para revisión, no sancionan</span>
+      </a>
+    </div>
+  </section>
+
+  <div class="prefectura-columnas">
+    <section class="card" aria-labelledby="titulo-recientes">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="flag" %}<h2 class="card__title" id="titulo-recientes">Incidencias recientes</h2></header>
+      <div class="card__body">
+        {% if recientes %}
+          <ul class="conducta-lista-pendientes">
+            {% for registro in recientes %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' registro.pk %}">{{ registro.alumno }} · {{ registro.motivo_nombre }}</a>
+                  <p class="text-muted">{{ registro.fecha|date:"d/m/Y" }}{% if registro.hora %} {{ registro.hora|time:"H:i" }}{% endif %} · {{ registro.grupo_texto }}</p>
+                </div>
+                {% include "conducta/_marca.html" with que='estado' %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">Sin incidencias en los últimos 7 días.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-proximos">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar-range" %}<h2 class="card__title" id="titulo-proximos">Citas y compromisos próximos</h2></header>
+      <div class="card__body">
+        {% if citas or compromisos %}
+          <ul class="conducta-lista-pendientes">
+            {% for cita in citas %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' cita.registro_id %}">Cita con {{ cita.persona }}</a>
+                  <p class="text-muted">{{ cita.registro.alumno }}{% if cita.hora %} · {{ cita.hora|time:"H:i" }}{% endif %}</p>
+                </div>
+                <span class="tag {% if cita.fecha < hoy %}tag--danger{% else %}tag--warning{% endif %}">{{ cita.fecha|date:"d/m" }}</span>
+              </li>
+            {% endfor %}
+            {% for compromiso in compromisos %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' compromiso.registro_id %}">{{ compromiso.descripcion|truncatechars:70 }}</a>
+                  <p class="text-muted">{{ compromiso.registro.alumno }} · {{ compromiso.get_quien_display|lower }}</p>
+                </div>
+                <span class="tag {% if compromiso.fecha_limite < hoy %}tag--danger{% else %}tag--warning{% endif %}">{{ compromiso.fecha_limite|date:"d/m" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay citas ni compromisos en los próximos 7 días.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-reincidencias">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="triangle-alert" %}<h2 class="card__title" id="titulo-reincidencias">Reincidencias por revisar</h2></header>
+      <div class="card__body">
+        {% if avisos %}
+          <ul class="conducta-lista-pendientes">
+            {% for aviso in avisos %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' aviso.registro_id %}">{{ aviso.alumno }}</a>
+                  <p class="text-muted">{{ aviso.cantidad }} de «{{ aviso.registro.motivo_nombre }}» en {{ aviso.dias }} días</p>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">Ningún estudiante llegó al criterio de reincidencia de su nivel.</p>
+        {% endif %}
+        <p class="field__hint">Criterio{{ reglas|length|pluralize }}: {% for regla in reglas %}{{ regla.get_nivel_display }}, {{ regla.incidencias }} del mismo motivo en {{ regla.dias }} días{% if not forloop.last %}; {% endif %}{% empty %}el administrador aún no lo configura (Ajustes › Conducta){% endfor %}.</p>
+      </div>
+    </section>
+  </div>
+{% endblock %}

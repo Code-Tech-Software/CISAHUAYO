@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static usuarios_extras %}
+
+{% block title %}Alcance de {{ usuario|nombre_visible }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'usuarios:lista' %}">Usuarios</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'usuarios:detalle' usuario.pk %}">{{ usuario|nombre_visible }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Alcance</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Alcance de prefectura</h1>
+      <p class="page-header__description">Qué estudiantes puede consultar {{ usuario|nombre_visible }}: niveles completos, grupos sueltos o ambos (según su inscripción en el ciclo actual). Todo el colegio se concede solo si lo marcas. Sin nada marcado no verá a ningún estudiante.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate data-alcance-form>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card">
+      <div class="card__body">
+        <label class="switch-row" for="{{ form.todo_el_colegio.id_for_label }}">
+          <span class="switch-row__icon">{% include "partials/icon.html" with name="shield-check" %}</span>
+          <span class="switch-row__text">
+            <span class="switch-row__title">Todo el colegio</span>
+            <span class="switch-row__hint">{{ form.todo_el_colegio.help_text }}</span>
+          </span>
+          <input class="switch" type="checkbox" name="{{ form.todo_el_colegio.html_name }}" id="{{ form.todo_el_colegio.id_for_label }}"{% if form.todo_el_colegio.value %} checked{% endif %} data-alcance-todo>
+        </label>
+
+        <div class="alcance-prefectura__partes" data-alcance-partes>
+          <fieldset class="field">
+            <legend class="field__label">Niveles completos</legend>
+            <div class="choice-group">
+              {% for opcion in form.niveles %}
+                <label class="choice choice--check" for="{{ opcion.id_for_label }}">
+                  <input class="choice__input" type="checkbox" name="{{ form.niveles.html_name }}" value="{{ opcion.data.value }}" id="{{ opcion.id_for_label }}"{% if opcion.data.selected %} checked{% endif %} data-alcance-nivel>
+                  <span class="choice__box">{{ opcion.choice_label }}</span>
+                </label>
+              {% endfor %}
+            </div>
+            <p class="field__hint">Bachillerato es el nivel «Preparatoria» del sistema.</p>
+          </fieldset>
+
+          <fieldset class="field">
+            <legend class="field__label">Grupos sueltos</legend>
+            {% for nombre_de_nivel, grupos in form.grupos_por_nivel %}
+              <div class="alcance-prefectura__nivel">
+                <p class="alcance-prefectura__nivel-titulo">{{ nombre_de_nivel }}</p>
+                <div class="choice-group">
+                  {% for pk, texto, elegido in grupos %}
+                    <label class="choice choice--check" for="grupo-{{ pk }}">
+                      <input class="choice__input" type="checkbox" name="{{ form.grupos.html_name }}" value="{{ pk }}" id="grupo-{{ pk }}"{% if elegido %} checked{% endif %}>
+                      <span class="choice__box">{{ texto }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+            {% empty %}
+              <p class="text-muted">No hay grupos activos.</p>
+            {% endfor %}
+            {% for error in form.grupos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </fieldset>
+        </div>
+      </div>
+    </section>
+
+    <div class="action-bar">
+      <a class="btn" href="{% url 'usuarios:detalle' usuario.pk %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar alcance</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/prefectura.js' %}" defer></script>
+{% endblock %}

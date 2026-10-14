@@ -1,0 +1,26 @@
+{# Grupos y materias del alcance, y un estudiante del grupo (para _matriz_filtros.html) #}
+<div class="filters__field">
+  <label class="field__label" for="grupo">Grupo</label>
+  <select class="field__control field__control--select" id="grupo" name="grupo" data-elegir-grupo>
+    {% for grupo in grupos %}
+      <option value="{{ grupo.pk }}"{% if grupo.pk == asignacion.grupo_id %} selected{% endif %}>{{ grupo }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="filters__field">
+  <label class="field__label" for="materia">Materia</label>
+  <select class="field__control field__control--select" id="materia" name="materia" data-elegir-materia>
+    {% for opcion in materias_del_grupo %}
+      <option value="{{ opcion.pk }}"{% if opcion.pk == asignacion.pk %} selected{% endif %}>{{ opcion.materia }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="filters__field">
+  <label class="field__label" for="alumno">Estudiante</label>
+  <select class="field__control field__control--select" id="alumno" name="alumno" data-elegir-alumno>
+    <option value="">Todo el grupo</option>
+    {% for estudiante in estudiantes %}
+      <option value="{{ estudiante.pk }}"{% if estudiante.pk == alumno_elegido %} selected{% endif %}>{{ estudiante }}</option>
+    {% endfor %}
+  </select>
+</div>

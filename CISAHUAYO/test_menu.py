@@ -10,7 +10,8 @@ PENDIENTES = set()
 class MenuConRutasRealesTests(SimpleTestCase):
     def setUp(self):
         self.contexto = navegacion(RequestFactory().get('/'))
-        self.items = {el['etiqueta']: el for s in self.contexto['navegacion'] for el in s['elementos']}
+        # Sin usuario no se filtra nada: la sección de prefectura (solo para sus cuentas) se revisa aparte
+        self.items = {el['etiqueta']: el for s in self.contexto['navegacion'] if s['titulo'] != 'Prefectura' for el in s['elementos']}
 
     def test_cada_seccion_del_menu_tiene_su_ruta(self):
         for etiqueta, elemento in self.items.items():
@@ -22,22 +23,27 @@ class MenuConRutasRealesTests(SimpleTestCase):
 
     def test_el_orden_del_menu(self):
         self.assertEqual(list(self.items), [
-            'Panel de control', 'Estudiantes', 'Tutores', 'Profesores', 'Inscripciones',
-            'Ciclos escolares', 'Grados', 'Grupos', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias',
+            'Panel de control', 'Estudiantes', 'Tutores', 'Profesores',
+            'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
+            'Horarios', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
             'Usuarios', 'Roles y permisos', 'Ajustes',
         ])
 
     def test_urls_de_las_secciones(self):
         self.assertEqual(
-            {k: self.items[k]['url'] for k in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias')},
-            {'Estudiantes': '/alumnos/', 'Tutores': '/tutores/', 'Profesores': '/profesores/', 'Inscripciones': '/inscripciones/',
-             'Ciclos escolares': '/ciclos/', 'Grados': '/grados/', 'Materias': '/materias/', 'Asignaciones': '/asignaciones/',
+            {k: self.items[k]['url'] for k in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones a grupos', 'Ciclos escolares', 'Grados', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias')},
+            {'Estudiantes': '/alumnos/', 'Tutores': '/tutores/', 'Profesores': '/profesores/', 'Inscripciones a grupos': '/inscripciones/',
+             'Ciclos escolares': '/ciclos/', 'Grados': '/grados/', 'Materias': '/materias/', 'Asignaciones de materias': '/asignaciones/',
              'Horarios': '/horarios/', 'Periodos': '/periodos/', 'Asistencias': '/asistencias/'},
         )
 
     def test_las_acciones_rapidas_existen_todas(self):
         etiquetas = [a['etiqueta'] for a in self.contexto['acciones_rapidas']]
-        self.assertEqual(etiquetas, [a['etiqueta'] for a in ACCIONES_RAPIDAS])
+        unicas = []   # la misma acción por dos caminos (administración y prefectura) se ofrece una vez
+        for accion in ACCIONES_RAPIDAS:
+            if accion['ruta'] not in [a['ruta'] for a in unicas]:
+                unicas.append(accion)
+        self.assertEqual(etiquetas, [a['etiqueta'] for a in unicas])
         self.assertIn('Nueva materia', etiquetas)
         self.assertIn('Nuevo profesor', etiquetas)
         self.assertIn('Pantalla de entrada', etiquetas)
@@ -45,7 +51,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
 
     def test_cada_seccion_se_activa_en_su_ruta(self):
         for ruta, etiqueta in (('/materias/3/', 'Materias'), ('/horarios/grado/2/', 'Horarios'), ('/ciclos/', 'Ciclos escolares'),
-                               ('/grados/1/', 'Grados'), ('/inscripciones/promocion/', 'Inscripciones'), ('/profesores/4/', 'Profesores'),
+                               ('/grados/1/', 'Grados'), ('/inscripciones/promocion/', 'Inscripciones a grupos'), ('/profesores/4/', 'Profesores'),
                                ('/asistencias/', 'Asistencias'), ('/asistencias/clases/3/', 'Asistencias'), ('/asistencias/entrada/', 'Asistencias')):
             contexto = navegacion(RequestFactory().get(ruta))
             activos = [el['etiqueta'] for s in contexto['navegacion'] for el in s['elementos'] if el['activo']]
@@ -57,3 +63,15 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertIn('horarios:lista', rutas)
         self.assertIn('profesores:lista', rutas)
         self.assertIn('asistencias:inicio', rutas)
+
+    def test_las_secciones_del_menu(self):
+        secciones = {s['titulo']: [el['etiqueta'] for el in s['elementos']] for s in NAVEGACION}
+        self.assertEqual(list(secciones), [None, 'Prefectura', 'Comunidad escolar', 'Gestión académica', 'Sistema'])
+        self.assertEqual(secciones[None], ['Panel de control'])
+        self.assertEqual(secciones['Prefectura'], ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Seguimiento', 'Reportes'])
+        self.assertEqual(secciones['Comunidad escolar'], ['Estudiantes', 'Tutores', 'Profesores'])
+        self.assertEqual(secciones['Gestión académica'], [
+            'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
+            'Horarios', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
+        ])
+        self.assertEqual(secciones['Sistema'], ['Usuarios', 'Roles y permisos', 'Ajustes'])

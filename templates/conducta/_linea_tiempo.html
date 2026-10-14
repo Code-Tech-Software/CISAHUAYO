@@ -1,0 +1,47 @@
+{% comment %}
+  Historial integral de conducta en el expediente del estudiante: conductas positivas, incidencias, medidas,
+  suspensiones, acuerdos y contactos, en una línea de tiempo. Los anulados se ven marcados y no cuentan en los totales.
+  Parámetros: alumno y conducta (Conducta/reglas.py · linea_de_tiempo); opcionales (prefectura): puede_registrar y
+  url_historial (su reporte imprimible).
+{% endcomment %}
+<div class="conducta-expediente">
+  <div class="conducta-expediente__barra">
+    <dl class="conducta-expediente__totales">
+      <div><dt>Incidencias</dt><dd>{{ conducta.incidencias }}</dd></div>
+      <div><dt>Conductas positivas</dt><dd>{{ conducta.positivas }}</dd></div>
+      <div><dt>Suspensiones</dt><dd>{{ conducta.suspensiones }}</dd></div>
+      <div><dt>Seguimientos abiertos</dt><dd>{{ conducta.abiertos }}</dd></div>
+    </dl>
+    <div class="conducta-expediente__acciones">
+      {% if puede_registrar|default_if_none:perms.Conducta.add_registroconducta and alumno.estatus != 'BAJA' %}
+        <a class="btn btn--primary btn--sm" href="{% url 'conducta:crear' %}?alumno={{ alumno.pk }}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Registrar conducta</a>
+      {% endif %}
+      <a class="btn btn--sm" href="{% if url_historial %}{{ url_historial }}{% else %}{% url 'conducta:reportes' %}{% endif %}?reporte=historial&amp;alumnos={{ alumno.pk }}&amp;ciclo=">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Historial para imprimir</a>
+    </div>
+  </div>
+
+  {% if conducta.registros %}
+    <ol class="conducta-linea">
+      {% for registro in conducta.registros %}
+        <li class="conducta-linea__item conducta-linea__item--{{ registro.tipo|lower }}{% if registro.anulado %} conducta-linea__item--anulado{% endif %}">
+          <p class="conducta-linea__titulo">
+            <a class="link-subtle" href="{% url 'conducta:detalle' registro.pk %}"><strong>{{ registro.fecha|date:"d/m/Y" }}</strong> · {{ registro.motivo_nombre }}</a>
+            {% include "conducta/_marca.html" with que='tipo' %} {% include "conducta/_marca.html" with que='gravedad' %} {% include "conducta/_marca.html" with que='estado' %}
+          </p>
+          <p class="text-muted">{{ registro.categoria_nombre }} · {{ registro.grupo_texto }}{% if registro.lugar %} · {{ registro.lugar }}{% endif %}</p>
+          <p class="conducta-texto">{{ registro.descripcion|truncatechars:280 }}</p>
+          {% if registro.medidas_aplicadas.all %}<p><span class="text-muted">Medidas:</span> {% for medida in registro.medidas_aplicadas.all %}{{ medida.nombre }}{% if medida.pendiente %} (por aprobar){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+          {% if registro.suspension and registro.suspension.aprobacion != 'CANCELADA' %}<p><span class="text-muted">Suspensión:</span> del {{ registro.suspension.fecha_inicio|date:"d/m/Y" }} al {{ registro.suspension.fecha_fin|date:"d/m/Y" }} · {{ registro.suspension.motivo_nombre }}{% if not registro.suspension.aprobada %} ({{ registro.suspension.get_aprobacion_display|lower }}){% endif %}</p>{% endif %}
+          {% if registro.acuerdos %}<p><span class="text-muted">Acuerdos:</span> {{ registro.acuerdos|truncatechars:200 }}</p>{% endif %}
+          {% for contacto in registro.contactos.all %}<p class="text-muted">Contacto con {{ contacto.persona }} el {{ contacto.fecha|date:"d/m/Y" }} ({{ contacto.get_medio_display|lower }}).</p>{% endfor %}
+          {% if registro.anulado %}<p class="text-muted">Anulado: {{ registro.motivo_anulacion|truncatechars:160 }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <div class="empty-state empty-state--inline">
+      <p class="empty-state__title">Sin registros de conducta</p>
+      <p class="empty-state__text">Aquí aparecerán sus conductas positivas e incidencias, con sus medidas y acuerdos.</p>
+    </div>
+  {% endif %}
+</div>

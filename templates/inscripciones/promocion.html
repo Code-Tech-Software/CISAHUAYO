@@ -9,7 +9,7 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inscripciones:lista' %}">Inscripciones</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inscripciones:lista' %}">Inscripciones a grupos</a></li>
   <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reinscripción en bloque</span></li>
 {% endblock %}
 
@@ -22,14 +22,35 @@
   </header>
 
   {% if not hay_destinos %}
+    {# La reinscripción pasa a los estudiantes de un ciclo (origen) a otro (destino): hacen falta los dos #}
     <div class="card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No hay un ciclo al cual reinscribir</p>
-        <p class="empty-state__text">Primero crea el ciclo nuevo (o márcalo como actual) y vuelve aquí.</p>
-        {% if perms.Alumnos.add_cicloescolar %}
-          <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
+        {% if sin_destino == 'SIN_CICLOS' %}
+          <p class="empty-state__title">Aún no hay ciclos escolares</p>
+          <p class="empty-state__text">Crea el ciclo escolar y, cuando termine, el siguiente: la reinscripción pasa a los estudiantes de uno al otro.</p>
+        {% elif sin_destino == 'UN_CICLO' %}
+          <p class="empty-state__title">Falta el ciclo al que se reinscribe</p>
+          <p class="empty-state__text">
+            La reinscripción pasa a los estudiantes de un ciclo a su siguiente grado en <strong>otro</strong> ciclo, y por ahora solo existe el
+            ciclo {{ unico }}{% if unico.activo %}, que es el actual{% endif %}. Cuando toque reinscribir, crea el ciclo {{ ciclo_siguiente }}
+            (sin marcarlo como actual) y vuelve aquí.
+          </p>
+          <p class="empty-state__text">Para inscribir estudiantes en el ciclo {{ unico }}, usa «Nueva inscripción».</p>
+        {% else %}
+          <p class="empty-state__title">No hay un ciclo actual ni uno próximo</p>
+          <p class="empty-state__text">Solo se reinscribe hacia el ciclo actual o hacia uno que todavía no empieza. Marca como actual el ciclo que corresponde o crea el próximo.</p>
         {% endif %}
+        <div class="empty-state__actions">
+          {% if perms.Alumnos.add_cicloescolar %}
+            <a class="btn btn--primary btn--sm" href="{% url 'ciclos:crear' %}" data-modal-form>Crear ciclo</a>
+          {% endif %}
+          {% if sin_destino == 'UN_CICLO' %}
+            <a class="btn btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ unico.pk }}" data-modal-form>Nueva inscripción</a>
+          {% elif sin_destino == 'SIN_DESTINO' and perms.Alumnos.view_cicloescolar %}
+            <a class="btn btn--sm" href="{% url 'ciclos:lista' %}">Ver ciclos escolares</a>
+          {% endif %}
+        </div>
       </div>
     </div>
   {% else %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ movimiento.get_tipo_display }} de {{ movimiento.alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:accesos' %}">Entradas y salidas</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ movimiento.alumno }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{{ movimiento.get_tipo_display }}</h1>
+      <p class="page-header__description">{{ movimiento.alumno }} · {{ movimiento.fecha|date:"l j \d\e F \d\e Y"|capfirst }}, {{ movimiento.hora|time:"H:i" }}</p>
+    </div>
+  </header>
+
+  <div class="form-page">
+    {% if movimiento.anulado %}
+      <div class="alert alert--error" role="note">{% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}<div class="alert__body"><p><strong>Anulado</strong> por {% firstof movimiento.anulado_por.get_full_name movimiento.anulado_por.username "—" %} el {{ movimiento.anulado_en|date:"d/m/Y H:i" }}: {{ movimiento.motivo_anulacion }}</p></div></div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body">
+        <dl class="details">
+          <div class="details__item details__item--wide"><dt class="details__label">Motivo</dt><dd class="details__value conducta-texto">{{ movimiento.motivo|linebreaksbr }}</dd></div>
+          <div class="details__item"><dt class="details__label">Acompañante</dt><dd class="details__value{% if not movimiento.acompanante %} details__value--empty{% endif %}">{{ movimiento.acompanante|default:"—" }}</dd></div>
+          <div class="details__item"><dt class="details__label">Registró</dt><dd class="details__value">{% firstof movimiento.registrado_por.get_full_name movimiento.registrado_por.username "—" %}<span class="details__note text-muted">{{ movimiento.creado|date:"d/m/Y H:i" }}</span></dd></div>
+        </dl>
+        <h2 class="subsection-title">Historial</h2>
+        <ol class="conducta-historial">
+          {% for cambio in cambios %}
+            <li class="conducta-historial__item">
+              <p class="conducta-historial__que"><strong>{{ cambio.get_accion_display }}</strong> · {% firstof cambio.usuario.get_full_name cambio.usuario.username "—" %}</p>
+              <p class="text-muted conducta-historial__cuando">{{ cambio.fecha|date:"d/m/Y H:i" }}</p>
+              {% if cambio.motivo %}<p class="conducta-historial__detalle">Motivo: {{ cambio.motivo }}</p>{% endif %}
+              {% if cambio.cambios %}
+                <dl class="conducta-historial__cambios">
+                  {% for que, antes, despues in cambio.cambios %}<div><dt>{{ que }}</dt><dd><del>{{ antes|default:"(vacío)" }}</del> → <ins>{{ despues|default:"(vacío)" }}</ins></dd></div>{% endfor %}
+                </dl>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{% url 'prefectura:accesos' %}">Volver</a>
+      {% if corregible %}<a class="btn btn--primary" href="{% url 'prefectura:acceso_corregir' movimiento.pk %}" data-modal-form>Corregir</a>{% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
 
-{% block title %}Asignaciones | CISAHUAYO{% endblock %}
+{% block title %}Asignaciones de materias | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -9,13 +9,13 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Asignaciones</span></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Asignaciones de materias</span></li>
 {% endblock %}
 
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Asignaciones</h1>
+      <h1 class="page-header__title">Asignaciones de materias</h1>
       <p class="page-header__description">Qué profesor imparte cada materia en cada grupo. Asigna de una en una o marca varias y asígnalas de golpe.</p>
     </div>
     <div class="page-header__actions">

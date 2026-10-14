@@ -1,0 +1,53 @@
+{% comment %}
+  Ventana con la justificación de una J de la asistencia por materia (solo la administración; asistencia-justificar.js
+  la llena con los datos de la celda): motivo, quién y cuándo, y el comprobante. Parámetro: asignacion.
+{% endcomment %}
+<dialog class="modal modal--wide ver-justificacion" id="modal-ver-justificacion" aria-labelledby="ver-justificacion-titulo" data-modal data-ver-justificacion>
+  <div class="modal__panel">
+    <header class="modal__header">
+      <h2 class="modal__title" id="ver-justificacion-titulo">
+        <span class="indicador-asistencia indicador-asistencia--justificada" aria-hidden="true">J</span> Falta justificada
+      </h2>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+    </header>
+    <div class="modal__body">
+      <dl class="details">
+        <div class="details__item details__item--wide">
+          <dt class="details__label">Estudiante</dt>
+          <dd class="details__value" data-ver="alumno"></dd>
+        </div>
+        <div class="details__item">
+          <dt class="details__label">Materia</dt>
+          <dd class="details__value">{{ asignacion.materia }} <span class="details__note text-muted">{{ asignacion.grupo }}</span></dd>
+        </div>
+        <div class="details__item">
+          <dt class="details__label">Fecha de la falta</dt>
+          <dd class="details__value" data-ver="fecha"></dd>
+        </div>
+        <div class="details__item details__item--wide">
+          <dt class="details__label">Motivo</dt>
+          <dd class="details__value" data-ver="motivo"></dd>
+        </div>
+        <div class="details__item details__item--wide">
+          <dt class="details__label">Justificada</dt>
+          <dd class="details__value" data-ver="registro"></dd>
+        </div>
+      </dl>
+
+      <figure class="comprobante__vista comprobante__vista--consulta" data-ver-foto hidden>
+        <a class="comprobante__enlace" href="#" target="_blank" rel="noopener" data-ver-foto-enlace>
+          <img class="comprobante__img" alt="Comprobante de la falta" loading="lazy" data-ver-foto-img>
+        </a>
+        <figcaption class="comprobante__pie text-muted">Comprobante · haz clic para verlo completo</figcaption>
+      </figure>
+      <p data-ver-archivo hidden>
+        <a class="btn btn--sm" href="#" target="_blank" rel="noopener" data-ver-archivo-enlace>{% include "partials/icon.html" with name="link" icon_class="icon--sm" %} Abrir el comprobante</a>
+      </p>
+      <p class="text-muted" data-ver-sin-comprobante hidden>Esta justificación se registró sin comprobante (desde Justificaciones).</p>
+    </div>
+    <footer class="modal__footer">
+      <a class="btn btn--ghost" href="{% url 'asistencias:justificaciones' %}" data-ver-lista>Ver en Justificaciones</a>
+      <button type="button" class="btn btn--primary" data-modal-close>Cerrar</button>
+    </footer>
+  </div>
+</dialog>

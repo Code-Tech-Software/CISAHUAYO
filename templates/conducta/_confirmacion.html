@@ -1,0 +1,17 @@
+{% comment %}
+  Ventana para confirmar una acción: los formularios con data-confirmar="pregunta" (y data-confirmar-boton) la abren
+  antes de enviarse (static/js/conducta.js). Sin JavaScript, se envían directo.
+{% endcomment %}
+<dialog class="modal" id="modal-confirmar-conducta" aria-labelledby="confirmar-conducta-titulo" data-modal data-confirmacion>
+  <div class="modal__panel">
+    <header class="modal__header">
+      <h2 class="modal__title" id="confirmar-conducta-titulo">Confirmar</h2>
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+    </header>
+    <div class="modal__body"><p data-confirmacion-texto></p></div>
+    <footer class="modal__footer">
+      <button type="button" class="btn" data-modal-close>Cancelar</button>
+      <button type="button" class="btn btn--danger" data-confirmacion-aceptar>Confirmar</button>
+    </footer>
+  </div>
+</dialog>

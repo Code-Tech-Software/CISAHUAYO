@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Base de las páginas de una acción de prefectura (se abren en la ventana modal con data-modal-form y también funcionan
+  como página completa). Bloques: title, migaja, encabezado, descripcion, atributos, campos, clase_boton y boton.
+  Parámetro: volver (a dónde lleva «Cancelar»).
+{% endcomment %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% block migaja %}{% endblock %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% block encabezado %}{% endblock %}</h1>
+      <p class="page-header__description">{% block descripcion %}{% endblock %}</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" enctype="multipart/form-data" novalidate{% block atributos %}{% endblock %}>
+    {% csrf_token %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body">
+        {% block campos %}{% endblock %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{% if volver %}{{ volver }}{% else %}{% url 'prefectura:inicio' %}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn {% block clase_boton %}btn--primary{% endblock %}">{% block boton %}Guardar{% endblock %}</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/prefectura.js' %}" defer></script>
+{% endblock %}

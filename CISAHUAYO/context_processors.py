@@ -14,6 +14,30 @@ def _es_docente_que_pasa_lista(usuario):
     return profesor_de(usuario) is not None
 
 
+def _usa_prefectura(usuario):
+    """Una cuenta de prefectura (su rol es de prefectura) que puede consultar: su menú es el de prefectura."""
+    if not usuario.has_perm('Prefectura.consultar'):
+        return False
+    from Prefectura.alcance import es_cuenta_de_prefectura
+    try:
+        return es_cuenta_de_prefectura(usuario)
+    except DatabaseError:   # aún no se aplican las migraciones
+        return False
+
+
+def _no_usa_prefectura(usuario):
+    return not _usa_prefectura(usuario)
+
+
+def _permiso_fuera_de_prefectura(permiso):
+    """Para las cuentas de prefectura, su sección reemplaza a la general (aunque se les concediera el permiso)."""
+    return lambda usuario: usuario.has_perm(permiso) and not _usa_prefectura(usuario)
+
+
+def _prefectura_con(permiso):
+    return lambda usuario: _usa_prefectura(usuario) and usuario.has_perm(permiso)
+
+
 # Navegación lateral. `ruta` es el nombre de la URL (con namespace si lo tiene).
 # Mientras una ruta no exista, el enlace del menú apunta a "#" y se activará
 # solo en cuanto se registre la URL con ese nombre.
@@ -26,39 +50,55 @@ NAVEGACION = (
     {
         'titulo': None,
         'elementos': (
-            {'etiqueta': 'Panel de control', 'icono': 'layout-dashboard', 'ruta': 'inicio', 'exacto': True},
+            {'etiqueta': 'Panel de control', 'icono': 'layout-dashboard', 'ruta': 'inicio', 'exacto': True, 'destinos': ((_no_usa_prefectura, 'inicio'),)},
         ),
     },
     {
-        'titulo': 'Gestión escolar',
+        # Solo para las cuentas de prefectura (Rol.es_prefectura): todo dentro de su alcance
+        'titulo': 'Prefectura',
+        'elementos': (
+            {'etiqueta': 'Inicio', 'icono': 'layout-dashboard', 'ruta': 'prefectura:inicio', 'exacto': True, 'destinos': ((_usa_prefectura, 'prefectura:inicio'),)},
+            {'etiqueta': 'Estudiantes', 'icono': 'graduation-cap', 'ruta': 'prefectura:estudiantes', 'destinos': ((_usa_prefectura, 'prefectura:estudiantes'),)},
+            {
+                'etiqueta': 'Asistencia', 'icono': 'user-check', 'ruta': 'prefectura:asistencia',
+                'destinos': ((_usa_prefectura, 'prefectura:asistencia_registros'),),
+                'activo_en': ('prefectura:accesos', 'prefectura:justificaciones'),
+            },
+            {'etiqueta': 'Conducta', 'icono': 'flag', 'ruta': 'conducta:lista', 'destinos': ((_usa_prefectura, 'conducta:lista'),)},
+            {'etiqueta': 'Seguimiento', 'icono': 'clipboard-check', 'ruta': 'prefectura:seguimiento', 'destinos': ((_usa_prefectura, 'prefectura:seguimiento'),)},
+            {'etiqueta': 'Reportes', 'icono': 'bar-chart', 'ruta': 'prefectura:reportes', 'destinos': ((_usa_prefectura, 'prefectura:reportes'),)},
+        ),
+    },
+    {
+        'titulo': 'Comunidad escolar',
         'elementos': (
             {'etiqueta': 'Estudiantes', 'icono': 'graduation-cap', 'ruta': 'alumnos:lista', 'permiso': 'Alumnos.view_alumno'},
             {'etiqueta': 'Tutores', 'icono': 'users', 'ruta': 'tutores:lista', 'permiso': 'Alumnos.view_tutor'},
             {'etiqueta': 'Profesores', 'icono': 'presentation', 'ruta': 'profesores:lista', 'permiso': 'Alumnos.view_profesor'},
-            {'etiqueta': 'Inscripciones', 'icono': 'clipboard-list', 'ruta': 'inscripciones:lista', 'permiso': 'Alumnos.view_inscripcion'},
         ),
     },
     {
-        'titulo': 'Académico',
+        'titulo': 'Gestión académica',
         'elementos': (
             {'etiqueta': 'Ciclos escolares', 'icono': 'calendar-range', 'ruta': 'ciclos:lista', 'permiso': 'Alumnos.view_cicloescolar'},
             {'etiqueta': 'Grados', 'icono': 'layers', 'ruta': 'grados:lista', 'permiso': 'Alumnos.view_grado'},
             {'etiqueta': 'Grupos', 'icono': 'users', 'ruta': 'grupos:lista', 'permiso': 'Alumnos.view_grupo'},
-            {'etiqueta': 'Materias', 'icono': 'book-open', 'ruta': 'materias:lista', 'permiso': 'Alumnos.view_materia'},
-            {'etiqueta': 'Asignaciones', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
-            {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
             {'etiqueta': 'Periodos', 'icono': 'clipboard-check', 'ruta': 'periodos:lista', 'permiso': 'Alumnos.view_periodo'},
+            {'etiqueta': 'Inscripciones a grupos', 'icono': 'clipboard-list', 'ruta': 'inscripciones:lista', 'permiso': 'Alumnos.view_inscripcion'},
+            {'etiqueta': 'Materias', 'icono': 'book-open', 'ruta': 'materias:lista', 'permiso': 'Alumnos.view_materia'},
+            {'etiqueta': 'Asignaciones de materias', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
+            {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
             {
                 'etiqueta': 'Asistencias', 'icono': 'user-check', 'ruta': 'asistencias:inicio',
                 'destinos': (
                     ('Alumnos.view_asistenciageneral', 'asistencias:inicio'),
                     (_es_docente_que_pasa_lista, 'asistencias:docente'),   # un profesor entra a sus materias
-                    ('Alumnos.view_asistenciamateria', 'asistencias:clases'),
                     ('Alumnos.view_justificacion', 'asistencias:justificaciones'),
                     ('Alumnos.add_asistenciageneral', 'asistencias:kiosco'),
-                    ('Alumnos.view_configuracionasistencia', 'asistencias:ajustes'),
                 ),
             },
+            {'etiqueta': 'Registro de conducta', 'icono': 'flag', 'ruta': 'conducta:lista', 'destinos': ((_permiso_fuera_de_prefectura('Conducta.view_registroconducta'), 'conducta:lista'),)},
+            {'etiqueta': 'Reportes de conducta', 'icono': 'bar-chart', 'ruta': 'conducta:reportes', 'destinos': ((_permiso_fuera_de_prefectura('Conducta.view_registroconducta'), 'conducta:reportes'),)},
         ),
     },
     {
@@ -66,7 +106,7 @@ NAVEGACION = (
         'elementos': (
             {'etiqueta': 'Usuarios', 'icono': 'user', 'ruta': 'usuarios:lista', 'permiso': 'auth.view_user'},
             {'etiqueta': 'Roles y permisos', 'icono': 'shield-check', 'ruta': 'roles:lista', 'permiso': 'Usuarios.view_rol'},
-            # Sin permiso: cada quien elige cómo ve el sistema
+            # Sin permiso: cada quien elige cómo ve el sistema; con permiso, ahí están los ajustes de asistencia y conducta
             {'etiqueta': 'Ajustes', 'icono': 'settings', 'ruta': 'ajustes:inicio'},
         ),
     },
@@ -85,6 +125,10 @@ ACCIONES_RAPIDAS = (
     {'etiqueta': 'Nuevo periodo de evaluación', 'icono': 'plus', 'ruta': 'periodos:crear', 'permiso': 'Alumnos.add_periodo'},
     {'etiqueta': 'Pantalla de entrada', 'icono': 'user-check', 'ruta': 'asistencias:kiosco', 'permiso': 'Alumnos.add_asistenciageneral'},
     {'etiqueta': 'Nueva justificación', 'icono': 'plus', 'ruta': 'asistencias:justificacion_crear', 'permiso': 'Alumnos.add_justificacion'},
+    {'etiqueta': 'Registrar conducta', 'icono': 'plus', 'ruta': 'conducta:crear', 'permiso': 'Conducta.add_registroconducta'},
+    {'etiqueta': 'Registrar conducta', 'icono': 'plus', 'ruta': 'conducta:crear', 'permiso': _prefectura_con('Prefectura.registrar')},
+    {'etiqueta': 'Registrar entrada o salida', 'icono': 'clock', 'ruta': 'prefectura:acceso_crear', 'permiso': _prefectura_con('Prefectura.registrar')},
+    {'etiqueta': 'Justificar faltas o retardos', 'icono': 'plus', 'ruta': 'prefectura:justificar', 'permiso': _prefectura_con('Prefectura.justificar')},
     {'etiqueta': 'Nuevo usuario', 'icono': 'plus', 'ruta': 'usuarios:crear', 'permiso': 'auth.add_user'},
     {'etiqueta': 'Nuevo rol', 'icono': 'plus', 'ruta': 'roles:crear', 'permiso': 'Usuarios.add_rol'},
     {'etiqueta': 'Cambiar el tema de color', 'icono': 'palette', 'ruta': 'ajustes:inicio'},
@@ -141,6 +185,11 @@ def navegacion(request):
                 if elemento.get('exacto')
                 else request.path.startswith(base)
             )
+            # Pantallas de la misma sección con otra dirección (p. ej. accesos y justificaciones dentro de Asistencia)
+            for otra in elemento.get('activo_en', ()):
+                otra_base = _resolver(otra)
+                if otra_base and request.path.startswith(otra_base) and len(otra_base) > len(base or ''):
+                    coincide, base = True, otra_base
             item = {**elemento, 'url': destino or '#', 'disponible': bool(destino), 'activo': False}
             if coincide and len(base) > mejor_longitud:
                 mejor, mejor_longitud = item, len(base)
@@ -154,7 +203,10 @@ def navegacion(request):
     acciones = []
     for accion in ACCIONES_RAPIDAS:
         url = _resolver(accion['ruta'])
-        if url and (usuario is None or accion.get('permiso') is None or usuario.has_perm(accion['permiso'])):
+        permiso = accion.get('permiso')
+        if url and (usuario is None or permiso is None or (permiso(usuario) if callable(permiso) else usuario.has_perm(permiso))):
+            if any(a['ruta'] == accion['ruta'] for a in acciones):
+                continue   # la misma acción por dos caminos (administración y prefectura)
             acciones.append({**accion, 'url': url})
 
     contexto = {

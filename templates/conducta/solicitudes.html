@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Solicitudes de aprobación | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'conducta:lista' %}">Registro de conducta</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Solicitudes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Solicitudes de aprobación</h1>
+      <p class="page-header__description">Suspensiones y medidas que esperan la autorización de la dirección del nivel del estudiante. Nadie resuelve una solicitud que hizo él mismo. En la asistencia, los días de una suspensión se marcan con una S (pendiente o autorizada).</p>
+    </div>
+  </header>
+
+  {% include "conducta/_subnav.html" %}
+
+  <nav class="tabs__list conducta-secciones" aria-label="Solicitudes">
+    <a class="tabs__tab" href="?vista=pendientes"{% if vista == 'pendientes' %} aria-current="page" aria-selected="true"{% else %} aria-selected="false"{% endif %}>Por resolver <span class="tabs__count">{{ total_por_resolver }}</span></a>
+    <a class="tabs__tab" href="?vista=resueltas"{% if vista == 'resueltas' %} aria-current="page" aria-selected="true"{% else %} aria-selected="false"{% endif %}>Resueltas</a>
+  </nav>
+
+  {% if vista == 'pendientes' %}
+    <section class="card conducta-pendientes__bloque" aria-labelledby="titulo-suspensiones">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="circle-x" %}<h2 class="card__title" id="titulo-suspensiones">Suspensiones <span class="tabs__count">{{ suspensiones|length }}</span></h2></header>
+      <div class="card__body">
+        {% if suspensiones %}
+          <ul class="conducta-lista-simple">
+            {% for suspension in suspensiones %}
+              <li class="conducta-lista-simple__item">
+                <div>
+                  <a class="link-subtle" href="{% url 'conducta:detalle' suspension.registro_id %}"><strong>{{ suspension.registro.alumno }}</strong> · {{ suspension.motivo_nombre }}</a>
+                  <p class="text-muted">{{ suspension.nivel_nombre }} · del {{ suspension.fecha_inicio|date:"d/m/Y" }} al {{ suspension.fecha_fin|date:"d/m/Y" }} · la pidió {% firstof suspension.solicitada_por.get_full_name suspension.solicitada_por.username "—" %} el {{ suspension.solicitada_en|date:"d/m/Y H:i" }}</p>
+                  {% if suspension.justificacion %}<p class="conducta-texto">{{ suspension.justificacion|truncatechars:200 }}</p>{% endif %}
+                </div>
+                <div class="conducta-lista-simple__acciones">
+                  {% if suspension.resoluble %}
+                    <a class="btn btn--primary btn--sm" href="{% url 'conducta:suspension_resolver' suspension.pk %}?next={{ request.get_full_path|urlencode }}" data-modal-form>Autorizar o rechazar</a>
+                  {% elif suspension.de_mi_nivel %}
+                    <span class="text-muted">La pediste tú</span>
+                  {% else %}
+                    <span class="text-muted">La autoriza la dirección de {{ suspension.nivel_nombre|lower }}</span>
+                  {% endif %}
+                  {% if suspension.solicitada_por_id == user.pk or suspension.de_mi_nivel %}
+                    <a class="btn btn--ghost btn--sm" href="{% url 'conducta:suspension_cancelar' suspension.pk %}?next={{ request.get_full_path|urlencode }}" data-modal-form>Cancelar</a>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay solicitudes de suspensión por resolver.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card conducta-pendientes__bloque" aria-labelledby="titulo-medidas">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="shield-check" %}<h2 class="card__title" id="titulo-medidas">Medidas disciplinarias <span class="tabs__count">{{ medidas|length }}</span></h2></header>
+      <div class="card__body">
+        {% if medidas %}
+          <ul class="conducta-lista-simple">
+            {% for medida in medidas %}
+              <li class="conducta-lista-simple__item">
+                <div>
+                  <a class="link-subtle" href="{% url 'conducta:detalle' medida.registro_id %}"><strong>{{ medida.registro.alumno }}</strong> · {{ medida.nombre }}</a>
+                  <p class="text-muted">{{ medida.registro.motivo_nombre }} del {{ medida.registro.fecha|date:"d/m/Y" }} · la pidió {% firstof medida.solicitada_por.get_full_name medida.solicitada_por.username "—" %} el {{ medida.solicitada_en|date:"d/m/Y H:i" }}</p>
+                </div>
+                <div class="conducta-lista-simple__acciones">
+                  {% if medida.resoluble %}
+                    <a class="btn btn--primary btn--sm" href="{% url 'conducta:medida_resolver' medida.pk %}?next={{ request.get_full_path|urlencode }}" data-modal-form>Autorizar o rechazar</a>
+                  {% elif medida.de_mi_nivel %}
+                    <span class="text-muted">La pediste tú</span>
+                  {% else %}
+                    <span class="text-muted">La autoriza la dirección de {{ medida.nivel_nombre|lower }}</span>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay medidas por aprobar.</p>
+        {% endif %}
+      </div>
+    </section>
+  {% else %}
+    <section class="card conducta-pendientes__bloque" aria-labelledby="titulo-resueltas">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="titulo-resueltas">Resueltas recientemente</h2></header>
+      <div class="card__body">
+        {% if resueltas_suspensiones or resueltas_medidas %}
+          <ul class="conducta-lista-simple">
+            {% for suspension in resueltas_suspensiones %}
+              <li class="conducta-lista-simple__item">
+                <div>
+                  <a class="link-subtle" href="{% url 'conducta:detalle' suspension.registro_id %}"><strong>{{ suspension.registro.alumno }}</strong> · suspensión del {{ suspension.fecha_inicio|date:"d/m/Y" }} al {{ suspension.fecha_fin|date:"d/m/Y" }}</a>
+                  <p class="text-muted">{{ suspension.get_aprobacion_display }} por {% firstof suspension.resuelta_por.get_full_name suspension.resuelta_por.username "—" %} el {{ suspension.resuelta_en|date:"d/m/Y H:i" }} · la pidió {% firstof suspension.solicitada_por.get_full_name suspension.solicitada_por.username "—" %}{% if suspension.observaciones_resolucion %} · {{ suspension.observaciones_resolucion|truncatechars:160 }}{% endif %}</p>
+                </div>
+                <span class="tag {% if suspension.aprobacion == 'APROBADA' %}tag--success{% elif suspension.aprobacion == 'RECHAZADA' %}tag--danger{% endif %}">{{ suspension.get_aprobacion_display }}</span>
+              </li>
+            {% endfor %}
+            {% for medida in resueltas_medidas %}
+              <li class="conducta-lista-simple__item">
+                <div>
+                  <a class="link-subtle" href="{% url 'conducta:detalle' medida.registro_id %}"><strong>{{ medida.registro.alumno }}</strong> · {{ medida.nombre }}</a>
+                  <p class="text-muted">{{ medida.get_estado_display }} por {% firstof medida.resuelta_por.get_full_name medida.resuelta_por.username "—" %} el {{ medida.resuelta_en|date:"d/m/Y H:i" }} · la pidió {% firstof medida.solicitada_por.get_full_name medida.solicitada_por.username "—" %}{% if medida.observaciones %} · {{ medida.observaciones|truncatechars:160 }}{% endif %}</p>
+                </div>
+                <span class="tag {% if medida.estado == 'APLICADA' %}tag--success{% elif medida.estado == 'RECHAZADA' %}tag--danger{% endif %}">{{ medida.get_estado_display }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">Todavía no se ha resuelto ninguna solicitud.</p>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

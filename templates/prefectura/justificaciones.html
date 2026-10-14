@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Justificaciones · Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:asistencia_registros' %}">Asistencia</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Justificaciones</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Justificaciones</h1>
+      <p class="page-header__description">Las faltas y retardos justificados de tus estudiantes, con su motivo, su comprobante, quién los justificó y cuándo. Cada registro conserva su estado original y queda vinculado a su justificación; revocar exige un motivo.</p>
+    </div>
+    {% if puede.justificar %}
+      <div class="page-header__actions">
+        <a class="btn btn--primary btn--sm" href="{% url 'prefectura:justificar' %}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Justificar</a>
+      </div>
+    {% endif %}
+  </header>
+
+  {% include "prefectura/_subnav_asistencia.html" %}
+
+  <form class="filters prefectura-filtros" method="get" role="search" aria-label="Filtrar justificaciones">
+    <div class="filters__field prefectura-filtros__busqueda">
+      <label class="field__label" for="q">Estudiante</label>
+      <input class="field__control" id="q" type="search" name="q" value="{{ q }}" placeholder="Nombre o número de control…" autocomplete="off">
+    </div>
+    <div class="filters__field"><label class="field__label" for="desde">Desde</label><input class="field__control" id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}"></div>
+    <div class="filters__field"><label class="field__label" for="hasta">Hasta</label><input class="field__control" id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}"></div>
+    <div class="filters__field">
+      <label class="field__label" for="estado">Estado</label>
+      <select class="field__control field__control--select" id="estado" name="estado">
+        <option value="">Vigentes y revocadas</option>
+        <option value="vigentes"{% if estado == 'vigentes' %} selected{% endif %}>Vigentes</option>
+        <option value="revocadas"{% if estado == 'revocadas' %} selected{% endif %}>Revocadas</option>
+      </select>
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar</button>
+      <a class="btn btn--ghost btn--sm" href="{{ request.path }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if pagina.paginator.count %}
+    <div class="table-card">
+      <div class="prefectura-tabla-marco">
+        <table class="table table--people">
+          <caption class="visually-hidden">Justificaciones</caption>
+          <thead class="table__head">
+            <tr><th class="table__th" scope="col">Estudiante</th><th class="table__th" scope="col">Fechas</th><th class="table__th" scope="col">Registros</th><th class="table__th" scope="col">Motivo</th><th class="table__th" scope="col">Justificó</th><th class="table__th" scope="col">Estado</th><th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th></tr>
+          </thead>
+          <tbody class="table__body">
+            {% for grupo in pagina %}
+              {% with j=grupo.principal %}
+                <tr class="table__row{% if not grupo.vigentes %} is-muted{% endif %}">
+                  <td class="table__cell table__cell--main"><a class="link-subtle" href="{% url 'prefectura:estudiante' j.inscripcion.alumno_id %}"><span class="person__name">{{ j.inscripcion.alumno }}</span></a><span class="text-muted prefectura-sub">{{ j.inscripcion.grupo }}</span></td>
+                  <td class="table__cell" data-label="Fechas">{% if grupo.desde == grupo.hasta %}{{ grupo.desde|date:"d/m/Y" }}{% else %}{{ grupo.desde|date:"d/m" }} – {{ grupo.hasta|date:"d/m/Y" }}{% endif %}</td>
+                  <td class="table__cell" data-label="Registros">
+                    <details class="prefectura-detalle-registros">
+                      <summary>{{ grupo.registros|length }} registro{{ grupo.registros|length|pluralize }}</summary>
+                      <ul>
+                        {% for r in grupo.registros %}<li>{{ r.fecha|date:"d/m" }} · {% if r.asistencia %}{{ r.asistencia.materia_grado.materia }} ({{ r.asistencia.get_estado_display|lower }}){% elif r.justifica_general %}Entrada al colegio{% else %}Día completo{% endif %}{% if not r.activa %} · revocada{% endif %}</li>{% endfor %}
+                      </ul>
+                    </details>
+                  </td>
+                  <td class="table__cell" data-label="Motivo">{{ j.motivo|truncatechars:90 }}{% if j.documento %} <a class="link-subtle" href="{% url 'asistencias:comprobante' j.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} Comprobante</a>{% endif %}</td>
+                  <td class="table__cell" data-label="Justificó"><span class="text-muted">{% firstof j.registrada_por.get_full_name j.registrada_por.username "—" %} · {{ j.creado|date:"d/m/Y H:i" }}</span></td>
+                  <td class="table__cell" data-label="Estado">
+                    {% if grupo.vigentes %}<span class="tag tag--success">Vigente</span>
+                    {% else %}<span class="tag">Revocada</span><span class="text-muted prefectura-sub">{% firstof j.revocada_por.get_full_name j.revocada_por.username "—" %}{% if j.revocada_en %} · {{ j.revocada_en|date:"d/m/Y" }}{% endif %}{% if j.motivo_revocacion %}: {{ j.motivo_revocacion|truncatechars:80 }}{% endif %}</span>{% endif %}
+                  </td>
+                  <td class="table__cell table__cell--actions">
+                    {% if puede.justificar and grupo.vigentes %}<a class="btn btn--ghost btn--sm" href="{% url 'prefectura:justificacion_revocar' j.pk %}" data-modal-form>Revocar</a>{% endif %}
+                  </td>
+                </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="justificaciones" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Sin justificaciones con esos filtros</p>
+        <p class="empty-state__text">Aquí aparecen las faltas y retardos justificados de los estudiantes de tu alcance.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

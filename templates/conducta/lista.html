@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Registro de conducta | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Registro de conducta</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Registro de conducta</h1>
+      <p class="page-header__description">Incidencias y conductas positivas de todo el colegio, con sus medidas, suspensiones y seguimiento. Los registros anulados se conservan para consulta y no cuentan en los indicadores.</p>
+    </div>
+    {% if puede_registrar %}
+      <div class="page-header__actions">
+        <a class="btn btn--primary" href="{% url 'conducta:crear' %}" data-modal-form data-modal-tam="lg">
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Registrar conducta
+        </a>
+      </div>
+    {% endif %}
+  </header>
+
+  {% include "conducta/_subnav.html" %}
+
+  {% if alcance.restringido %}
+    <p class="conducta-alcance text-muted">{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Tu alcance: <strong>{{ alcance.descripcion }}</strong>. Solo ves a estos estudiantes, con todo su historial.</p>
+  {% endif %}
+
+  <form class="filters filtros-conducta" method="get" role="search" aria-label="Filtrar los registros de conducta" data-filtros-conducta>
+    {% include "conducta/_filtros.html" with principal="conducta/_filtros_principales_lista.html" limpiar=request.path %}
+  </form>
+
+  {% if aviso_de_fechas %}
+    <div class="alert alert--warning alert--spaced" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>{{ aviso_de_fechas }}</p></div>
+    </div>
+  {% endif %}
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">
+      {{ pagina.paginator.count }} registro{{ pagina.paginator.count|pluralize }}
+      · <strong>{{ conteo.incidencias }}</strong> incidencia{{ conteo.incidencias|pluralize }}
+      · <strong>{{ conteo.positivas }}</strong> conducta{{ conteo.positivas|pluralize }} positiva{{ conteo.positivas|pluralize }}
+      · <strong>{{ conteo.estudiantes }}</strong> estudiante{{ conteo.estudiantes|pluralize }}
+    </p>
+
+    <div class="table-card">
+      <div class="conducta-tabla-marco">
+      <table class="table table--people conducta-tabla">
+        <caption class="visually-hidden">Registros de conducta</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Fecha</th>
+            <th class="table__th" scope="col">Estudiante</th>
+            <th class="table__th" scope="col">Nivel, grado y grupo</th>
+            <th class="table__th" scope="col">Categoría y motivo</th>
+            <th class="table__th" scope="col">Gravedad</th>
+            <th class="table__th" scope="col">Medidas</th>
+            <th class="table__th" scope="col">Seguimiento</th>
+            <th class="table__th" scope="col">Registró</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for registro in pagina %}
+            <tr class="table__row{% if registro.anulado %} is-muted{% endif %}">
+              <td class="table__cell" data-label="Fecha">
+                <span class="cell-stack__main">{{ registro.fecha|date:"d/m/Y" }}</span>
+                {% if registro.hora %}<span class="text-muted conducta-hora">{{ registro.hora|time:"H:i" }}</span>{% endif %}
+              </td>
+              <td class="table__cell table__cell--main">
+                <a class="person" href="{% url 'conducta:detalle' registro.pk %}">
+                  {% include "partials/avatar.html" with persona=registro.alumno %}
+                  <span class="person__text">
+                    <span class="person__name">{{ registro.alumno }}</span>
+                    <span class="person__meta">{{ registro.alumno.referencia }} · {% include "conducta/_marca.html" with que='tipo' %}</span>
+                  </span>
+                </a>
+              </td>
+              <td class="table__cell" data-label="Grupo">{{ registro.grupo_texto }}</td>
+              <td class="table__cell" data-label="Motivo">
+                <span class="conducta-motivo">{{ registro.motivo_nombre }}</span>
+                <span class="text-muted conducta-categoria">{{ registro.categoria_nombre }}</span>
+              </td>
+              <td class="table__cell" data-label="Gravedad">{% include "conducta/_marca.html" with que='gravedad' %}{% if not registro.gravedad %}<span class="text-muted">—</span>{% endif %}</td>
+              <td class="table__cell" data-label="Medidas">
+                {% for medida in registro.medidas_aplicadas.all %}<span class="conducta-medida{% if medida.pendiente %} conducta-medida--pendiente{% endif %}">{{ medida.nombre }}{% if medida.pendiente %} · por aprobar{% endif %}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}
+                {% if registro.suspension and registro.suspension.aprobada %}<span class="tag tag--danger conducta-suspendido">Suspensión {{ registro.suspension.fecha_inicio|date:"d/m" }}–{{ registro.suspension.fecha_fin|date:"d/m" }}</span>{% elif registro.suspension.pendiente %}<span class="tag tag--warning conducta-suspendido">Suspensión por aprobar</span>{% endif %}
+              </td>
+              <td class="table__cell" data-label="Seguimiento">{% include "conducta/_marca.html" with que='estado' %}</td>
+              <td class="table__cell" data-label="Registró"><span class="text-muted">{% firstof registro.registrado_por.get_full_name registro.registrado_por.username "—" %}</span></td>
+              <td class="table__cell table__cell--actions">
+                <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:detalle' registro.pk %}" aria-label="Ver el registro de {{ registro.alumno }} del {{ registro.fecha|date:'j M' }}" data-tooltip="Ver detalle">
+                  {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                </a>
+                {% if perms.Conducta.change_registroconducta and not registro.anulado %}
+                  <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:editar' registro.pk %}" aria-label="Editar el registro de {{ registro.alumno }} del {{ registro.fecha|date:'j M' }}" data-tooltip="Editar" data-modal-form data-modal-tam="lg">
+                    {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="registros" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="flag" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay registros de conducta con esos filtros</p>
+        <p class="empty-state__text">{% if alcance.vacio %}Todavía no tienes un alcance asignado: pide al administrador que te asigne los niveles o grupos que atiendes.{% else %}Prueba con otro ciclo, otras fechas o quita algunos filtros.{% if puede_registrar %} También puedes registrar una incidencia o una conducta positiva.{% endif %}{% endif %}</p>
+        {% if puede_registrar and not alcance.vacio %}<a class="btn btn--primary btn--sm" href="{% url 'conducta:crear' %}" data-modal-form data-modal-tam="lg">Registrar conducta</a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/conducta.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% comment %}
+  Pestañas del registro de conducta. Parámetros: seccion (registros, pendientes o solicitudes), pendientes (vencidos o
+  por revisar) y solicitudes (esperando aprobación), para las insignias. Reportes: los de la administración o, para
+  prefectura, los suyos.
+{% endcomment %}
+<nav class="pills pills--section" aria-label="Secciones del registro de conducta">
+  <a class="pill{% if seccion == 'registros' %} is-active{% endif %}" href="{% url 'conducta:lista' %}"{% if seccion == 'registros' %} aria-current="page"{% endif %}>Registros</a>
+  <a class="pill{% if seccion == 'pendientes' %} is-active{% endif %}" href="{% url 'conducta:pendientes' %}"{% if seccion == 'pendientes' %} aria-current="page"{% endif %}>
+    Pendientes{% if pendientes %} <span class="pill__count conducta-insignia">{{ pendientes }}</span>{% endif %}
+  </a>
+  <a class="pill{% if seccion == 'solicitudes' %} is-active{% endif %}" href="{% url 'conducta:solicitudes' %}"{% if seccion == 'solicitudes' %} aria-current="page"{% endif %}>
+    Solicitudes{% if solicitudes %} <span class="pill__count conducta-insignia">{{ solicitudes }}</span>{% endif %}
+  </a>
+  {% if perms.Conducta.view_registroconducta %}
+    <a class="pill" href="{% url 'conducta:reportes' %}">Reportes</a>
+  {% elif perms.Prefectura.consultar %}
+    <a class="pill" href="{% url 'prefectura:reportes' %}">Reportes</a>
+  {% endif %}
+</nav>

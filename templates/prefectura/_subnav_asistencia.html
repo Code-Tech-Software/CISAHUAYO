@@ -1,0 +1,10 @@
+{% comment %}
+  Pestañas de la asistencia de prefectura. Parámetro: seccion (asistencia, accesos o justificaciones) y, en la lista de
+  faltas y retardos, vista_registros.
+{% endcomment %}
+<nav class="pills pills--section" aria-label="Asistencia">
+  <a class="pill{% if seccion == 'asistencia' and vista_registros %} is-active{% endif %}" href="{% url 'prefectura:asistencia_registros' %}"{% if seccion == 'asistencia' and vista_registros %} aria-current="page"{% endif %}>Faltas y retardos</a>
+  <a class="pill{% if seccion == 'asistencia' and not vista_registros %} is-active{% endif %}" href="{% url 'prefectura:asistencia' %}"{% if seccion == 'asistencia' and not vista_registros %} aria-current="page"{% endif %}>Por materia</a>
+  <a class="pill{% if seccion == 'accesos' %} is-active{% endif %}" href="{% url 'prefectura:accesos' %}"{% if seccion == 'accesos' %} aria-current="page"{% endif %}>Entradas y salidas</a>
+  <a class="pill{% if seccion == 'justificaciones' %} is-active{% endif %}" href="{% url 'prefectura:justificaciones' %}"{% if seccion == 'justificaciones' %} aria-current="page"{% endif %}>Justificaciones</a>
+</nav>

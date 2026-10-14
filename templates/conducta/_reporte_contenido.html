@@ -1,0 +1,175 @@
+{% comment %}
+  El contenido de un reporte de conducta: el mismo en la vista previa y en la hoja para imprimir o guardar en PDF (el
+  Excel se arma con los mismos datos en Conducta/reportes.py). Parámetro: contenido (reportes.construir).
+{% endcomment %}
+{% if contenido.aviso %}
+  <div class="alert alert--warning" role="status">
+    {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+    <div class="alert__body"><p>{{ contenido.aviso }}</p></div>
+  </div>
+{% endif %}
+
+{% if contenido.tipo == 'resumen' %}
+  {% with r=contenido.resumen %}
+    <div class="conducta-reporte__cifras">
+      <div class="stat"><p class="stat__label">Incidencias</p><p class="stat__value">{{ r.incidencias }}</p><p class="stat__hint">incidentes registrados</p></div>
+      <div class="stat"><p class="stat__label">Conductas positivas</p><p class="stat__value">{{ r.positivas }}</p><p class="stat__hint">reconocimientos</p></div>
+      <div class="stat"><p class="stat__label">Estudiantes</p><p class="stat__value">{{ r.estudiantes }}</p><p class="stat__hint">{{ r.estudiantes_con_incidencias }} con incidencias</p></div>
+      <div class="stat"><p class="stat__label">Suspensiones</p><p class="stat__value">{{ r.suspensiones }}</p><p class="stat__hint">aprobadas · {{ r.suspensiones_vigentes }} vigente{{ r.suspensiones_vigentes|pluralize }} hoy · {{ r.estudiantes_suspendidos }} estudiante{{ r.estudiantes_suspendidos|pluralize }}{% if r.solicitudes_pendientes %} · {{ r.solicitudes_pendientes }} por aprobar{% endif %}</p></div>
+      <div class="stat{% if r.vencidos %} stat--attention{% endif %}"><p class="stat__label">Seguimientos</p><p class="stat__value">{{ r.pendientes }}</p><p class="stat__hint">abiertos · {{ r.en_seguimiento }} en curso · {{ r.vencidos }} vencido{{ r.vencidos|pluralize }}</p></div>
+    </div>
+    <p class="text-muted conducta-reporte__nota">Cada incidente cuenta una vez aunque tenga varias medidas; los estudiantes involucrados se cuentan aparte. {{ r.registros_con_medidas }} registro{{ r.registros_con_medidas|pluralize }} con medidas disciplinarias.</p>
+
+    <div class="conducta-reporte__tablas">
+      <section class="conducta-reporte__bloque">
+        <h3 class="reporte__subtitulo">Categorías más frecuentes</h3>
+        {% include "conducta/_tabla_conteo.html" with columna="Categoría" datos=r.categorias %}
+      </section>
+      <section class="conducta-reporte__bloque">
+        <h3 class="reporte__subtitulo">Motivos más frecuentes</h3>
+        {% include "conducta/_tabla_conteo.html" with columna="Motivo" datos=r.motivos %}
+      </section>
+      <section class="conducta-reporte__bloque">
+        <h3 class="reporte__subtitulo">Incidencias por gravedad</h3>
+        {% include "conducta/_tabla_conteo.html" with columna="Gravedad" datos=r.gravedades %}
+      </section>
+      <section class="conducta-reporte__bloque">
+        <h3 class="reporte__subtitulo">Medidas disciplinarias aplicadas</h3>
+        {% include "conducta/_tabla_conteo.html" with columna="Medida" datos=r.medidas %}
+      </section>
+    </div>
+
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Evolución por {{ r.unidad }}</h3>
+      {% if r.evolucion %}
+        <ul class="conducta-leyenda" aria-hidden="true">
+          <li><span class="conducta-leyenda__marca conducta-leyenda__marca--incidencias"></span>Incidencias</li>
+          <li><span class="conducta-leyenda__marca conducta-leyenda__marca--positivas"></span>Conductas positivas</li>
+        </ul>
+        <table class="reporte__tabla conducta-evolucion">
+          <thead><tr><th scope="col">{{ r.unidad|capfirst }}</th><th scope="col">Incidencias</th><th scope="col">Positivas</th><th scope="col" class="conducta-evolucion__barras-titulo"><span class="visually-hidden">Gráfica</span></th></tr></thead>
+          <tbody>
+            {% for fila in r.evolucion %}
+              <tr>
+                <th scope="row">{{ fila.etiqueta }}</th>
+                <td class="conducta-num">{{ fila.incidencias }}</td>
+                <td class="conducta-num">{{ fila.positivas }}</td>
+                <td class="conducta-evolucion__barras" aria-hidden="true">
+                  <span class="conducta-barra conducta-barra--incidencias" style="--ancho: {{ fila.ancho_i }}%" data-tooltip="{{ fila.etiqueta }}: {{ fila.incidencias }} incidencia{{ fila.incidencias|pluralize }}"></span>
+                  <span class="conducta-barra conducta-barra--positivas" style="--ancho: {{ fila.ancho_p }}%" data-tooltip="{{ fila.etiqueta }}: {{ fila.positivas }} conducta{{ fila.positivas|pluralize }} positiva{{ fila.positivas|pluralize }}"></span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-muted">Sin registros en esas fechas.</p>
+      {% endif %}
+    </section>
+  {% endwith %}
+
+{% elif contenido.tipo == 'grupo' %}
+  <p class="conducta-reporte__nota">
+    <strong>{{ contenido.incidencias }}</strong> incidencia{{ contenido.incidencias|pluralize }} ·
+    <strong>{{ contenido.positivas }}</strong> conducta{{ contenido.positivas|pluralize }} positiva{{ contenido.positivas|pluralize }} ·
+    <strong>{{ contenido.estudiantes }}</strong> estudiante{{ contenido.estudiantes|pluralize }}
+  </p>
+  <div class="conducta-reporte__tablas">
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Por categoría</h3>
+      {% include "conducta/_tabla_conteo.html" with columna="Categoría" datos=contenido.totales.categorias %}
+    </section>
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Por motivo</h3>
+      {% include "conducta/_tabla_conteo.html" with columna="Motivo" datos=contenido.totales.motivos %}
+    </section>
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Por gravedad</h3>
+      {% include "conducta/_tabla_conteo.html" with columna="Gravedad" datos=contenido.totales.gravedades %}
+    </section>
+  </div>
+  <section class="conducta-reporte__bloque">
+    <h3 class="reporte__subtitulo">Registros</h3>
+    {% if contenido.registros %}
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla conducta-reporte__registros">
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Estudiante</th><th scope="col">Grupo</th><th scope="col">Tipo</th><th scope="col">Categoría · motivo</th><th scope="col">Gravedad</th><th scope="col">Medidas</th><th scope="col">Seguimiento</th><th scope="col">Registró</th></tr></thead>
+          <tbody>
+            {% for registro in contenido.registros %}
+              <tr{% if registro.anulado %} class="conducta-reporte__anulado"{% endif %}>
+                <td>{{ registro.fecha|date:"d/m/Y" }}</td>
+                <td>{{ registro.alumno }}<span class="text-muted conducta-bloque">{{ registro.alumno.referencia }}</span></td>
+                <td>{{ registro.grupo_texto }}</td>
+                <td>{% include "conducta/_marca.html" with que='tipo' %}</td>
+                <td>{{ registro.categoria_nombre }} · {{ registro.motivo_nombre }}</td>
+                <td>{{ registro.get_gravedad_display|default:"—" }}</td>
+                <td>{% for medida in registro.medidas_aplicadas.all %}{{ medida.nombre }}{% if medida.pendiente %} (por aprobar){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}{% if registro.suspension and registro.suspension.aprobacion != 'CANCELADA' %}<span class="conducta-bloque">Suspensión {{ registro.suspension.fecha_inicio|date:"d/m" }}–{{ registro.suspension.fecha_fin|date:"d/m" }}{% if not registro.suspension.aprobada %} ({{ registro.suspension.get_aprobacion_display|lower }}){% endif %}</span>{% endif %}</td>
+                <td>{% include "conducta/_marca.html" with que='estado' %}</td>
+                <td>{% firstof registro.registrado_por.get_full_name registro.registrado_por.username "—" %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted">Sin registros con esos filtros.</p>
+    {% endif %}
+  </section>
+
+{% elif contenido.tipo == 'historial' %}
+  {% if contenido.sin_estudiantes %}
+    <div class="empty-state empty-state--inline">
+      <p class="empty-state__title">Elige al menos un estudiante</p>
+      <p class="empty-state__text">El historial individual se arma de cada estudiante elegido en «Estudiantes».</p>
+    </div>
+  {% endif %}
+  {% for historial in contenido.historiales %}
+    <section class="conducta-reporte__bloque conducta-historial-reporte">
+      <h3 class="reporte__subtitulo">{{ historial.alumno }} <span class="text-muted">· número de control {{ historial.alumno.referencia }}{% if historial.inscripcion %} · {{ historial.inscripcion.grupo }}{% endif %}</span></h3>
+      <p class="conducta-reporte__nota"><strong>{{ historial.incidencias }}</strong> incidencia{{ historial.incidencias|pluralize }} · <strong>{{ historial.positivas }}</strong> conducta{{ historial.positivas|pluralize }} positiva{{ historial.positivas|pluralize }} · <strong>{{ historial.suspensiones }}</strong> suspensi{{ historial.suspensiones|pluralize:"ón,ones" }}</p>
+      {% if historial.registros %}
+        <ol class="conducta-linea">
+          {% for registro in historial.registros %}
+            <li class="conducta-linea__item conducta-linea__item--{{ registro.tipo|lower }}{% if registro.anulado %} conducta-linea__item--anulado{% endif %}">
+              <p class="conducta-linea__titulo"><strong>{{ registro.fecha|date:"d/m/Y" }}</strong> · {% include "conducta/_marca.html" with que='tipo' %} {{ registro.categoria_nombre }} · {{ registro.motivo_nombre }} {% include "conducta/_marca.html" with que='gravedad' %}{% if registro.anulado %} <span class="tag conducta-anulado">Anulado</span>{% endif %}</p>
+              <p class="conducta-texto">{{ registro.descripcion }}</p>
+              {% if registro.medidas_aplicadas.all %}<p><span class="text-muted">Medidas:</span> {% for medida in registro.medidas_aplicadas.all %}{{ medida.nombre }}{% if medida.pendiente %} (por aprobar){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+              {% if registro.suspension and registro.suspension.aprobacion != 'CANCELADA' %}<p><span class="text-muted">Suspensión:</span> {{ registro.suspension.motivo_nombre }}, del {{ registro.suspension.fecha_inicio|date:"d/m/Y" }} al {{ registro.suspension.fecha_fin|date:"d/m/Y" }}{% if not registro.suspension.aprobada %} ({{ registro.suspension.get_aprobacion_display|lower }}){% endif %}</p>{% endif %}
+              {% if registro.acuerdos %}<p><span class="text-muted">Acuerdos:</span> {{ registro.acuerdos }}</p>{% endif %}
+              <p><span class="text-muted">Seguimiento:</span> {{ registro.get_estado_display }}{% if registro.fecha_revision %} · revisión {{ registro.fecha_revision|date:"d/m/Y" }}{% endif %}</p>
+              {% for contacto in registro.contactos.all %}<p class="text-muted">Contacto {{ contacto.fecha|date:"d/m/Y" }} con {{ contacto.persona }} ({{ contacto.get_medio_display|lower }}): {{ contacto.acuerdos }}</p>{% endfor %}
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="text-muted">Sin registros con esos filtros.</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+
+{% else %}
+  {% if contenido.suspensiones %}
+    <div class="reporte__marco-tabla">
+      <table class="reporte__tabla">
+        <thead><tr><th scope="col">Estudiante</th><th scope="col">Grupo</th><th scope="col">Motivo</th><th scope="col">Inicio</th><th scope="col">Término</th><th scope="col">Días</th><th scope="col">Solicitó</th><th scope="col">Autorizó o resolvió</th><th scope="col">Estado</th></tr></thead>
+        <tbody>
+          {% for fila in contenido.suspensiones %}
+            <tr>
+              <td>{{ fila.registro.alumno }}<span class="text-muted conducta-bloque">{{ fila.registro.alumno.referencia }}</span></td>
+              <td>{{ fila.registro.grupo_texto }}</td>
+              <td>{{ fila.suspension.motivo_nombre }}</td>
+              <td>{{ fila.suspension.fecha_inicio|date:"d/m/Y" }}</td>
+              <td>{{ fila.suspension.fecha_fin|date:"d/m/Y" }}</td>
+              <td class="conducta-num">{{ fila.suspension.dias }}</td>
+              <td>{% firstof fila.suspension.solicitada_por.get_full_name fila.suspension.solicitada_por.username "—" %}</td>
+              <td>{% if fila.suspension.aprobada %}{% firstof fila.suspension.autorizada_por.get_full_name fila.suspension.autorizada_por.username "—" %}{% else %}{% firstof fila.suspension.resuelta_por.get_full_name fila.suspension.resuelta_por.username "—" %}{% endif %}</td>
+              <td><span class="tag {% if fila.estado == 'VIGENTE' or fila.estado == 'RECHAZADA' %}tag--danger{% elif fila.estado == 'PROXIMA' or fila.estado == 'PENDIENTE' %}tag--warning{% elif fila.estado == 'FINALIZADA' %}tag--success{% endif %}">{{ fila.estado_display }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-muted">Sin suspensiones con esos filtros.</p>
+  {% endif %}
+{% endif %}

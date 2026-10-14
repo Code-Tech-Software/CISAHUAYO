@@ -74,10 +74,9 @@ class NingunaPantallaDiceAlumnoTests(BaseTestCase):
             reverse('horarios:lista'), reverse('horarios:grado', args=[g]),
             reverse('asignaciones:tablero'), reverse('asignaciones:carga'), reverse('asignaciones:movimientos'),
             reverse('usuarios:crear'), reverse('profesores:crear'), reverse('profesores:editar', args=[self.profesor.pk]),
-            reverse('asistencias:inicio'), reverse('asistencias:dia'), reverse('asistencias:clases'),
+            reverse('asistencias:inicio'), reverse('asistencias:dia'), reverse('asistencias:materias'),
             reverse('asistencias:justificaciones'), reverse('asistencias:justificacion_crear'),
             reverse('asistencias:reporte'), reverse('asistencias:ajustes'), reverse('asistencias:alumno', args=[a]),
-            reverse('asistencias:clase', args=[self.asignacion.pk]),
             reverse('usuarios:lista'), reverse('usuarios:detalle', args=[self.admin.pk]), reverse('roles:lista'), reverse('roles:crear'),
             reverse('cuenta:perfil'),
             reverse('alumnos:lista') + '?q=zzzz', reverse('tutores:lista') + '?q=zzzz', reverse('inscripciones:lista') + '?q=zzzz',
@@ -109,7 +108,7 @@ class NingunaPantallaDiceAlumnoTests(BaseTestCase):
         Grado.objects.exclude(pk=self.primero.pk).delete()
         self.revisar([
             reverse('alumnos:lista'), reverse('tutores:lista'), reverse('inscripciones:lista'), reverse('inscripciones:promocion'),
-            reverse('asistencias:inicio'), reverse('asistencias:dia'), reverse('asistencias:clases'),
+            reverse('asistencias:inicio'), reverse('asistencias:dia'), reverse('asistencias:materias'),
             reverse('asistencias:justificaciones'), reverse('asistencias:reporte'), reverse('grados:detalle', args=[self.primero.pk]),
             reverse('materias:lista'), reverse('profesores:lista'),
         ])

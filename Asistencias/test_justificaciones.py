@@ -138,7 +138,7 @@ class CrearJustificacionTests(BaseJustificacionTests):
         for nombre, (fecha, texto) in casos.items():
             respuesta = self.crear(fecha_desde=fecha)
             self.assertIn(texto, ' '.join(respuesta.context['form'].errors['fecha_desde']), nombre)
-        DiaNoLectivo.objects.create(fecha=self.dia, motivo='Puente')
+        DiaNoLectivo.registrar(fecha=self.dia, motivo='Puente')
         self.assertIn('fecha_desde', self.crear().context['form'].errors)
         self.assertFalse(Justificacion.objects.exists())
 
@@ -176,7 +176,7 @@ class CrearJustificacionTests(BaseJustificacionTests):
         self.assertEqual(sorted(Justificacion.objects.values_list('fecha', flat=True)), [viernes, siguiente_lunes])
 
     def test_los_dias_sin_clases_del_rango_se_omiten(self):
-        DiaNoLectivo.objects.create(fecha=self.dia + timedelta(days=1), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=self.dia + timedelta(days=1), motivo='Puente')
         self.crear(fecha_hasta=(self.dia + timedelta(days=2)).isoformat())
         self.assertEqual(sorted(Justificacion.objects.values_list('fecha', flat=True)), [self.dia, self.dia + timedelta(days=2)])
 

@@ -1,0 +1,11 @@
+{% comment %}Aviso del alcance de la cuenta (solo en cuentas de prefectura). Parámetro: alcance.{% endcomment %}
+{% if alcance.restringido %}
+  {% if alcance.vacio %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p><strong>Todavía no tienes un alcance asignado.</strong> Pide al administrador que te asigne los niveles o grupos que atiendes: mientras tanto no verás a ningún estudiante.</p></div>
+    </div>
+  {% else %}
+    <p class="prefectura-alcance">{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Tu alcance: <strong>{{ alcance.descripcion }}</strong></p>
+  {% endif %}
+{% endif %}

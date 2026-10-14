@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 from CISAHUAYO import temas
+from Conducta.permisos import puede_configurar
 from Usuarios.models import PerfilUsuario
 
 from .forms import AparienciaForm
@@ -34,4 +35,7 @@ def ajustes(request):
             errores = [error for lista in form.errors.values() for error in lista]
             return JsonResponse({'ok': False, 'mensaje': ' '.join(errores)}, status=400)
         messages.error(request, 'No se pudo guardar: revisa lo marcado.')
-    return render(request, 'ajustes/apariencia.html', {'form': form, 'todas_las_fuentes': temas.url_de_todas_las_fuentes()})
+    return render(request, 'ajustes/apariencia.html', {
+        'form': form, 'todas_las_fuentes': temas.url_de_todas_las_fuentes(),
+        'puede_configurar_conducta': puede_configurar(request.user),
+    })

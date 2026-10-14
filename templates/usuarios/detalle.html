@@ -5,6 +5,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+  {% if alcance or direccion is not None %}<link rel="stylesheet" href="{% static 'css/prefectura.css' %}">{% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -115,6 +116,32 @@
         <a class="btn btn--sm" href="{% url 'usuarios:editar' usuario.pk %}" data-modal-form>Vincular ficha</a>
       {% endif %}
     </div>
+  {% endif %}
+
+  {% if alcance %}
+    <section class="card alcance-prefectura" aria-labelledby="alcance-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="alcance-titulo">Alcance de prefectura</h2>
+        {% if puede_editar %}<a class="btn btn--sm card__header-action" href="{% url 'usuarios:alcance' usuario.pk %}" data-modal-form>Definir alcance</a>{% endif %}
+      </header>
+      <div class="card__body">
+        <p class="alcance-prefectura__texto{% if alcance.vacio %} alcance-prefectura__texto--vacio{% endif %}">{{ alcance.descripcion }}</p>
+        <p class="text-muted">Solo ve a los estudiantes inscritos en el ciclo actual en estos niveles o grupos, con todo su historial; lo demás no aparece en sus consultas, acciones, reportes ni exportaciones.</p>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if direccion is not None %}
+    <section class="card alcance-prefectura" aria-labelledby="direccion-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="shield-check" %}<h2 class="card__title" id="direccion-titulo">Dirección de nivel</h2>
+        {% if puede_editar %}<a class="btn btn--sm card__header-action" href="{% url 'usuarios:direccion' usuario.pk %}" data-modal-form>Niveles que dirige</a>{% endif %}
+      </header>
+      <div class="card__body">
+        <p class="alcance-prefectura__texto{% if not direccion %} alcance-prefectura__texto--vacio{% endif %}">{% for clave, nombre in direccion %}{{ nombre }}{% if not forloop.last %} · {% endif %}{% empty %}Sin niveles asignados: no autoriza ninguna suspensión{% endfor %}</p>
+        <p class="text-muted">Autoriza (o rechaza) las suspensiones y medidas que pide prefectura para los estudiantes de estos niveles. Nadie autoriza lo que pidió.</p>
+      </div>
+    </section>
   {% endif %}
 
   {% if motivo_no_desactivar and perms.auth.delete_user and not es_yo %}

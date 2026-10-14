@@ -1,0 +1,13 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Cancelar solicitud | CISAHUAYO{% endblock %}
+{% block migaja %}Cancelar solicitud{% endblock %}
+{% block encabezado %}Cancelar la solicitud de suspensión{% endblock %}
+{% block descripcion %}Del {{ suspension.fecha_inicio|date:"d/m/Y" }} al {{ suspension.fecha_fin|date:"d/m/Y" }} por «{{ suspension.motivo_nombre }}». No se borra: queda cancelada, con el motivo, en el historial del registro.{% endblock %}
+
+{% block campos %}
+  {% include "partials/field.html" with campo=form.motivo %}
+{% endblock %}
+
+{% block clase_boton %}btn--danger{% endblock %}
+{% block boton %}Cancelar la solicitud{% endblock %}

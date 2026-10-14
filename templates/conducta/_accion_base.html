@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Base de las páginas de una acción sobre un registro (seguimiento, anular, evidencias, contacto): se abren en la
+  ventana modal (data-modal-form) y también funcionan como página completa. Bloques: titulo, descripcion y campos.
+{% endcomment %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'conducta:lista' %}">Registro de conducta</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'conducta:detalle' registro.pk %}">{{ registro.alumno }} · {{ registro.fecha|date:"d/m/Y" }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% block migaja %}{% endblock %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% block encabezado %}{% endblock %}</h1>
+      <p class="page-header__description">{% block descripcion %}{% endblock %}</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" enctype="multipart/form-data" novalidate{% block atributos %}{% endblock %}>
+    {% csrf_token %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+    {% if form.non_field_errors or errores %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}{% for error in errores %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body">
+        <p class="conducta-resumen-registro">{% include "conducta/_marca.html" with que='tipo' %} <strong>{{ registro.motivo_nombre }}</strong> · {{ registro.alumno }} · {{ registro.grupo_texto }}</p>
+        {% block campos %}{% endblock %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{% url 'conducta:detalle' registro.pk %}">Cancelar</a>
+      <button type="submit" class="btn {% block clase_boton %}btn--primary{% endblock %}">{% block boton %}Guardar{% endblock %}</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/conducta.js' %}" defer></script>
+{% endblock %}

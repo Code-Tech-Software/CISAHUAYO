@@ -1,4 +1,5 @@
-/* Asistencia para docentes (templates/asistencias/docente.html).
+/* Matriz de asistencia por materia (templates/asistencias/_matriz.html): la del docente (docente.html) y la de la
+   administración (materias.html), que además elige el grupo y justifica faltas.
 
    - La matriz es una sola parada del tabulador: las flechas mueven el foco entre celdas (Inicio y Fin van al primer y
      último día; con Ctrl, a la primera y última fila) y Enter o Espacio abre el menú de estados de una celda editable.
@@ -7,7 +8,10 @@
    - Al elegir un estado se guarda al momento, una solicitud por celda a la vez. Si el servidor no lo acepta (o no hay
      conexión) la celda vuelve a lo último guardado y se avisa por qué. El servidor valida todo de nuevo.
    - El buscador filtra estudiantes por nombre; al cargar, la columna de hoy queda a la vista.
-   - Las fechas que se ven (por omisión el mes en curso) se eligen arriba, siempre dentro del periodo. */
+   - Las fechas que se ven (por omisión el mes en curso) se eligen arriba, siempre dentro del periodo.
+   - Solo en la administración: una falta [data-justificable] ofrece «Justificar falta» (J) y una J con su justificación
+     [data-justificacion] se abre al tocarla. Esto lo resuelve asistencia-justificar.js, que escucha los eventos
+     «asistencia:justificar» y «asistencia:ver-justificacion» de la matriz (detail: la celda y cómo repintarla). */
 (() => {
   const aviso = document.querySelector('[data-aviso]');
   let ocultarAviso = null;
@@ -39,6 +43,14 @@
     avisar(`Cargando la asistencia de ${selector.selectedOptions[0]?.textContent.trim() || 'la materia'}…`);
     filtros.requestSubmit();
   });
+  /* Administración: otro grupo abre en su primera materia (la materia elegida no se envía) */
+  const selectorGrupo = filtros?.querySelector('[data-elegir-grupo]');
+  selectorGrupo?.addEventListener('change', () => {
+    filtros.querySelectorAll('input[type="date"]').forEach((campo) => campo.remove());
+    if (selector) selector.disabled = true;
+    avisar(`Cargando las materias de ${selectorGrupo.selectedOptions[0]?.textContent.trim() || 'el grupo'}…`);
+    filtros.requestSubmit();
+  });
   filtros?.addEventListener('submit', (evento) => {
     const desde = filtros.elements.desde?.value;
     const hasta = filtros.elements.hasta?.value;
@@ -61,6 +73,9 @@
   const menu = document.querySelector('[data-menu-asistencia]');
   const tituloMenu = menu?.querySelector('[data-menu-titulo]');
   const opciones = menu ? [...menu.querySelectorAll('[data-estado]')] : [];
+  const justificar = menu?.querySelector('[data-justificar]');   // solo en la administración
+  const separador = menu?.querySelector('[data-justificar-separador]');
+  const visibles = () => [...opciones, justificar].filter((opcion) => opcion && !opcion.hidden);
   const pendientes = new WeakSet();
 
   const filasVisibles = () => [...cuerpo.rows].filter((fila) => !fila.hidden);
@@ -71,6 +86,45 @@
   };
   const nombreDe = (fila) => fila.querySelector('th').textContent.trim();
   const claseDe = (boton) => (boton.className.match(/indicador-asistencia--([a-z]+)/) || [])[1] || 'nada';
+  const justificacionDe = (boton) => {
+    try {
+      return boton.dataset.justificacion ? JSON.parse(boton.dataset.justificacion) : null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  /* La celda para asistencia-justificar.js: quién, qué día, su versión y cómo repintarla con lo que responda el servidor */
+  const avisarDeLaCelda = (evento, boton) => {
+    const { fila, columna } = posicion(boton);
+    raiz.dispatchEvent(new CustomEvent(evento, {
+      detail: {
+        boton,
+        alumno: nombreDe(fila),
+        inscripcion: fila.dataset.inscripcion,
+        fecha: encabezados[columna].dataset.fecha,
+        titulo: encabezados[columna].dataset.titulo,
+        version: boton.dataset.version || '',
+        observaciones: boton.dataset.observaciones || '',
+        justificacion: justificacionDe(boton),
+        pintar: (datos) => pintar(boton, datos),
+        avisar,
+        ocupada: (si) => {
+          if (si) {
+            pendientes.add(boton);
+          } else {
+            pendientes.delete(boton);
+          }
+          boton.classList.toggle('is-guardando', si);
+          if (si) {
+            boton.setAttribute('aria-busy', 'true');
+          } else {
+            boton.removeAttribute('aria-busy');
+          }
+        },
+      },
+    }));
+  };
 
   /* --- Foco itinerante: una sola celda con tabindex 0 ------------------------------------------------- */
   let activo = null;
@@ -178,20 +232,36 @@
   };
 
   function abrir(boton) {
-    if (!boton.hasAttribute('data-editable')) {
+    if (pendientes.has(boton)) return;
+    if (boton.hasAttribute('data-justificacion')) {   // una J: su justificación y su comprobante (administración)
+      avisarDeLaCelda('asistencia:ver-justificacion', boton);
+      return;
+    }
+    const editable = boton.hasAttribute('data-editable');
+    const justificable = Boolean(justificar) && boton.hasAttribute('data-justificable');
+    if (!editable && !justificable) {
       avisar(boton.dataset.tooltip || 'Esta celda no se puede cambiar.');
       return;
     }
-    if (!menu || pendientes.has(boton)) return;
+    if (!menu) return;
     celdaDelMenu = boton;
     const { fila, columna } = posicion(boton);
     tituloMenu.textContent = `${nombreDe(fila)} · ${encabezados[columna].dataset.titulo}`;
     const letra = boton.textContent.trim();
-    opciones.forEach((opcion) => opcion.setAttribute('aria-checked', String(opcion.dataset.letra === letra)));
+    /* Los estados, si la celda se puede cambiar; «Justificar falta», si es una falta que se puede justificar */
+    opciones.forEach((opcion) => {
+      opcion.hidden = !editable;
+      opcion.setAttribute('aria-checked', String(opcion.dataset.letra === letra));
+    });
+    if (justificar) {
+      justificar.hidden = !justificable;
+      if (separador) separador.hidden = !(editable && justificable);
+    }
     mostrarOpciones();
     menu.hidden = false;
     colocar(boton);
-    (opciones.find((opcion) => opcion.dataset.letra === letra) || opciones[0]).focus();
+    const items = visibles();
+    (items.find((opcion) => opcion.dataset.estado && opcion.dataset.letra === letra) || items[0]).focus();
   }
 
   const actualizarCuenta = () => {
@@ -229,6 +299,14 @@
 
   const elegir = (opcion) => {
     if (!celdaDelMenu) return;
+    if (opcion === justificar) {
+      /* El foco vuelve antes a la celda: al cerrarse la ventana «Justificar falta» (asistencia-justificar.js), el
+         navegador lo regresa ahí */
+      const boton = celdaDelMenu;
+      cerrar();
+      avisarDeLaCelda('asistencia:justificar', boton);
+      return;
+    }
     if (PIDEN_OBSERVACION.has(opcion.dataset.estado)) {
       pedirObservacion(opcion);
       return;
@@ -282,18 +360,19 @@
       }
       return;
     }
-    const indice = opciones.indexOf(document.activeElement);
+    const items = visibles();
+    const indice = items.indexOf(document.activeElement);
     if (evento.key === 'ArrowDown') {
       evento.preventDefault();
-      opciones[(indice + 1) % opciones.length].focus();
+      items[(indice + 1) % items.length].focus();
     } else if (evento.key === 'ArrowUp') {
       evento.preventDefault();
-      opciones[(indice - 1 + opciones.length) % opciones.length].focus();
+      items[(indice - 1 + items.length) % items.length].focus();
     } else if (evento.key === 'Escape' || evento.key === 'Tab') {
       evento.preventDefault();
       cerrar();
     } else {
-      const atajo = opciones.find((opcion) => opcion.dataset.letra === evento.key.toUpperCase());
+      const atajo = items.find((opcion) => opcion.dataset.letra === evento.key.toUpperCase());
       if (atajo) {
         evento.preventDefault();
         elegir(atajo);
@@ -302,7 +381,7 @@
   });
 
   pasoOpciones?.addEventListener('click', (evento) => {
-    const opcion = evento.target.closest('[data-estado]');
+    const opcion = evento.target.closest('[data-estado], [data-justificar]');
     if (opcion) elegir(opcion);
   });
 
@@ -338,6 +417,15 @@
       boton.removeAttribute('data-editable');
       boton.setAttribute('aria-disabled', 'true');
     }
+    /* Administración: si la falta se puede justificar y, en una J, su justificación */
+    boton.toggleAttribute('data-justificable', Boolean(datos.justificable));
+    if ('justificacion' in datos) {
+      if (datos.justificacion) {
+        boton.dataset.justificacion = JSON.stringify(datos.justificacion);
+      } else {
+        delete boton.dataset.justificacion;
+      }
+    }
     if (boton === activo) boton.tabIndex = 0;
   };
 
@@ -348,6 +436,7 @@
     const anterior = {
       letra: boton.textContent, clase: claseDe(boton), nombre: boton.dataset.tooltip, version: boton.dataset.version,
       editable: boton.hasAttribute('data-editable'), observaciones: boton.dataset.observaciones || '',
+      justificable: boton.hasAttribute('data-justificable'), justificacion: justificacionDe(boton),
     };
     const datos = new FormData();
     datos.append('csrfmiddlewaretoken', token);

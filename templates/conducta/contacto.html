@@ -1,0 +1,30 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Contacto con la familia | CISAHUAYO{% endblock %}
+{% block migaja %}Contacto con la familia{% endblock %}
+{% block encabezado %}Contacto con la familia{% endblock %}
+{% block descripcion %}Anota cuándo y cómo se contactó a la familia y qué se acordó. Solo se registra: no se envía ningún mensaje.{% endblock %}
+{% block atributos %} data-contacto-form data-maximo-mb="{{ maximo_mb }}" data-por-envio="1"{% endblock %}
+
+{% block campos %}
+  <div class="form-grid">
+    {% include "partials/field.html" with campo=form.fecha %}
+    {% include "partials/field.html" with campo=form.medio %}
+    <div class="field form-grid__full{% if form.tutor.errors %} is-invalid{% endif %}">
+      <label class="field__label field__label--required" for="{{ form.tutor.id_for_label }}">{{ form.tutor.label }}</label>
+      {{ form.tutor }}
+      {% for error in form.tutor.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-grid__full" data-otra-persona>{% include "partials/field.html" with campo=form.persona %}</div>
+  </div>
+  {% include "partials/field.html" with campo=form.acuerdos %}
+  {% include "partials/field.html" with campo=form.proxima_revision %}
+  <div class="field">
+    <label class="field__label" for="evidencia">Evidencia o acuse (opcional)</label>
+    <input class="field__control conducta-archivos" id="evidencia" type="file" name="evidencia" accept="{{ acepta }}" aria-describedby="evidencia-ayuda" data-evidencias>
+    <p class="field__hint" id="evidencia-ayuda">Una foto (JPG, PNG o WEBP) o un PDF de hasta {{ maximo_mb }} MB.</p>
+    <ul class="conducta-archivos__lista" data-evidencias-lista hidden></ul>
+  </div>
+{% endblock %}
+
+{% block boton %}Anotar contacto{% endblock %}

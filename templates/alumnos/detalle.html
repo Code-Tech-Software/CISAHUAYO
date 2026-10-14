@@ -5,6 +5,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+  {% if conducta %}<link rel="stylesheet" href="{% static 'css/conducta.css' %}">{% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -125,6 +126,11 @@
         Tutores <span class="tabs__count">{{ vinculos|length }}</span>
       </button>
       <button type="button" class="tabs__tab" role="tab" id="tab-academico" aria-controls="academico" aria-selected="false">Académico</button>
+      {% if conducta %}
+        <button type="button" class="tabs__tab" role="tab" id="tab-conducta" aria-controls="conducta" aria-selected="false">
+          Conducta <span class="tabs__count">{{ conducta.registros|length }}</span>
+        </button>
+      {% endif %}
     </div>
 
     {# --- Resumen ---------------------------------------------------------- #}
@@ -355,6 +361,13 @@
         </article>
       </div>
     </section>
+
+    {% if conducta %}
+      {# --- Conducta: su historial integral (Conducta/reglas.py · linea_de_tiempo) ---- #}
+      <section class="tabs__panel" role="tabpanel" id="conducta" aria-labelledby="tab-conducta">
+        {% include "conducta/_linea_tiempo.html" %}
+      </section>
+    {% endif %}
   </div>
 
   {# --- Ventanas modales -------------------------------------------------------- #}

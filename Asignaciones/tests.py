@@ -91,7 +91,7 @@ class PermisosTests(AsignacionesTestCase):
 
     def test_el_menu_la_ofrece_a_quien_puede_ver_el_plan(self):
         self.con_permisos('view_materiagrado')
-        self.assertContains(self.client.get(reverse('inicio')), 'Asignaciones')
+        self.assertContains(self.client.get(reverse('inicio')), 'Asignaciones de materias')
         self.con_permisos('view_materia')
         self.assertNotContains(self.client.get(reverse('inicio')), reverse('asignaciones:tablero'))
 

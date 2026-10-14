@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if objeto.pk %}Editar{% else %}{{ catalogo.nueva }}{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Conducta</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if objeto.pk %}Editar{% else %}{{ catalogo.nueva }}{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if objeto.pk %}Editar {{ catalogo.singular }}{% else %}{{ catalogo.nueva }}{% endif %}</h1>
+      <p class="page-header__description">{{ catalogo.plural }} de {{ nombre_de_nivel|lower }}. {% if en_uso %}Ya se usa en el historial: los registros conservan el nombre que tenía al registrarse.{% else %}Cada nivel tiene su propio catálogo.{% endif %}</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="nivel" value="{{ nivel }}">
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body">
+        {% for campo in form %}
+          {% if campo.name == 'tipo' %}
+            {% include "partials/choices.html" with campo=campo %}
+          {% elif campo.field.widget.input_type == 'checkbox' %}
+            <div class="field">
+              <label class="choice choice--check" for="{{ campo.id_for_label }}">
+                {{ campo }}<span class="choice__box">{{ campo.label }}</span>
+              </label>
+              {% if campo.help_text %}<p class="field__hint">{{ campo.help_text }}</p>{% endif %}
+              {% for error in campo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            </div>
+          {% else %}
+            {% include "partials/field.html" with campo=campo %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </div>
+  </form>
+{% endblock %}

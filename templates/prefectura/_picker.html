@@ -1,0 +1,27 @@
+{% load alumnos_extras %}{% comment %}
+  Elegir a un estudiante del alcance con la búsqueda en vivo (prefectura.js). Parámetros: campo (el BoundField oculto
+  del estudiante), alumno (si ya está elegido) y url_buscar.
+{% endcomment %}
+<div class="field{% if campo.errors %} is-invalid{% endif %}" data-prefectura-picker data-buscar-url="{{ url_buscar }}">
+  {{ campo }}
+  <div class="live-search" data-picker-search{% if alumno %} hidden{% endif %}>
+    <label class="field__label field__label--required" for="buscar-estudiante">Estudiante</label>
+    <div class="live-search__field">
+      {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
+      <input class="field__control live-search__input" id="buscar-estudiante" type="text" role="combobox" aria-expanded="false"
+             aria-controls="resultados-estudiante" aria-autocomplete="list" autocomplete="off" spellcheck="false"
+             placeholder="Nombre o número de control…" data-picker-input>
+      <div class="live-search__results" id="resultados-estudiante" role="listbox" aria-label="Estudiantes encontrados" data-picker-results hidden></div>
+    </div>
+    <p class="field__hint">Solo aparecen los estudiantes de tu alcance.</p>
+  </div>
+  <div class="chosen" data-picker-chosen{% if not alumno %} hidden{% endif %}>
+    <span class="avatar avatar--tone-{{ alumno.pk|tono }}" data-picker-avatar aria-hidden="true">{{ alumno.iniciales }}</span>
+    <div class="chosen__text">
+      <p class="chosen__name" data-picker-name>{{ alumno }}</p>
+      <p class="chosen__meta" data-picker-meta>{{ alumno.referencia }}</p>
+    </div>
+    <button type="button" class="btn btn--sm" data-picker-change>Cambiar</button>
+  </div>
+  {% for error in campo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+</div>

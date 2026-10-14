@@ -444,7 +444,12 @@ class ConfiguracionAsistenciaAdmin(admin.ModelAdmin):
 class DiaNoLectivoAdmin(admin.ModelAdmin):
     list_display = (
         'fecha',
+        'nivel',
         'motivo',
+    )
+
+    list_filter = (
+        'nivel',
     )
 
     search_fields = (

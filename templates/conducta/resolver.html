@@ -1,0 +1,33 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Resolver solicitud | CISAHUAYO{% endblock %}
+{% block migaja %}Resolver solicitud{% endblock %}
+{% block encabezado %}{% if suspension %}Solicitud de suspensión{% else %}Medida por aprobar{% endif %}{% endblock %}
+{% block descripcion %}Apruébala o recházala. Queda en el historial quién la resolvió, cuándo y por qué. Nadie puede resolver una solicitud que hizo él mismo.{% endblock %}
+
+{% block campos %}
+  {% if propia %}
+    <div class="alert alert--warning" role="alert">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>Esta solicitud la hiciste tú: la debe resolver otra persona autorizada.</p></div>
+    </div>
+  {% endif %}
+  <dl class="details conducta-resolver__datos">
+    {% if suspension %}
+      <div class="details__item"><dt class="details__label">Motivo</dt><dd class="details__value">{{ suspension.motivo_nombre }}</dd></div>
+      <div class="details__item"><dt class="details__label">Fechas propuestas</dt><dd class="details__value">Del {{ suspension.fecha_inicio|date:"d/m/Y" }} al {{ suspension.fecha_fin|date:"d/m/Y" }} ({{ suspension.dias }} día{{ suspension.dias|pluralize }})</dd></div>
+      <div class="details__item details__item--wide"><dt class="details__label">Justificación</dt><dd class="details__value conducta-texto">{{ suspension.justificacion|default:"—"|linebreaksbr }}</dd></div>
+      <div class="details__item"><dt class="details__label">Solicitó</dt><dd class="details__value">{% firstof suspension.solicitada_por.get_full_name suspension.solicitada_por.username "—" %} · {{ suspension.solicitada_en|date:"d/m/Y H:i" }}</dd></div>
+    {% else %}
+      <div class="details__item"><dt class="details__label">Medida</dt><dd class="details__value">{{ medida.nombre }}</dd></div>
+      <div class="details__item"><dt class="details__label">Solicitó</dt><dd class="details__value">{% firstof medida.solicitada_por.get_full_name medida.solicitada_por.username "—" %} · {{ medida.solicitada_en|date:"d/m/Y H:i" }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if not propia %}
+    {% include "partials/choices.html" with campo=form.decision %}
+    {% include "partials/field.html" with campo=form.observaciones %}
+    {% if suspension %}<p class="field__hint">Ya autorizada, sus días se marcan con S en la asistencia y no cuentan como faltas.</p>{% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block boton %}Guardar la resolución{% endblock %}

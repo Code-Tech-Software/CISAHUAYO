@@ -1,0 +1,18 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Seguimiento | CISAHUAYO{% endblock %}
+{% block migaja %}Seguimiento{% endblock %}
+{% block encabezado %}Seguimiento{% endblock %}
+{% block descripcion %}Quién lo lleva, cuándo se revisa, en qué estado está el caso (abierto, en seguimiento o cerrado) y los acuerdos. Para cerrarlo escribe la observación final; queda constancia de quién y cuándo.{% endblock %}
+
+{% block campos %}
+  <div class="form-grid">
+    {% include "partials/field.html" with campo=form.responsable %}
+    {% include "partials/field.html" with campo=form.fecha_revision %}
+    {% include "partials/field.html" with campo=form.estado %}
+  </div>
+  {% include "partials/field.html" with campo=form.acuerdos %}
+  {% include "partials/field.html" with campo=form.observaciones_cierre %}
+{% endblock %}
+
+{% block boton %}Guardar seguimiento{% endblock %}

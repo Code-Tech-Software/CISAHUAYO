@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}{{ alumno }} · Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:inicio' %}">Prefectura</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:estudiantes' %}">Estudiantes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with tono=alumno.estatus|tono_estatus %}
+    <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
+      <div class="identity__main">
+        {% include "partials/avatar.html" with persona=alumno tamano="xl" extra="avatar--square avatar--soft" %}
+        <div class="identity__text">
+          <p class="identity__eyebrow">Estudiante · Número de control {{ alumno.referencia }}</p>
+          <h1 class="identity__name" id="perfil-nombre">{{ alumno }}</h1>
+          <p class="identity__line">
+            <span class="tag tag--{{ tono }}">{{ alumno.get_estatus_display }}</span>
+            {% if inscripcion %}<span>{{ inscripcion.grupo }} · Ciclo {{ inscripcion.ciclo }}</span>{% else %}<span class="text-muted">Sin inscripción en el ciclo actual</span>{% endif %}
+          </p>
+        </div>
+        <div class="identity__actions prefectura-acciones">
+          {% if puede.registrar_conducta %}<a class="btn btn--primary btn--sm" href="{% url 'conducta:crear' %}?alumno={{ alumno.pk }}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %} Registrar conducta</a>{% endif %}
+          {% if puede.registrar_acceso %}<a class="btn btn--sm" href="{% url 'prefectura:acceso_crear' %}?alumno={{ alumno.pk }}" data-modal-form>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Entrada o salida</a>{% endif %}
+          {% if puede.justificar %}<a class="btn btn--sm" href="{% url 'prefectura:justificar' %}?alumno={{ alumno.pk }}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %} Justificar</a>{% endif %}
+        </div>
+      </div>
+      <dl class="identity__facts">
+        <div class="identity__fact"><dt>Número de control</dt><dd>{{ alumno.referencia }}</dd></div>
+        <div class="identity__fact identity__fact--mono"><dt>CURP</dt><dd>{{ alumno.curp }}</dd></div>
+        <div class="identity__fact"><dt>Nivel</dt><dd>{% if inscripcion %}{{ inscripcion.grado.get_nivel_display }}{% else %}—{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Grado y grupo</dt><dd>{% if inscripcion %}{{ inscripcion.grupo }}{% else %}—{% endif %}</dd></div>
+        <div class="identity__fact"><dt>Ingreso al colegio</dt><dd>{{ alumno.fecha_ingreso|date:"j M Y" }}</dd></div>
+      </dl>
+    </section>
+  {% endwith %}
+
+  <p class="text-muted prefectura-nota">Prefectura consulta esta ficha para dar seguimiento: no modifica los datos del estudiante y no ve información financiera, documentos personales ni el expediente clínico.</p>
+
+  <div class="tabs" data-tabs>
+    <div class="tabs__list" role="tablist" aria-label="Secciones de la ficha">
+      <button type="button" class="tabs__tab" role="tab" id="tab-contactos" aria-controls="contactos" aria-selected="true">Contactos <span class="tabs__count">{{ contactos|length }}</span></button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-asistencia" aria-controls="asistencia" aria-selected="false">Asistencia</button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-conducta" aria-controls="conducta" aria-selected="false">Conducta <span class="tabs__count">{{ conducta.registros|length }}</span></button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-seguimiento" aria-controls="seguimiento" aria-selected="false">Medidas y compromisos</button>
+    </div>
+
+    {# --- Contactos autorizados ------------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="contactos" aria-labelledby="tab-contactos">
+      {% if contactos %}
+        <div class="prefectura-contactos">
+          {% for vinculo in contactos %}
+            <article class="card prefectura-contacto">
+              <div class="card__body">
+                <div class="chosen chosen--static">
+                  {% include "partials/avatar.html" with persona=vinculo.tutor %}
+                  <div class="chosen__text">
+                    <p class="chosen__name">{{ vinculo.tutor }}</p>
+                    <p class="chosen__meta">{{ vinculo.get_parentesco_display }}</p>
+                  </div>
+                </div>
+                <p class="prefectura-contacto__marcas">
+                  {% if vinculo.tutor_principal %}<span class="tag tag--primary">Tutor principal</span>{% endif %}
+                  {% if vinculo.contacto_emergencia %}<span class="tag tag--warning">Contacto de emergencia</span>{% endif %}
+                  {% if vinculo.autorizado_recoger %}<span class="tag tag--success">Autorizado para recogerlo</span>{% else %}<span class="tag">No autorizado para recogerlo</span>{% endif %}
+                </p>
+                <dl class="details">
+                  <div class="details__item"><dt class="details__label">Teléfono</dt><dd class="details__value"><a href="tel:{{ vinculo.tutor.telefono }}">{{ vinculo.tutor.telefono|telefono }}</a></dd></div>
+                  {% if vinculo.tutor.telefono_alternativo %}<div class="details__item"><dt class="details__label">Otro teléfono</dt><dd class="details__value"><a href="tel:{{ vinculo.tutor.telefono_alternativo }}">{{ vinculo.tutor.telefono_alternativo|telefono }}</a></dd></div>{% endif %}
+                  {% if vinculo.tutor.telefono_trabajo %}<div class="details__item"><dt class="details__label">Teléfono del trabajo</dt><dd class="details__value"><a href="tel:{{ vinculo.tutor.telefono_trabajo }}">{{ vinculo.tutor.telefono_trabajo|telefono }}</a></dd></div>{% endif %}
+                  {% if vinculo.tutor.correo_electronico %}<div class="details__item details__item--wide"><dt class="details__label">Correo</dt><dd class="details__value"><a href="mailto:{{ vinculo.tutor.correo_electronico }}">{{ vinculo.tutor.correo_electronico }}</a></dd></div>{% endif %}
+                </dl>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">Sin contactos vigentes</p>
+          <p class="empty-state__text">El estudiante no tiene madre, padre o tutor activo registrado. Avisa a Control escolar.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    {# --- Asistencia ------------------------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="asistencia" aria-labelledby="tab-asistencia" hidden>
+      {% if resumen_materias %}
+        <div class="stat-grid">
+          <div class="stat"><p class="stat__label">Faltas por materia</p><p class="stat__value">{{ resumen_materias.faltas }}</p><p class="stat__hint">{{ resumen_materias.justificadas }} justificada{{ resumen_materias.justificadas|pluralize }} · {{ resumen_materias.sin_justificar }} sin justificar</p></div>
+          <div class="stat"><p class="stat__label">Retardos por materia</p><p class="stat__value">{{ resumen_materias.retardos }}</p><p class="stat__hint">en el ciclo actual</p></div>
+          <div class="stat"><p class="stat__label">Asistencia</p><p class="stat__value">{% if resumen_materias.porcentaje is not None %}{{ resumen_materias.porcentaje }} %{% else %}—{% endif %}</p><p class="stat__hint">{{ resumen_materias.registros }} registro{{ resumen_materias.registros|pluralize }} por materia</p></div>
+          <div class="stat"><p class="stat__label">Entrada al colegio</p><p class="stat__value">{{ resumen_entrada.retardos }}</p><p class="stat__hint">retardo{{ resumen_entrada.retardos|pluralize }} · {{ resumen_entrada.faltas }} día{{ resumen_entrada.faltas|pluralize }} sin entrar</p></div>
+        </div>
+
+        <h3 class="subsection-title">Faltas y retardos recientes</h3>
+        {% if recientes %}
+          <div class="table-card">
+            <div class="prefectura-tabla-marco">
+              <table class="table">
+                <thead class="table__head"><tr><th class="table__th" scope="col">Fecha</th><th class="table__th" scope="col">Materia</th><th class="table__th" scope="col">Estado</th><th class="table__th" scope="col">Observación</th></tr></thead>
+                <tbody class="table__body">
+                  {% for registro in recientes %}
+                    <tr class="table__row">
+                      <td class="table__cell" data-label="Fecha">{{ registro.fecha|date:"d/m/Y" }}</td>
+                      <td class="table__cell" data-label="Materia">{{ registro.materia_grado.materia }}</td>
+                      <td class="table__cell" data-label="Estado">{% if registro.estado == 'FALTA' %}<span class="tag {% if registro.justificada %}tag--info{% else %}tag--danger{% endif %}">{% if registro.justificada %}Falta justificada{% else %}Falta{% endif %}</span>{% else %}<span class="tag tag--warning">Retardo{% if registro.justificada %} justificado{% endif %}</span>{% endif %}</td>
+                      <td class="table__cell" data-label="Observación"><span class="text-muted">{{ registro.observaciones|default:"—" }}</span></td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% else %}
+          <p class="text-muted">Sin faltas ni retardos en el ciclo actual.</p>
+        {% endif %}
+
+        <h3 class="subsection-title">Entradas y salidas fuera de horario</h3>
+        {% if movimientos %}
+          <ul class="conducta-lista-pendientes">
+            {% for movimiento in movimientos %}
+              <li class="conducta-pendiente{% if movimiento.anulado %} is-muted{% endif %}">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'prefectura:acceso' movimiento.pk %}" data-modal-form>{{ movimiento.get_tipo_display }} · {{ movimiento.fecha|date:"d/m/Y" }} {{ movimiento.hora|time:"H:i" }}</a>
+                  <p class="text-muted">{{ movimiento.motivo|truncatechars:120 }}{% if movimiento.anulado %} · anulado{% endif %}</p>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">Sin retardos de ingreso, entradas posteriores ni salidas anticipadas registrados.</p>
+        {% endif %}
+
+        <h3 class="subsection-title">Justificaciones vigentes</h3>
+        {% if justificaciones %}
+          <ul class="conducta-lista-pendientes">
+            {% for justificacion in justificaciones %}
+              <li class="conducta-pendiente">
+                <div>
+                  <span class="conducta-pendiente__titulo">{{ justificacion.fecha|date:"d/m/Y" }} · {% if justificacion.asistencia %}{{ justificacion.asistencia.materia_grado.materia }}{% elif justificacion.justifica_general %}Entrada al colegio{% else %}Día completo{% endif %}</span>
+                  <p class="text-muted">{{ justificacion.motivo|truncatechars:100 }} · {% firstof justificacion.registrada_por.get_full_name justificacion.registrada_por.username "—" %}</p>
+                </div>
+                {% if justificacion.documento %}<a class="btn btn--ghost btn--sm" href="{% url 'asistencias:comprobante' justificacion.pk %}" target="_blank" rel="noopener">Comprobante</a>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">Sin justificaciones vigentes.</p>
+        {% endif %}
+        <p><a class="btn btn--sm" href="{% url 'prefectura:asistencia_registros' %}?q={{ alumno.referencia }}&amp;estado=todos&amp;desde={{ inscripcion.ciclo.fecha_inicio|date:'Y-m-d' }}">Ver todos sus registros de asistencia</a></p>
+      {% else %}
+        <p class="text-muted">Sin inscripción en el ciclo actual: no hay asistencia que mostrar.</p>
+      {% endif %}
+    </section>
+
+    {# --- Conducta --------------------------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="conducta" aria-labelledby="tab-conducta" hidden>
+      {% url 'prefectura:reportes' as url_historial %}
+      {% include "conducta/_linea_tiempo.html" with puede_registrar=puede.registrar_conducta url_historial=url_historial %}
+    </section>
+
+    {# --- Medidas, compromisos y citas ------------------------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="seguimiento" aria-labelledby="tab-seguimiento" hidden>
+      <h3 class="subsection-title">Medidas disciplinarias</h3>
+      {% if medidas %}
+        <ul class="conducta-lista-pendientes">
+          {% for medida in medidas %}
+            <li class="conducta-pendiente{% if medida.estado == 'ANULADA' or medida.estado == 'RECHAZADA' %} is-muted{% endif %}">
+              <div>
+                <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' medida.registro_id %}">{{ medida.nombre }}</a>
+                <p class="text-muted">{{ medida.registro.fecha|date:"d/m/Y" }} · {{ medida.registro.motivo_nombre }}</p>
+              </div>
+              <span class="tag {% if medida.estado == 'APLICADA' %}tag--primary{% elif medida.estado == 'PENDIENTE' %}tag--warning{% endif %}">{{ medida.get_estado_display }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">Sin medidas disciplinarias.</p>
+      {% endif %}
+
+      <h3 class="subsection-title">Acuerdos y compromisos</h3>
+      {% if compromisos %}
+        <ul class="conducta-lista-pendientes">
+          {% for compromiso in compromisos %}
+            <li class="conducta-pendiente">
+              <div>
+                <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' compromiso.registro_id %}">{{ compromiso.descripcion|truncatechars:90 }}</a>
+                <p class="text-muted">{{ compromiso.get_quien_display }} · fecha límite {{ compromiso.fecha_limite|date:"d/m/Y" }}{% if compromiso.responsable %} · {% firstof compromiso.responsable.get_full_name compromiso.responsable.username %}{% endif %}</p>
+              </div>
+              <span class="tag {% if compromiso.vencido %}tag--danger{% elif compromiso.abierto %}tag--warning{% elif compromiso.estado == 'CUMPLIDO' %}tag--success{% endif %}">{% if compromiso.vencido %}Vencido{% else %}{{ compromiso.get_estado_display }}{% endif %}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">Sin acuerdos ni compromisos.</p>
+      {% endif %}
+
+      <h3 class="subsection-title">Citas con la familia</h3>
+      {% if citas %}
+        <ul class="conducta-lista-pendientes">
+          {% for cita in citas %}
+            <li class="conducta-pendiente">
+              <div>
+                <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' cita.registro_id %}">{{ cita.persona }} · {{ cita.fecha|date:"d/m/Y" }}{% if cita.hora %} {{ cita.hora|time:"H:i" }}{% endif %}</a>
+                <p class="text-muted">{{ cita.asunto|truncatechars:100 }}</p>
+              </div>
+              <span class="tag {% if cita.estado == 'PROGRAMADA' %}tag--warning{% elif cita.estado == 'REALIZADA' %}tag--success{% endif %}">{{ cita.get_estado_display }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">Sin citas.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

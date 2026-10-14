@@ -1,0 +1,18 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Agregar evidencias | CISAHUAYO{% endblock %}
+{% block migaja %}Evidencias{% endblock %}
+{% block encabezado %}Agregar evidencias{% endblock %}
+{% block descripcion %}Fotos o documentos del hecho. Solo los ve quien puede consultar el registro; nunca se publican.{% endblock %}
+{% block atributos %} data-evidencias-form data-maximo-mb="{{ maximo_mb }}" data-por-envio="{{ por_envio }}"{% endblock %}
+
+{% block campos %}
+  <div class="field">
+    <label class="field__label field__label--required" for="evidencias">Archivos</label>
+    <input class="field__control conducta-archivos" id="evidencias" type="file" name="evidencias" multiple accept="{{ acepta }}" aria-describedby="evidencias-ayuda" data-evidencias>
+    <p class="field__hint" id="evidencias-ayuda">Fotos (JPG, PNG o WEBP) o PDF, hasta {{ maximo_mb }} MB cada uno y {{ por_envio }} a la vez.</p>
+    <ul class="conducta-archivos__lista" data-evidencias-lista hidden></ul>
+  </div>
+{% endblock %}
+
+{% block boton %}Agregar{% endblock %}

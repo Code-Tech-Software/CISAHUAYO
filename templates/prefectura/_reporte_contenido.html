@@ -1,0 +1,177 @@
+{% comment %}
+  El contenido de un reporte de prefectura (el mismo en la vista previa y en la hoja para imprimir o PDF; el Excel se
+  arma con los mismos datos en Prefectura/reportes.py). Los de conducta usan su propio contenido.
+  Parámetro: contenido (reportes.construir).
+{% endcomment %}
+{% if contenido.tipo_prefectura == 'conducta' or contenido.tipo_prefectura == 'suspensiones' or contenido.tipo_prefectura == 'historial' %}
+  {% include "conducta/_reporte_contenido.html" %}
+  {% if contenido.tipo_prefectura == 'historial' and contenido.asistencias %}
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Asistencia en el ciclo</h3>
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Estudiante</th><th scope="col">Faltas por materia</th><th scope="col">Justificadas</th><th scope="col">Retardos</th><th scope="col">Sin entrar</th><th scope="col">Retardos de entrada</th><th scope="col">Retardos de ingreso</th><th scope="col">Entradas posteriores</th><th scope="col">Salidas anticipadas</th><th scope="col">Asistencia</th></tr></thead>
+          <tbody>
+            {% for pk, fila in contenido.asistencias.items %}
+              <tr><td>{{ fila.alumno }}</td><td class="conducta-num">{{ fila.faltas }}</td><td class="conducta-num">{{ fila.justificadas }}</td><td class="conducta-num">{{ fila.retardos }}</td><td class="conducta-num">{{ fila.faltas_entrada }}</td><td class="conducta-num">{{ fila.retardos_entrada }}</td><td class="conducta-num">{{ fila.ingreso_tarde }}</td><td class="conducta-num">{{ fila.entradas_posteriores }}</td><td class="conducta-num">{{ fila.salidas_anticipadas }}</td><td class="conducta-num">{% if fila.porcentaje is not None %}{{ fila.porcentaje }} %{% else %}—{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% else %}
+  {% if contenido.aviso %}
+    <div class="alert alert--warning" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>{{ contenido.aviso }}</p></div>
+    </div>
+  {% endif %}
+
+  {% if contenido.tipo == 'asistencia' %}
+    {% with t=contenido.total %}
+      <div class="conducta-reporte__cifras">
+        <div class="stat"><p class="stat__label">Faltas por materia</p><p class="stat__value">{{ t.faltas|default:0 }}</p><p class="stat__hint">registros · {{ t.justificadas|default:0 }} justificada{{ t.justificadas|pluralize }}</p></div>
+        <div class="stat"><p class="stat__label">Estudiantes con inasistencia</p><p class="stat__value">{{ t.estudiantes_con_falta|default:0 }}</p><p class="stat__hint">de {{ contenido.filas|length }} estudiante{{ contenido.filas|length|pluralize }}</p></div>
+        <div class="stat"><p class="stat__label">Retardos por materia</p><p class="stat__value">{{ t.retardos|default:0 }}</p><p class="stat__hint">{{ t.estudiantes_con_retardo|default:0 }} estudiante{{ t.estudiantes_con_retardo|pluralize }} con algún retardo</p></div>
+        <div class="stat"><p class="stat__label">Asistencia</p><p class="stat__value">{% if t.porcentaje is not None %}{{ t.porcentaje }} %{% else %}—{% endif %}</p><p class="stat__hint">presentes y retardos entre los registros</p></div>
+      </div>
+      <p class="text-muted conducta-reporte__nota">Una falta por materia es cada clase en la que el estudiante faltó; los estudiantes con inasistencia se cuentan una vez. Las entradas y salidas fuera de horario se registran aparte y no cambian el pase de lista.</p>
+    {% endwith %}
+    {% if contenido.filas %}
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Estudiante</th><th scope="col">Grupo</th><th scope="col">Registros</th><th scope="col">Retardos</th><th scope="col">Faltas</th><th scope="col">Justificadas</th><th scope="col">Sin justificar</th><th scope="col">Asistencia</th><th scope="col">Sin entrar</th><th scope="col">Retardos de entrada</th><th scope="col">Retardos de ingreso</th><th scope="col">Entradas posteriores</th><th scope="col">Salidas anticipadas</th></tr></thead>
+          <tbody>
+            {% for f in contenido.filas %}
+              <tr>
+                <td>{{ f.alumno }}<span class="text-muted conducta-bloque">{{ f.alumno.referencia }}</span></td>
+                <td>{{ f.grupo }}</td>
+                <td class="conducta-num">{{ f.registros }}</td><td class="conducta-num">{{ f.retardos }}</td><td class="conducta-num">{{ f.faltas }}</td>
+                <td class="conducta-num">{{ f.justificadas }}</td><td class="conducta-num">{{ f.sin_justificar }}</td>
+                <td class="conducta-num">{% if f.porcentaje is not None %}{{ f.porcentaje }} %{% else %}—{% endif %}</td>
+                <td class="conducta-num">{{ f.faltas_entrada }}</td><td class="conducta-num">{{ f.retardos_entrada }}</td>
+                <td class="conducta-num">{{ f.ingreso_tarde }}</td><td class="conducta-num">{{ f.entradas_posteriores }}</td><td class="conducta-num">{{ f.salidas_anticipadas }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted">Sin estudiantes con esos filtros.</p>
+    {% endif %}
+
+  {% elif contenido.tipo == 'justificaciones' %}
+    <div class="conducta-reporte__cifras">
+      <div class="stat"><p class="stat__label">Faltas por materia</p><p class="stat__value">{{ contenido.faltas }}</p><p class="stat__hint">{{ contenido.estudiantes }} estudiante{{ contenido.estudiantes|pluralize }}</p></div>
+      <div class="stat"><p class="stat__label">Justificadas</p><p class="stat__value">{{ contenido.faltas_justificadas }}</p><p class="stat__hint">con justificación vigente</p></div>
+      <div class="stat{% if contenido.faltas_sin_justificar %} stat--attention{% endif %}"><p class="stat__label">Sin justificar</p><p class="stat__value">{{ contenido.faltas_sin_justificar }}</p><p class="stat__hint">{{ contenido.estudiantes_sin_justificar }} estudiante{{ contenido.estudiantes_sin_justificar|pluralize }}</p></div>
+      <div class="stat"><p class="stat__label">Retardos</p><p class="stat__value">{{ contenido.retardos }}</p><p class="stat__hint">{{ contenido.retardos_justificados }} justificado{{ contenido.retardos_justificados|pluralize }}</p></div>
+    </div>
+    {% if contenido.registros %}
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Estudiante</th><th scope="col">Grupo</th><th scope="col">Materia</th><th scope="col">Estado</th><th scope="col">Justificación</th></tr></thead>
+          <tbody>
+            {% for r in contenido.registros %}
+              <tr>
+                <td>{{ r.fecha|date:"d/m/Y" }}</td>
+                <td>{{ r.inscripcion.alumno }}<span class="text-muted conducta-bloque">{{ r.inscripcion.alumno.referencia }}</span></td>
+                <td>{{ r.inscripcion.grupo }}</td>
+                <td>{{ r.materia_grado.materia }}</td>
+                <td>{{ r.get_estado_display }}</td>
+                <td>{% if r.justificada %}{% if r.justificacion %}{{ r.justificacion.motivo|truncatechars:80 }}<span class="text-muted conducta-bloque">{% firstof r.justificacion.registrada_por.get_full_name r.justificacion.registrada_por.username "—" %} · {{ r.justificacion.creado|date:"d/m/Y" }}</span>{% else %}Justificada (del día){% endif %}{% else %}<strong>Sin justificar</strong>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted">Sin faltas ni retardos con esos filtros.</p>
+    {% endif %}
+
+  {% elif contenido.tipo == 'reincidencias' %}
+    <p class="text-muted conducta-reporte__nota">Criterios del administrador: {% for regla in contenido.reglas %}{{ regla.get_nivel_display }}, {{ regla.incidencias }} del mismo motivo en {{ regla.dias }} días{% if not forloop.last %}; {% endif %}{% empty %}sin configurar (Ajustes › Conducta){% endfor %}. Se cuentan las incidencias del mismo motivo dentro de los filtros. Es para revisión: no aplica sanciones.</p>
+    {% if contenido.reincidencias %}
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Estudiante</th><th scope="col">Nivel</th><th scope="col">Motivo</th><th scope="col">Incidencias</th><th scope="col">Criterio del nivel</th></tr></thead>
+          <tbody>
+            {% for f in contenido.reincidencias %}
+              <tr><td>{{ f.alumno }}</td><td>{{ f.nivel }}</td><td>{{ f.motivo }}</td><td class="conducta-num">{{ f.total }}</td><td>{{ f.umbral }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted">Ningún estudiante llegó al criterio con esos filtros.</p>
+    {% endif %}
+
+  {% elif contenido.tipo == 'medidas' %}
+    <p class="conducta-reporte__nota"><strong>{{ contenido.aplicadas }}</strong> medida{{ contenido.aplicadas|pluralize }} aplicada{{ contenido.aplicadas|pluralize }} en <strong>{{ contenido.registros_con_medidas }}</strong> registro{{ contenido.registros_con_medidas|pluralize }}. Las pendientes, rechazadas y anuladas se muestran aparte y no cuentan como aplicadas.</p>
+    {% if contenido.resumen_medidas %}
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Medida</th><th scope="col">Aplicadas</th><th scope="col">Pendientes</th><th scope="col">Rechazadas</th><th scope="col">Anuladas</th></tr></thead>
+          <tbody>
+            {% for f in contenido.resumen_medidas %}<tr><td>{{ f.nombre }}</td><td class="conducta-num">{{ f.aplicadas }}</td><td class="conducta-num">{{ f.pendientes }}</td><td class="conducta-num">{{ f.rechazadas }}</td><td class="conducta-num">{{ f.anuladas }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <h3 class="reporte__subtitulo">Detalle</h3>
+      <div class="reporte__marco-tabla">
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Fecha del hecho</th><th scope="col">Estudiante</th><th scope="col">Motivo</th><th scope="col">Medida</th><th scope="col">Estado</th><th scope="col">Solicitó</th><th scope="col">Resolvió</th></tr></thead>
+          <tbody>
+            {% for m in contenido.medidas %}
+              <tr><td>{{ m.registro.fecha|date:"d/m/Y" }}</td><td>{{ m.registro.alumno }}</td><td>{{ m.registro.motivo_nombre }}</td><td>{{ m.nombre }}</td><td>{{ m.get_estado_display }}</td><td>{% firstof m.solicitada_por.get_full_name m.solicitada_por.username "—" %}</td><td>{% firstof m.resuelta_por.get_full_name m.resuelta_por.username "—" %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted">Sin medidas con esos filtros.</p>
+    {% endif %}
+
+  {% elif contenido.tipo == 'pendientes' %}
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Casos abiertos ({{ contenido.abiertos|length }})</h3>
+      {% if contenido.abiertos %}
+        <div class="reporte__marco-tabla">
+          <table class="reporte__tabla">
+            <thead><tr><th scope="col">Fecha</th><th scope="col">Estudiante</th><th scope="col">Motivo</th><th scope="col">Estado</th><th scope="col">Responsable</th><th scope="col">Revisión</th></tr></thead>
+            <tbody>
+              {% for r in contenido.abiertos %}<tr><td>{{ r.fecha|date:"d/m/Y" }}</td><td>{{ r.alumno }}</td><td>{{ r.motivo_nombre }}</td><td>{% include "conducta/_marca.html" with registro=r que='estado' %}</td><td>{% firstof r.responsable.get_full_name r.responsable.username "—" %}</td><td>{{ r.fecha_revision|date:"d/m/Y"|default:"—" }}</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}<p class="text-muted">Sin casos abiertos.</p>{% endif %}
+    </section>
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Compromisos pendientes ({{ contenido.compromisos|length }})</h3>
+      {% if contenido.compromisos %}
+        <div class="reporte__marco-tabla">
+          <table class="reporte__tabla">
+            <thead><tr><th scope="col">Fecha límite</th><th scope="col">Estudiante</th><th scope="col">Se compromete</th><th scope="col">Compromiso</th><th scope="col">Responsable</th></tr></thead>
+            <tbody>
+              {% for c in contenido.compromisos %}<tr><td>{{ c.fecha_limite|date:"d/m/Y" }}{% if c.vencido %} <span class="tag tag--danger">Vencido</span>{% endif %}</td><td>{{ c.registro.alumno }}</td><td>{{ c.get_quien_display }}</td><td>{{ c.descripcion }}</td><td>{% firstof c.responsable.get_full_name c.responsable.username "—" %}</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}<p class="text-muted">Sin compromisos pendientes.</p>{% endif %}
+    </section>
+    <section class="conducta-reporte__bloque">
+      <h3 class="reporte__subtitulo">Citas programadas ({{ contenido.citas|length }})</h3>
+      {% if contenido.citas %}
+        <div class="reporte__marco-tabla">
+          <table class="reporte__tabla">
+            <thead><tr><th scope="col">Fecha</th><th scope="col">Estudiante</th><th scope="col">Con quién</th><th scope="col">Asunto</th><th scope="col">Responsable</th></tr></thead>
+            <tbody>
+              {% for c in contenido.citas %}<tr><td>{{ c.fecha|date:"d/m/Y" }}{% if c.hora %} {{ c.hora|time:"H:i" }}{% endif %}</td><td>{{ c.registro.alumno }}</td><td>{{ c.persona }}</td><td>{{ c.asunto }}</td><td>{% firstof c.responsable.get_full_name c.responsable.username "—" %}</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}<p class="text-muted">Sin citas programadas.</p>{% endif %}
+    </section>
+  {% endif %}
+{% endif %}

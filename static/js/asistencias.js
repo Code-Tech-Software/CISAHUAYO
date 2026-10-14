@@ -4,7 +4,7 @@
    - elegir una fecha envía el formulario de la página;
    - ventana para registrar o corregir la asistencia general de un alumno ([data-asistencia-editar]);
    - ventana para anular una justificación ([data-anular-justificacion]);
-   - lista de la clase: contadores en vivo, «Todos presentes» y marca de lo que cambió ([data-roster]).
+   - días sin clases: «Todos los niveles» marca o desmarca los cuatro ([data-niveles-sin-clases]).
 */
 (() => {
   'use strict';
@@ -48,45 +48,17 @@
     });
   }
 
-  /* --- Lista de la clase --------------------------------------------------------------------------------------------- */
-  const lista = document.querySelector('[data-roster]');
-  if (lista) {
-    const radios = [...lista.querySelectorAll('input[data-estado]')];
-    const conteos = {
-      PRESENTE: lista.querySelector('[data-conteo="PRESENTE"]'),
-      RETARDO: lista.querySelector('[data-conteo="RETARDO"]'),
-      FALTA: lista.querySelector('[data-conteo="FALTA"]'),
-    };
-    const inicial = new Map(radios.filter((radio) => radio.checked).map((radio) => [radio.name, radio.value]));
-
-    const actualizar = () => {
-      const total = { PRESENTE: 0, RETARDO: 0, FALTA: 0 };
-      radios.filter((radio) => radio.checked).forEach((radio) => {
-        total[radio.value] += 1;
-        radio.closest('[data-roster-row]')?.classList.toggle('is-changed', inicial.get(radio.name) !== radio.value);
-      });
-      Object.entries(conteos).forEach(([estado, nodo]) => {
-        if (nodo) nodo.textContent = total[estado];
-      });
-    };
-
-    lista.addEventListener('change', (event) => {
-      if (event.target.matches('input[data-estado]')) actualizar();
+  /* --- Días sin clases: «Todos los niveles» y los niveles sueltos se mantienen de acuerdo ----------------------- */
+  document.querySelectorAll('[data-niveles-sin-clases]').forEach((grupo) => {
+    const todos = grupo.querySelector('input[value="TODOS"]');
+    const niveles = [...grupo.querySelectorAll('input[type="checkbox"]')].filter((casilla) => casilla !== todos);
+    if (!todos) return;
+    grupo.addEventListener('change', (event) => {
+      if (event.target === todos) {
+        niveles.forEach((casilla) => { casilla.checked = todos.checked; });
+      } else {
+        todos.checked = niveles.every((casilla) => casilla.checked);
+      }
     });
-
-    lista.querySelector('[data-todos-presentes]')?.addEventListener('click', () => {
-      radios.filter((radio) => radio.value === 'PRESENTE').forEach((radio) => {
-        radio.checked = true;
-      });
-      actualizar();
-    });
-
-    /* Evita guardar dos veces con un doble clic */
-    lista.addEventListener('submit', () => {
-      const boton = lista.querySelector('button[type="submit"]');
-      if (boton) boton.disabled = true;
-    });
-
-    actualizar();
-  }
+  });
 })();

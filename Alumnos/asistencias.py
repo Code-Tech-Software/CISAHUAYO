@@ -5,6 +5,10 @@ Cómo funciona (cada grupo tiene su horario):
   general del día y, de una vez, la de cada materia que su grupo tiene ese día, para que el profesor ya la encuentre
   al empezar la clase y solo corrija lo que haga falta.
 - Quien llega cuando una clase ya empezó o terminó queda con retardo o falta en esa materia.
+- Quien entra después de la hora límite de su nivel (o, sin límite, de la hora de entrada más la tolerancia) queda con
+  retardo en la entrada general, y su primera clase del día le cuenta como falta (pedido del 2026-10-14).
+- Un estudiante con una suspensión autorizada no recibe faltas al cerrar el día: está suspendido, no faltó. Tampoco
+  puede registrar su entrada esos días (la pantalla lo rechaza).
 - Al cerrar el día se generan las faltas de quien nunca registró entrada.
 - Una falta está «justificada» cuando hay una justificación vigente que la cubre (se calcula al consultar: no se
   guarda en la asistencia, así que anular o cambiar una justificación se refleja sola).
@@ -30,12 +34,15 @@ from .models import (
     HorarioMateria,
     Inscripcion,
     Justificacion,
+    LimiteEntradaNivel,
 )
 
 ESTADOS = ('PRESENTE', 'RETARDO', 'FALTA')
 ETIQUETAS = dict(AsistenciaGeneral.ESTADO_CHOICES)
 # Máximo de días que se revisan hacia atrás al cerrar días pendientes (evita un cierre enorme por error)
 LIMITE_DIAS_PENDIENTES = 45
+NIVELES = tuple(clave for clave, _ in Grado.NIVEL_CHOICES)
+NOMBRES_DE_NIVEL = dict(Grado.NIVEL_CHOICES)
 
 
 class EntradaRechazada(Exception):
@@ -82,9 +89,86 @@ def ciclo_de_fecha(fecha):
     )
 
 
-def motivo_sin_clases(fecha, ciclo=None, exigir_actual=False):
+def texto_de_niveles(niveles):
+    """«todos los niveles» o sus nombres en orden escolar («preescolar y primaria»)."""
+    niveles = [nivel for nivel in NIVELES if nivel in set(niveles)]
+    if len(niveles) == len(NIVELES):
+        return 'todos los niveles'
+    nombres = [NOMBRES_DE_NIVEL[nivel].lower() for nivel in niveles]
+    return ' y '.join(nombres) if len(nombres) < 3 else f'{", ".join(nombres[:-1])} y {nombres[-1]}'
+
+
+def niveles_sin_clases(fecha):
+    """{nivel: motivo} de los niveles que tienen ese día registrado como día sin clases."""
+    return dict(DiaNoLectivo.objects.filter(fecha=fecha).values_list('nivel', 'motivo'))
+
+
+def _niveles_del_colegio():
+    """Los niveles con grados activos (sin ninguno, los cuatro): un día es sin clases para todo el colegio cuando lo es
+    para todos ellos."""
+    return set(Grado.objects.filter(activo=True).values_list('nivel', flat=True)) or set(NIVELES)
+
+
+def _de_todo_el_colegio(niveles):
+    return bool(niveles) and _niveles_del_colegio() <= set(niveles)
+
+
+def fechas_sin_clases(desde, hasta, nivel=None):
+    """Las fechas entre esas dos (inclusive) sin clases para ese nivel o, sin nivel, para todo el colegio."""
+    dias = DiaNoLectivo.objects.filter(fecha__range=(desde, hasta))
+    if nivel:
+        return set(dias.filter(nivel=nivel).values_list('fecha', flat=True))
+    por_fecha = defaultdict(set)
+    for fecha, nivel_del_dia in dias.values_list('fecha', 'nivel'):
+        por_fecha[fecha].add(nivel_del_dia)
+    return {fecha for fecha, niveles in por_fecha.items() if _de_todo_el_colegio(niveles)}
+
+
+def aviso_de_niveles_sin_clases(fecha):
+    """Si ese día solo algunos niveles no tienen clases, el aviso para las pantallas del día (sus estudiantes no se
+    esperan ni se cuentan); si no, None."""
+    sin_clases = niveles_sin_clases(fecha)
+    if not sin_clases or _de_todo_el_colegio(sin_clases):
+        return None
+    por_motivo = defaultdict(list)
+    for nivel in NIVELES:
+        if nivel in sin_clases:
+            por_motivo[sin_clases[nivel]].append(nivel)
+    partes = '; '.join(f'{texto_de_niveles(niveles)} ({motivo})' for motivo, niveles in por_motivo.items())
+    return f'Sin clases en {partes}: sus estudiantes no registran entrada ni se les generan faltas.'
+
+
+@dataclass
+class DiaSinClases:
+    """Un día sin clases tal como se registró: una fecha y un motivo con sus niveles."""
+    pk: int             # uno de sus registros (para quitarlo)
+    fecha: object
+    motivo: str
+    niveles: list
+
+    @property
+    def todos(self):
+        return set(NIVELES) <= set(self.niveles)
+
+    @property
+    def nombres(self):
+        return [NOMBRES_DE_NIVEL[nivel] for nivel in NIVELES if nivel in self.niveles]
+
+
+def dias_sin_clases_registrados(limite=120):
+    """Los días sin clases, del más reciente al más antiguo, uno por fecha y motivo con sus niveles."""
+    dias = {}
+    for registro in DiaNoLectivo.objects.order_by('-fecha', 'motivo', 'pk')[:limite * len(NIVELES)]:
+        dia = dias.setdefault((registro.fecha, registro.motivo), DiaSinClases(registro.pk, registro.fecha, registro.motivo, []))
+        dia.niveles.append(registro.nivel)
+    return list(dias.values())[:limite]
+
+
+def motivo_sin_clases(fecha, ciclo=None, exigir_actual=False, nivel=None):
     """Por qué ese día no se registra asistencia (texto), o None si es día de clases.
 
+    Con `nivel`, para los estudiantes de ese nivel; sin él, para todo el colegio. Un día sin clases solo de algunos
+    niveles sigue siendo día de clases: sus estudiantes no se esperan (`inscripciones_del_dia`).
     `exigir_actual` pide además que el ciclo del día sea el ciclo actual (se usa para registrar entradas y para
     capturar: los ciclos cerrados y los próximos no se modifican).
     """
@@ -93,9 +177,13 @@ def motivo_sin_clases(fecha, ciclo=None, exigir_actual=False):
         return 'Ese día queda fuera de las fechas de cualquier ciclo escolar.'
     if exigir_actual and not ciclo.activo:
         return f'El ciclo {ciclo} no es el ciclo actual.'
-    sin_clases = DiaNoLectivo.objects.filter(fecha=fecha).values_list('motivo', flat=True).first()
-    if sin_clases:
-        return f'Día sin clases: {sin_clases}.'
+    sin_clases = niveles_sin_clases(fecha)
+    if nivel:
+        motivo = sin_clases.get(nivel)
+    else:
+        motivo = ', '.join(dict.fromkeys(sin_clases[n] for n in NIVELES if n in sin_clases)) if _de_todo_el_colegio(sin_clases) else None
+    if motivo:
+        return f'Día sin clases: {motivo}.'
     if fecha.weekday() >= 5 and not HorarioMateria.objects.filter(
         materia_grado__ciclo=ciclo, materia_grado__activa=True, dia_semana=fecha.weekday(),
     ).exists():
@@ -103,12 +191,13 @@ def motivo_sin_clases(fecha, ciclo=None, exigir_actual=False):
     return None
 
 
-def dias_de_clases(desde, hasta, ciclo):
-    """Los días de clases entre dos fechas (inclusive), dentro del ciclo: sin días sin clases y sin fines de semana sin horario."""
+def dias_de_clases(desde, hasta, ciclo, nivel=None):
+    """Los días de clases entre dos fechas (inclusive), dentro del ciclo: sin días sin clases (de ese nivel o, sin nivel,
+    de todo el colegio) y sin fines de semana sin horario."""
     desde, hasta = max(desde, ciclo.fecha_inicio), min(hasta, ciclo.fecha_fin)
     if desde > hasta:
         return []
-    sin_clases = set(DiaNoLectivo.objects.filter(fecha__range=(desde, hasta)).values_list('fecha', flat=True))
+    sin_clases = fechas_sin_clases(desde, hasta, nivel)
     dias_con_horario = set(
         HorarioMateria.objects.filter(materia_grado__ciclo=ciclo, materia_grado__activa=True).values_list('dia_semana', flat=True).distinct()
     )
@@ -132,14 +221,17 @@ def asistencia_editable(fecha):
 # Quiénes asisten y a qué clases
 # ---------------------------------------------------------------------------
 def inscripciones_del_dia(fecha, ciclo=None, grado=None, grupo=None):
-    """Inscripciones vigentes que deben asistir ese día: alumnos activos, ya inscritos, en el ciclo del día (de un grado
-    o de un grupo, si se indica)."""
+    """Inscripciones vigentes que deben asistir ese día: alumnos activos, ya inscritos, en el ciclo del día, de los
+    niveles que tienen clases ese día (de un grado o de un grupo, si se indica)."""
     ciclo = ciclo or ciclo_de_fecha(fecha)
     if ciclo is None:
         return Inscripcion.objects.none()
     inscripciones = Inscripcion.objects.filter(
         ciclo=ciclo, activa=True, alumno__estatus='ACTIVO', fecha_inscripcion__lte=fecha,
     )
+    sin_clases = niveles_sin_clases(fecha)
+    if sin_clases:
+        inscripciones = inscripciones.exclude(grado__nivel__in=list(sin_clases))
     if grado is not None:
         inscripciones = inscripciones.filter(grado=grado)
     if grupo is not None:
@@ -191,10 +283,15 @@ def _mas_minutos(hora, minutos):
     return time(total // 60, total % 60)
 
 
-def estado_de_entrada(hora, configuracion):
-    """PRESENTE si llegó a tiempo (hora de entrada más la tolerancia); RETARDO si después."""
-    limite = _mas_minutos(configuracion.hora_entrada, configuracion.tolerancia_minutos)
-    return 'PRESENTE' if _minuto(hora) <= limite else 'RETARDO'
+def limite_de_entrada(nivel, configuracion):
+    """La hora límite de entrada del nivel; sin una propia, la hora de entrada general más la tolerancia."""
+    propia = LimiteEntradaNivel.objects.filter(nivel=nivel).values_list('hora_limite', flat=True).first() if nivel else None
+    return propia or _mas_minutos(configuracion.hora_entrada, configuracion.tolerancia_minutos)
+
+
+def estado_de_entrada(hora, configuracion, nivel=None):
+    """PRESENTE si llegó a tiempo (a más tardar en la hora límite de su nivel); RETARDO si después."""
+    return 'PRESENTE' if _minuto(hora) <= limite_de_entrada(nivel, configuracion) else 'RETARDO'
 
 
 def estado_en_clase(hora, clase, tolerancia):
@@ -213,34 +310,43 @@ def _nota_de_llegada(estado, hora):
     return ''
 
 
-def _materias_por_crear(inscripcion, fecha, hora, tolerancia, clases, existentes, origen, usuario, estado_fijo=None, nota=''):
+def _materias_por_crear(inscripcion, fecha, hora, tolerancia, clases, existentes, origen, usuario, estado_fijo=None, nota='',
+                        retardo_de_entrada=False):
     """Objetos AsistenciaMateria (sin guardar) de las materias que `existentes` todavía no tiene.
 
-    `estado_fijo` (por ejemplo FALTA) manda sobre el que saldría de la hora de llegada.
+    `estado_fijo` (por ejemplo FALTA) manda sobre el que saldría de la hora de llegada. Con `retardo_de_entrada` (llegó
+    después de la hora límite de su nivel), la primera clase del día queda con falta.
     """
+    primera = min(clases, key=lambda clase: clase.inicio) if clases and retardo_de_entrada and not estado_fijo else None
     nuevas = []
     for clase in clases:
         if clase.pk in existentes:
             continue
-        estado = estado_fijo or (estado_en_clase(hora, clase, tolerancia) if hora else 'PRESENTE')
+        if clase is primera:
+            estado = 'FALTA'
+            observacion = f'Llegó a las {hora:%H:%M}, después de la hora límite de entrada: la primera hora cuenta como falta.' if hora else (
+                'Llegó después de la hora límite de entrada: la primera hora cuenta como falta.')
+        else:
+            estado = estado_fijo or (estado_en_clase(hora, clase, tolerancia) if hora else 'PRESENTE')
+            observacion = nota or (_nota_de_llegada(estado, hora) if hora else '')
         nuevas.append(AsistenciaMateria(
             inscripcion=inscripcion, materia_grado=clase.asignacion, fecha=fecha, estado=estado, origen=origen,
-            registrado_por=usuario, observaciones=nota or (_nota_de_llegada(estado, hora) if hora else ''),
+            registrado_por=usuario, observaciones=observacion,
         ))
     return nuevas
 
 
-def crear_asistencias_de_materias(inscripcion, fecha, hora, tolerancia, clases=None, origen='ENTRADA', usuario=None):
+def crear_asistencias_de_materias(inscripcion, fecha, hora, tolerancia, clases=None, origen='ENTRADA', usuario=None, retardo_de_entrada=False):
     """Crea la asistencia de cada materia del día que todavía no la tiene, según la hora de llegada.
 
-    Con `hora=None` (no se sabe a qué hora llegó) todas quedan presentes. Nunca toca las que ya existen.
-    Devuelve cuántas creó.
+    Con `hora=None` (no se sabe a qué hora llegó) todas quedan presentes, salvo la primera si llegó con retardo a la
+    entrada (`retardo_de_entrada`). Nunca toca las que ya existen. Devuelve cuántas creó.
     """
     clases = clases if clases is not None else clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
     existentes = set(
         AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha).values_list('materia_grado_id', flat=True)
     )
-    nuevas = _materias_por_crear(inscripcion, fecha, hora, tolerancia, clases, existentes, origen, usuario)
+    nuevas = _materias_por_crear(inscripcion, fecha, hora, tolerancia, clases, existentes, origen, usuario, retardo_de_entrada=retardo_de_entrada)
     AsistenciaMateria.objects.bulk_create(nuevas, ignore_conflicts=True)
     return len(nuevas)
 
@@ -283,6 +389,9 @@ def registrar_entrada(alumno, origen, usuario=None, momento=None):
 
     if alumno.estatus != 'ACTIVO':
         raise EntradaRechazada(alumno.estatus, _MENSAJES_ESTATUS.get(alumno.estatus, 'Tu registro no está activo.'))
+    suspension = suspension_vigente(alumno, fecha)
+    if suspension is not None:
+        raise EntradaRechazada('SUSPENSION', f'Tienes una suspensión hasta el {suspension.fecha_fin:%d/%m/%Y}: hoy no puedes ingresar. Acude a prefectura.')
     motivo = motivo_sin_clases(fecha, exigir_actual=True)
     if motivo:
         raise EntradaRechazada('SIN_CLASES', motivo)
@@ -290,6 +399,9 @@ def registrar_entrada(alumno, origen, usuario=None, momento=None):
     inscripcion = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo, activa=True).select_related('grado', 'ciclo').first()
     if inscripcion is None:
         raise EntradaRechazada('SIN_INSCRIPCION', 'No tienes una inscripción vigente en el ciclo actual. Acude a control escolar.')
+    sin_clases = DiaNoLectivo.objects.filter(fecha=fecha, nivel=inscripcion.grado.nivel).values_list('motivo', flat=True).first()
+    if sin_clases:
+        raise EntradaRechazada('SIN_CLASES', f'Hoy no hay clases en {inscripcion.grado.get_nivel_display().lower()}: {sin_clases}.')
 
     configuracion = ConfiguracionAsistencia.cargar()
     try:
@@ -297,11 +409,13 @@ def registrar_entrada(alumno, origen, usuario=None, momento=None):
             existente = AsistenciaGeneral.objects.filter(inscripcion=inscripcion, fecha=fecha).first()
             if existente:
                 return ResultadoEntrada(existente, creada=False)
+            estado = estado_de_entrada(hora, configuracion, inscripcion.grado.nivel)
             asistencia = AsistenciaGeneral.objects.create(
-                inscripcion=inscripcion, fecha=fecha, estado=estado_de_entrada(hora, configuracion),
-                hora_entrada=hora, origen=origen, registrado_por=usuario,
+                inscripcion=inscripcion, fecha=fecha, estado=estado, hora_entrada=hora, origen=origen, registrado_por=usuario,
             )
-            materias = crear_asistencias_de_materias(inscripcion, fecha, hora, configuracion.tolerancia_minutos, usuario=usuario)
+            materias = crear_asistencias_de_materias(
+                inscripcion, fecha, hora, configuracion.tolerancia_minutos, usuario=usuario, retardo_de_entrada=estado == 'RETARDO',
+            )
     except IntegrityError:  # dos lecturas casi simultáneas de la misma credencial: ganó la otra
         return ResultadoEntrada(AsistenciaGeneral.objects.get(inscripcion=inscripcion, fecha=fecha), creada=False)
     return ResultadoEntrada(asistencia, creada=True, materias=materias)
@@ -354,6 +468,7 @@ def _propagar_a_materias(asistencia, configuracion, usuario):
     registros.exclude(origen='PASE').delete()
     crear_asistencias_de_materias(
         inscripcion, fecha, asistencia.hora_entrada, configuracion.tolerancia_minutos, clases=clases, origen='MANUAL', usuario=usuario,
+        retardo_de_entrada=asistencia.estado == 'RETARDO',
     )
 
 
@@ -415,7 +530,7 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
 
     También completa las materias que le faltan a quien sí asistió (presentes, o según la hora a la que llegó).
     Se puede repetir sin problema. Devuelve cuántos alumnos quedaron con falta general, o None si ese día no se cierra
-    (día sin clases, futuro o fuera de un ciclo).
+    (día sin clases de todo el colegio, futuro o fuera de un ciclo). Los niveles sin clases ese día no se tocan.
     """
     if fecha > timezone.localdate() or motivo_sin_clases(fecha):
         return None
@@ -428,11 +543,14 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
     for inscripcion_id, asignacion_id in AsistenciaMateria.objects.filter(fecha=fecha, inscripcion__ciclo=ciclo).values_list('inscripcion_id', 'materia_grado_id'):
         registradas[inscripcion_id].add(asignacion_id)
 
+    suspendidos = alumnos_suspendidos(fecha)   # con suspensión autorizada ese día: no faltaron
     with transaction.atomic():
         nuevas_generales, nuevas_materias = [], []
         for inscripcion in inscripciones:
             general = generales.get(inscripcion.pk)
             clases_del_grado = clases.get(inscripcion.grupo_id, [])
+            if inscripcion.alumno_id in suspendidos and (general is None or general.estado == 'FALTA'):
+                continue
             if general is None or general.estado == 'FALTA':
                 if general is None:
                     nuevas_generales.append(AsistenciaGeneral(
@@ -446,7 +564,7 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
             else:
                 nuevas_materias += _materias_por_crear(
                     inscripcion, fecha, general.hora_entrada, configuracion.tolerancia_minutos, clases_del_grado,
-                    registradas[inscripcion.pk], 'CIERRE', usuario,
+                    registradas[inscripcion.pk], 'CIERRE', usuario, retardo_de_entrada=general.estado == 'RETARDO',
                 )
         AsistenciaGeneral.objects.bulk_create(nuevas_generales, ignore_conflicts=True)
         AsistenciaMateria.objects.bulk_create(nuevas_materias, ignore_conflicts=True)
@@ -456,6 +574,49 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
             'cerrado_en': timezone.now(), 'cerrado_por': usuario, 'automatico': automatico, 'faltas': faltas,
         })
     return faltas
+
+
+def suspension_vigente(alumno, fecha):
+    """La suspensión autorizada (de un registro de conducta no anulado) que incluye ese día, o None."""
+    from Conducta.models import APROBADA, Suspension
+    return (
+        Suspension.objects.filter(aprobacion=APROBADA, registro__anulado=False, registro__alumno=alumno,
+                                  fecha_inicio__lte=fecha, fecha_fin__gte=fecha)
+        .order_by('-fecha_fin').first()
+    )
+
+
+def suspensiones_del_dia(fecha, alumnos):
+    """{id de estudiante: suspensión} de esos estudiantes con una suspensión autorizada o pendiente de autorizar (de un
+    registro no anulado) que incluye ese día; si tiene las dos, la autorizada."""
+    from Conducta.models import APROBADA, PENDIENTE, Suspension
+    por_alumno = {}
+    for suspension in (Suspension.objects.filter(aprobacion__in=(APROBADA, PENDIENTE), registro__anulado=False, registro__alumno__in=alumnos,
+                                                 fecha_inicio__lte=fecha, fecha_fin__gte=fecha).select_related('registro')):
+        actual = por_alumno.get(suspension.registro.alumno_id)
+        if actual is None or (suspension.aprobada and not actual.aprobada):
+            por_alumno[suspension.registro.alumno_id] = suspension
+    return por_alumno
+
+
+def alumnos_suspendidos(fecha):
+    """Ids de los estudiantes con una suspensión autorizada (de un registro de conducta no anulado) que incluye ese día."""
+    from Conducta.models import APROBADA, Suspension
+    return set(
+        Suspension.objects.filter(aprobacion=APROBADA, registro__anulado=False, fecha_inicio__lte=fecha, fecha_fin__gte=fecha)
+        .values_list('registro__alumno_id', flat=True)
+    )
+
+
+def sin_dias_suspendidos(asistencias, campo='inscripcion__alumno'):
+    """Los registros de asistencia sin los de días en que el estudiante tenía una suspensión autorizada: esos días no
+    cuentan como faltas ni como asistencia (estaba suspendido)."""
+    from Conducta.models import APROBADA, Suspension
+    suspendido = Suspension.objects.filter(
+        aprobacion=APROBADA, registro__anulado=False, registro__alumno=OuterRef(campo),
+        fecha_inicio__lte=OuterRef('fecha'), fecha_fin__gte=OuterRef('fecha'),
+    )
+    return asistencias.exclude(Exists(suspendido))
 
 
 def dias_pendientes_de_cierre(hoy=None):
@@ -471,7 +632,7 @@ def dias_pendientes_de_cierre(hoy=None):
     if not fechas:
         return []
     cerradas = set(CierreDia.objects.filter(fecha__in=fechas).values_list('fecha', flat=True))
-    sin_clases = set(DiaNoLectivo.objects.filter(fecha__in=fechas).values_list('fecha', flat=True))
+    sin_clases = fechas_sin_clases(min(fechas), max(fechas))   # de todo el colegio: los de algunos niveles sí se cierran
     return sorted(fechas - cerradas - sin_clases)
 
 
@@ -502,14 +663,18 @@ def cierre_automatico_del_dia(hoy=None):
 def resumen_del_dia(fecha, ciclo=None):
     """La asistencia general del día, grado por grado (en orden escolar) y en total.
 
-    Cada fila: grado, inscritos, presentes, retardos, faltas, justificadas (faltas con justificación), sin_registro
-    (todavía sin entrada ni falta) y entraron (presentes más retardos). El total trae las mismas claves.
+    Cada fila: grado, inscritos, presentes, retardos, faltas, justificadas (faltas con justificación), suspendidos (con
+    suspensión autorizada ese día: no cuentan como faltas), sin_registro (todavía sin entrada ni falta) y entraron
+    (presentes más retardos). El total trae las mismas claves.
     """
     ciclo = ciclo or ciclo_de_fecha(fecha)
     inscripciones = inscripciones_del_dia(fecha, ciclo)
     inscritos = dict(inscripciones.order_by().values_list('grado_id').annotate(total=Count('pk')))
+    suspendidos = dict(
+        inscripciones.filter(alumno__in=alumnos_suspendidos(fecha)).order_by().values_list('grado_id').annotate(total=Count('pk'))
+    )
     registros = (
-        con_justificada_general(AsistenciaGeneral.objects.filter(fecha=fecha, inscripcion__in=inscripciones))
+        con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(fecha=fecha, inscripcion__in=inscripciones)))
         .order_by().values('inscripcion__grado_id')
         .annotate(
             presentes=Count('pk', filter=Q(estado='PRESENTE')),
@@ -520,16 +685,16 @@ def resumen_del_dia(fecha, ciclo=None):
     )
     por_grado = {fila['inscripcion__grado_id']: fila for fila in registros}
 
-    filas, total = [], dict.fromkeys(('inscritos', 'presentes', 'retardos', 'faltas', 'justificadas', 'sin_registro', 'entraron'), 0)
+    filas, total = [], dict.fromkeys(('inscritos', 'presentes', 'retardos', 'faltas', 'justificadas', 'suspendidos', 'sin_registro', 'entraron'), 0)
     for grado in Grado.objects.filter(pk__in=inscritos).academicos():
         datos = por_grado.get(grado.pk, {})
         fila = {
             'grado': grado, 'inscritos': inscritos[grado.pk],
             'presentes': datos.get('presentes', 0), 'retardos': datos.get('retardos', 0),
-            'faltas': datos.get('faltas', 0), 'justificadas': datos.get('justificadas', 0),
+            'faltas': datos.get('faltas', 0), 'justificadas': datos.get('justificadas', 0), 'suspendidos': suspendidos.get(grado.pk, 0),
         }
         fila['entraron'] = fila['presentes'] + fila['retardos']
-        fila['sin_registro'] = fila['inscritos'] - fila['entraron'] - fila['faltas']
+        fila['sin_registro'] = fila['inscritos'] - fila['entraron'] - fila['faltas'] - fila['suspendidos']
         for clave in total:
             total[clave] += fila[clave]
         filas.append(fila)

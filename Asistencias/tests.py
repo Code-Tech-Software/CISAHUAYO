@@ -50,11 +50,11 @@ class PermisosTests(BaseAsistenciaTestCase):
         super().setUp()
         reglas.fijar_asistencia_general(self.inscripcion, lunes(), 'FALTA')
         self.justificacion = Justificacion.objects.create(inscripcion=self.inscripcion, fecha=lunes(), motivo='Cita', justifica_general=True)
-        self.dia_libre = DiaNoLectivo.objects.create(fecha=lunes() + timedelta(days=30), motivo='Puente')
+        self.dia_libre = DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=30), motivo='Puente')[0]
 
     def paginas(self):
         return (
-            url('inicio'), url('dia'), url('clases'), url('clase', self.mat.pk), url('justificaciones'), url('justificacion_crear'),
+            url('inicio'), url('dia'), url('materias'), url('materias_reporte', materia=self.mat.pk), url('justificaciones'), url('justificacion_crear'),
             url('justificacion_editar', self.justificacion.pk), url('reporte'), url('alumno', self.alumno.pk), url('ajustes'), url('kiosco'),
         )
 
@@ -62,6 +62,7 @@ class PermisosTests(BaseAsistenciaTestCase):
         return (
             url('cerrar'), url('dia_guardar'), url('justificacion_anular', self.justificacion.pk), url('justificacion_reactivar', self.justificacion.pk),
             url('dia_sin_clases_crear'), url('dia_sin_clases_eliminar', self.dia_libre.pk),
+            url('materias_guardar', self.mat.pk), url('materias_justificar', self.mat.pk),
         )
 
     def test_anonimo_es_enviado_al_login(self):
@@ -99,12 +100,13 @@ class PermisosTests(BaseAsistenciaTestCase):
         for nombre in ('inicio', 'dia', 'reporte'):
             self.assertEqual(self.client.get(url(nombre)).status_code, 200, nombre)
         self.assertEqual(self.client.get(url('alumno', self.alumno.pk)).status_code, 200)
-        for nombre in ('clases', 'justificaciones', 'justificacion_crear', 'ajustes', 'kiosco'):
+        for nombre in ('materias', 'justificaciones', 'justificacion_crear', 'ajustes', 'kiosco'):
             self.assertEqual(self.client.get(url(nombre)).status_code, 403, nombre)
         self.con_permisos('view_asistenciamateria')
-        self.assertEqual(self.client.get(url('clases')).status_code, 200)
-        self.assertEqual(self.client.get(url('clase', self.mat.pk)).status_code, 200)
+        self.assertEqual(self.client.get(url('materias')).status_code, 403)   # todas las materias: también la asistencia del colegio
         self.assertEqual(self.client.get(url('inicio')).status_code, 403)
+        self.con_permisos('view_asistenciageneral', 'view_asistenciamateria')
+        self.assertEqual(self.client.get(url('materias')).status_code, 200)
         self.con_permisos('view_justificacion')
         self.assertEqual(self.client.get(url('justificaciones')).status_code, 200)
         self.assertEqual(self.client.get(url('justificacion_crear')).status_code, 403)
@@ -158,7 +160,7 @@ class InicioTests(BaseAsistenciaTestCase):
         entrar(self.a2.alumno, (8, 25))
         reglas.fijar_asistencia_general(self.a3, lunes(), 'FALTA')
         total = self.inicio().context['total']
-        self.assertEqual(total, {'inscritos': 4, 'presentes': 1, 'retardos': 1, 'faltas': 1, 'justificadas': 0, 'sin_registro': 1, 'entraron': 2})
+        self.assertEqual(total, {'inscritos': 4, 'presentes': 1, 'retardos': 1, 'faltas': 1, 'justificadas': 0, 'suspendidos': 0, 'sin_registro': 1, 'entraron': 2})
 
     def test_una_falta_justificada_se_cuenta_aparte(self):
         reglas.fijar_asistencia_general(self.a3, lunes(), 'FALTA')
@@ -193,7 +195,7 @@ class InicioTests(BaseAsistenciaTestCase):
         self.assertEqual(self.inicio(fecha=(lunes() - timedelta(days=7)).isoformat()).context['siguiente'], lunes() - timedelta(days=6))
 
     def test_un_dia_sin_clases_lo_dice_y_no_muestra_cifras(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Consejo técnico')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Consejo técnico')
         respuesta = self.inicio()
         self.assertContains(respuesta, 'No hay clases este día')
         self.assertContains(respuesta, 'Consejo técnico')
@@ -290,7 +292,7 @@ class CerrarTests(BaseAsistenciaTestCase):
         self.assertContains(self.cerrar(fecha=fecha.isoformat()), 'Solo se cierran los días del ciclo actual')
 
     def test_no_cierra_un_dia_sin_clases(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Puente')
         self.assertContains(self.cerrar(fecha=lunes().isoformat()), 'Puente')
         self.assertFalse(CierreDia.objects.exists())
 
@@ -319,8 +321,15 @@ class KioscoTests(BaseAsistenciaTestCase):
     def test_entrega_la_hora_del_servidor_para_el_reloj(self):
         self.assertContains(self.pantalla(), 'data-ahora="29100"')           # 8:05 en segundos
 
+    def test_el_colegio_al_centro_el_reloj_con_segundos_y_el_resultado_a_pantalla_completa(self):
+        respuesta = self.pantalla()
+        self.assertContains(respuesta, 'class="kiosk__logo"')
+        self.assertContains(respuesta, 'Colegio Interamericano de Sahuayo')
+        self.assertContains(respuesta, 'data-reloj-segundos')                # el reloj muestra los segundos
+        self.assertContains(respuesta, 'data-resultado=""')                  # verde («ok») o rojo («error») al registrar
+
     def test_un_dia_sin_clases_lo_avisa(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Puente')
         respuesta = self.pantalla()
         self.assertContains(respuesta, 'Hoy no se registra entrada')
         self.assertContains(respuesta, 'Puente')
@@ -369,7 +378,7 @@ class KioscoTests(BaseAsistenciaTestCase):
         _, datos = self.registrar('AB12CD34')
         self.assertEqual((datos['ok'], datos['estado']), (True, 'RETARDO'))
         self.assertIn('retardo', datos['mensaje'])
-        self.assertEqual(self.estados_de_materias()['MAT'], 'RETARDO')
+        self.assertEqual(self.estados_de_materias()['MAT'], 'FALTA')   # el retardo en la entrada es falta en la primera hora
 
     def test_un_codigo_desconocido_o_vacio(self):
         for codigo, tipo in (('NOEXISTE', 'NO_ENCONTRADO'), ('', 'VACIO'), ('   ', 'VACIO')):
@@ -393,7 +402,7 @@ class KioscoTests(BaseAsistenciaTestCase):
         self.assertEqual((datos['ok'], datos['tipo']), (False, 'SIN_INSCRIPCION'))
 
     def test_un_dia_sin_clases_no_registra(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Puente')
         _, datos = self.registrar('AB12CD34')
         self.assertEqual((datos['ok'], datos['tipo']), (False, 'SIN_CLASES'))
 
@@ -544,7 +553,7 @@ class DiaTests(BaseAsistenciaTestCase):
         self.assertContains(self.dia(grado=self.g5.pk), 'Falta justificada')
 
     def test_un_dia_sin_clases_o_fuera_de_ciclo_no_lista_nada(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Puente')
         respuesta = self.dia()
         self.assertContains(respuesta, 'No hay clases este día')
         self.assertIsNone(respuesta.context['pagina'])
@@ -634,7 +643,7 @@ class DiaGuardarTests(BaseAsistenciaTestCase):
 
     def test_no_guarda_el_futuro_ni_un_dia_sin_clases_ni_un_ciclo_cerrado(self):
         self.assertContains(self.guardar(fecha=(lunes() + timedelta(days=7)).isoformat()), 'ciclo actual que ya empezaron')
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Puente')
         self.assertContains(self.guardar(), 'Puente')
         cerrado = ciclo_cerrado_de_prueba()
         self.assertContains(self.guardar(fecha=(cerrado.fecha_inicio + timedelta(days=7)).isoformat()), 'no es el ciclo actual')

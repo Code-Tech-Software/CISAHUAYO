@@ -13,7 +13,7 @@ from Alumnos.forms import EstiloCamposMixin
 
 MODULOS = (
     'Alumnos.forms', 'Tutores.forms', 'Ciclos.forms', 'Grados.forms',
-    'Inscripciones.forms', 'Materias.forms', 'Horarios.forms', 'Profesores.forms',
+    'Inscripciones.forms', 'Materias.forms', 'Horarios.forms', 'Profesores.forms', 'Conducta.forms', 'Prefectura.forms',
 )
 
 

@@ -9,7 +9,7 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inscripciones:lista' %}">Inscripciones</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inscripciones:lista' %}">Inscripciones a grupos</a></li>
   <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar{% else %}Nueva inscripción{% endif %}</span></li>
 {% endblock %}
 

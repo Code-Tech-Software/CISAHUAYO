@@ -1,0 +1,9 @@
+{# Las materias del docente (una por grupo), para _matriz_filtros.html #}
+<div class="filters__field">
+  <label class="field__label" for="materia">Materia</label>
+  <select class="field__control field__control--select" id="materia" name="materia" data-elegir-materia>
+    {% for opcion in asignaciones %}
+      <option value="{{ opcion.pk }}"{% if opcion.pk == asignacion.pk %} selected{% endif %}>{{ opcion.materia }} · {{ opcion.grupo }}</option>
+    {% endfor %}
+  </select>
+</div>

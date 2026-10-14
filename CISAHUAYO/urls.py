@@ -25,10 +25,14 @@ urlpatterns = [
     path('horarios/', include('Horarios.urls')),
     path('profesores/', include('Profesores.urls')),
     path('asignaciones/', include('Asignaciones.urls')),
-    path('asistencias/', include('Asistencias.urls')),
+    # Asistencias (asistencias/…) y su configuración en Ajustes (ajustes/asistencia/…)
+    path('', include('Asistencias.urls')),
     path('periodos/', include('Periodos.urls')),
     path('grupos/', include('Grupos.urls')),
+    # Conducta: el registro y sus reportes (conducta/…) y su configuración en Ajustes (ajustes/conducta/…)
+    path('', include('Conducta.urls')),
     path('ajustes/', include('Ajustes.urls')),
+    path('prefectura/', include('Prefectura.urls')),
 ]  # Para servir archivos multimedia en desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

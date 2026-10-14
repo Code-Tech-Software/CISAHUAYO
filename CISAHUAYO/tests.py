@@ -84,7 +84,7 @@ class NavegacionTests(SimpleTestCase):
 
     def test_se_activa_la_coincidencia_mas_especifica(self):
         items = elementos(self.factory.get('/alumnos/inscripciones/'))
-        self.assertTrue(items['Inscripciones']['activo'])
+        self.assertTrue(items['Inscripciones a grupos']['activo'])
         self.assertFalse(items['Estudiantes']['activo'])
 
     def test_prefijo_de_ruta_mantiene_activo_el_elemento(self):
@@ -122,8 +122,8 @@ class PlantillaBaseTests(TestCase):
             'class="topbar"',
             'aria-label="Navegación principal"',
             'aria-label="Ruta de navegación"',
-            'Gestión escolar',
-            'Académico',
+            'Comunidad escolar',
+            'Gestión académica',
             'Ciclos escolares',
             'img/logointer.svg',
             'css/app.css',

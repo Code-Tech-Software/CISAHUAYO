@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
 
-{% block title %}Inscripciones | CISAHUAYO{% endblock %}
+{% block title %}Inscripciones a grupos | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -9,13 +9,13 @@
 
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Inscripciones</span></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Inscripciones a grupos</span></li>
 {% endblock %}
 
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Inscripciones</h1>
+      <h1 class="page-header__title">Inscripciones a grupos</h1>
       <p class="page-header__description">En qué grupo y ciclo está cada estudiante: la inscripción es lo que lo ubica en su salón.</p>
     </div>
     <div class="page-header__actions">

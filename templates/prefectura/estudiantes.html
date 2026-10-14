@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Estudiantes · Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:inicio' %}">Prefectura</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Estudiantes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Estudiantes</h1>
+      <p class="page-header__description">Los estudiantes inscritos en el ciclo actual dentro de tu alcance. Abre su ficha para ver sus contactos y su historial de asistencia y conducta.</p>
+    </div>
+  </header>
+
+  {% include "prefectura/_alcance.html" %}
+
+  <form class="filters prefectura-filtros" method="get" role="search" aria-label="Buscar estudiantes">
+    <div class="filters__field prefectura-filtros__busqueda">
+      <label class="field__label" for="{{ filtro.q.id_for_label }}">Nombre o número de control</label>
+      {{ filtro.q }}
+    </div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.nivel.id_for_label }}">Nivel</label>{{ filtro.nivel }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.grado.id_for_label }}">Grado</label>{{ filtro.grado }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.grupo.id_for_label }}">Grupo</label>{{ filtro.grupo }}</div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="search" icon_class="icon--sm" %} Buscar</button>
+      <a class="btn btn--ghost btn--sm" href="{{ request.path }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">{{ pagina.paginator.count }} estudiante{{ pagina.paginator.count|pluralize }}</p>
+    <div class="table-card">
+      <div class="prefectura-tabla-marco">
+        <table class="table table--people">
+          <caption class="visually-hidden">Estudiantes de tu alcance</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Estudiante</th>
+              <th class="table__th" scope="col">Nivel, grado y grupo</th>
+              <th class="table__th" scope="col">Faltas por materia</th>
+              <th class="table__th" scope="col">Incidencias</th>
+              <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for inscripcion in pagina %}
+              <tr class="table__row">
+                <td class="table__cell table__cell--main">
+                  <a class="person" href="{% url 'prefectura:estudiante' inscripcion.alumno.pk %}">
+                    {% include "partials/avatar.html" with persona=inscripcion.alumno %}
+                    <span class="person__text">
+                      <span class="person__name">{{ inscripcion.alumno }}</span>
+                      <span class="person__meta">{{ inscripcion.alumno.referencia }}</span>
+                    </span>
+                  </a>
+                </td>
+                <td class="table__cell" data-label="Grupo">{{ inscripcion.grupo }}</td>
+                <td class="table__cell" data-label="Faltas">{% if inscripcion.faltas %}<strong>{{ inscripcion.faltas }}</strong>{% else %}<span class="text-muted">0</span>{% endif %}</td>
+                <td class="table__cell" data-label="Incidencias">{% if inscripcion.incidencias %}<strong>{{ inscripcion.incidencias }}</strong>{% else %}<span class="text-muted">0</span>{% endif %}</td>
+                <td class="table__cell table__cell--actions">
+                  <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'prefectura:estudiante' inscripcion.alumno.pk %}" aria-label="Ver la ficha de {{ inscripcion.alumno }}" data-tooltip="Ver ficha">{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}</a>
+                  {% if puede.registrar_conducta %}<a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:crear' %}?alumno={{ inscripcion.alumno.pk }}" aria-label="Registrar conducta de {{ inscripcion.alumno }}" data-tooltip="Registrar conducta" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %}</a>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="estudiantes" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{% if alcance.vacio %}Sin alcance asignado{% else %}No hay estudiantes con esos datos{% endif %}</p>
+        <p class="empty-state__text">{% if alcance.vacio %}Cuando el administrador te asigne niveles o grupos, aquí aparecerán sus estudiantes.{% else %}Prueba con otro nombre, número de control o grupo.{% endif %}</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

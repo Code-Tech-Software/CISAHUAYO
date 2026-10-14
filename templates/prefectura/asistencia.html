@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Asistencia por materia · Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:asistencia_registros' %}">Asistencia</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Por materia</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Asistencia por materia</h1>
+      <p class="page-header__description">La misma asistencia que capturan los docentes, de todas las materias de tus grupos, en el periodo de evaluación abierto. Es de consulta: Prefectura no cambia el pase de lista. Haz clic en una J para ver su justificación y su comprobante.</p>
+    </div>
+    {% if url_reporte and datos.filas and datos.columnas %}
+      {% include "asistencias/_reporte_menu.html" %}
+    {% endif %}
+  </header>
+
+  {% include "prefectura/_subnav_asistencia.html" %}
+  {% include "prefectura/_alcance.html" %}
+
+  {% if not ciclo %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay un ciclo escolar actual</p>
+        <p class="empty-state__text">Cuando se marque un ciclo como actual, aquí verás la asistencia de sus materias.</p>
+      </div>
+    </div>
+  {% elif not asignaciones %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="book-open" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay materias en tus grupos</p>
+        <p class="empty-state__text">{% if alcance.vacio %}Todavía no tienes un alcance asignado.{% else %}Cuando tus grupos tengan materias en su plan, aquí podrás consultar la asistencia de cada una.{% endif %}</p>
+      </div>
+    </div>
+  {% else %}
+    {% include "asistencias/_matriz_filtros.html" with selector="prefectura/_selector_materias.html" con_grupo=True %}
+    {% include "asistencias/_matriz.html" with mostrar_profesor=True %}
+    {% if datos.filas and datos.columnas %}
+      {% include "asistencias/_ver_justificacion.html" %}
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/calendario.js' %}" defer></script>
+  <script src="{% static 'js/asistencia-docente.js' %}" defer></script>
+  <script src="{% static 'js/asistencia-justificar.js' %}" defer></script>
+  <script src="{% static 'js/prefectura.js' %}" defer></script>
+{% endblock %}

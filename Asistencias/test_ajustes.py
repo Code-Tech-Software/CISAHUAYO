@@ -35,6 +35,17 @@ class ReglasDeLaEntradaTests(BaseAsistenciaTestCase):
         self.assertContains(respuesta, 'Reglas de la entrada')
         self.assertContains(respuesta, 'cerrar_asistencias')
 
+    def test_esta_en_ajustes_del_menu_sistema(self):
+        respuesta = self.client.get(url('ajustes'))
+        self.assertTrue(url('ajustes').startswith('/ajustes/'))
+        html = respuesta.content.decode()
+        self.assertRegex(html, r'<a class="nav__link" href="/ajustes/" aria-current="page"')   # se marca «Ajustes» en el menú
+        self.assertNotRegex(html, r'href="/asistencias/[^"]*" aria-current="page"')
+        self.assertContains(respuesta, 'href="/ajustes/">Ajustes</a>')   # la ruta de navegación
+        self.assertContains(respuesta, 'aria-current="page">Asistencia</a>')   # la pestaña de Ajustes
+        # La sección de asistencias ya no tiene la pestaña de ajustes
+        self.assertNotContains(self.client.get(url('inicio')), f'href="{url("ajustes")}" aria-current')
+
     def test_guarda_las_reglas_y_las_usa_al_registrar_entradas(self):
         respuesta = self.guardar()
         self.assertRedirects(respuesta, url('ajustes'))
@@ -57,6 +68,17 @@ class ReglasDeLaEntradaTests(BaseAsistenciaTestCase):
             self.assertTrue(respuesta.context['form'].errors, str(cambios))
         self.assertEqual(ConfiguracionAsistencia.cargar().tolerancia_minutos, 10)
 
+    def test_la_hora_limite_de_entrada_por_nivel(self):
+        from Alumnos.models import LimiteEntradaNivel
+        self.assertContains(self.client.get(url('ajustes')), 'Hora límite de entrada por nivel')
+        self.guardar(limite_PRIMARIA='07:40', limite_SECUNDARIA='07:20')
+        self.assertEqual(dict(LimiteEntradaNivel.objects.values_list('nivel', 'hora_limite')), {'PRIMARIA': time(7, 40), 'SECUNDARIA': time(7, 20)})
+        self.assertEqual(reglas.estado_de_entrada(time(7, 42), ConfiguracionAsistencia.cargar(), 'PRIMARIA'), 'RETARDO')
+        self.assertEqual(reglas.estado_de_entrada(time(7, 42), ConfiguracionAsistencia.cargar(), 'PREESCOLAR'), 'PRESENTE')   # la general
+        self.guardar(limite_PRIMARIA='07:40')   # vaciar un nivel le quita su límite
+        self.assertEqual(list(LimiteEntradaNivel.objects.values_list('nivel', flat=True)), ['PRIMARIA'])
+        self.assertTrue(self.guardar(limite_PRIMARIA='25:00').context['form'].errors)
+
     def test_se_puede_apagar_el_cierre_automatico(self):
         self.guardar(cierre_automatico=None)
         self.assertFalse(ConfiguracionAsistencia.cargar().cierre_automatico)
@@ -73,37 +95,62 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
     hora = (10, 30)
 
     def crear(self, **cambios):
-        datos = {'desde': (lunes() + timedelta(days=7)).isoformat(), 'hasta': '', 'motivo': 'Consejo técnico'}
+        datos = {'desde': (lunes() + timedelta(days=7)).isoformat(), 'hasta': '', 'motivo': 'Consejo técnico', 'niveles': ['TODOS']}
         datos.update(cambios)
         return self.client.post(url('dia_sin_clases_crear'), datos, follow=True)
 
     def test_registra_un_dia(self):
         respuesta = self.crear()
         self.assertRedirects(respuesta, url('ajustes'))
-        self.assertContains(respuesta, 'Se registró 1 día sin clases')
-        dia = DiaNoLectivo.objects.get()
-        self.assertEqual((dia.fecha, dia.motivo), (lunes() + timedelta(days=7), 'Consejo técnico'))
+        self.assertContains(respuesta, 'Se registró 1 día sin clases para todos los niveles')
+        # «Todos los niveles» lo registra en los cuatro
+        self.assertEqual(
+            set(DiaNoLectivo.objects.values_list('fecha', 'nivel', 'motivo')),
+            {(lunes() + timedelta(days=7), nivel, 'Consejo técnico') for nivel in ('PREESCOLAR', 'PRIMARIA', 'SECUNDARIA', 'PREPARATORIA')},
+        )
+
+    def test_registra_solo_los_niveles_elegidos(self):
+        respuesta = self.crear(niveles=['PRIMARIA', 'SECUNDARIA'])
+        self.assertContains(respuesta, 'Se registró 1 día sin clases para primaria y secundaria')
+        self.assertEqual(set(DiaNoLectivo.objects.values_list('nivel', flat=True)), {'PRIMARIA', 'SECUNDARIA'})
+        # Otro nivel el mismo día, con su propio motivo
+        self.crear(niveles=['PREESCOLAR'], motivo='Festival')
+        self.assertEqual(dict(DiaNoLectivo.objects.values_list('nivel', 'motivo')),
+                         {'PRIMARIA': 'Consejo técnico', 'SECUNDARIA': 'Consejo técnico', 'PREESCOLAR': 'Festival'})
+        # «Todos los niveles» con otro nivel marcado sigue siendo todos
+        self.crear(desde=(lunes() + timedelta(days=8)).isoformat(), niveles=['TODOS', 'PRIMARIA'])
+        self.assertEqual(DiaNoLectivo.objects.filter(fecha=lunes() + timedelta(days=8)).count(), 4)
+
+    def test_la_lista_agrupa_los_niveles_de_cada_dia(self):
+        self.crear()
+        self.crear(desde=(lunes() + timedelta(days=8)).isoformat(), niveles=['PREPARATORIA', 'PREESCOLAR'], motivo='Junta')
+        respuesta = self.client.get(url('ajustes'))
+        dias = respuesta.context['dias_sin_clases']
+        self.assertEqual([(d.motivo, d.todos, d.nombres) for d in dias],
+                         [('Junta', False, ['Preescolar', 'Preparatoria']), ('Consejo técnico', True, ['Preescolar', 'Primaria', 'Secundaria', 'Preparatoria'])])
+        self.assertContains(respuesta, 'Todos los niveles', count=2)   # la casilla y la etiqueta del día
+        self.assertContains(respuesta, 'data-niveles-sin-clases')
 
     def test_registra_un_periodo(self):
         inicio = lunes() + timedelta(days=7)
         respuesta = self.crear(hasta=(inicio + timedelta(days=4)).isoformat(), motivo='  Semana   santa ')
         self.assertContains(respuesta, 'Se registraron 5 días sin clases')
-        self.assertEqual(DiaNoLectivo.objects.count(), 5)
+        self.assertEqual(DiaNoLectivo.objects.count(), 20)   # cinco días en cuatro niveles
         self.assertEqual(set(DiaNoLectivo.objects.values_list('motivo', flat=True)), {'Semana santa'})
 
     def test_no_repite_los_dias_ya_registrados(self):
         inicio = lunes() + timedelta(days=7)
-        DiaNoLectivo.objects.create(fecha=inicio, motivo='Antes')
+        DiaNoLectivo.registrar(fecha=inicio, motivo='Antes')
         self.crear(hasta=(inicio + timedelta(days=2)).isoformat())
-        self.assertEqual(DiaNoLectivo.objects.count(), 3)
-        self.assertEqual(DiaNoLectivo.objects.get(fecha=inicio).motivo, 'Antes')
+        self.assertEqual(DiaNoLectivo.objects.count(), 12)
+        self.assertEqual(set(DiaNoLectivo.objects.filter(fecha=inicio).values_list('motivo', flat=True)), {'Antes'})
         respuesta = self.crear(desde=inicio.isoformat())
         self.assertContains(respuesta, 'ya está registrado')
-        self.assertEqual(DiaNoLectivo.objects.count(), 3)
+        self.assertEqual(DiaNoLectivo.objects.count(), 12)
 
     def test_valida_los_datos(self):
         casos = (
-            {'desde': ''}, {'desde': 'x'}, {'motivo': ''}, {'motivo': 'x' * 200},
+            {'desde': ''}, {'desde': 'x'}, {'motivo': ''}, {'motivo': 'x' * 200}, {'niveles': []}, {'niveles': ['OTRO']},
             {'hasta': (lunes() - timedelta(days=30)).isoformat()},
             {'hasta': (lunes() + timedelta(days=400)).isoformat()},
         )
@@ -119,9 +166,10 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
 
     def test_quitar_un_dia_vuelve_a_permitir_entradas(self):
         self.crear(desde=lunes().isoformat(), motivo='Puente')
-        respuesta = self.client.post(url('dia_sin_clases_eliminar', DiaNoLectivo.objects.get().pk), follow=True)
+        respuesta = self.client.post(url('dia_sin_clases_eliminar', DiaNoLectivo.objects.first().pk), follow=True)
         self.assertContains(respuesta, 'Se quitó el día sin clases')
-        self.assertFalse(DiaNoLectivo.objects.exists())
+        self.assertContains(respuesta, '(todos los niveles)')
+        self.assertFalse(DiaNoLectivo.objects.exists())   # se quita con todos sus niveles
         entrar(self.alumno)
         self.assertEqual(AsistenciaGeneral.objects.count(), 1)
 
@@ -129,15 +177,15 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
         self.assertEqual(self.client.post(url('dia_sin_clases_eliminar', 9999)).status_code, 404)
 
     def test_la_lista_va_del_mas_reciente_al_mas_antiguo_y_marca_los_proximos(self):
-        DiaNoLectivo.objects.create(fecha=lunes() - timedelta(days=14), motivo='Pasado')
-        DiaNoLectivo.objects.create(fecha=lunes() + timedelta(days=14), motivo='Futuro')
+        DiaNoLectivo.registrar(fecha=lunes() - timedelta(days=14), motivo='Pasado')
+        DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=14), motivo='Futuro')
         respuesta = self.client.get(url('ajustes'))
         self.assertEqual([d.motivo for d in respuesta.context['dias_sin_clases']], ['Futuro', 'Pasado'])
         self.assertEqual(respuesta.context['proximos'], 1)
         self.assertContains(respuesta, 'Próximo')
 
     def test_sin_permiso_para_agregar_o_quitar_no_hay_controles(self):
-        DiaNoLectivo.objects.create(fecha=lunes() + timedelta(days=7), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=7), motivo='Puente')
         self.con_permisos('view_configuracionasistencia')
         respuesta = self.client.get(url('ajustes'))
         self.assertNotContains(respuesta, 'dia_sin_clases_crear')
@@ -154,7 +202,7 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
         with CaptureQueriesContext(connection) as pocas:
             self.client.get(url('ajustes'))
         for i in range(20):
-            DiaNoLectivo.objects.create(fecha=lunes() + timedelta(days=i + 1), motivo=f'Día {i}')
+            DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=i + 1), motivo=f'Día {i}')
         with CaptureQueriesContext(connection) as muchas:
             self.client.get(url('ajustes'))
         self.assertEqual(len(muchas), len(pocas))
@@ -192,7 +240,7 @@ class ComandoCerrarAsistenciasTests(BaseAsistenciaTestCase):
         self.assertTrue(CierreDia.objects.filter(fecha=self.anterior).exists())
 
     def test_un_dia_que_no_se_cierra_lo_explica(self):
-        DiaNoLectivo.objects.create(fecha=self.anterior, motivo='Puente')
+        DiaNoLectivo.registrar(fecha=self.anterior, motivo='Puente')
         self.assertIn('no se cierra', self.ejecutar('--fecha', self.anterior.isoformat()))
         self.assertFalse(CierreDia.objects.exists())
 

@@ -1,0 +1,13 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Cerrar compromiso | CISAHUAYO{% endblock %}
+{% block migaja %}Cerrar compromiso{% endblock %}
+{% block encabezado %}Cerrar compromiso{% endblock %}
+{% block descripcion %}{{ compromiso.get_quien_display }} · fecha límite {{ compromiso.fecha_limite|date:"d/m/Y" }}: {{ compromiso.descripcion|truncatechars:140 }}{% endblock %}
+
+{% block campos %}
+  {% include "partials/choices.html" with campo=form.estado %}
+  {% include "partials/field.html" with campo=form.observaciones %}
+{% endblock %}
+
+{% block boton %}Cerrar compromiso{% endblock %}

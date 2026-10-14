@@ -1,0 +1,27 @@
+{% extends "prefectura/_accion_base.html" %}
+
+{% block title %}{% if movimiento %}Corregir entrada o salida{% else %}Registrar entrada o salida{% endif %} | CISAHUAYO{% endblock %}
+{% block migaja %}{% if movimiento %}Corregir entrada o salida{% else %}Registrar entrada o salida{% endif %}{% endblock %}
+{% block encabezado %}{% if movimiento %}Corregir entrada o salida{% else %}Registrar entrada o salida{% endif %}{% endblock %}
+{% block descripcion %}Un retardo de ingreso, una entrada posterior o una salida anticipada, con su hora y motivo. Queda registrado quién lo capturó. Un retardo de ingreso cuenta como la entrada con retardo: la primera clase del día queda en falta (lo que el docente ya capturó se respeta).{% endblock %}
+
+{% block campos %}
+  {% if movimiento %}
+    <div class="chosen chosen--static">
+      {% include "partials/avatar.html" with persona=alumno %}
+      <div class="chosen__text"><p class="chosen__name">{{ alumno }}</p><p class="chosen__meta">{{ alumno.referencia }}</p></div>
+    </div>
+  {% else %}
+    {% include "prefectura/_picker.html" with campo=form.alumno %}
+  {% endif %}
+  {% include "partials/choices.html" with campo=form.tipo %}
+  <div class="form-grid">
+    {% include "partials/field.html" with campo=form.fecha %}
+    {% include "partials/field.html" with campo=form.hora %}
+  </div>
+  {% include "partials/field.html" with campo=form.motivo %}
+  {% include "partials/field.html" with campo=form.acompanante %}
+  {% if movimiento %}{% include "partials/field.html" with campo=form.motivo_cambio %}{% endif %}
+{% endblock %}
+
+{% block boton %}{% if movimiento %}Guardar la corrección{% else %}Registrar{% endif %}{% endblock %}

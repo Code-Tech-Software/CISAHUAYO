@@ -1,6 +1,8 @@
 {% load usuarios_extras %}{% comment %}
-  Secciones de asistencias. Parámetro: seccion (inicio, dia, docente, clases, justificaciones, reporte o ajustes).
-  Cada una aparece solo si la persona tiene permiso para verla («Mis materias», además, solo a cuentas de profesor).
+  Secciones de asistencias. Parámetro: seccion (inicio, dia, docente, materias, justificaciones o reporte).
+  Los ajustes de asistencia están en Ajustes (menú Sistema).
+  Cada una aparece solo si la persona tiene permiso para verla («Mis materias», además, solo a cuentas de profesor;
+  «Asistencia por materia», con todas las materias, a quien también ve la asistencia del colegio).
 {% endcomment %}
 <nav class="pills pills--section" aria-label="Secciones de asistencias">
   {% if perms.Alumnos.view_asistenciageneral %}
@@ -10,16 +12,13 @@
   {% if perms.Alumnos.view_asistenciamateria and user|es_docente %}
     <a class="pill{% if seccion == 'docente' %} is-active{% endif %}" href="{% url 'asistencias:docente' %}"{% if seccion == 'docente' %} aria-current="page"{% endif %}>Mis materias</a>
   {% endif %}
-  {% if perms.Alumnos.view_asistenciamateria %}
-    <a class="pill{% if seccion == 'clases' %} is-active{% endif %}" href="{% url 'asistencias:clases' %}"{% if seccion == 'clases' %} aria-current="page"{% endif %}>Pase de lista</a>
+  {% if perms.Alumnos.view_asistenciageneral and perms.Alumnos.view_asistenciamateria %}
+    <a class="pill{% if seccion == 'materias' %} is-active{% endif %}" href="{% url 'asistencias:materias' %}"{% if seccion == 'materias' %} aria-current="page"{% endif %}>Asistencia por materia</a>
   {% endif %}
   {% if perms.Alumnos.view_justificacion %}
     <a class="pill{% if seccion == 'justificaciones' %} is-active{% endif %}" href="{% url 'asistencias:justificaciones' %}"{% if seccion == 'justificaciones' %} aria-current="page"{% endif %}>Justificaciones</a>
   {% endif %}
   {% if perms.Alumnos.view_asistenciageneral %}
     <a class="pill{% if seccion == 'reporte' %} is-active{% endif %}" href="{% url 'asistencias:reporte' %}"{% if seccion == 'reporte' %} aria-current="page"{% endif %}>Reportes</a>
-  {% endif %}
-  {% if perms.Alumnos.view_configuracionasistencia %}
-    <a class="pill{% if seccion == 'ajustes' %} is-active{% endif %}" href="{% url 'asistencias:ajustes' %}"{% if seccion == 'ajustes' %} aria-current="page"{% endif %}>Ajustes</a>
   {% endif %}
 </nav>

@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if registro.tipo == 'POSITIVA' %}Conducta positiva{% else %}Incidencia{% endif %} de {{ registro.alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'conducta:lista' %}">Registro de conducta</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ registro.alumno }} · {{ registro.fecha|date:"d/m/Y" }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="conducta-encabezado__marcas">{% include "conducta/_marca.html" with que='tipo' %} {% include "conducta/_marca.html" with que='gravedad' %} {% include "conducta/_marca.html" with que='estado' %}</p>
+      <h1 class="page-header__title">{{ registro.motivo_nombre }}</h1>
+      <p class="page-header__description">{{ registro.alumno }} · {{ registro.fecha|date:"l j \d\e F \d\e Y"|lower|capfirst }}{% if registro.hora %}, {{ registro.hora|time:"H:i" }}{% endif %}{% if registro.lugar %} · {{ registro.lugar }}{% endif %}</p>
+    </div>
+    {% if not registro.anulado and registro.ciclo.estado != 'CERRADO' %}
+      <div class="page-header__actions conducta-acciones">
+        {% if puede.seguimiento %}
+          <a class="btn btn--primary btn--sm" href="{% url 'conducta:seguimiento' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %} Seguimiento</a>
+          <a class="btn btn--sm" href="{% url 'conducta:cita_crear' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} Programar cita</a>
+          <a class="btn btn--sm" href="{% url 'conducta:compromiso_crear' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="clipboard-list" icon_class="icon--sm" %} Compromiso</a>
+          <a class="btn btn--sm" href="{% url 'conducta:contacto_crear' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} Contacto con la familia</a>
+        {% endif %}
+        {% if puede.seguimiento or puede.corregir %}
+          <a class="btn btn--sm" href="{% url 'conducta:evidencias_agregar' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} Evidencias</a>
+        {% endif %}
+        {% if puede.corregir %}
+          <a class="btn btn--sm" href="{% url 'conducta:editar' registro.pk %}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Corregir</a>
+        {% endif %}
+        {% if puede.anular %}
+          <a class="btn btn--ghost btn--sm conducta-peligro" href="{% url 'conducta:anular' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="circle-x" icon_class="icon--sm" %} Anular</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </header>
+
+  {% if registro.ciclo.estado == 'CERRADO' and not registro.anulado %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <div class="alert__body"><p>El ciclo {{ registro.ciclo }} ya se cerró: este registro es de solo lectura.</p></div>
+    </div>
+  {% endif %}
+
+  {% if registro.anulado %}
+    <div class="alert alert--error alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Registro anulado</strong> por {% firstof registro.anulado_por.get_full_name registro.anulado_por.username "—" %} el {{ registro.anulado_en|date:"j \d\e F \d\e Y, H:i"|lower }}. Se conserva para consulta y no cuenta en los indicadores.</p>
+        <p>Motivo: {{ registro.motivo_anulacion }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if aviso %}
+    <div class="alert {% if aviso.revisado %}alert--info{% else %}alert--warning{% endif %} alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Aviso de reincidencia:</strong> con este registro, {{ registro.alumno }} suma {{ aviso.cantidad }} incidencias de «{{ registro.motivo_nombre }}» en {{ aviso.dias }} días. Es solo un aviso: no se aplicó ninguna sanción.</p>
+        {% if aviso.revisado %}
+          <p>Revisado por {% firstof aviso.revisado_por.get_full_name aviso.revisado_por.username "—" %} el {{ aviso.revisado_en|date:"j \d\e F \d\e Y"|lower }}{% if aviso.nota %}: {{ aviso.nota }}{% endif %}.</p>
+        {% elif puede.seguimiento %}
+          <form method="post" action="{% url 'conducta:aviso_revisar' aviso.pk %}" class="conducta-aviso__form">
+            {% csrf_token %}
+            <label class="visually-hidden" for="{{ aviso_form.nota.id_for_label }}">Nota de la revisión</label>
+            {{ aviso_form.nota }}
+            <button type="submit" class="btn btn--sm">Marcar como revisado</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  {% if superpuestas %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>La suspensión de este registro se cruza con otra del mismo estudiante: {% for otra in superpuestas %}<a class="link-subtle" href="{% url 'conducta:detalle' otra.registro_id %}">del {{ otra.fecha_inicio|date:"d/m/Y" }} al {{ otra.fecha_fin|date:"d/m/Y" }}</a>{% if not forloop.last %}; {% endif %}{% endfor %}.</p></div>
+    </div>
+  {% endif %}
+
+  <div class="conducta-detalle">
+    <div class="conducta-detalle__principal">
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="flag" %}<h2 class="card__title">Los hechos</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item"><dt class="details__label">Tipo</dt><dd class="details__value">{{ registro.get_tipo_display }}</dd></div>
+            <div class="details__item"><dt class="details__label">Categoría</dt><dd class="details__value">{{ registro.categoria_nombre }}{% if registro.categoria.nombre != registro.categoria_nombre %}<span class="details__note text-muted">Hoy se llama «{{ registro.categoria.nombre }}»</span>{% endif %}{% if not registro.categoria.activo %}<span class="details__note text-muted">Inactiva</span>{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Motivo</dt><dd class="details__value">{{ registro.motivo_nombre }}{% if registro.motivo.nombre != registro.motivo_nombre %}<span class="details__note text-muted">Hoy se llama «{{ registro.motivo.nombre }}»</span>{% endif %}{% if not registro.motivo.activo %}<span class="details__note text-muted">Inactivo</span>{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Gravedad</dt><dd class="details__value{% if not registro.gravedad %} details__value--empty{% endif %}">{{ registro.get_gravedad_display|default:"No aplica" }}</dd></div>
+            <div class="details__item"><dt class="details__label">Personal que reporta</dt><dd class="details__value{% if not registro.reporta %} details__value--empty{% endif %}">{{ registro.reporta|default:"Quien lo registró" }}</dd></div>
+            <div class="details__item details__item--wide"><dt class="details__label">Descripción de los hechos</dt><dd class="details__value conducta-texto">{{ registro.descripcion|linebreaksbr }}</dd></div>
+          </dl>
+        </div>
+      </article>
+
+      {% if registro.tipo == 'INCIDENCIA' %}
+        <article class="card">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="shield-check" %}<h2 class="card__title">Medidas y suspensión</h2></header>
+          <div class="card__body">
+            {% if medidas %}
+              <ul class="conducta-medidas-lista">
+                {% for medida in medidas %}
+                  <li class="conducta-medida-fila">
+                    <span class="tag {% if medida.pendiente %}tag--warning{% else %}tag--primary{% endif %}">{{ medida.nombre }}</span>
+                    {% if medida.requiere_seguimiento %}<span class="text-muted">requiere seguimiento</span>{% endif %}
+                    {% if medida.pendiente %}
+                      <span class="text-muted">Pendiente de aprobación{% if medida.solicitada_por %} · la pidió {% firstof medida.solicitada_por.get_full_name medida.solicitada_por.username %}{% endif %}</span>
+                      {% if puede.aprobar and not medida.implica_suspension and medida.solicitada_por_id != user.pk %}
+                        <a class="btn btn--sm" href="{% url 'conducta:medida_resolver' medida.pk %}" data-modal-form>Resolver</a>
+                      {% endif %}
+                    {% elif medida.resuelta_por and medida.solicitada_por %}
+                      <span class="text-muted">Aprobó {% firstof medida.resuelta_por.get_full_name medida.resuelta_por.username %}</span>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-muted">Sin medidas disciplinarias.</p>
+            {% endif %}
+            {% if medidas_historicas %}
+              <details class="conducta-historial__cambios conducta-medidas-historicas">
+                <summary>Medidas anuladas o rechazadas ({{ medidas_historicas|length }})</summary>
+                <ul>
+                  {% for medida in medidas_historicas %}
+                    <li><del>{{ medida.nombre }}</del> · {{ medida.get_estado_display|lower }}{% if medida.resuelta_por %} por {% firstof medida.resuelta_por.get_full_name medida.resuelta_por.username %} el {{ medida.resuelta_en|date:"d/m/Y H:i" }}{% endif %}{% if medida.observaciones %}: {{ medida.observaciones }}{% endif %}</li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+            {% if registro.observaciones_medidas %}<p class="conducta-texto">{{ registro.observaciones_medidas|linebreaksbr }}</p>{% endif %}
+            {% if suspension %}
+              <div class="conducta-suspension conducta-suspension--{{ suspension.estado|lower }}">
+                <h3 class="subsection-title">Suspensión
+                  <span class="tag {% if suspension.estado == 'VIGENTE' or suspension.estado == 'RECHAZADA' %}tag--danger{% elif suspension.estado == 'PROXIMA' or suspension.estado == 'PENDIENTE' %}tag--warning{% elif suspension.estado == 'CANCELADA' %}tag--neutral{% else %}tag--success{% endif %}">{{ suspension.estado_display }}</span>
+                </h3>
+                {% if suspension.pendiente %}
+                  <p class="field__hint">Es una solicitud: no se aplica hasta que la autorice la dirección de {{ registro.get_nivel_display|lower }} (nunca quien la pidió). En la asistencia, sus días ya se marcan con una S de «pendiente».</p>
+                {% endif %}
+                <dl class="details">
+                  <div class="details__item"><dt class="details__label">Motivo</dt><dd class="details__value">{{ suspension.motivo_nombre }}</dd></div>
+                  <div class="details__item"><dt class="details__label">{% if suspension.aprobada %}Fechas{% else %}Fechas propuestas{% endif %}</dt><dd class="details__value">Del {{ suspension.fecha_inicio|date:"d/m/Y" }} al {{ suspension.fecha_fin|date:"d/m/Y" }}<span class="details__note text-muted">{{ suspension.dias }} día{{ suspension.dias|pluralize }}</span></dd></div>
+                  {% if suspension.solicitada_por and suspension.solicitada_por_id != suspension.resuelta_por_id %}
+                    <div class="details__item"><dt class="details__label">Solicitó</dt><dd class="details__value">{% firstof suspension.solicitada_por.get_full_name suspension.solicitada_por.username %}<span class="details__note text-muted">{{ suspension.solicitada_en|date:"d/m/Y H:i" }}</span></dd></div>
+                  {% endif %}
+                  {% if suspension.aprobada %}
+                    <div class="details__item"><dt class="details__label">Autorizó</dt><dd class="details__value">{% firstof suspension.autorizada_por.get_full_name suspension.autorizada_por.username "—" %}</dd></div>
+                  {% elif suspension.resuelta_por %}
+                    <div class="details__item"><dt class="details__label">{{ suspension.get_aprobacion_display }} por</dt><dd class="details__value">{% firstof suspension.resuelta_por.get_full_name suspension.resuelta_por.username %}<span class="details__note text-muted">{{ suspension.resuelta_en|date:"d/m/Y H:i" }}</span></dd></div>
+                  {% endif %}
+                  {% if suspension.justificacion %}<div class="details__item details__item--wide"><dt class="details__label">Justificación de la solicitud</dt><dd class="details__value conducta-texto">{{ suspension.justificacion|linebreaksbr }}</dd></div>{% endif %}
+                  {% if suspension.observaciones %}<div class="details__item details__item--wide"><dt class="details__label">Observaciones</dt><dd class="details__value conducta-texto">{{ suspension.observaciones|linebreaksbr }}</dd></div>{% endif %}
+                  {% if suspension.observaciones_resolucion %}<div class="details__item details__item--wide"><dt class="details__label">Observaciones de la resolución</dt><dd class="details__value conducta-texto">{{ suspension.observaciones_resolucion|linebreaksbr }}</dd></div>{% endif %}
+                </dl>
+                {% if suspension.pendiente and not registro.anulado and registro.ciclo.estado != 'CERRADO' %}
+                  <div class="conducta-suspension__acciones">
+                    {% if puede.aprobar and suspension.solicitada_por_id != user.pk %}
+                      <a class="btn btn--primary btn--sm" href="{% url 'conducta:suspension_resolver' suspension.pk %}" data-modal-form>Autorizar o rechazar</a>
+                    {% elif puede.aprobar %}
+                      <span class="text-muted">La pediste tú: la debe resolver otra persona de la dirección.</span>
+                    {% else %}
+                      <span class="text-muted">La autoriza la dirección de {{ registro.get_nivel_display|lower }}.</span>
+                    {% endif %}
+                    {% if suspension.solicitada_por_id == user.pk or puede.aprobar %}
+                      <a class="btn btn--ghost btn--sm" href="{% url 'conducta:suspension_cancelar' suspension.pk %}" data-modal-form>Cancelar la solicitud</a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+                <p class="field__hint">{% if suspension.aprobada %}En la asistencia, sus días se marcan con una S: no cuentan como faltas.{% elif suspension.pendiente %}En la asistencia, sus días se marcan con una S de «pendiente de autorizar».{% else %}No se refleja en la asistencia.{% endif %}</p>
+              </div>
+            {% endif %}
+          </div>
+        </article>
+      {% endif %}
+
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title">Seguimiento</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item"><dt class="details__label">Estado</dt><dd class="details__value">{% include "conducta/_marca.html" with que='estado' %}</dd></div>
+            <div class="details__item"><dt class="details__label">Responsable</dt><dd class="details__value{% if not registro.responsable %} details__value--empty{% endif %}">{% firstof registro.responsable.get_full_name registro.responsable.username "Sin responsable" %}</dd></div>
+            <div class="details__item"><dt class="details__label">Revisión</dt><dd class="details__value{% if not registro.fecha_revision %} details__value--empty{% endif %}">{{ registro.fecha_revision|date:"d/m/Y"|default:"Sin fecha" }}</dd></div>
+            {% if registro.acuerdos %}<div class="details__item details__item--wide"><dt class="details__label">Acuerdos</dt><dd class="details__value conducta-texto">{{ registro.acuerdos|linebreaksbr }}</dd></div>{% endif %}
+            {% if registro.observaciones_cierre %}<div class="details__item details__item--wide"><dt class="details__label">Observación final</dt><dd class="details__value conducta-texto">{{ registro.observaciones_cierre|linebreaksbr }}</dd></div>{% endif %}
+            {% if registro.cerrado_en %}<div class="details__item details__item--wide"><dt class="details__label">Cerrado</dt><dd class="details__value">Por {% firstof registro.cerrado_por.get_full_name registro.cerrado_por.username "—" %} el {{ registro.cerrado_en|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>{% endif %}
+          </dl>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar-range" %}<h2 class="card__title">Citas con la familia <span class="tabs__count">{{ citas|length }}</span></h2></header>
+        <div class="card__body">
+          {% if citas %}
+            <ul class="conducta-contactos">
+              {% for cita in citas %}
+                <li class="conducta-contacto">
+                  <span class="conducta-contacto__titulo">
+                    <strong>{{ cita.fecha|date:"d/m/Y" }}{% if cita.hora %} {{ cita.hora|time:"H:i" }}{% endif %}</strong> · {{ cita.persona }} · {{ cita.get_modalidad_display }}
+                    <span class="tag {% if cita.estado == 'PROGRAMADA' %}tag--warning{% elif cita.estado == 'REALIZADA' %}tag--success{% else %}tag--neutral{% endif %}">{{ cita.get_estado_display }}</span>
+                  </span>
+                  <span class="conducta-texto">{{ cita.asunto|linebreaksbr }}</span>
+                  {% if cita.resultado %}<span class="conducta-texto"><strong>Resultado:</strong> {{ cita.resultado|linebreaksbr }}</span>{% endif %}
+                  <span class="text-muted">{% if cita.responsable %}Responsable: {% firstof cita.responsable.get_full_name cita.responsable.username %} · {% endif %}Programó {% firstof cita.registrado_por.get_full_name cita.registrado_por.username %}</span>
+                  {% if cita.abierta and puede.seguimiento %}
+                    <a class="btn btn--sm conducta-cita__accion" href="{% url 'conducta:cita_actualizar' cita.pk %}" data-modal-form>Anotar qué pasó</a>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Sin citas. Programar una cita no envía ningún aviso a la familia.</p>
+          {% endif %}
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title">Acuerdos y compromisos <span class="tabs__count">{{ compromisos|length }}</span></h2></header>
+        <div class="card__body">
+          {% if compromisos %}
+            <ul class="conducta-contactos">
+              {% for compromiso in compromisos %}
+                <li class="conducta-contacto">
+                  <span class="conducta-contacto__titulo">
+                    <strong>{{ compromiso.get_quien_display }}</strong> · fecha límite {{ compromiso.fecha_limite|date:"d/m/Y" }}
+                    <span class="tag {% if compromiso.vencido %}tag--danger{% elif compromiso.abierto %}tag--warning{% elif compromiso.estado == 'CUMPLIDO' %}tag--success{% else %}tag--neutral{% endif %}">{% if compromiso.vencido %}Vencido{% else %}{{ compromiso.get_estado_display }}{% endif %}</span>
+                  </span>
+                  <span class="conducta-texto">{{ compromiso.descripcion|linebreaksbr }}</span>
+                  {% if compromiso.observaciones %}<span class="conducta-texto"><strong>Observaciones:</strong> {{ compromiso.observaciones|linebreaksbr }}</span>{% endif %}
+                  <span class="text-muted">{% if compromiso.responsable %}Responsable: {% firstof compromiso.responsable.get_full_name compromiso.responsable.username %}{% else %}Sin responsable{% endif %}{% if compromiso.resuelto_por %} · Cerró {% firstof compromiso.resuelto_por.get_full_name compromiso.resuelto_por.username %} el {{ compromiso.resuelto_en|date:"d/m/Y" }}{% endif %}</span>
+                  {% if compromiso.abierto and puede.seguimiento %}
+                    <a class="btn btn--sm conducta-cita__accion" href="{% url 'conducta:compromiso_resolver' compromiso.pk %}" data-modal-form>Cerrar compromiso</a>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Sin acuerdos ni compromisos.</p>
+          {% endif %}
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="paperclip" %}<h2 class="card__title">Evidencias <span class="tabs__count">{{ evidencias|length }}</span></h2></header>
+        <div class="card__body">
+          {% if evidencias %}
+            <ul class="conducta-evidencias">
+              {% for evidencia in evidencias %}
+                <li class="conducta-evidencia">
+                  <a class="conducta-evidencia__vista" href="{% url 'conducta:evidencia' evidencia.pk %}" target="_blank" rel="noopener">
+                    {% if evidencia.es_imagen %}
+                      <img src="{% url 'conducta:evidencia' evidencia.pk %}" alt="Evidencia: {{ evidencia.nombre_original }}" loading="lazy">
+                    {% else %}
+                      <span class="conducta-evidencia__icono">{% include "partials/icon.html" with name="paperclip" icon_class="icon--lg" %}PDF</span>
+                    {% endif %}
+                  </a>
+                  <div class="conducta-evidencia__pie">
+                    <span class="conducta-evidencia__nombre" title="{{ evidencia.nombre_original }}">{{ evidencia.nombre_original }}</span>
+                    <span class="text-muted">{{ evidencia.tamano|filesizeformat }} · {% firstof evidencia.subida_por.get_full_name evidencia.subida_por.username %}</span>
+                    {% if puede.corregir %}
+                      <form method="post" action="{% url 'conducta:evidencia_quitar' evidencia.pk %}" data-confirmar="¿Quitar «{{ evidencia.nombre_original }}»? Queda constancia en el historial." data-confirmar-boton="Quitar evidencia">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Quitar {{ evidencia.nombre_original }}" data-tooltip="Quitar">{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Sin evidencias.</p>
+          {% endif %}
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="phone" %}<h2 class="card__title">Contactos con la familia <span class="tabs__count">{{ contactos|length }}</span></h2></header>
+        <div class="card__body">
+          {% if contactos %}
+            <ul class="conducta-contactos">
+              {% for contacto in contactos %}
+                <li class="conducta-contacto">
+                  <span class="conducta-contacto__titulo"><strong>{{ contacto.fecha|date:"d/m/Y" }}</strong> · {{ contacto.persona }} · {{ contacto.get_medio_display }}</span>
+                  <span class="conducta-texto">{{ contacto.acuerdos|linebreaksbr }}</span>
+                  <span class="text-muted">
+                    {% if contacto.proxima_revision %}Próxima revisión: {{ contacto.proxima_revision|date:"d/m/Y" }} · {% endif %}Anotó {% firstof contacto.registrado_por.get_full_name contacto.registrado_por.username %}
+                    {% if contacto.evidencia %} · <a class="link-subtle" href="{% url 'conducta:acuse' contacto.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ contacto.evidencia_nombre }}</a>{% endif %}
+                  </span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="text-muted">Sin contactos anotados. Anotar un contacto no envía ningún mensaje.</p>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+
+    <aside class="conducta-detalle__lateral">
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title">Estudiante</h2></header>
+        <div class="card__body">
+          <div class="chosen chosen--static">
+            {% include "partials/avatar.html" with persona=registro.alumno %}
+            <div class="chosen__text">
+              <p class="chosen__name">{% if puede.ver_expediente %}<a class="link-subtle" href="{% url 'alumnos:detalle' registro.alumno.pk %}">{{ registro.alumno }}</a>{% elif puede.ver_ficha %}<a class="link-subtle" href="{% url 'prefectura:estudiante' registro.alumno.pk %}">{{ registro.alumno }}</a>{% else %}{{ registro.alumno }}{% endif %}</p>
+              <p class="chosen__meta">Número de control {{ registro.alumno.referencia }}</p>
+            </div>
+          </div>
+          <dl class="details conducta-detalle__contexto">
+            <div class="details__item"><dt class="details__label">Al registrar</dt><dd class="details__value">{{ registro.grupo_texto }}</dd></div>
+            <div class="details__item"><dt class="details__label">Ciclo</dt><dd class="details__value">{{ registro.ciclo }}</dd></div>
+            <div class="details__item"><dt class="details__label">Periodo</dt><dd class="details__value{% if not registro.periodo %} details__value--empty{% endif %}">{% if registro.periodo %}{{ registro.periodo.nombre }}{% else %}Sin periodo{% endif %}</dd></div>
+          </dl>
+          {% if otros %}
+            <h3 class="subsection-title">Otros registros</h3>
+            <ul class="conducta-otros">
+              {% for otro in otros %}
+                <li><a class="link-subtle" href="{% url 'conducta:detalle' otro.pk %}">{{ otro.fecha|date:"d/m/Y" }} · {{ otro.motivo_nombre }}</a> {% include "conducta/_marca.html" with registro=otro que='tipo' %}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% if puede.ver_expediente %}<a class="btn btn--sm conducta-expediente" href="{% url 'alumnos:detalle' registro.alumno.pk %}#conducta">Ver su historial completo</a>{% elif puede.ver_ficha %}<a class="btn btn--sm conducta-expediente" href="{% url 'prefectura:estudiante' registro.alumno.pk %}">Ver su ficha e historial</a>{% endif %}
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clock" %}<h2 class="card__title">Historial del registro</h2></header>
+        <div class="card__body">
+          <p class="text-muted conducta-registro-meta">Registró {% firstof registro.registrado_por.get_full_name registro.registrado_por.username "—" %} el {{ registro.creado|date:"j \d\e F \d\e Y, H:i"|lower }}.</p>
+          <ol class="conducta-historial">
+            {% for cambio in cambios %}
+              <li class="conducta-historial__item">
+                <p class="conducta-historial__que"><strong>{{ cambio.get_accion_display }}</strong> · {% firstof cambio.usuario.get_full_name cambio.usuario.username "—" %}</p>
+                <p class="text-muted conducta-historial__cuando">{{ cambio.fecha|date:"d/m/Y H:i" }}</p>
+                {% if cambio.detalle %}<p class="conducta-historial__detalle">{{ cambio.detalle|truncatechars:240 }}</p>{% endif %}
+                {% if cambio.cambios %}
+                  <details class="conducta-historial__cambios">
+                    <summary>Ver qué cambió</summary>
+                    <dl>
+                      {% for que, antes, despues in cambio.cambios %}
+                        <div><dt>{{ que }}</dt><dd><del>{{ antes|default:"(vacío)" }}</del> → <ins>{{ despues|default:"(vacío)" }}</ins></dd></div>
+                      {% endfor %}
+                    </dl>
+                  </details>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </article>
+    </aside>
+  </div>
+
+  {% include "conducta/_confirmacion.html" %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/conducta.js' %}" defer></script>
+{% endblock %}

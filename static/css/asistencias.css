@@ -1,18 +1,21 @@
 /* ==========================================================================
    CISAHUAYO · Asistencias
-   Estilos propios de la sección: resumen del día, pase de lista, justificaciones, reportes y la
+   Estilos propios de la sección: resumen del día, asistencia por materia, justificaciones, reportes y la
    pantalla de la entrada. Se apoyan en los componentes de app.css (.stat, .table, .pills, .filters,
    .modal, .tag, .meter, .choice...) y siguen sus mismas convenciones: colores de rol, sin !important.
 
    Índice
      1. Navegación de la sección y selector de día
      2. Cifras y marcas de estado
-     3. Control segmentado (presente · retardo · falta) y lista de la clase
+     3. Control segmentado (presente · retardo · falta)
      4. Reportes: cuadrícula por día, porcentajes y materias
      5. Justificaciones y ajustes
      6. Pantalla de la entrada (kiosco)
      7. Responsive
      8. Impresión
+     9. Matriz de asistencia por materia (docente y administración)
+    10. Reporte de la matriz
+    11. Justificar una falta con su comprobante (administración)
    ========================================================================== */
 
 
@@ -250,7 +253,7 @@
 
 
 /* ==========================================================================
-   3. CONTROL SEGMENTADO Y LISTA DE LA CLASE
+   3. CONTROL SEGMENTADO (asistencia general del día)
    ========================================================================== */
 .segmented {
   display: inline-flex;
@@ -317,41 +320,6 @@
 .segmented__input:focus-visible + span {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-}
-
-.segmented--compact > .segmented__option > span {
-  min-height: 1.75rem;
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
-}
-
-.field__control--compact {
-  min-height: var(--control-height-sm);
-  padding-block: 0;
-  font-size: var(--text-sm);
-}
-
-/* Fila de la lista cuyo estado cambió respecto a lo propuesto */
-.table__row.is-changed .table__cell:first-child {
-  box-shadow: inset 3px 0 0 var(--color-primary);
-}
-
-.action-bar--roster {
-  flex-wrap: wrap;
-}
-
-.action-bar__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.roster-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: 0;
-  font-size: var(--text-sm);
 }
 
 
@@ -564,6 +532,11 @@
   margin: 0;
 }
 
+/* El botón conserva su ancho (no se estira a lo ancho de la tarjeta) */
+.attendance-help > .btn {
+  justify-self: start;
+}
+
 .attendance-help__list {
   display: grid;
   gap: var(--space-2);
@@ -583,17 +556,19 @@
   align-items: end;
 }
 
-.card__foot--actions {
-  display: flex;
-  justify-content: flex-end;
+.attendance-days__niveles {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 
 /* ==========================================================================
    6. PANTALLA DE LA ENTRADA (KIOSCO)
    Página aparte, sin menú, para dejarse abierta en la entrada. La ven los alumnos que esperan su turno: nunca
-   muestra quién entró antes, el resultado ocupa el centro un par de segundos y se quita solo. Letras grandes,
-   contraste alto y un solo mensaje a la vez; el color del panel dice si todo salió bien sin tener que leer.
+   muestra quién entró antes, el resultado cubre la pantalla un par de segundos y se quita solo. Letras grandes,
+   contraste alto y un solo mensaje a la vez; la pantalla verde o roja dice si todo salió bien sin tener que leer.
    ========================================================================== */
 .kiosk-page {
   min-height: 100vh;
@@ -609,27 +584,30 @@
   background: var(--aurora), var(--color-bg);
 }
 
-/* --- Barra superior: colegio y reloj --------------------------------------------------------------------------- */
+/* --- Barra superior: el colegio al centro (logotipo y nombre grandes) y el reloj con segundos ---------------------
+   En pantallas anchas: tres columnas, el colegio en la del centro y el reloj a la derecha; en las angostas, uno
+   debajo del otro, todo centrado. */
 .kiosk__bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3) var(--space-6);
   padding: var(--space-5) var(--space-5) var(--space-2);
 }
 
 .kiosk__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
   min-width: 0;
+  max-width: min(100%, 44rem);
+  text-align: center;
 }
 
 .kiosk__logo {
-  flex-shrink: 0;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: clamp(4.5rem, 8vw, 6.5rem);
+  height: clamp(4.5rem, 8vw, 6.5rem);
   object-fit: contain;
 }
 
@@ -641,32 +619,40 @@
 .kiosk__school {
   color: var(--color-text-strong);
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: clamp(1.625rem, 3.2vw, 2.75rem);
   font-weight: var(--weight-bold);
-  line-height: 1.2;
+  line-height: 1.15;
+  text-wrap: balance;
 }
 
 .kiosk__title {
-  margin-top: 0.125rem;
   color: var(--color-text-muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
 .kiosk__clock {
-  text-align: right;
+  text-align: center;
 }
 
 .kiosk__time {
   display: block;
   color: var(--color-text-strong);
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 6vw, 4.25rem);
+  font-size: clamp(2.25rem, 4.6vw, 4rem);
   font-variant-numeric: tabular-nums;
   font-weight: var(--weight-bold);
   line-height: 1;
+  white-space: nowrap;
+}
+
+/* Los segundos, un poco más chicos: cambian cada segundo sin mover lo demás (cifras del mismo ancho) */
+.kiosk__seconds {
+  margin-left: 0.04em;
+  color: var(--color-text-soft);
+  font-size: 0.6em;
 }
 
 .kiosk__date {
@@ -786,15 +772,57 @@
   color: var(--color-danger);
 }
 
-/* --- Resultado de un escaneo: foto a la izquierda y los datos a la derecha ---------------------------------- */
+/* --- Resultado de un escaneo: cubre toda la pantalla, verde si la entrada quedó registrada y rojo si no ------------
+   Foto a la izquierda y los datos a la derecha. Verde y rojo fijos (no los del tema) para que se entiendan de lejos y
+   sin leer; el texto blanco tiene contraste AA sobre los dos. Una entrada con retardo es verde con la insignia ámbar. */
+:root:has(.kiosk) {
+  --kiosk-verde: #15803d;
+  --kiosk-rojo: #dc2626;
+}
+
+/* Mientras se ve el resultado no hay barra de desplazamiento y su canal también toma el color: toda la pantalla */
+:root:has(.kiosk__panel[data-vista="resultado"]) {
+  overflow: hidden;
+}
+
+:root:has(.kiosk__panel[data-vista="resultado"][data-resultado="ok"]) {
+  background: var(--kiosk-verde);
+}
+
+:root:has(.kiosk__panel[data-vista="resultado"][data-resultado="error"]) {
+  background: var(--kiosk-rojo);
+}
+
+.kiosk__panel[data-resultado="ok"] {
+  --kiosk-pantalla: var(--kiosk-verde);
+}
+
+.kiosk__panel[data-resultado="error"] {
+  --kiosk-pantalla: var(--kiosk-rojo);
+}
+
 .kiosk__state--result {
+  --color-text: #ffffff;
+  --color-text-strong: #ffffff;
+  --color-text-soft: rgb(255 255 255 / 0.9);
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-backdrop);
+  justify-content: center;
+  min-height: 0;
+  padding: var(--space-8) var(--space-6);
+  border: 0;
+  border-radius: 0;
+  background: var(--kiosk-pantalla, var(--kiosk-bg));
+  box-shadow: none;
+  color: var(--color-text);
   cursor: pointer;
 }
 
 .kiosk__avatar .avatar {
-  --avatar-size: clamp(7rem, 22vw, 10.5rem);
+  --avatar-size: clamp(8rem, 22vw, 14rem);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 0 0 0.375rem rgb(255 255 255 / 0.35), 0 18px 40px -12px rgb(0 0 0 / 0.35);
 }
 
 .kiosk__avatar .avatar__img {
@@ -810,27 +838,33 @@
   min-width: 0;
 }
 
+/* La insignia: blanca con el texto del color de la pantalla; ámbar en una entrada con retardo */
 .kiosk__badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   margin: 0 0 var(--space-1);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-5);
   border-radius: var(--radius-full);
-  background: var(--kiosk-fuerte);
-  color: var(--color-surface);
-  font-size: var(--text-sm);
+  background: #ffffff;
+  color: var(--kiosk-pantalla, var(--kiosk-fuerte));
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
 
+.kiosk__panel[data-tono="late"] .kiosk__badge {
+  background: #fde68a;
+  color: #78350f;
+}
+
 /* Cada estado muestra solo su icono */
 .kiosk__badge-icon {
   display: none;
-  width: 1.125rem;
-  height: 1.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .kiosk__panel[data-tono="success"] .kiosk__badge-icon--success,
@@ -842,37 +876,38 @@
 
 .kiosk__name {
   margin: 0;
-  font-size: clamp(1.75rem, 4vw, 2.75rem);
-  line-height: 1.1;
+  color: var(--color-text-strong);
+  font-size: clamp(2.25rem, 5.5vw, 4.5rem);
+  line-height: 1.05;
   overflow-wrap: anywhere;
 }
 
 .kiosk__grade {
   color: var(--color-text-soft);
-  font-size: var(--text-xl);
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
 }
 
 .kiosk__message {
   color: var(--color-text-strong);
-  font-size: var(--text-xl);
+  font-size: clamp(1.25rem, 2.6vw, 2rem);
   font-weight: var(--weight-semibold);
 }
 
 .kiosk__hour {
   color: var(--color-text-soft);
-  font-size: var(--text-base);
+  font-size: clamp(1rem, 1.8vw, 1.375rem);
   font-variant-numeric: tabular-nums;
 }
 
-/* Barra que se va vaciando: lo que falta para que el aviso se quite solo */
+/* Barra que se va vaciando al pie de la pantalla: lo que falta para que el aviso se quite solo */
 .kiosk__countdown {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
-  height: 0.3125rem;
-  background: var(--kiosk-fuerte);
-  opacity: 0.6;
+  height: 0.5rem;
+  background: #ffffff;
+  opacity: 0.7;
   transform-origin: left center;
 }
 
@@ -1050,8 +1085,13 @@
     animation-delay: 1.4s;
   }
 
+  /* La pantalla de color aparece de golpe y su contenido entra con un pequeño salto */
   .kiosk__panel[data-vista="resultado"] .kiosk__state--result {
-    animation: kiosk-aparece 180ms var(--ease-out);
+    animation: kiosk-pantalla 140ms var(--ease-out);
+  }
+
+  .kiosk__panel[data-vista="resultado"] .kiosk__state--result > :not(.kiosk__countdown) {
+    animation: kiosk-aparece 220ms var(--ease-out);
   }
 
   .kiosk__countdown.is-running {
@@ -1070,10 +1110,16 @@
     }
   }
 
+  @keyframes kiosk-pantalla {
+    from {
+      opacity: 0.4;
+    }
+  }
+
   @keyframes kiosk-aparece {
     from {
       opacity: 0;
-      transform: scale(0.98);
+      transform: scale(0.94);
     }
 
     to {
@@ -1107,6 +1153,11 @@
   .attendance-days__form {
     grid-template-columns: 11rem 11rem minmax(0, 1fr) auto;
     align-items: start;
+  }
+
+  /* Los niveles debajo de las fechas y el motivo; «Agregar» a su lado */
+  .attendance-days__niveles {
+    grid-column: 1 / 4;
   }
 
   .filters--pair {
@@ -1156,28 +1207,70 @@
 
 @media (min-width: 40rem) {
   .kiosk__state--result {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--space-8);
-    padding: var(--space-8) var(--space-10);
+    grid-template-columns: auto minmax(0, 44rem);
+    gap: var(--space-10);
+    padding: var(--space-10) var(--space-12);
     text-align: left;
-  }
-
-  .kiosk__state--result.kiosk__state--sin-foto {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .kiosk__result-text {
     justify-items: start;
+  }
+
+  /* Sin foto (no se supo quién es): el mensaje solo, al centro */
+  .kiosk__state--result.kiosk__state--sin-foto {
+    grid-template-columns: minmax(0, 52rem);
+    text-align: center;
+  }
+
+  .kiosk__state--sin-foto .kiosk__result-text {
+    justify-items: center;
+  }
+}
+
+/* Pantallas anchas: el colegio en la columna del centro y el reloj a la derecha */
+@media (min-width: 64rem) {
+  .kiosk__bar {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .kiosk__brand {
+    grid-column: 2;
+    max-width: min(56rem, 46vw);
+  }
+
+  .kiosk__clock {
+    grid-column: 3;
+    justify-self: end;
+    text-align: right;
+  }
+}
+
+/* Pantallas bajas (como 1366 × 768): el logotipo y el panel de espera más compactos, para que todo quepa sin desplazarse */
+@media (max-height: 52rem) {
+  .kiosk__bar {
+    padding-top: var(--space-4);
+  }
+
+  .kiosk__logo {
+    width: 4rem;
+    height: 4rem;
+  }
+
+  .kiosk__state {
+    min-height: clamp(13rem, 30vh, 20rem);
+    padding-block: var(--space-6);
+  }
+
+  .kiosk__rfid {
+    width: 5rem;
+    height: 5rem;
   }
 }
 
 @media (max-width: 39.99rem) {
   .kiosk__bar {
     padding-top: var(--space-4);
-  }
-
-  .kiosk__clock {
-    text-align: left;
   }
 
   .kiosk__manual-row {
@@ -1217,7 +1310,7 @@
 }
 
 /* ==========================================================================
-   9. ASISTENCIA PARA DOCENTES (templates/asistencias/docente.html)
+   9. MATRIZ DE ASISTENCIA POR MATERIA (templates/asistencias/_matriz.html: docente.html y materias.html)
    Matriz estudiantes × días del periodo: encabezado y nombres fijos al desplazarse, la columna de hoy resaltada
    (sin tocar los colores de los estados) y un indicador circular por celda. Los colores salen de los roles, así
    que cambian con cada tema: presente = éxito, falta = peligro, retardo = aviso, justificada = información y
@@ -1366,6 +1459,22 @@
   --ind-fg: var(--color-on-accent);
 }
 
+/* Estudiante suspendido (conducta): una S en un círculo blanco, igual en cualquier tema. Autorizada, con borde
+   continuo; pendiente de autorizar, con borde punteado. */
+.indicador-asistencia--suspendido,
+.indicador-asistencia--solicitado {
+  --ind-bg: var(--color-white);
+  --ind-fg: var(--color-slate-900);
+  --ind-borde: var(--color-slate-900);
+  border-width: 2px;
+}
+
+.indicador-asistencia--solicitado {
+  --ind-borde: var(--color-slate-500);
+  --ind-fg: var(--color-slate-600);
+  border-style: dashed;
+}
+
 /* Sin registro: un guion dentro de un círculo punteado (no es falta) */
 .indicador-asistencia--vacia {
   --ind-fg: var(--color-text-muted);
@@ -1378,11 +1487,15 @@
   --ind-fg: transparent;
 }
 
-.indicador-asistencia[data-editable] {
+.indicador-asistencia[data-editable],
+.indicador-asistencia[data-justificable],
+.indicador-asistencia[data-justificacion] {
   cursor: pointer;
 }
 
-.indicador-asistencia[data-editable]:hover {
+.indicador-asistencia[data-editable]:hover,
+.indicador-asistencia[data-justificable]:hover,
+.indicador-asistencia[data-justificacion]:hover {
   box-shadow: 0 0 0 3px var(--color-primary-border);
 }
 
@@ -1601,6 +1714,13 @@
   font-weight: var(--weight-semibold);
 }
 
+/* Antes de «Justificar falta» (solo la administración), una línea que la separa de los estados */
+.menu-asistencia__separador {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--color-border);
+}
+
 /* Falta y retardo avisan que después se pide el porqué */
 .menu-asistencia__pide {
   margin-left: auto;
@@ -1672,8 +1792,19 @@
     align-items: end;
   }
 
+  /* La administración elige primero el grupo y luego la materia: dos por fila hasta que quepan los cinco */
+  .asistencia-docente__filtros--con-grupo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .asistencia-docente__fila-inferior {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 80rem) {
+  .asistencia-docente__filtros--con-grupo {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)) auto;
   }
 }
 
@@ -1994,4 +2125,216 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+
+/* ==========================================================================
+   11. JUSTIFICAR UNA FALTA CON SU COMPROBANTE (templates/asistencias/_justificar_falta.html y
+       _ver_justificacion.html; static/js/asistencia-justificar.js)
+   La foto es obligatoria: una zona punteada para tomarla o elegirla (también se puede soltar ahí), su vista previa
+   con «Cambiar foto» y «Quitar», y una barra mientras se sube. Colores de rol: cambian con cada tema.
+   ========================================================================== */
+.justificar-falta__datos {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+
+.justificar-falta__motivo {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.justificar-falta__nota {
+  font-size: var(--text-xs);
+}
+
+/* --- Zona de la foto ------------------------------------------------------------------------------------- */
+.comprobante {
+  position: relative;
+}
+
+.comprobante__vacio {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.comprobante__vacio:hover,
+.comprobante.is-arrastrando .comprobante__vacio {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.comprobante__input:focus-visible + .comprobante__vacio {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.comprobante.is-invalido .comprobante__vacio {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.comprobante__icono {
+  color: var(--color-primary);
+}
+
+.comprobante__accion {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.comprobante__formatos {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* --- Vista previa (y la foto de una justificación ya guardada) ---------------------------------------- */
+.comprobante__vista {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.comprobante__img {
+  display: block;
+  width: 100%;
+  max-height: 18rem;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  object-fit: contain;
+}
+
+.comprobante__vista--consulta .comprobante__img {
+  max-height: 24rem;
+}
+
+.comprobante__enlace {
+  display: block;
+  border-radius: var(--radius-lg);
+}
+
+.comprobante__enlace:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.comprobante__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.comprobante__archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.comprobante__listo {
+  flex-shrink: 0;
+  color: var(--color-success);
+}
+
+.comprobante__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comprobante__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* --- Barra de la subida ----------------------------------------------------------------------------------- */
+.subida {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.subida__pista {
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.subida__barra {
+  width: 0;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transition: width var(--transition-fast);
+}
+
+.subida__texto {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* --- Ventana con la justificación de una J ------------------------------------------------------------- */
+.ver-justificacion .modal__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ver-justificacion .modal__title .indicador-asistencia {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subida__barra {
+    transition: none;
+  }
+}
+
+/* Asistencia del día: el estudiante suspendido (S en un círculo blanco) */
+.estado-suspension {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.attendance-strip .indicador-asistencia {
+  width: 1.5rem;
+  height: 1.5rem;
+  vertical-align: middle;
+}
+
+/* Ajustes: hora límite de entrada por nivel (dentro de «Reglas de la entrada») */
+.asistencia-limites {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.asistencia-limites legend {
+  padding: 0;
 }

@@ -1,0 +1,26 @@
+{% comment %}
+  Botón «Reporte» del encabezado de la matriz de asistencia (docente y administración): lleva lo mismo que se ve, la
+  materia y las fechas elegidas. Parámetros: url_reporte, asignacion y datos (los de la matriz).
+{% endcomment %}
+<div class="page-header__actions">
+  <div class="menu" data-menu>
+    <button type="button" class="btn btn--primary menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-reporte">
+      {% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Reporte
+      {% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm" %}
+    </button>
+    <div class="menu__panel" id="menu-reporte" data-menu-panel hidden>
+      <ul class="menu__list">
+        <li>
+          <a class="menu__item" href="{{ url_reporte }}?materia={{ asignacion.pk }}&amp;desde={{ datos.desde|date:'Y-m-d' }}&amp;hasta={{ datos.hasta|date:'Y-m-d' }}" target="_blank" rel="noopener">
+            {% include "partials/icon.html" with name="printer" %} Imprimir o guardar en PDF
+          </a>
+        </li>
+        <li>
+          <a class="menu__item" href="{{ url_reporte }}?materia={{ asignacion.pk }}&amp;desde={{ datos.desde|date:'Y-m-d' }}&amp;hasta={{ datos.hasta|date:'Y-m-d' }}&amp;formato=csv" download>
+            {% include "partials/icon.html" with name="download" %} Descargar para Excel (CSV)
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Pendientes de conducta | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'conducta:lista' %}">Registro de conducta</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Pendientes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Pendientes de conducta</h1>
+      <p class="page-header__description">Lo que necesita atención hoy: avisos de reincidencia, seguimientos vencidos o por vencer, citas, compromisos y acuerdos con la familia, solicitudes por aprobar y suspensiones vigentes. Cada uno lleva a su registro. Los avisos son para revisión: nunca aplican sanciones.</p>
+    </div>
+  </header>
+
+  {% include "conducta/_subnav.html" with pendientes=pendientes_total %}
+
+  <div class="stat-grid conducta-cifras">
+    <div class="stat{% if avisos %} stat--attention{% endif %}"><p class="stat__label">Avisos de reincidencia</p><p class="stat__value">{{ avisos|length }}</p><p class="stat__hint">sin revisar</p></div>
+    <div class="stat{% if vencidos %} stat--attention{% endif %}"><p class="stat__label">Seguimientos vencidos</p><p class="stat__value">{{ vencidos|length }}</p><p class="stat__hint">{{ por_vencer|length }} vence{{ por_vencer|length|pluralize:"n" }} en 7 días</p></div>
+    <div class="stat"><p class="stat__label">Citas y compromisos</p><p class="stat__value">{{ citas|length|add:compromisos_total }}</p><p class="stat__hint">en 7 días o antes · {{ acuerdos|length }} acuerdo{{ acuerdos|length|pluralize }} con la familia</p></div>
+    <div class="stat{% if solicitudes_suspensiones or solicitudes_medidas %} stat--attention{% endif %}"><p class="stat__label">Por aprobar</p><p class="stat__value">{{ solicitudes_total }}</p><p class="stat__hint"><a class="link-subtle" href="{% url 'conducta:solicitudes' %}">solicitudes de suspensión y medidas</a></p></div>
+    <div class="stat"><p class="stat__label">Suspensiones</p><p class="stat__value">{{ suspensiones|length }}</p><p class="stat__hint">aprobadas, vigentes o próximas</p></div>
+  </div>
+
+  <div class="conducta-pendientes">
+    <section class="card" aria-labelledby="titulo-avisos">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="triangle-alert" %}<h2 class="card__title" id="titulo-avisos">Avisos de reincidencia</h2></header>
+      <div class="card__body">
+        {% if avisos %}
+          <ul class="conducta-lista-pendientes">
+            {% for aviso in avisos %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' aviso.registro_id %}">{{ aviso.alumno }}</a>
+                  <p class="text-muted">{{ aviso.cantidad }} incidencias de «{{ aviso.registro.motivo_nombre }}» en {{ aviso.dias }} días · última el {{ aviso.registro.fecha|date:"d/m/Y" }}</p>
+                </div>
+                {% if puede_revisar %}
+                  <form method="post" action="{% url 'conducta:aviso_revisar' aviso.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn--sm">Marcar revisado</button>
+                  </form>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">Ningún aviso por revisar. Se configuran por nivel en Ajustes › Conducta.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-seguimientos">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="titulo-seguimientos">Seguimientos</h2></header>
+      <div class="card__body">
+        {% if vencidos or por_vencer %}
+          <ul class="conducta-lista-pendientes">
+            {% for registro in vencidos %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' registro.pk %}">{{ registro.alumno }} · {{ registro.motivo_nombre }}</a>
+                  <p class="text-muted">Venció el {{ registro.fecha_revision|date:"d/m/Y" }} · {% firstof registro.responsable.get_full_name registro.responsable.username "sin responsable" %}</p>
+                </div>
+                <span class="tag tag--danger">Vencido</span>
+              </li>
+            {% endfor %}
+            {% for registro in por_vencer %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' registro.pk %}">{{ registro.alumno }} · {{ registro.motivo_nombre }}</a>
+                  <p class="text-muted">Revisión el {{ registro.fecha_revision|date:"d/m/Y" }} · {% firstof registro.responsable.get_full_name registro.responsable.username "sin responsable" %}</p>
+                </div>
+                <span class="tag tag--warning">{% if registro.fecha_revision == hoy %}Hoy{% else %}Por vencer{% endif %}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay seguimientos vencidos ni por vencer en los próximos 7 días.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-citas">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar-range" %}<h2 class="card__title" id="titulo-citas">Citas y compromisos próximos</h2></header>
+      <div class="card__body">
+        {% if citas or compromisos %}
+          <ul class="conducta-lista-pendientes">
+            {% for cita in citas %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' cita.registro_id %}">{{ cita.registro.alumno }} · cita con {{ cita.persona }}</a>
+                  <p class="text-muted">{{ cita.get_modalidad_display }}{% if cita.hora %} a las {{ cita.hora|time:"H:i" }}{% endif %} · {{ cita.asunto|truncatechars:100 }}</p>
+                </div>
+                <span class="tag {% if cita.fecha < hoy %}tag--danger{% else %}tag--warning{% endif %}">{% if cita.fecha < hoy %}Sin anotar · {% endif %}{{ cita.fecha|date:"d/m/Y" }}</span>
+              </li>
+            {% endfor %}
+            {% for compromiso in compromisos %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' compromiso.registro_id %}">{{ compromiso.registro.alumno }} · compromiso de {{ compromiso.get_quien_display|lower }}</a>
+                  <p class="text-muted">{{ compromiso.descripcion|truncatechars:110 }}{% if compromiso.responsable %} · {% firstof compromiso.responsable.get_full_name compromiso.responsable.username %}{% endif %}</p>
+                </div>
+                <span class="tag {% if compromiso.fecha_limite < hoy %}tag--danger{% else %}tag--warning{% endif %}">{% if compromiso.fecha_limite < hoy %}Vencido · {% endif %}{{ compromiso.fecha_limite|date:"d/m/Y" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay citas ni compromisos en los próximos 7 días.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-acuerdos">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="phone" %}<h2 class="card__title" id="titulo-acuerdos">Acuerdos con la familia por revisar</h2></header>
+      <div class="card__body">
+        {% if acuerdos %}
+          <ul class="conducta-lista-pendientes">
+            {% for contacto in acuerdos %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' contacto.registro_id %}">{{ contacto.registro.alumno }} · con {{ contacto.persona }}</a>
+                  <p class="text-muted">{{ contacto.acuerdos|truncatechars:120 }}</p>
+                </div>
+                <span class="tag {% if contacto.proxima_revision < hoy %}tag--danger{% else %}tag--warning{% endif %}">{{ contacto.proxima_revision|date:"d/m/Y" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay acuerdos por revisar en los próximos 7 días.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-suspensiones">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="titulo-suspensiones">Suspensiones vigentes y próximas</h2></header>
+      <div class="card__body">
+        {% if suspensiones %}
+          <ul class="conducta-lista-pendientes">
+            {% for suspension in suspensiones %}
+              <li class="conducta-pendiente">
+                <div>
+                  <a class="link-subtle conducta-pendiente__titulo" href="{% url 'conducta:detalle' suspension.registro_id %}">{{ suspension.registro.alumno }}</a>
+                  <p class="text-muted">Del {{ suspension.fecha_inicio|date:"d/m/Y" }} al {{ suspension.fecha_fin|date:"d/m/Y" }} · {{ suspension.motivo_nombre }}</p>
+                </div>
+                <span class="tag {% if suspension.fecha_inicio <= hoy %}tag--danger{% else %}tag--warning{% endif %}">{% if suspension.fecha_inicio <= hoy %}Vigente{% else %}Próxima{% endif %}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay suspensiones vigentes ni próximas.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

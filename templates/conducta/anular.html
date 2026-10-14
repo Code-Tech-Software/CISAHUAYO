@@ -1,0 +1,13 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Anular registro de conducta | CISAHUAYO{% endblock %}
+{% block migaja %}Anular{% endblock %}
+{% block encabezado %}Anular registro{% endblock %}
+{% block descripcion %}El registro no se borra: se conserva para consulta, con el motivo, quién lo anuló y cuándo, y deja de contar en los indicadores y reportes.{% endblock %}
+
+{% block campos %}
+  {% include "partials/field.html" with campo=form.motivo %}
+{% endblock %}
+
+{% block clase_boton %}btn--danger{% endblock %}
+{% block boton %}Anular registro{% endblock %}

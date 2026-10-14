@@ -1,0 +1,51 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Reporte de conducta listo para imprimir o guardar en PDF desde el navegador (hoja horizontal): encabezado
+  institucional, fecha de generación, quién lo generó, filtros usados y el mismo contenido de la vista previa. Siempre en
+  tema claro, como el papel. Con ?pdf=1 abre solo el diálogo de impresión (ahí se elige «Guardar como PDF»).
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ contenido.titulo }} · {{ contenido.generado|date:"d-m-Y" }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <style>@page { size: A4 landscape; margin: 10mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a los reportes</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte conducta-hoja">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">{{ contenido.titulo }}</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Generado</dt><dd>{{ contenido.generado|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
+        <div><dt>Generado por</dt><dd>{{ contenido.usuario }}</dd></div>
+        {% for nombre, valor in contenido.filtros %}<div><dt>{{ nombre }}</dt><dd>{{ valor }}</dd></div>{% endfor %}
+      </dl>
+    </header>
+
+    <section class="reporte__seccion conducta-reporte__cuerpo">
+      {% include "conducta/_reporte_contenido.html" %}
+    </section>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

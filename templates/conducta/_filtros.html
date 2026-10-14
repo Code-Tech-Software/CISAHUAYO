@@ -1,0 +1,112 @@
+{% comment %}
+  Filtros del registro y de los reportes de conducta (los mismos criterios en ambos: Conducta/reglas.py · Filtro).
+  Parámetros: filtro (FiltroListaForm o ReporteForm), mas_filtros (cuántos hay aplicados además de los principales),
+  principal (la plantilla con los campos de la primera fila) y limpiar (dirección sin filtros).
+  conducta.js limita las opciones que dependen de otras (grupo del grado, motivo de la categoría…).
+{% endcomment %}
+<div class="filtros-conducta__fila">
+  {% include principal %}
+  <div class="filters__field">
+    <label class="field__label" for="{{ filtro.ciclo.id_for_label }}">{{ filtro.ciclo.label }}</label>
+    {{ filtro.ciclo }}
+  </div>
+  <div class="filters__field">
+    <label class="field__label" for="{{ filtro.nivel.id_for_label }}">{{ filtro.nivel.label }}</label>
+    {{ filtro.nivel }}
+  </div>
+  <div class="filters__field">
+    <label class="field__label" for="{{ filtro.tipo.id_for_label }}">{{ filtro.tipo.label }}</label>
+    {{ filtro.tipo }}
+  </div>
+</div>
+
+<details class="filtros-conducta__mas"{% if mas_filtros %} open{% endif %}>
+  <summary class="filtros-conducta__resumen">
+    {% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Más filtros{% if mas_filtros %} <span class="pill__count">{{ mas_filtros }}</span>{% endif %}
+  </summary>
+  <div class="filtros-conducta__fila">
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.desde.id_for_label }}">Desde (fecha del hecho)</label>
+      {{ filtro.desde }}
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.hasta.id_for_label }}">Hasta</label>
+      {{ filtro.hasta }}
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.periodo.id_for_label }}">{{ filtro.periodo.label }}</label>
+      <select class="field__control field__control--select" name="periodo" id="{{ filtro.periodo.id_for_label }}" data-depende-ciclo>
+        <option value="">Cualquier periodo</option>
+        {% for periodo in filtro.fields.periodo.queryset %}
+          <option value="{{ periodo.pk }}" data-ciclo="{{ periodo.ciclo_id }}" data-nivel="{{ periodo.nivel }}"{% if filtro.periodo.value|stringformat:"s" == periodo.pk|stringformat:"s" %} selected{% endif %}>{{ periodo.nombre }} · {{ periodo.get_nivel_display }} · {{ periodo.ciclo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.grado.id_for_label }}">{{ filtro.grado.label }}</label>
+      <select class="field__control field__control--select" name="grado" id="{{ filtro.grado.id_for_label }}" data-depende-nivel>
+        <option value="">Todos los grados</option>
+        {% for grado in filtro.fields.grado.queryset %}
+          <option value="{{ grado.pk }}" data-nivel="{{ grado.nivel }}"{% if filtro.grado.value|stringformat:"s" == grado.pk|stringformat:"s" %} selected{% endif %}>{{ grado }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.grupo.id_for_label }}">{{ filtro.grupo.label }}</label>
+      <select class="field__control field__control--select" name="grupo" id="{{ filtro.grupo.id_for_label }}" data-depende-nivel data-depende-grado>
+        <option value="">Todos los grupos</option>
+        {% for grupo in filtro.fields.grupo.queryset %}
+          <option value="{{ grupo.pk }}" data-nivel="{{ grupo.grado.nivel }}" data-grado="{{ grupo.grado_id }}"{% if filtro.grupo.value|stringformat:"s" == grupo.pk|stringformat:"s" %} selected{% endif %}>{{ grupo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.categoria.id_for_label }}">{{ filtro.categoria.label }}</label>
+      <select class="field__control field__control--select" name="categoria" id="{{ filtro.categoria.id_for_label }}" data-depende-nivel data-depende-tipo>
+        <option value="">Todas las categorías</option>
+        {% for categoria in filtro.fields.categoria.queryset %}
+          <option value="{{ categoria.pk }}" data-nivel="{{ categoria.nivel }}" data-tipo="{{ categoria.tipo }}"{% if filtro.categoria.value|stringformat:"s" == categoria.pk|stringformat:"s" %} selected{% endif %}>{{ categoria.nombre }} · {{ categoria.get_nivel_display }}{% if not categoria.activo %} (inactiva){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.motivo.id_for_label }}">{{ filtro.motivo.label }}</label>
+      <select class="field__control field__control--select" name="motivo" id="{{ filtro.motivo.id_for_label }}" data-depende-categoria data-depende-nivel data-depende-tipo>
+        <option value="">Todos los motivos</option>
+        {% for motivo in filtro.fields.motivo.queryset %}
+          <option value="{{ motivo.pk }}" data-categoria="{{ motivo.categoria_id }}" data-nivel="{{ motivo.categoria.nivel }}" data-tipo="{{ motivo.categoria.tipo }}"{% if filtro.motivo.value|stringformat:"s" == motivo.pk|stringformat:"s" %} selected{% endif %}>{{ motivo.nombre }} · {{ motivo.categoria.nombre }}{% if not motivo.activo %} (inactivo){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.gravedad.id_for_label }}">{{ filtro.gravedad.label }}</label>
+      {{ filtro.gravedad }}
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.medida.id_for_label }}">{{ filtro.medida.label }}</label>
+      <select class="field__control field__control--select" name="medida" id="{{ filtro.medida.id_for_label }}" data-depende-nivel>
+        <option value="">Cualquier medida</option>
+        {% for medida in filtro.fields.medida.queryset %}
+          <option value="{{ medida.pk }}" data-nivel="{{ medida.nivel }}"{% if filtro.medida.value|stringformat:"s" == medida.pk|stringformat:"s" %} selected{% endif %}>{{ medida.nombre }} · {{ medida.get_nivel_display }}{% if not medida.activo %} (inactiva){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.suspension.id_for_label }}">{{ filtro.suspension.label }}</label>
+      {{ filtro.suspension }}
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.estado.id_for_label }}">{{ filtro.estado.label }}</label>
+      {{ filtro.estado }}
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="{{ filtro.registros.id_for_label }}">{{ filtro.registros.label }}</label>
+      {{ filtro.registros }}
+    </div>
+  </div>
+</details>
+
+<div class="filters__actions">
+  <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar filtros</button>
+  <a class="btn btn--ghost btn--sm" href="{{ limpiar }}">Limpiar</a>
+</div>

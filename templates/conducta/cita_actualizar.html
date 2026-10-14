@@ -1,0 +1,13 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Cita con la familia | CISAHUAYO{% endblock %}
+{% block migaja %}Cita con la familia{% endblock %}
+{% block encabezado %}¿Qué pasó con la cita?{% endblock %}
+{% block descripcion %}Cita con {{ cita.persona }} el {{ cita.fecha|date:"d/m/Y" }}{% if cita.hora %} a las {{ cita.hora|time:"H:i" }}{% endif %}: {{ cita.asunto|truncatechars:120 }}{% endblock %}
+
+{% block campos %}
+  {% include "partials/choices.html" with campo=form.estado %}
+  {% include "partials/field.html" with campo=form.resultado %}
+{% endblock %}
+
+{% block boton %}Guardar{% endblock %}

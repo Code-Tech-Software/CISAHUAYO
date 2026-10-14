@@ -2,7 +2,8 @@
 
    El alumno acerca su credencial al lector RFID (que "teclea" el UID y pulsa Enter) o escribe su número de referencia.
    - Un campo oculto mantiene siempre el foco para recibir al lector, aunque nadie toque la pantalla.
-   - Cada lectura se envía al servidor (asistencias:registrar_entrada) y el panel muestra el resultado SOLO unos segundos:
+   - Cada lectura se envía al servidor (asistencias:registrar_entrada) y el resultado cubre toda la pantalla, verde si la
+     entrada quedó registrada y roja si no, SOLO unos segundos:
      se quita solo, y también al tocarlo, al teclear, al escanear a otro alumno o con Escape, para dejar libre la pantalla
      al siguiente (o a quien quiera intentarlo otra vez).
    - La pantalla nunca muestra a quienes ya entraron: solo el resultado de quien acaba de escanear y cuántos han entrado.
@@ -40,9 +41,11 @@
   const cola = [];
 
   /* ------------------------------------------------------------------ Reloj */
-  /* Muestra la hora del servidor (la que decide los retardos): parte de la que llegó con la página y se
-     vuelve a sincronizar con cada respuesta, así no depende del reloj ni de la zona horaria del equipo. */
-  const reloj = qs('[data-reloj]');
+  /* Muestra la hora del servidor (la que decide los retardos) con segundos: parte de la que llegó con la página y se
+     vuelve a sincronizar con cada respuesta, así no depende del reloj ni de la zona horaria del equipo. Cada vuelta se
+     programa para el cambio exacto de segundo, así los segundos avanzan parejos. */
+  const relojHora = qs('[data-reloj-hora]');
+  const relojSegundos = qs('[data-reloj-segundos]');
   let base = Number(kiosco.dataset.ahora);
   let desde = performance.now();
   const sincronizar = (segundos) => {
@@ -52,11 +55,13 @@
   };
   const dosDigitos = (numero) => String(numero).padStart(2, '0');
   const pintarReloj = () => {
-    const segundos = Math.floor(base + (performance.now() - desde) / 1000) % 86400;
-    reloj.textContent = `${dosDigitos(Math.floor(segundos / 3600))}:${dosDigitos(Math.floor((segundos % 3600) / 60))}`;
+    const ahora = base + (performance.now() - desde) / 1000;
+    const segundos = Math.floor(ahora) % 86400;
+    relojHora.textContent = `${dosDigitos(Math.floor(segundos / 3600))}:${dosDigitos(Math.floor((segundos % 3600) / 60))}`;
+    relojSegundos.textContent = `:${dosDigitos(segundos % 60)}`;
+    window.setTimeout(pintarReloj, Math.ceil((1 - (ahora % 1)) * 1000) + 5);
   };
   pintarReloj();
-  window.setInterval(pintarReloj, 1000);
 
   /* ------------------------------------------------------------------ Sonido */
   const botonSonido = qs('[data-sonido]');
@@ -121,6 +126,7 @@
     if (panel.dataset.vista !== 'resultado') return;
     panel.dataset.vista = vistaBase();
     panel.dataset.tono = '';
+    panel.dataset.resultado = '';
     cuenta.classList.remove('is-running');
     enfocar();
   };
@@ -153,6 +159,7 @@
     NO_ENCONTRADO: 'No encontrada',
     SIN_INSCRIPCION: 'Sin inscripción',
     SIN_CLASES: 'Sin clases',
+    SUSPENSION: 'Suspendido',
     VACIO: 'Sin código',
   };
 
@@ -167,6 +174,7 @@
       qs('[data-mensaje-sesion]').textContent = datos.mensaje;
       panel.dataset.vista = 'sesion';
       panel.dataset.tono = '';
+      panel.dataset.resultado = '';
       return;
     }
     const tono = tonoDe(datos);
@@ -182,6 +190,8 @@
     const duracion = MOSTRAR_MS[tono];
     panel.style.setProperty('--duracion', `${duracion}ms`);
     panel.dataset.tono = tono;
+    /* Toda la pantalla verde si la entrada quedó registrada (también con retardo o si ya estaba), roja si no */
+    panel.dataset.resultado = datos.ok ? 'ok' : 'error';
     panel.dataset.vista = 'resultado';
     /* La barra de tiempo reinicia aunque un resultado reemplace a otro sin pasar por la pantalla de espera */
     cuenta.classList.remove('is-running');

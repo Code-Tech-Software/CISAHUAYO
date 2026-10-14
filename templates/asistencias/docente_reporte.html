@@ -36,7 +36,7 @@
       </div>
       <dl class="reporte__datos">
         <div><dt>Materia</dt><dd>{{ asignacion.materia }} · {{ asignacion.grupo }}</dd></div>
-        <div><dt>Profesor</dt><dd>{{ profesor }}</dd></div>
+        <div><dt>Profesor</dt><dd>{{ profesor|default:'Sin profesor asignado' }}</dd></div>
         <div><dt>Periodo</dt><dd>{{ datos.periodo.nombre }} <span class="text-muted">({{ datos.periodo.fecha_inicio|date:"d/m/Y" }} al {{ datos.periodo.fecha_fin|date:"d/m/Y" }})</span></dd></div>
         <div><dt>Fechas del reporte</dt><dd>Del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F \d\e Y"|lower }} <span class="text-muted">· {{ datos.columnas|length }} día{{ datos.columnas|length|pluralize }}</span></dd></div>
         <div><dt>Generado</dt><dd>{{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
@@ -141,8 +141,8 @@
     {% endif %}
 
     <ul class="reporte__leyenda" aria-label="Qué significa cada letra">
-      {% for letra, nombre in leyenda %}
-        <li><span class="indicador-asistencia indicador-asistencia--{% if letra == 'P' %}presente{% elif letra == 'F' %}falta{% elif letra == 'R' %}retardo{% elif letra == 'J' %}justificada{% else %}suspension{% endif %}" aria-hidden="true">{{ letra }}</span>{{ nombre }}</li>
+      {% for letra, nombre, clase in leyenda %}
+        <li><span class="indicador-asistencia indicador-asistencia--{{ clase }}" aria-hidden="true">{{ letra }}</span>{{ nombre }}</li>
       {% endfor %}
       <li><span class="reporte__sin-registro" aria-hidden="true">—</span>Sin registro</li>
       <li><span class="indicador-asistencia indicador-asistencia--falta" data-observaciones aria-hidden="true">F</span>Con observación</li>
@@ -150,7 +150,7 @@
     </ul>
 
     <div class="reporte__firmas">
-      <div><span class="reporte__linea"></span>{{ profesor }}<span class="text-muted">Profesor</span></div>
+      <div><span class="reporte__linea"></span>{{ profesor|default:'' }}<span class="text-muted">Profesor</span></div>
       <div><span class="reporte__linea"></span>Dirección<span class="text-muted">Visto bueno</span></div>
     </div>
   </main>

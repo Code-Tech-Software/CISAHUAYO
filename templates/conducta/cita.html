@@ -1,0 +1,25 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Programar cita | CISAHUAYO{% endblock %}
+{% block migaja %}Programar cita{% endblock %}
+{% block encabezado %}Programar cita con la familia{% endblock %}
+{% block descripcion %}Anota la cita con la madre, el padre o el tutor. Solo se registra: no se envía ningún aviso; avisa a la familia por el medio de siempre y después anota qué pasó.{% endblock %}
+{% block atributos %} data-contacto-form{% endblock %}
+
+{% block campos %}
+  <div class="form-grid">
+    {% include "partials/field.html" with campo=form.fecha %}
+    {% include "partials/field.html" with campo=form.hora %}
+    {% include "partials/field.html" with campo=form.modalidad %}
+    {% include "partials/field.html" with campo=form.responsable %}
+    <div class="field form-grid__full{% if form.tutor.errors %} is-invalid{% endif %}">
+      <label class="field__label field__label--required" for="{{ form.tutor.id_for_label }}">{{ form.tutor.label }}</label>
+      {{ form.tutor }}
+      {% for error in form.tutor.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-grid__full" data-otra-persona>{% include "partials/field.html" with campo=form.persona %}</div>
+  </div>
+  {% include "partials/field.html" with campo=form.asunto %}
+{% endblock %}
+
+{% block boton %}Programar cita{% endblock %}

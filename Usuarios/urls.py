@@ -12,4 +12,6 @@ urlpatterns = [
     path('<int:pk>/baja/', views.usuario_baja, name='baja'),
     path('<int:pk>/reactivar/', views.usuario_reactivar, name='reactivar'),
     path('<int:pk>/restablecer/', views.usuario_restablecer, name='restablecer'),
+    path('<int:pk>/alcance/', views.usuario_alcance, name='alcance'),
+    path('<int:pk>/direccion/', views.usuario_direccion, name='direccion'),
 ]

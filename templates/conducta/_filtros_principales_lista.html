@@ -1,0 +1,8 @@
+{# Primera fila de filtros del registro: buscar al estudiante por nombre o número de control #}
+<div class="filters__field filtros-conducta__buscar">
+  <label class="field__label" for="{{ filtro.q.id_for_label }}">Estudiante</label>
+  <div class="filters__search">
+    {% include "partials/icon.html" with name="search" icon_class="filters__icon icon--sm" %}
+    {{ filtro.q }}
+  </div>
+</div>

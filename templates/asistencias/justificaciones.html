@@ -112,7 +112,7 @@
                 <td class="table__cell table__col--wide" data-label="Motivo">
                   <span title="{{ justificacion.motivo }}">{{ justificacion.motivo|truncatechars:80 }}</span>
                   {% if justificacion.documento %}
-                    <a class="link-subtle attendance-doc" href="{{ justificacion.documento.url }}" target="_blank" rel="noopener">
+                    <a class="link-subtle attendance-doc" href="{% url 'asistencias:comprobante' justificacion.pk %}" target="_blank" rel="noopener">
                       {% include "partials/icon.html" with name="link" icon_class="icon--sm" %} Comprobante
                     </a>
                   {% endif %}

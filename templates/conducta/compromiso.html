@@ -1,0 +1,17 @@
+{% extends "conducta/_accion_base.html" %}
+
+{% block title %}Acuerdo o compromiso | CISAHUAYO{% endblock %}
+{% block migaja %}Compromiso{% endblock %}
+{% block encabezado %}Acuerdo o compromiso{% endblock %}
+{% block descripcion %}Qué se acordó, quién se compromete, quién le da seguimiento y para cuándo. Aparece en los pendientes cuando se acerca su fecha límite.{% endblock %}
+
+{% block campos %}
+  {% include "partials/field.html" with campo=form.descripcion %}
+  <div class="form-grid">
+    {% include "partials/field.html" with campo=form.quien %}
+    {% include "partials/field.html" with campo=form.fecha_limite %}
+    {% include "partials/field.html" with campo=form.responsable clase="form-grid__full" %}
+  </div>
+{% endblock %}
+
+{% block boton %}Anotar compromiso{% endblock %}

@@ -22,6 +22,8 @@
     </div>
   </header>
 
+  {% include "ajustes/_pestanas.html" with ajustes_seccion="apariencia" %}
+
   {# Con JavaScript cada cambio se ve y se guarda al momento (static/js/ajustes.js); sin él, con «Guardar» #}
   <form method="post" class="ajustes" data-apariencia novalidate>
     {% csrf_token %}

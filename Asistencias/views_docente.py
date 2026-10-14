@@ -3,8 +3,12 @@ guardado de una celda y el reporte (para imprimir o para Excel) de lo que muestr
 Alumnos/asistencia_docente.py; aquí solo se comprueba quién pide qué.
 
 Solo para cuentas vinculadas a una ficha de profesor, y solo sus materias: lo que no es suyo responde 403 aunque se
-teclee la dirección."""
+teclee la dirección.
+
+La asistencia por materia de la administración (Asistencias/views_materias.py) usa estas mismas piezas —el contexto
+de la matriz, el guardado de una celda y el reporte—; cada vista decide qué materias se pueden abrir."""
 import csv
+import json
 from datetime import date
 
 from django.contrib import messages
@@ -14,11 +18,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.utils.http import urlencode
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from Alumnos.academico import ciclo_actual
 from Alumnos.asistencia_docente import (
+    LEYENDA,
     NOMBRES,
     OBSERVACION_MAXIMA,
     CambioRechazado,
@@ -66,12 +72,30 @@ def docente(request):
         asignacion = _asignacion_propia(profesor, int(elegida))
     else:
         asignacion = asignaciones[0]
+    contexto.update(contexto_de_matriz(request, asignacion))
+    contexto.update({
+        'url_reporte': reverse('asistencias:docente_reporte'),
+        'url_guardar': reverse('asistencias:docente_guardar', args=[asignacion.pk]),
+    })
+    return render(request, 'asistencias/docente.html', contexto)
+
+
+def contexto_de_matriz(request, asignacion, puede_justificar=False, ver_justificaciones=False, url_lista=None):
+    """Lo que dibuja la matriz de una materia (la del docente o la de la administración): las fechas pedidas dentro del
+    periodo abierto, los rangos rápidos, la leyenda y si se puede cambiar. Para la administración, además, qué faltas
+    se pueden justificar (`puede_justificar`) y los datos de cada J con su comprobante (`ver_justificaciones`)."""
     hoy = timezone.localdate()
     periodo = periodo_de(asignacion)
     limites = limites_del_periodo(periodo, asignacion.ciclo) if periodo else None
     desde, hasta, aviso_de_fechas = _rango_pedido(request.GET, limites)
-    datos = matriz(asignacion, usuario=request.user, hoy=hoy, desde=desde, hasta=hasta)
-    contexto.update({
+    datos = matriz(asignacion, usuario=request.user, hoy=hoy, desde=desde, hasta=hasta, puede_justificar=puede_justificar)
+    if ver_justificaciones:
+        for fila in datos['filas']:
+            for celda in fila['celdas']:
+                if celda.justificacion is not None:
+                    _justificacion_a_la_vista(celda)
+                    celda.detalle_justificacion = json.dumps(justificacion_json(celda.justificacion, url_lista), ensure_ascii=False)
+    return {
         'asignacion': asignacion,
         'datos': datos,
         'aviso_de_fechas': aviso_de_fechas,
@@ -81,10 +105,35 @@ def docente(request):
             for nombre, inicio, fin in (atajos(limites, hoy) if limites else [])
         ],
         'puede_cambiar': request.user.has_perm('Alumnos.change_asistenciamateria'),
+        'puede_justificar': puede_justificar,
         'observacion_maxima': OBSERVACION_MAXIMA,
-        'leyenda': [(letra, NOMBRES[letra]) for letra in ('P', 'F', 'R', 'J', 'S')],
-    })
-    return render(request, 'asistencias/docente.html', contexto)
+        'leyenda': LEYENDA,
+    }
+
+
+def _justificacion_a_la_vista(celda):
+    """En la administración una J se abre para ver su justificación: así lo dice su globo de ayuda."""
+    celda.nombre = celda.nombre.replace('se cambia desde Justificaciones', 'haz clic para ver su justificación y su comprobante')
+
+
+def justificacion_json(justificacion, url_lista=None):
+    """Lo que la administración ve de la justificación de una J: motivo, quién y cuándo, su comprobante y dónde está en
+    la lista de justificaciones (`url_lista`; por omisión, la de la administración). El comprobante se entrega por la
+    vista protegida (asistencias:comprobante), nunca con la dirección del archivo."""
+    documento = justificacion.documento
+    extension = documento.name.rsplit('.', 1)[-1].lower() if documento and '.' in documento.name else ''
+    quien = justificacion.registrada_por
+    alumno = justificacion.inscripcion.alumno
+    return {
+        'motivo': justificacion.motivo,
+        'registrada_por': (quien.get_full_name() or quien.get_username()) if quien else '',
+        'registrada_el': date_format(timezone.localtime(justificacion.creado), 'j \\d\\e F \\d\\e Y, H:i').lower(),
+        'de_la_falta': justificacion.asistencia_id is not None,
+        'comprobante': reverse('asistencias:comprobante', args=[justificacion.pk]) if documento else '',
+        # Sin extensión (Cloudinary guarda así los archivos) se intenta como imagen; si no lo es, la ventana pone un enlace
+        'es_imagen': extension in ('jpg', 'jpeg', 'png', 'webp', ''),
+        'lista': f"{url_lista or reverse('asistencias:justificaciones')}?{urlencode({'q': alumno.referencia, 'desde': justificacion.fecha, 'hasta': justificacion.fecha})}",
+    }
 
 
 def _fecha(texto):
@@ -128,13 +177,19 @@ def docente_reporte(request):
     if profesor is None or not elegida.isdigit():
         raise PermissionDenied
     asignacion = _asignacion_propia(profesor, int(elegida))
+    return respuesta_de_reporte(request, asignacion, profesor, reverse('asistencias:docente'))
+
+
+def respuesta_de_reporte(request, asignacion, profesor, url_matriz):
+    """La hoja para imprimir (o el CSV con `formato=csv`) de lo que muestra la matriz de la materia; sin nada que
+    reportar, de vuelta a la matriz (`url_matriz`) con un aviso."""
     periodo = periodo_de(asignacion)
     limites = limites_del_periodo(periodo, asignacion.ciclo) if periodo else None
     desde, hasta, _ = _rango_pedido(request.GET, limites)
     datos = matriz(asignacion, usuario=request.user, desde=desde, hasta=hasta)
     if not (datos['periodo'] and datos['columnas'] and datos['filas']):
         messages.error(request, 'No hay asistencia que reportar en esas fechas.')
-        return redirect(f"{reverse('asistencias:docente')}?materia={asignacion.pk}")
+        return redirect(f'{url_matriz}?materia={asignacion.pk}')
 
     contenido = reporte(datos)
     if request.GET.get('formato') == 'csv':
@@ -145,8 +200,8 @@ def docente_reporte(request):
         'datos': datos,
         'reporte': contenido,
         'generado': timezone.localtime(),
-        'volver': f"{reverse('asistencias:docente')}?materia={asignacion.pk}&desde={datos['desde']:%Y-%m-%d}&hasta={datos['hasta']:%Y-%m-%d}",
-        'leyenda': [(letra, NOMBRES[letra]) for letra in ('P', 'F', 'R', 'J', 'S')],
+        'volver': f"{url_matriz}?materia={asignacion.pk}&desde={datos['desde']:%Y-%m-%d}&hasta={datos['hasta']:%Y-%m-%d}",
+        'leyenda': LEYENDA,
     })
 
 
@@ -161,7 +216,7 @@ def _reporte_csv(asignacion, profesor, datos, contenido):
     periodo = datos['periodo']
     escritor.writerow(['Reporte de asistencia'])
     escritor.writerow(['Materia', proteger_celda_csv(f'{asignacion.materia} · {asignacion.grupo}')])
-    escritor.writerow(['Profesor', proteger_celda_csv(str(profesor))])
+    escritor.writerow(['Profesor', proteger_celda_csv(str(profesor) if profesor else 'Sin profesor asignado')])
     escritor.writerow(['Periodo', proteger_celda_csv(f'{periodo.nombre} ({periodo.fecha_inicio:%d/%m/%Y} al {periodo.fecha_fin:%d/%m/%Y})')])
     escritor.writerow(['Fechas', f'{desde:%d/%m/%Y} al {hasta:%d/%m/%Y}'])
     escritor.writerow(['Generado', f'{timezone.localtime():%d/%m/%Y %H:%M}'])
@@ -180,8 +235,8 @@ def _reporte_csv(asignacion, profesor, datos, contenido):
             '' if resumen['porcentaje'] is None else resumen['porcentaje'],
         ])
     escritor.writerow([])
-    escritor.writerow(['P = presente, F = falta, R = retardo, J = falta justificada, S = suspensión de clases, '
-                       '— = sin registro; vacío = sin clase, fecha futura o aún no inscrito'])
+    escritor.writerow(['P = presente, F = falta, R = retardo, J = falta justificada, S = suspensión de clases o estudiante '
+                       'suspendido (autorizada o pendiente de autorizar), — = sin registro; vacío = sin clase, fecha futura o aún no inscrito'])
     if contenido['observaciones']:
         escritor.writerow([])
         escritor.writerow(['Observaciones'])
@@ -200,7 +255,13 @@ def docente_guardar(request, pk):
     profesor = profesor_de(request.user)
     if profesor is None:
         raise PermissionDenied
-    asignacion = _asignacion_propia(profesor, pk)
+    return respuesta_de_guardado(request, _asignacion_propia(profesor, pk))
+
+
+def respuesta_de_guardado(request, asignacion, puede_justificar=False, ver_justificaciones=False):
+    """Guarda el estado de una celda de la materia (lo que pide el POST) y responde JSON con la celda ya guardada, o
+    con el motivo por el que no se guardó y lo que está guardado. Los dos últimos parámetros, como en
+    `contexto_de_matriz`."""
     try:
         fecha = date.fromisoformat(request.POST.get('fecha', ''))
     except ValueError:
@@ -213,22 +274,30 @@ def docente_guardar(request, pk):
     try:
         celda = guardar_cambio(
             asignacion, inscripcion, fecha, estado, request.POST.get('version', ''), request.user,
-            observaciones=request.POST.get('observaciones', ''),
+            observaciones=request.POST.get('observaciones', ''), puede_justificar=puede_justificar,
         )
     except CambioRechazado as error:
         datos = {'ok': False, 'mensaje': error.mensaje}
-        if inscripcion.grupo_id == asignacion.grupo_id:
-            datos.update(_celda_json(celda_de(asignacion, inscripcion, fecha, request.user)))   # lo que está guardado
+        if inscripcion.grupo_id == asignacion.grupo_id:   # lo que está guardado
+            guardada = celda_de(asignacion, inscripcion, fecha, request.user, puede_justificar=puede_justificar)
+            datos.update(celda_json(guardada, ver_justificaciones))
         return JsonResponse(datos, status=error.codigo)
     explicacion = f' ({celda.observaciones})' if celda.observaciones else ''
     return JsonResponse({
-        'ok': True, **_celda_json(celda),
+        'ok': True, **celda_json(celda, ver_justificaciones),
         'mensaje': f'Guardado: {inscripcion.alumno} · {fecha:%d/%m} · {NOMBRES.get(celda.letra, celda.nombre)}{explicacion}.',
     })
 
 
-def _celda_json(celda):
-    return {
+def celda_json(celda, ver_justificacion=False):
+    """Una celda para el JavaScript de la matriz. Con `ver_justificacion` (solo la administración), en una J también lo
+    que se ve de su justificación."""
+    if ver_justificacion and celda.justificacion is not None:
+        _justificacion_a_la_vista(celda)
+    datos = {
         'letra': celda.letra, 'nombre': celda.nombre, 'clase': celda.clase, 'version': celda.version,
-        'editable': celda.editable, 'observaciones': celda.observaciones,
+        'editable': celda.editable, 'observaciones': celda.observaciones, 'justificable': celda.justificable,
     }
+    if ver_justificacion:
+        datos['justificacion'] = justificacion_json(celda.justificacion) if celda.justificacion is not None else None
+    return datos

@@ -1,0 +1,17 @@
+{# Todas las materias del ciclo, para _matriz_filtros.html: primero el grupo y luego una de sus materias #}
+<div class="filters__field">
+  <label class="field__label" for="grupo">Grupo</label>
+  <select class="field__control field__control--select" id="grupo" name="grupo" data-elegir-grupo>
+    {% for grupo in grupos %}
+      <option value="{{ grupo.pk }}"{% if grupo.pk == asignacion.grupo_id %} selected{% endif %}>{{ grupo }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="filters__field">
+  <label class="field__label" for="materia">Materia</label>
+  <select class="field__control field__control--select" id="materia" name="materia" data-elegir-materia>
+    {% for opcion in materias_del_grupo %}
+      <option value="{{ opcion.pk }}"{% if opcion.pk == asignacion.pk %} selected{% endif %}>{{ opcion.materia }}</option>
+    {% endfor %}
+  </select>
+</div>

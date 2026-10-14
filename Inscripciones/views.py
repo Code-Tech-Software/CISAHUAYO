@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from Alumnos.academico import alumnos_sin_inscribir, ciclo_actual, grupos_del_grado, motivo_no_inscribible, siguiente_grado
+from Alumnos.academico import alumnos_sin_inscribir, ciclo_actual, grupos_del_grado, motivo_no_inscribible, siguiente_grado, sugerir_ciclo
 from Alumnos.models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
@@ -254,10 +254,31 @@ def _grupos_de_destino(activos):
 
 
 def _sugerir_ciclos(ciclos):
-    """Origen y destino propuestos: del ciclo actual al próximo que empiece primero."""
+    """Origen y destino propuestos: del ciclo actual al próximo que empiece primero; si todavía no hay un próximo, del
+    ciclo anterior con estudiantes inscritos al actual (el inicio de un ciclo que ya empezó)."""
+    actual = ciclo_actual()
+    if actual is None:
+        return None, None
     proximos = sorted((c for c in ciclos if c.estado == 'PROXIMO'), key=lambda c: c.fecha_inicio)
-    origen = ciclo_actual()
-    return (origen, proximos[0]) if origen and proximos else (None, None)
+    if proximos:
+        return actual, proximos[0]
+    anterior = (
+        CicloEscolar.objects.filter(fecha_inicio__lt=actual.fecha_inicio, inscripciones__activa=True)
+        .distinct().order_by('-fecha_inicio').first()
+    )
+    return (anterior, actual) if anterior else (None, None)
+
+
+def _sin_destino(ciclos, destinos):
+    """Por qué no se puede reinscribir (o None si sí): sin ciclos, con un solo ciclo (falta el otro: se reinscribe de
+    un ciclo a otro) o sin un ciclo actual ni próximo hacia el cual reinscribir."""
+    if not ciclos:
+        return 'SIN_CICLOS'
+    if len(ciclos) == 1:
+        return 'UN_CICLO'
+    if not destinos.exists():
+        return 'SIN_DESTINO'
+    return None
 
 
 @requiere_permisos('Alumnos.add_inscripcion')
@@ -275,6 +296,7 @@ def inscripcion_promocion(request):
     if datos.get('origen') or datos.get('destino'):
         datos['fecha'] = datos.get('fecha') or timezone.localdate().isoformat()  # se muestra la de hoy
     form = PromocionForm(datos or None)
+    sin_destino = _sin_destino(ciclos, form.fields['destino'].queryset)
     plan = activos = origen = destino = None
     if form.is_bound and form.is_valid():
         origen, destino = form.cleaned_data['origen'], form.cleaned_data['destino']
@@ -288,7 +310,10 @@ def inscripcion_promocion(request):
         'grupos_destino': _grupos_de_destino(activos) if activos else [],
         'total_a_reinscribir': sum(fila['cantidad'] for fila in plan) if plan else 0,
         # Hace falta un ciclo de destino (actual o próximo) distinto al de origen, o sea, al menos dos ciclos
-        'hay_destinos': form.fields['destino'].queryset.exists() and len(ciclos) > 1,
+        'hay_destinos': sin_destino is None,
+        'sin_destino': sin_destino,
+        'unico': ciclos[0] if sin_destino == 'UN_CICLO' else None,
+        'ciclo_siguiente': sugerir_ciclo()['nombre'] if sin_destino == 'UN_CICLO' else '',
         'puede_egresar': request.user.has_perm('Alumnos.change_alumno'),
     })
 

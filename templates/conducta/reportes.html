@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Reportes de conducta | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reportes de conducta</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reportes de conducta</h1>
+      <p class="page-header__description">De todo el colegio o de un nivel, grado, grupo o estudiante. Las fechas son las del hecho; con un periodo se usan sus fechas (y, si además eliges un rango, solo los días en común). Lo que ves es lo que se imprime y se exporta.</p>
+    </div>
+    <div class="page-header__actions">
+      <a class="btn btn--sm" href="{{ url_imprimir }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir</a>
+      <a class="btn btn--sm" href="{{ url_pdf }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+      <a class="btn btn--primary btn--sm" href="{{ url_excel }}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Excel</a>
+    </div>
+  </header>
+
+  <form class="filters filtros-conducta" method="get" role="search" aria-label="Filtros del reporte" data-filtros-conducta>
+    {% include "conducta/_filtros.html" with principal="conducta/_filtros_principales_reporte.html" limpiar=request.path %}
+  </form>
+
+  <article class="card conducta-reporte">
+    <header class="conducta-reporte__encabezado">
+      <div>
+        <p class="text-muted conducta-reporte__colegio">Colegio Interamericano de Sahuayo</p>
+        <h2 class="conducta-reporte__titulo">Reporte de conducta <span>· {{ contenido.subtitulo }}</span></h2>
+      </div>
+      <p class="text-muted conducta-reporte__generado">Vista previa · {{ contenido.generado|date:"d/m/Y H:i" }} · {{ contenido.usuario }}</p>
+    </header>
+    <dl class="conducta-reporte__filtros">
+      {% for nombre, valor in contenido.filtros %}<div><dt>{{ nombre }}</dt><dd>{{ valor }}</dd></div>{% endfor %}
+    </dl>
+    <div class="conducta-reporte__cuerpo">
+      {% include "conducta/_reporte_contenido.html" %}
+    </div>
+  </article>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/conducta.js' %}" defer></script>
+{% endblock %}

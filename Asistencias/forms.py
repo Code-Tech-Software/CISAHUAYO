@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 
-from Alumnos.asistencias import ciclo_de_fecha, dias_de_clases
+from Alumnos.asistencias import NIVELES, ciclo_de_fecha, dias_de_clases
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import (
     Alumno,
@@ -16,8 +16,8 @@ from Alumnos.models import (
     Grado,
     Inscripcion,
     Justificacion,
+    LimiteEntradaNivel,
     MateriaGrado,
-    Profesor,
 )
 
 FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
@@ -28,6 +28,7 @@ EXTENSIONES_COMPROBANTE = ('pdf', 'jpg', 'jpeg', 'png', 'webp')
 TAMANO_MAXIMO_MB = 5
 DIAS_MAXIMOS_JUSTIFICACION = 60
 DIAS_MAXIMOS_SIN_CLASES = 120
+TODOS_LOS_NIVELES = 'TODOS'
 
 
 def _activos(formulario):
@@ -60,6 +61,7 @@ class FiltroDiaForm(EstiloCamposMixin, forms.Form):
         ('RETARDO', 'Con retardo'),
         ('FALTA', 'Faltas'),
         ('SIN_REGISTRO', 'Sin entrada'),
+        ('SUSPENDIDO', 'Suspendidos'),
     ]
 
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
@@ -70,24 +72,6 @@ class FiltroDiaForm(EstiloCamposMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['grado'].queryset = Grado.objects.academicos()
-        self.aplicar_estilo()
-
-    @property
-    def activos(self):
-        return _activos(self)
-
-
-# ---------------------------------------------------------------------------
-# Pase de lista
-# ---------------------------------------------------------------------------
-class FiltroClasesForm(EstiloCamposMixin, forms.Form):
-    profesor = forms.ModelChoiceField(Profesor.objects.none(), required=False, empty_label='Todos los profesores', label='Profesor')
-    grado = forms.ModelChoiceField(Grado.objects.none(), required=False, empty_label='Todos los grados', label='Grado')
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['profesor'].queryset = Profesor.objects.filter(estatus='ACTIVO')
         self.fields['grado'].queryset = Grado.objects.academicos()
         self.aplicar_estilo()
 
@@ -230,13 +214,15 @@ class JustificacionForm(_AlcanceMixin, EstiloCamposMixin, forms.Form):
             self.add_error('fecha_hasta', f'Justifica como máximo {DIAS_MAXIMOS_JUSTIFICACION} días a la vez.')
             return datos
 
-        fechas = dias_de_clases(desde, hasta, ciclo)
+        fechas = dias_de_clases(desde, hasta, ciclo, inscripcion.grado.nivel)
         if not fechas:
             self.add_error('fecha_desde', 'Ese día no es de clases (fin de semana o día sin clases).' if desde == hasta else 'Ningún día de ese rango es de clases.')
             return datos
 
+        # (las de una sola falta, hechas desde la asistencia por materia, no impiden justificar el día)
         ya_justificadas = set(
-            Justificacion.objects.filter(inscripcion=inscripcion, fecha__in=fechas, activa=True).values_list('fecha', flat=True)
+            Justificacion.objects.filter(inscripcion=inscripcion, fecha__in=fechas, activa=True, asistencia__isnull=True)
+            .values_list('fecha', flat=True)
         )
         if desde == hasta and ya_justificadas:
             self.add_error('fecha_desde', 'Ese día ya tiene una justificación vigente. Edítala desde la lista de justificaciones.')
@@ -294,7 +280,65 @@ class JustificacionEdicionForm(_AlcanceMixin, EstiloCamposMixin, forms.Form):
     def clean(self):
         datos = super().clean()
         self._validar_alcance(datos)
+        self._validar_falta(datos)
         return datos
+
+    def _validar_falta(self, datos):
+        """La justificación de una falta (hecha desde la asistencia por materia) sigue cubriendo esa materia y conserva
+        su comprobante: se puede reemplazar, pero no quitar."""
+        falta = self.justificacion.asistencia
+        if falta is None:
+            return
+        if datos.get('quitar_documento') and not datos.get('documento'):
+            self.add_error('quitar_documento', 'Esta justificación se registró desde la falta y su comprobante es obligatorio: puedes reemplazarlo, pero no quitarlo.')
+        modo, materias = datos.get('materias_modo'), datos.get('materias') or []
+        if modo == 'NINGUNA' or (modo == 'ALGUNAS' and falta.materia_grado not in materias):
+            self.add_error('materias_modo', f'Esta justificación se registró desde la falta de {falta.materia_grado.materia}: debe seguir cubriéndola.')
+
+
+# ---------------------------------------------------------------------------
+# Justificar una falta desde la asistencia por materia (con la foto del comprobante)
+# ---------------------------------------------------------------------------
+EXTENSIONES_FOTO = ('jpg', 'jpeg', 'png', 'webp')
+FORMATOS_FOTO = ('JPEG', 'PNG', 'WEBP')
+
+
+class JustificarFaltaForm(forms.Form):
+    """La falta (estudiante y día; la materia va en la dirección), el motivo y la foto obligatoria del comprobante."""
+
+    inscripcion = forms.IntegerField(error_messages={'required': 'Falta el estudiante.', 'invalid': 'Falta el estudiante.'})
+    fecha = forms.DateField(input_formats=['%Y-%m-%d'], error_messages={'required': 'Falta la fecha.', 'invalid': 'La fecha no es válida.'})
+    version = forms.CharField(required=False)
+    motivo = forms.CharField(
+        min_length=3, max_length=1000,
+        error_messages={
+            'required': 'Escribe el motivo de la justificación.',
+            'min_length': 'Escribe el motivo de la justificación (al menos 3 letras).',
+            'max_length': 'El motivo es muy largo: hasta 1000 caracteres.',
+        },
+    )
+    comprobante = forms.ImageField(error_messages={
+        'required': 'Sube la fotografía del comprobante: sin ella no se puede justificar la falta.',
+        'empty': 'La fotografía llegó vacía: vuelve a elegirla.',
+        'invalid': 'No se recibió la fotografía: vuelve a elegirla.',
+        'invalid_image': 'Ese archivo no es una fotografía válida o está dañado: elige una imagen JPG, PNG o WEBP.',
+    })
+
+    def clean_motivo(self):
+        motivo = ' '.join(self.cleaned_data.get('motivo', '').split())
+        if len(motivo) < 3:
+            raise ValidationError('Escribe el motivo de la justificación (al menos 3 letras).')
+        return motivo
+
+    def clean_comprobante(self):
+        foto = self.cleaned_data.get('comprobante')
+        extension = foto.name.rsplit('.', 1)[-1].lower() if '.' in foto.name else ''
+        formato = getattr(getattr(foto, 'image', None), 'format', None)
+        if extension not in EXTENSIONES_FOTO or formato not in FORMATOS_FOTO:
+            raise ValidationError('El comprobante debe ser una fotografía JPG, PNG o WEBP.')
+        if foto.size > TAMANO_MAXIMO_MB * 1024 * 1024:
+            raise ValidationError(f'La fotografía no debe pasar de {TAMANO_MAXIMO_MB} MB.')
+        return foto
 
 
 class FiltroJustificacionesForm(EstiloCamposMixin, forms.Form):
@@ -391,24 +435,50 @@ class ConfiguracionForm(EstiloCamposMixin, forms.ModelForm):
             'cierre_automatico': forms.CheckboxInput(),
         }
         help_texts = {
-            'hora_entrada': 'Quien registra su entrada después de esta hora más la tolerancia queda con retardo.',
-            'tolerancia_minutos': 'Minutos de gracia después de la hora de entrada y del inicio de cada clase.',
+            'hora_entrada': 'Para los niveles sin hora límite propia: quien entra después de esta hora más la tolerancia queda con retardo.',
+            'tolerancia_minutos': 'Minutos de gracia después de la hora de entrada general y del inicio de cada clase.',
             'cierre_automatico': 'Con la primera entrada de la mañana se generan las faltas de los días anteriores que sigan abiertos.',
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # La hora límite de entrada de cada nivel (pedido del 2026-10-14): después de ella, retardo en la entrada y falta
+        # en la primera clase del día. Vacía = la regla general
+        limites = dict(LimiteEntradaNivel.objects.values_list('nivel', 'hora_limite'))
+        for nivel, nombre in Grado.NIVEL_CHOICES:
+            self.fields[f'limite_{nivel}'] = forms.TimeField(
+                required=False, label=nombre, widget=HORA, initial=limites.get(nivel),
+                error_messages={'invalid': 'Escribe una hora válida.'},
+            )
         self.aplicar_estilo()
+
+    def campos_de_limite(self):
+        return [self[f'limite_{nivel}'] for nivel, _ in Grado.NIVEL_CHOICES]
+
+    def save(self, commit=True):
+        configuracion = super().save(commit=commit)
+        for nivel, _ in Grado.NIVEL_CHOICES:
+            hora = self.cleaned_data.get(f'limite_{nivel}')
+            if hora:
+                LimiteEntradaNivel.objects.update_or_create(nivel=nivel, defaults={'hora_limite': hora})
+            else:
+                LimiteEntradaNivel.objects.filter(nivel=nivel).delete()
+        return configuracion
 
 
 class DiaNoLectivoForm(EstiloCamposMixin, forms.Form):
-    """Un día sin clases o un periodo (vacaciones, suspensión)."""
+    """Un día sin clases o un periodo (vacaciones, suspensión) de los niveles elegidos («Todos los niveles», los cuatro)."""
 
     desde = forms.DateField(label='Fecha', widget=FECHA, error_messages={'required': 'Indica la fecha.', 'invalid': 'Escribe una fecha válida.'})
     hasta = forms.DateField(required=False, label='Hasta (opcional)', widget=FECHA, error_messages={'invalid': 'Escribe una fecha válida.'},
                             help_text='Para un periodo, por ejemplo vacaciones.')
     motivo = forms.CharField(label='Motivo', max_length=120, widget=forms.TextInput(attrs={'placeholder': 'Consejo técnico, vacaciones, puente…'}),
                              error_messages={'required': 'Escribe el motivo.'})
+    niveles = forms.MultipleChoiceField(
+        label='Niveles sin clases', choices=[(TODOS_LOS_NIVELES, 'Todos los niveles'), *Grado.NIVEL_CHOICES],
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'choice__input'}),
+        error_messages={'required': 'Elige qué niveles no tendrán clases (o «Todos los niveles»).', 'invalid_choice': 'Elige niveles de la lista.'},
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -416,6 +486,10 @@ class DiaNoLectivoForm(EstiloCamposMixin, forms.Form):
 
     def clean_motivo(self):
         return ' '.join(self.cleaned_data.get('motivo', '').split())
+
+    def clean_niveles(self):
+        elegidos = self.cleaned_data['niveles']
+        return list(NIVELES) if TODOS_LOS_NIVELES in elegidos else [nivel for nivel in NIVELES if nivel in elegidos]
 
     def clean(self):
         datos = super().clean()
@@ -427,11 +501,14 @@ class DiaNoLectivoForm(EstiloCamposMixin, forms.Form):
             self.add_error('hasta', 'La fecha final no puede ser anterior a la inicial.')
         elif (hasta - desde).days >= DIAS_MAXIMOS_SIN_CLASES:
             self.add_error('hasta', f'Registra como máximo {DIAS_MAXIMOS_SIN_CLASES} días a la vez.')
-        else:
-            existentes = set(DiaNoLectivo.objects.filter(fecha__range=(desde, hasta)).values_list('fecha', flat=True))
+        elif datos.get('niveles'):
+            # Lo que ya estaba registrado (esa fecha en ese nivel) se respeta con su motivo
+            existentes = set(DiaNoLectivo.objects.filter(fecha__range=(desde, hasta)).values_list('fecha', 'nivel'))
             todos = [desde + timedelta(days=i) for i in range((hasta - desde).days + 1)]
-            nuevos = [fecha for fecha in todos if fecha not in existentes]
+            nuevos = [(fecha, nivel) for fecha in todos for nivel in datos['niveles'] if (fecha, nivel) not in existentes]
             if not nuevos:
-                self.add_error('desde', 'Ese día ya está registrado como día sin clases.' if desde == hasta else 'Todos esos días ya están registrados.')
-            datos['fechas'] = nuevos
+                self.add_error('desde', 'Ese día ya está registrado como día sin clases de esos niveles.' if desde == hasta
+                               else 'Todos esos días ya están registrados para esos niveles.')
+            datos['nuevos'] = nuevos
+            datos['fechas'] = sorted({fecha for fecha, _ in nuevos})
         return datos

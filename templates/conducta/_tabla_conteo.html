@@ -1,0 +1,11 @@
+{# Tabla de (nombre, total). Parámetros: columna y datos #}
+{% if datos %}
+  <table class="reporte__tabla conducta-conteo">
+    <thead><tr><th scope="col">{{ columna }}</th><th scope="col">Registros</th></tr></thead>
+    <tbody>
+      {% for nombre, total in datos %}<tr><td>{{ nombre }}</td><td class="conducta-num">{{ total }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="text-muted">Sin datos.</p>
+{% endif %}

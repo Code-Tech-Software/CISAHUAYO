@@ -1,0 +1,23 @@
+{% comment %}
+  Acciones de un elemento de catálogo: editar (ventana), activar o desactivar, y eliminar solo si nunca se usó.
+  Parámetros: elemento (con url_editar, url_estado, url_eliminar y usos), puede (crear/editar/eliminar).
+{% endcomment %}
+<div class="conducta-config__acciones">
+  {% if puede.editar %}
+    <a class="btn btn--ghost btn--icon btn--sm" href="{{ elemento.url_editar }}" aria-label="Editar «{{ elemento.nombre }}»" data-tooltip="Editar" data-modal-form>
+      {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
+    </a>
+    <form method="post" action="{{ elemento.url_estado }}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--ghost btn--sm" aria-label="{% if elemento.activo %}Desactivar{% else %}Activar{% endif %} «{{ elemento.nombre }}»">{% if elemento.activo %}Desactivar{% else %}Activar{% endif %}</button>
+    </form>
+  {% endif %}
+  {% if puede.eliminar and not elemento.usos %}
+    <form method="post" action="{{ elemento.url_eliminar }}" data-confirmar="¿Eliminar «{{ elemento.nombre }}»? Nunca se ha usado, así que se borra por completo." data-confirmar-boton="Eliminar">
+      {% csrf_token %}
+      <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Eliminar «{{ elemento.nombre }}»" data-tooltip="Eliminar">
+        {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+      </button>
+    </form>
+  {% endif %}
+</div>

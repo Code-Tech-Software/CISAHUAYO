@@ -38,6 +38,11 @@ class Rol(models.Model):
         'rol para docentes', default=False,
         help_text='Las cuentas con este rol son de profesores: al crearlas se registra o se vincula su ficha de profesor.',
     )
+    es_prefectura = models.BooleanField(
+        'rol de prefectura', default=False,
+        help_text='Las cuentas con este rol solo ven a los estudiantes de los niveles o grupos que se les asignen (o de todo '
+                  'el colegio, si se concede expresamente). Sin alcance asignado no ven a ningún estudiante.',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -68,6 +73,12 @@ class PerfilUsuario(models.Model):
     )
     tema = models.CharField('tema de color', max_length=20, choices=temas.opciones, default=temas.PREDETERMINADO)
     menu_lateral = models.CharField('menú lateral', max_length=10, choices=temas.MENUS, default=temas.MENU_CLARO)
+    # Dirección de nivel (pedido del 2026-10-14): quien puede aprobar suspensiones y medidas solo resuelve las de los
+    # niveles que dirige (el administrador, todas)
+    niveles_direccion = models.JSONField(
+        'niveles que dirige', default=list, blank=True,
+        help_text='Autoriza las suspensiones y medidas de estos niveles (si su rol tiene el permiso de aprobar).',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

@@ -16,32 +16,35 @@ from django.views.decorators.http import require_GET, require_POST
 
 from Alumnos.academico import elegir_ciclo
 from Alumnos.asistencias import (
-    ESTADOS,
     EntradaRechazada,
     asistencia_editable,
+    aviso_de_niveles_sin_clases,
     buscar_alumno,
     cerrar_dia,
     cerrar_dias_pendientes,
     ciclo_de_fecha,
     cierre_automatico_del_dia,
-    clases_por_grupo,
     con_justificada_general,
     con_justificada_materia,
     conteos,
     dias_de_clases,
     dias_pendientes_de_cierre,
+    dias_sin_clases_registrados,
     fijar_asistencia_general,
-    guardar_pase_de_lista,
     inscripciones_del_dia,
     motivo_sin_clases,
     porcentaje,
+    alumnos_suspendidos,
     registrar_entrada,
+    sin_dias_suspendidos,
+    suspensiones_del_dia,
     resumen_del_dia,
+    texto_de_niveles,
 )
 from Alumnos.models import (
-    ORDEN_NIVELES,
     Alumno,
     AsistenciaGeneral,
+    CambioJustificacion,
     AsistenciaMateria,
     CicloEscolar,
     CierreDia,
@@ -54,15 +57,15 @@ from Alumnos.models import (
 )
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
-from CISAHUAYO.permisos import requiere_permisos
+from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro
+from Conducta.permisos import puede_configurar
 
 from .forms import (
     UMBRAL_ASISTENCIA,
     AsistenciaDiaForm,
     ConfiguracionForm,
     DiaNoLectivoForm,
-    FiltroClasesForm,
     FiltroDiaForm,
     FiltroJustificacionesForm,
     FiltroReporteForm,
@@ -109,10 +112,6 @@ def _texto_de_fecha(fecha):
     return date_format(fecha, 'j \\d\\e F \\d\\e Y').lower()
 
 
-def _orden_de_grado(grado):
-    return (ORDEN_NIVELES.index(grado.nivel) if grado.nivel in ORDEN_NIVELES else len(ORDEN_NIVELES), grado.numero)
-
-
 def _plural(cantidad, singular, plural=None):
     return f'{cantidad} {singular if cantidad == 1 else (plural or singular + "s")}'
 
@@ -139,6 +138,7 @@ def inicio(request):
         'seccion': 'inicio',
         'ciclo': ciclo,
         'motivo': motivo,
+        'aviso_niveles': aviso_de_niveles_sin_clases(fecha) if ciclo and not motivo else None,
         'resumen': resumen,
         'total': total,
         'porcentaje_entrada': round(100 * total['entraron'] / total['inscritos']) if total and total['inscritos'] else 0,
@@ -203,7 +203,7 @@ def _estado_del_kiosco(fecha):
     entraron (el único nombre que se muestra es el de quien acaba de escanear, en su propio resultado).
     """
     ciclo = ciclo_de_fecha(fecha)
-    inscripciones = inscripciones_del_dia(fecha, ciclo)
+    inscripciones = inscripciones_del_dia(fecha, ciclo).exclude(alumno__in=alumnos_suspendidos(fecha))   # los suspendidos no entran
     ahora = timezone.localtime()
     return {
         'fecha': fecha.isoformat(),
@@ -223,6 +223,7 @@ def kiosco(request):
     return render(request, 'asistencias/kiosco.html', {
         'hoy': hoy,
         'motivo': motivo_sin_clases(hoy, exigir_actual=True),
+        'aviso_niveles': aviso_de_niveles_sin_clases(hoy),
         'estado': _estado_del_kiosco(hoy),
         'configuracion': ConfiguracionAsistencia.cargar(),
     })
@@ -307,10 +308,13 @@ def dia(request):
         if datos.get('grado'):
             inscripciones = inscripciones.filter(grado=datos['grado'])
         estado = datos.get('estado')
-        if estado == 'SIN_REGISTRO':
-            inscripciones = inscripciones.exclude(asistencias_generales__fecha=fecha)
+        suspendidos = alumnos_suspendidos(fecha)   # con suspensión autorizada: no cuentan como faltas ni como sin entrada
+        if estado == 'SUSPENDIDO':
+            inscripciones = inscripciones.filter(alumno__in=suspendidos)
+        elif estado == 'SIN_REGISTRO':
+            inscripciones = inscripciones.exclude(asistencias_generales__fecha=fecha).exclude(alumno__in=suspendidos)
         elif estado:
-            inscripciones = inscripciones.filter(asistencias_generales__fecha=fecha, asistencias_generales__estado=estado)
+            inscripciones = inscripciones.filter(asistencias_generales__fecha=fecha, asistencias_generales__estado=estado).exclude(alumno__in=suspendidos)
         inscripciones = inscripciones.order_by(orden_de_nivel('grado__nivel'), 'grado__numero', *_orden_de_alumnos())
 
         pagina, rango_paginas, por_pagina = paginar(request, inscripciones)
@@ -322,9 +326,11 @@ def dia(request):
                 total=Count('pk'), asistidas=Count('pk', filter=Q(estado__in=('PRESENTE', 'RETARDO'))), faltas=Count('pk', filter=Q(estado='FALTA')),
             )
         }
+        suspensiones = suspensiones_del_dia(fecha, [inscripcion.alumno_id for inscripcion in pagina])
         for inscripcion in pagina:
             inscripcion.general = generales.get(inscripcion.pk)
             inscripcion.materias = materias.get(inscripcion.pk)
+            inscripcion.suspension = suspensiones.get(inscripcion.alumno_id)
         resumen = resumen_del_dia(fecha, ciclo)
         total = resumen['total']
         if datos.get('grado'):
@@ -335,6 +341,7 @@ def dia(request):
         'seccion': 'dia',
         'ciclo': ciclo,
         'motivo': motivo,
+        'aviso_niveles': aviso_de_niveles_sin_clases(fecha) if ciclo and not motivo else None,
         'filtro': filtro,
         'filtros_activos': datos,
         'pagina': pagina,
@@ -379,140 +386,6 @@ def dia_guardar(request):
     )
     messages.success(request, f'Se guardó la asistencia de {inscripcion.alumno}: {ESTADO_TEXTO[datos["estado"]].lower()}.')
     return redirect(destino)
-
-
-# ---------------------------------------------------------------------------
-# Pase de lista por materia (profesores)
-# ---------------------------------------------------------------------------
-@requiere_permisos('Alumnos.view_asistenciamateria')
-def clases(request):
-    hoy = timezone.localdate()
-    fecha = min(_fecha(request.GET.get('fecha'), hoy), hoy)
-    ciclo = ciclo_de_fecha(fecha)
-    motivo = motivo_sin_clases(fecha, ciclo)
-    filtro = FiltroClasesForm(request.GET)
-    datos = filtro.activos
-
-    filas = []
-    if ciclo and not motivo:
-        filtros = {}
-        if datos.get('profesor'):
-            filtros['materia_grado__profesor'] = datos['profesor']
-        if datos.get('grado'):
-            filtros['materia_grado__grado'] = datos['grado']
-        todas = [clase for lista in clases_por_grupo(ciclo, fecha, **filtros).values() for clase in lista]
-        inscritos = dict(inscripciones_del_dia(fecha, ciclo).order_by().values_list('grupo_id').annotate(total=Count('pk')))
-        estadisticas = {
-            fila['materia_grado_id']: fila
-            for fila in AsistenciaMateria.objects.filter(fecha=fecha, materia_grado__in=[c.pk for c in todas]).order_by().values('materia_grado_id').annotate(
-                presentes=Count('pk', filter=Q(estado='PRESENTE')), retardos=Count('pk', filter=Q(estado='RETARDO')),
-                faltas=Count('pk', filter=Q(estado='FALTA')), confirmadas=Count('pk', filter=Q(origen='PASE')),
-            )
-        }
-        for clase in sorted(todas, key=lambda c: (c.inicio, _orden_de_grado(c.asignacion.grado), c.asignacion.grupo.nombre.orden, c.asignacion.materia.nombre)):
-            datos_clase = estadisticas.get(clase.pk, {})
-            total = inscritos.get(clase.asignacion.grupo_id, 0)
-            registrados = sum(datos_clase.get(clave, 0) for clave in ('presentes', 'retardos', 'faltas'))
-            filas.append({
-                'clase': clase, 'asignacion': clase.asignacion, 'inscritos': total,
-                'presentes': datos_clase.get('presentes', 0), 'retardos': datos_clase.get('retardos', 0), 'faltas': datos_clase.get('faltas', 0),
-                'sin_registro': max(total - registrados, 0), 'confirmada': bool(datos_clase.get('confirmadas')),
-            })
-
-    return render(request, 'asistencias/clases.html', {
-        **_navegacion_de_fecha(fecha, hoy),
-        'seccion': 'clases',
-        'ciclo': ciclo,
-        'motivo': motivo,
-        'filtro': filtro,
-        'filtros_activos': datos,
-        'filas': filas,
-        'editable': bool(ciclo and not motivo and asistencia_editable(fecha)),
-    })
-
-
-@requiere_permisos('Alumnos.view_asistenciamateria')
-def clase(request, pk):
-    asignacion = get_object_or_404(MateriaGrado.objects.select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado', 'ciclo', 'profesor'), pk=pk)
-    hoy = timezone.localdate()
-    origen = request.POST if request.method == 'POST' else request.GET
-    fecha = min(_fecha(origen.get('fecha'), hoy), hoy)
-    ciclo = asignacion.ciclo
-    if ciclo.fecha_inicio <= fecha <= ciclo.fecha_fin:
-        motivo = motivo_sin_clases(fecha, ciclo, exigir_actual=True)
-    else:
-        motivo = f'Ese día queda fuera de las fechas del ciclo {ciclo}.'
-    editable = motivo is None and asistencia_editable(fecha) and asignacion.activa
-
-    inscripciones = list(
-        inscripciones_del_dia(fecha, ciclo, grupo=asignacion.grupo).select_related('alumno').order_by(*_orden_de_alumnos())
-    )
-
-    if request.method == 'POST':
-        if not request.user.has_perm('Alumnos.change_asistenciamateria'):
-            raise PermissionDenied
-        volver = f"{reverse('asistencias:clases')}?fecha={fecha:%Y-%m-%d}"
-        if not editable:
-            messages.error(request, motivo or 'Esta materia ya no se imparte en el grado: su lista no se modifica.')
-            return redirect(volver)
-        filas = []
-        for inscripcion in inscripciones:
-            estado = request.POST.get(f'estado_{inscripcion.pk}')
-            if estado in ESTADOS:
-                observaciones = ' '.join(request.POST.get(f'obs_{inscripcion.pk}', '').split())[:250]
-                filas.append((inscripcion, estado, observaciones))
-        if not filas:
-            messages.error(request, 'No había estudiantes a quienes pasar lista.')
-            return redirect(volver)
-        guardar_pase_de_lista(asignacion, fecha, filas, usuario=request.user)
-        cuenta = defaultdict(int)
-        for _, estado, _ in filas:
-            cuenta[estado] += 1
-        messages.success(
-            request,
-            f'Se guardó la lista de {asignacion.materia} ({asignacion.grado}): {_plural(cuenta["PRESENTE"], "presente")}, '
-            f'{_plural(cuenta["RETARDO"], "retardo")} y {_plural(cuenta["FALTA"], "falta")}.',
-        )
-        return redirect(volver)
-
-    ids = [inscripcion.pk for inscripcion in inscripciones]
-    generales = {g.inscripcion_id: g for g in AsistenciaGeneral.objects.filter(fecha=fecha, inscripcion__in=ids)}
-    registros = {r.inscripcion_id: r for r in AsistenciaMateria.objects.filter(fecha=fecha, materia_grado=asignacion, inscripcion__in=ids).select_related('registrado_por')}
-    justificaciones = {
-        j.inscripcion_id: j
-        for j in Justificacion.objects.filter(activa=True, fecha=fecha, inscripcion__in=ids).prefetch_related('materias')
-    }
-    filas = []
-    for inscripcion in inscripciones:
-        general, registro, justificacion = generales.get(inscripcion.pk), registros.get(inscripcion.pk), justificaciones.get(inscripcion.pk)
-        if registro:
-            sugerido = registro.estado
-        elif general and general.estado in ('PRESENTE', 'RETARDO'):
-            sugerido = 'PRESENTE'           # entró al colegio y la clase se supone presente hasta que el profesor diga otra cosa
-        else:
-            sugerido = 'FALTA'
-        filas.append({
-            'inscripcion': inscripcion, 'alumno': inscripcion.alumno, 'general': general, 'registro': registro, 'sugerido': sugerido,
-            'sin_entrada': general is None or general.estado == 'FALTA',
-            'justificada': bool(justificacion and (justificacion.todas_materias or any(m.pk == asignacion.pk for m in justificacion.materias.all()))),
-        })
-
-    bloques = list(asignacion.horarios.filter(dia_semana=fecha.weekday()).order_by('hora_inicio'))
-    confirmadas = [r for r in registros.values() if r.origen == 'PASE']
-    return render(request, 'asistencias/clase.html', {
-        **_navegacion_de_fecha(fecha, hoy),
-        'seccion': 'clases',
-        'asignacion': asignacion,
-        'ciclo': ciclo,
-        'motivo': motivo,
-        'editable': editable,
-        'filas': filas,
-        'bloques': bloques,
-        'confirmada': bool(confirmadas),
-        'confirmada_por': next((r.registrado_por for r in confirmadas if r.registrado_por), None),
-        'estados': ESTADOS_EN_ORDEN,
-        'se_imparte': bool(bloques),
-    })
 
 
 # ---------------------------------------------------------------------------
@@ -680,8 +553,10 @@ def justificacion_anular(request, pk):
     if not justificacion.inscripcion.ciclo.activo:
         messages.error(request, f'El ciclo {justificacion.inscripcion.ciclo} no es el ciclo actual: sus justificaciones ya no se modifican.')
     elif justificacion.activa:
-        justificacion.activa = False
-        justificacion.save(update_fields=['activa', 'modificado'])
+        justificacion.activa, justificacion.revocada_por, justificacion.revocada_en = False, request.user, timezone.now()
+        justificacion.save(update_fields=['activa', 'revocada_por', 'revocada_en', 'modificado'])
+        CambioJustificacion.objects.create(justificacion=justificacion, accion=CambioJustificacion.REVOCADA, usuario=request.user,
+                                           motivo='Anulada desde Justificaciones.')
         messages.success(request, f'Se anuló la justificación de {justificacion.inscripcion.alumno} del {_texto_de_fecha(justificacion.fecha)}. Sus faltas vuelven a contar sin justificar.')
     return redirect(destino_seguro(request, reverse('asistencias:justificaciones')))
 
@@ -693,13 +568,63 @@ def justificacion_reactivar(request, pk):
     if not justificacion.inscripcion.ciclo.activo:
         messages.error(request, f'El ciclo {justificacion.inscripcion.ciclo} no es el ciclo actual: sus justificaciones ya no se modifican.')
     elif not justificacion.activa:
-        if Justificacion.objects.filter(inscripcion=justificacion.inscripcion, fecha=justificacion.fecha, activa=True).exists():
-            messages.error(request, 'Ese día ya tiene otra justificación vigente: no se puede reactivar esta.')
+        # Una por día entre las de Justificaciones; las hechas desde una falta, una por falta
+        vigentes = Justificacion.objects.filter(activa=True)
+        if justificacion.asistencia_id:
+            otra = vigentes.filter(asistencia=justificacion.asistencia_id).exists()
+        else:
+            otra = vigentes.filter(inscripcion=justificacion.inscripcion, fecha=justificacion.fecha, asistencia__isnull=True).exists()
+        if otra:
+            messages.error(request, f'{"Esa falta" if justificacion.asistencia_id else "Ese día"} ya tiene otra justificación vigente: no se puede reactivar esta.')
         else:
             justificacion.activa = True
             justificacion.save(update_fields=['activa', 'modificado'])
+            CambioJustificacion.objects.create(justificacion=justificacion, accion=CambioJustificacion.REACTIVADA, usuario=request.user)
             messages.success(request, f'Se reactivó la justificación de {justificacion.inscripcion.alumno} del {_texto_de_fecha(justificacion.fecha)}.')
     return redirect(destino_seguro(request, reverse('asistencias:justificaciones')))
+
+
+@require_GET
+@requiere_alguno('Alumnos.view_justificacion', 'Prefectura.consultar')
+def comprobante(request, pk):
+    """El comprobante de una justificación, solo para quien puede verla: quien consulta las justificaciones o, en
+    prefectura, si el estudiante está en su alcance. Nunca se muestra la dirección del archivo en el almacenamiento."""
+    from Conducta.views import entregar_archivo
+    from Prefectura.alcance import alcance_de
+
+    justificaciones = Justificacion.objects.exclude(documento='').exclude(documento__isnull=True)
+    if not request.user.has_perm('Alumnos.view_justificacion'):
+        justificaciones = alcance_de(request.user).filtrar(justificaciones, campo='inscripcion__alumno')
+    justificacion = get_object_or_404(justificaciones, pk=pk)
+    tipo, extension = _tipo_de_comprobante(justificacion.documento)
+    return entregar_archivo(justificacion.documento, f'comprobante-{justificacion.pk}.{extension}', tipo,
+                            descargar=request.GET.get('descargar') == '1')
+
+
+_FIRMAS = ((b'\xff\xd8\xff', 'image/jpeg', 'jpg'), (b'\x89PNG', 'image/png', 'png'), (b'%PDF-', 'application/pdf', 'pdf'))
+_POR_EXTENSION = {'jpg': ('image/jpeg', 'jpg'), 'jpeg': ('image/jpeg', 'jpg'), 'png': ('image/png', 'png'),
+                  'webp': ('image/webp', 'webp'), 'pdf': ('application/pdf', 'pdf')}
+
+
+def _tipo_de_comprobante(documento):
+    """(tipo, extensión) del comprobante: por su extensión o, si no la tiene (Cloudinary guarda los archivos sin ella),
+    por sus primeros bytes. Así una foto se ve en el navegador en lugar de descargarse como un archivo desconocido."""
+    nombre = documento.name.rsplit('/', 1)[-1]
+    extension = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
+    if extension in _POR_EXTENSION:
+        return _POR_EXTENSION[extension]
+    try:
+        documento.open('rb')
+        cabecera = documento.read(16)
+        documento.seek(0)
+    except Exception:
+        return 'application/octet-stream', 'bin'
+    for firma, tipo, propia in _FIRMAS:
+        if cabecera.startswith(firma):
+            return tipo, propia
+    if cabecera[:4] == b'RIFF' and cabecera[8:12] == b'WEBP':
+        return 'image/webp', 'webp'
+    return 'application/octet-stream', 'bin'
 
 
 # ---------------------------------------------------------------------------
@@ -724,9 +649,9 @@ def _datos_del_reporte(filtro):
         .select_related('alumno').order_by(*_orden_de_alumnos())
     )
     if asignacion:
-        registros = con_justificada_materia(AsistenciaMateria.objects.filter(materia_grado=asignacion, fecha__range=(desde, hasta), inscripcion__in=inscripciones))
+        registros = con_justificada_materia(sin_dias_suspendidos(AsistenciaMateria.objects.filter(materia_grado=asignacion, fecha__range=(desde, hasta), inscripcion__in=inscripciones)))
     else:
-        registros = con_justificada_general(AsistenciaGeneral.objects.filter(fecha__range=(desde, hasta), inscripcion__in=inscripciones))
+        registros = con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(fecha__range=(desde, hasta), inscripcion__in=inscripciones)))
 
     cuenta = {
         fila['inscripcion_id']: fila
@@ -748,7 +673,7 @@ def _datos_del_reporte(filtro):
     datos.update(filas=inscripciones, total=total)
 
     if vista == 'cuadricula':
-        dias = dias_de_clases(desde, min(hasta, hoy), ciclo)
+        dias = dias_de_clases(desde, min(hasta, hoy), ciclo, grado.nivel)
         if len(dias) > DIAS_MAXIMOS_CUADRICULA:
             datos['cuadricula_posible'] = False
         else:
@@ -821,7 +746,7 @@ def alumno(request, pk):
         'resumen': None, 'pagina': None, 'por_materia': [],
     }
     if inscripcion:
-        generales = con_justificada_general(AsistenciaGeneral.objects.filter(inscripcion=inscripcion)).order_by('-fecha')
+        generales = con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(inscripcion=inscripcion))).order_by('-fecha')
         resumen = conteos(generales)
         resumen['porcentaje'] = porcentaje(resumen['presentes'], resumen['retardos'], resumen['registros'])
         resumen['sin_justificar'] = resumen['faltas'] - resumen['justificadas']
@@ -837,7 +762,7 @@ def alumno(request, pk):
 
         por_materia = []
         filas = (
-            con_justificada_materia(AsistenciaMateria.objects.filter(inscripcion=inscripcion)).order_by().values('materia_grado__materia__nombre', 'materia_grado__materia__clave')
+            con_justificada_materia(sin_dias_suspendidos(AsistenciaMateria.objects.filter(inscripcion=inscripcion))).order_by().values('materia_grado__materia__nombre', 'materia_grado__materia__clave')
             .annotate(
                 registros=Count('pk'), presentes=Count('pk', filter=Q(estado='PRESENTE')), retardos=Count('pk', filter=Q(estado='RETARDO')),
                 faltas=Count('pk', filter=Q(estado='FALTA')), justificadas=Count('pk', filter=Q(estado='FALTA', justificada=True)),
@@ -855,7 +780,7 @@ def alumno(request, pk):
 
 
 # ---------------------------------------------------------------------------
-# Ajustes: reglas de la entrada y días sin clases
+# Ajustes › Asistencia (en Ajustes, menú Sistema): reglas de la entrada y días sin clases
 # ---------------------------------------------------------------------------
 @requiere_permisos('Alumnos.view_configuracionasistencia')
 def ajustes(request):
@@ -874,11 +799,11 @@ def ajustes(request):
 
     hoy = timezone.localdate()
     return render(request, 'asistencias/ajustes.html', {
-        'seccion': 'ajustes',
+        'ajustes_seccion': 'asistencia', 'puede_configurar_conducta': puede_configurar(request.user),
         'form': form,
         'dia_form': DiaNoLectivoForm(),
-        'dias_sin_clases': DiaNoLectivo.objects.order_by('-fecha')[:120],
-        'proximos': DiaNoLectivo.objects.filter(fecha__gte=hoy).count(),
+        'dias_sin_clases': dias_sin_clases_registrados(),
+        'proximos': DiaNoLectivo.objects.filter(fecha__gte=hoy).values('fecha').distinct().count(),
         'cierres': CierreDia.objects.select_related('cerrado_por')[:8],
         'hoy': hoy,
     })
@@ -889,9 +814,11 @@ def ajustes(request):
 def dia_sin_clases_crear(request):
     form = DiaNoLectivoForm(request.POST)
     if form.is_valid():
-        fechas = form.cleaned_data['fechas']
-        DiaNoLectivo.objects.bulk_create([DiaNoLectivo(fecha=fecha, motivo=form.cleaned_data['motivo']) for fecha in fechas])
-        messages.success(request, f'Se registr{"ó" if len(fechas) == 1 else "aron"} {_plural(len(fechas), "día")} sin clases: {form.cleaned_data["motivo"]}.')
+        datos = form.cleaned_data
+        fechas = datos['fechas']
+        DiaNoLectivo.objects.bulk_create([DiaNoLectivo(fecha=fecha, nivel=nivel, motivo=datos['motivo']) for fecha, nivel in datos['nuevos']])
+        messages.success(request, f'Se registr{"ó" if len(fechas) == 1 else "aron"} {_plural(len(fechas), "día")} sin clases '
+                                  f'para {texto_de_niveles(datos["niveles"])}: {datos["motivo"]}.')
     else:
         messages.error(request, 'No se registró: ' + ' '.join(error for errores in form.errors.values() for error in errores))
     return redirect('asistencias:ajustes')
@@ -900,8 +827,11 @@ def dia_sin_clases_crear(request):
 @require_POST
 @requiere_permisos('Alumnos.delete_dianolectivo')
 def dia_sin_clases_eliminar(request, pk):
-    """Quitar un día sin clases es borrado físico a propósito: es configuración del calendario, nada depende de él."""
+    """Quita el día sin clases tal como se registró (esa fecha y ese motivo, con todos sus niveles). Es borrado físico a
+    propósito: es configuración del calendario, nada depende de él."""
     dia = get_object_or_404(DiaNoLectivo, pk=pk)
-    dia.delete()
-    messages.success(request, f'Se quitó el día sin clases del {_texto_de_fecha(dia.fecha)}.')
+    registros = DiaNoLectivo.objects.filter(fecha=dia.fecha, motivo=dia.motivo)
+    niveles = list(registros.values_list('nivel', flat=True))
+    registros.delete()
+    messages.success(request, f'Se quitó el día sin clases del {_texto_de_fecha(dia.fecha)} ({texto_de_niveles(niveles)}).')
     return redirect('asistencias:ajustes')

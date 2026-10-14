@@ -66,6 +66,14 @@
           </span>
           <input class="switch" type="checkbox" name="{{ form.es_docente.html_name }}" id="{{ form.es_docente.id_for_label }}"{% if form.es_docente.value %} checked{% endif %}>
         </label>
+        <label class="switch-row form-grid__full" for="{{ form.es_prefectura.id_for_label }}">
+          <span class="switch-row__icon">{% include "partials/icon.html" with name="clipboard-check" %}</span>
+          <span class="switch-row__text">
+            <span class="switch-row__title">Rol de prefectura</span>
+            <span class="switch-row__hint">Las cuentas con este rol solo ven a los estudiantes de los niveles o grupos que se les asignen en su ficha de usuario (todo el colegio solo si se concede expresamente). Sin alcance asignado no ven a ningún estudiante.</span>
+          </span>
+          <input class="switch" type="checkbox" name="{{ form.es_prefectura.html_name }}" id="{{ form.es_prefectura.id_for_label }}"{% if form.es_prefectura.value %} checked{% endif %}>
+        </label>
       </div>
     </section>
 

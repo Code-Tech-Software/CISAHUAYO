@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Seguimiento · Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Seguimiento</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Seguimiento</h1>
+      <p class="page-header__description">Los casos abiertos, las citas con la familia, los acuerdos y compromisos y las reincidencias por revisar. Las citas y los contactos solo se registran: el sistema no envía mensajes a la familia.</p>
+    </div>
+  </header>
+
+  <nav class="tabs__list conducta-secciones" aria-label="Seguimiento">
+    {% for clave, nombre in vistas %}
+      <a class="tabs__tab" href="?vista={{ clave }}"{% if clave == vista %} aria-current="page" aria-selected="true"{% else %} aria-selected="false"{% endif %}>{{ nombre }}</a>
+    {% endfor %}
+  </nav>
+
+  <form class="filters prefectura-filtros" method="get" role="search" aria-label="Filtrar">
+    <input type="hidden" name="vista" value="{{ vista }}">
+    <div class="filters__field prefectura-filtros__busqueda">
+      <label class="field__label" for="q">Estudiante</label>
+      <input class="field__control" id="q" type="search" name="q" value="{{ q }}" placeholder="Nombre o número de control…" autocomplete="off">
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="estado">Estado</label>
+      <select class="field__control field__control--select" id="estado" name="estado">
+        {% for clave, nombre in estados %}<option value="{{ clave }}"{% if clave == estado %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar</button>
+      <a class="btn btn--ghost btn--sm" href="?vista={{ vista }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if vista == 'reincidencias' %}
+    <p class="text-muted prefectura-nota">Criterios del administrador: {% for regla in reglas %}{{ regla.get_nivel_display }}, {{ regla.incidencias }} incidencias del mismo motivo en {{ regla.dias }} días{% if not forloop.last %}; {% endif %}{% empty %}sin configurar (Ajustes › Conducta){% endfor %}. Los avisos son para revisión: no aplican sanciones.</p>
+  {% endif %}
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">{{ pagina.paginator.count }} resultado{{ pagina.paginator.count|pluralize }}</p>
+    <div class="table-card">
+      <div class="prefectura-tabla-marco">
+        <table class="table table--people">
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Estudiante</th>
+              {% if vista == 'casos' %}
+                <th class="table__th" scope="col">Caso</th><th class="table__th" scope="col">Responsable</th><th class="table__th" scope="col">Revisión</th><th class="table__th" scope="col">Estado</th>
+              {% elif vista == 'citas' %}
+                <th class="table__th" scope="col">Cita</th><th class="table__th" scope="col">Con quién</th><th class="table__th" scope="col">Responsable</th><th class="table__th" scope="col">Estado</th>
+              {% elif vista == 'compromisos' %}
+                <th class="table__th" scope="col">Compromiso</th><th class="table__th" scope="col">Responsable</th><th class="table__th" scope="col">Fecha límite</th><th class="table__th" scope="col">Estado</th>
+              {% else %}
+                <th class="table__th" scope="col">Motivo</th><th class="table__th" scope="col">Incidencias</th><th class="table__th" scope="col">Último registro</th><th class="table__th" scope="col">Revisión</th>
+              {% endif %}
+              <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Abrir</span></th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for fila in pagina %}
+              <tr class="table__row">
+                {% if vista == 'casos' %}
+                  <td class="table__cell table__cell--main">{% include "partials/avatar.html" with persona=fila.alumno %} <span class="person__name">{{ fila.alumno }}</span></td>
+                  <td class="table__cell" data-label="Caso">{{ fila.motivo_nombre }}<span class="text-muted prefectura-sub">{{ fila.fecha|date:"d/m/Y" }} · {{ fila.grupo_texto }}</span></td>
+                  <td class="table__cell" data-label="Responsable">{% firstof fila.responsable.get_full_name fila.responsable.username "Sin responsable" %}</td>
+                  <td class="table__cell" data-label="Revisión">{{ fila.fecha_revision|date:"d/m/Y"|default:"—" }}</td>
+                  <td class="table__cell" data-label="Estado">{% include "conducta/_marca.html" with registro=fila que='estado' %}</td>
+                  <td class="table__cell table__cell--actions"><a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:detalle' fila.pk %}" aria-label="Abrir el caso de {{ fila.alumno }}" data-tooltip="Abrir">{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}</a></td>
+                {% elif vista == 'citas' %}
+                  <td class="table__cell table__cell--main">{% include "partials/avatar.html" with persona=fila.registro.alumno %} <span class="person__name">{{ fila.registro.alumno }}</span></td>
+                  <td class="table__cell" data-label="Cita">{{ fila.fecha|date:"d/m/Y" }}{% if fila.hora %} {{ fila.hora|time:"H:i" }}{% endif %}<span class="text-muted prefectura-sub">{{ fila.get_modalidad_display }} · {{ fila.asunto|truncatechars:60 }}</span></td>
+                  <td class="table__cell" data-label="Con quién">{{ fila.persona }}</td>
+                  <td class="table__cell" data-label="Responsable">{% firstof fila.responsable.get_full_name fila.responsable.username "—" %}</td>
+                  <td class="table__cell" data-label="Estado"><span class="tag {% if fila.estado == 'PROGRAMADA' and fila.fecha < hoy %}tag--danger{% elif fila.estado == 'PROGRAMADA' %}tag--warning{% elif fila.estado == 'REALIZADA' %}tag--success{% endif %}">{% if fila.estado == 'PROGRAMADA' and fila.fecha < hoy %}Sin anotar{% else %}{{ fila.get_estado_display }}{% endif %}</span></td>
+                  <td class="table__cell table__cell--actions"><a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:detalle' fila.registro_id %}" aria-label="Abrir el caso de {{ fila.registro.alumno }}" data-tooltip="Abrir el caso">{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}</a></td>
+                {% elif vista == 'compromisos' %}
+                  <td class="table__cell table__cell--main">{% include "partials/avatar.html" with persona=fila.registro.alumno %} <span class="person__name">{{ fila.registro.alumno }}</span></td>
+                  <td class="table__cell" data-label="Compromiso">{{ fila.descripcion|truncatechars:80 }}<span class="text-muted prefectura-sub">{{ fila.get_quien_display }}</span></td>
+                  <td class="table__cell" data-label="Responsable">{% firstof fila.responsable.get_full_name fila.responsable.username "—" %}</td>
+                  <td class="table__cell" data-label="Fecha límite">{{ fila.fecha_limite|date:"d/m/Y" }}</td>
+                  <td class="table__cell" data-label="Estado"><span class="tag {% if fila.vencido %}tag--danger{% elif fila.abierto %}tag--warning{% elif fila.estado == 'CUMPLIDO' %}tag--success{% endif %}">{% if fila.vencido %}Vencido{% else %}{{ fila.get_estado_display }}{% endif %}</span></td>
+                  <td class="table__cell table__cell--actions"><a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:detalle' fila.registro_id %}" aria-label="Abrir el caso de {{ fila.registro.alumno }}" data-tooltip="Abrir el caso">{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}</a></td>
+                {% else %}
+                  <td class="table__cell table__cell--main">{% include "partials/avatar.html" with persona=fila.alumno %} <span class="person__name">{{ fila.alumno }}</span></td>
+                  <td class="table__cell" data-label="Motivo">{{ fila.registro.motivo_nombre }}</td>
+                  <td class="table__cell" data-label="Incidencias">{{ fila.cantidad }} en {{ fila.dias }} días</td>
+                  <td class="table__cell" data-label="Último registro">{{ fila.registro.fecha|date:"d/m/Y" }}</td>
+                  <td class="table__cell" data-label="Revisión">
+                    {% if fila.revisado %}<span class="text-muted">{% firstof fila.revisado_por.get_full_name fila.revisado_por.username %} · {{ fila.revisado_en|date:"d/m/Y" }}</span>
+                    {% elif puede_revisar %}
+                      <form method="post" action="{% url 'conducta:aviso_revisar' fila.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button type="submit" class="btn btn--sm">Marcar revisado</button></form>
+                    {% else %}<span class="tag tag--warning">Sin revisar</span>{% endif %}
+                  </td>
+                  <td class="table__cell table__cell--actions"><a class="btn btn--ghost btn--icon btn--sm" href="{% url 'conducta:detalle' fila.registro_id %}" aria-label="Abrir el registro de {{ fila.alumno }}" data-tooltip="Abrir">{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}</a></td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="resultados" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Nada por aquí</p>
+        <p class="empty-state__text">No hay {% if vista == 'casos' %}casos{% elif vista == 'citas' %}citas{% elif vista == 'compromisos' %}compromisos{% else %}avisos de reincidencia{% endif %} con esos filtros.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

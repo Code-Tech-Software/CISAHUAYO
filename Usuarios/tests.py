@@ -806,13 +806,13 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_el_administrador_ve_todo_el_menu(self):
         etiquetas = self.enlaces_del_menu(self.html_de(self.admin))
         self.assertEqual(etiquetas[0], 'Panel de control')
-        for esperado in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones', 'Ciclos escolares', 'Grados', 'Materias',
-                         'Asignaciones', 'Horarios', 'Periodos', 'Asistencias', 'Usuarios', 'Roles y permisos'):
+        for esperado in ('Estudiantes', 'Tutores', 'Profesores', 'Inscripciones a grupos', 'Ciclos escolares', 'Grados', 'Materias',
+                         'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias', 'Usuarios', 'Roles y permisos'):
             self.assertIn(esperado, etiquetas)
 
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
-            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones', 'Horarios', 'Periodos', 'Asistencias'},
+            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias'},
             'Recepción': {'Estudiantes', 'Asistencias'},
         }
         for nombre_rol, esperados in casos.items():
@@ -828,14 +828,14 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
 
     def test_las_secciones_vacias_no_se_dibujan(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
-        self.assertIn('Gestión escolar', html)
+        self.assertIn('Comunidad escolar', html)
         etiquetas = self.enlaces_del_menu(html)
         self.assertNotIn('Usuarios', etiquetas)
         self.assertNotIn('Roles y permisos', etiquetas)
         import re
         titulos = [t.strip() for t in re.findall(r'nav__title[^>]*>([^<]+)<', html)]
-        self.assertNotIn('Académico', titulos)
-        self.assertEqual(titulos, ['Gestión escolar', 'Sistema'])   # «Sistema» solo con «Ajustes»
+        self.assertNotIn('Gestión académica', titulos)
+        self.assertEqual(titulos, ['Comunidad escolar', 'Sistema'])   # «Sistema» solo con «Ajustes»
 
     def test_el_tablero_ofrece_solo_accesos_permitidos(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
@@ -846,10 +846,8 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_asistencias_lleva_a_la_primera_pantalla_a_la_que_se_tiene_acceso(self):
         casos = [
             ({'Alumnos.view_asistenciageneral'}, reverse('asistencias:inicio')),
-            ({'Alumnos.view_asistenciamateria'}, reverse('asistencias:clases')),
             ({'Alumnos.view_justificacion'}, reverse('asistencias:justificaciones')),
             ({'Alumnos.add_asistenciageneral'}, reverse('asistencias:kiosco')),
-            ({'Alumnos.view_configuracionasistencia'}, reverse('asistencias:ajustes')),
         ]
         for n, (permisos, destino) in enumerate(casos):
             with self.subTest(destino=destino):
@@ -858,6 +856,17 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
                 self.assertIn(f'href="{destino}"', html)
                 self.client.force_login(usuario)
                 self.assertEqual(self.client.get(destino).status_code, 200, 'el enlace del menú debe llevar a una página accesible')
+
+    def test_los_ajustes_de_asistencia_estan_en_ajustes_y_no_en_asistencias(self):
+        usuario = crear_usuario('ajustes', crear_rol('Ajustes de asistencia', {'Alumnos.view_configuracionasistencia'}))
+        menu = self.enlaces_del_menu(self.html_de(usuario))
+        self.assertNotIn('Asistencias', menu)
+        self.assertIn('Ajustes', menu)
+        ajustes = self.html_de(usuario, 'ajustes:inicio')
+        self.assertIn(f'href="{reverse("asistencias:ajustes")}"', ajustes)   # la pestaña «Asistencia»
+        self.assertNotIn(reverse('conducta:configuracion'), ajustes)
+        # Sin ese permiso, Ajustes es solo la apariencia (sin pestañas)
+        self.assertNotIn(reverse('asistencias:ajustes'), self.html_de(crear_usuario('solo', crear_rol('Nada', set())), 'ajustes:inicio'))
 
     def test_el_buscador_de_comandos_solo_ofrece_acciones_permitidas(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Altas', {'Alumnos.add_alumno'})))

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Entradas y salidas · Prefectura | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/prefectura.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'prefectura:asistencia_registros' %}">Asistencia</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Entradas y salidas</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Entradas y salidas</h1>
+      <p class="page-header__description">Retardos de ingreso, entradas posteriores y salidas anticipadas, con su hora, motivo y quién los registró. Un retardo de ingreso cuenta como retardo en la entrada y falta en la primera hora; las entradas posteriores y las salidas anticipadas no cambian la asistencia. Lo que el docente ya capturó siempre se respeta.</p>
+    </div>
+    {% if puede.registrar_acceso %}
+      <div class="page-header__actions">
+        <a class="btn btn--primary btn--sm" href="{% url 'prefectura:acceso_crear' %}" data-modal-form>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Registrar entrada o salida</a>
+      </div>
+    {% endif %}
+  </header>
+
+  {% include "prefectura/_subnav_asistencia.html" %}
+  {% include "prefectura/_alcance.html" %}
+
+  <form class="filters prefectura-filtros prefectura-filtros--amplio" method="get" role="search" aria-label="Filtrar entradas y salidas">
+    <div class="filters__field prefectura-filtros__busqueda"><label class="field__label" for="{{ filtro.q.id_for_label }}">Estudiante</label>{{ filtro.q }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.tipo.id_for_label }}">Tipo</label>{{ filtro.tipo }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.desde.id_for_label }}">Desde</label>{{ filtro.desde }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.hasta.id_for_label }}">Hasta</label>{{ filtro.hasta }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.grupo.id_for_label }}">Grupo</label>{{ filtro.grupo }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.registros.id_for_label }}">Registros</label>{{ filtro.registros }}</div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar filtros</button>
+      <a class="btn btn--ghost btn--sm" href="{{ request.path }}">Limpiar</a>
+    </div>
+  </form>
+
+  <p class="results-summary" role="status">{% for nombre, total in totales %}{{ nombre }}: <strong>{{ total }}</strong>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+
+  {% if pagina.paginator.count %}
+    <div class="table-card">
+      <div class="prefectura-tabla-marco">
+        <table class="table table--people">
+          <caption class="visually-hidden">Entradas y salidas</caption>
+          <thead class="table__head">
+            <tr><th class="table__th" scope="col">Fecha y hora</th><th class="table__th" scope="col">Estudiante</th><th class="table__th" scope="col">Tipo</th><th class="table__th" scope="col">Motivo</th><th class="table__th" scope="col">Registró</th><th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th></tr>
+          </thead>
+          <tbody class="table__body">
+            {% for movimiento in pagina %}
+              <tr class="table__row{% if movimiento.anulado %} is-muted{% endif %}">
+                <td class="table__cell" data-label="Fecha">{{ movimiento.fecha|date:"d/m/Y" }} <span class="text-muted">{{ movimiento.hora|time:"H:i" }}</span></td>
+                <td class="table__cell table__cell--main"><a class="link-subtle" href="{% url 'prefectura:estudiante' movimiento.alumno_id %}"><span class="person__name">{{ movimiento.alumno }}</span></a><span class="text-muted prefectura-sub">{{ movimiento.inscripcion.grupo }}</span></td>
+                <td class="table__cell" data-label="Tipo"><span class="tag {% if movimiento.tipo == 'SALIDA' %}tag--info{% else %}tag--warning{% endif %}">{{ movimiento.get_tipo_display }}</span>{% if movimiento.anulado %} <span class="tag">Anulado</span>{% endif %}</td>
+                <td class="table__cell" data-label="Motivo">{{ movimiento.motivo|truncatechars:80 }}{% if movimiento.acompanante %}<span class="text-muted prefectura-sub">Con {{ movimiento.acompanante }}</span>{% endif %}</td>
+                <td class="table__cell" data-label="Registró"><span class="text-muted">{% firstof movimiento.registrado_por.get_full_name movimiento.registrado_por.username "—" %}</span></td>
+                <td class="table__cell table__cell--actions">
+                  <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'prefectura:acceso' movimiento.pk %}" aria-label="Ver el registro de {{ movimiento.alumno }}" data-tooltip="Ver e historial" data-modal-form>{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}</a>
+                  {% if movimiento.corregible %}
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'prefectura:acceso_corregir' movimiento.pk %}" aria-label="Corregir el registro de {{ movimiento.alumno }}" data-tooltip="Corregir" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}</a>
+                    <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'prefectura:acceso_anular' movimiento.pk %}" aria-label="Anular el registro de {{ movimiento.alumno }}" data-tooltip="Anular" data-modal-form>{% include "partials/icon.html" with name="circle-x" icon_class="icon--sm" %}</a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="registros" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clock" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Sin entradas ni salidas con esos filtros</p>
+        <p class="empty-state__text">{% if alcance.vacio %}Todavía no tienes un alcance asignado.{% else %}Aquí aparecen los retardos de ingreso, las entradas posteriores y las salidas anticipadas que se registren.{% endif %}</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

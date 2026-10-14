@@ -144,12 +144,12 @@ MODULOS = (
             'crear': 'Cerrar el día: quien no entró queda con falta.',
         }),
         Funcion('Pase de lista por materia', {'ver': 'Alumnos.view_asistenciamateria', 'editar': 'Alumnos.change_asistenciamateria'}, etiquetas={'editar': 'Pasar lista'}, ayuda={
-            'ver': 'Consultar las clases del día y su asistencia.',
-            'editar': 'Pasar lista: marcar faltas, retardos y justificantes en cada clase.',
+            'ver': 'Consultar la asistencia de las materias en el periodo abierto (un docente, solo la de sus materias; todas, con «Asistencia del día y reportes»).',
+            'editar': 'Pasar lista: poner presente, falta o retardo en la matriz de asistencia.',
         }),
         Funcion('Justificaciones', _permisos('justificacion'), etiquetas={'baja': 'Anular'}, ayuda={
             'ver': 'Consultar las justificaciones de faltas.',
-            'crear': 'Justificar la falta general o solo algunas materias.',
+            'crear': 'Justificar la falta general o solo algunas materias, o una falta de la asistencia por materia con la foto de su comprobante.',
             'editar': 'Editar una justificación y reactivarla.',
             'baja': 'Anular una justificación.',
         }),
@@ -161,6 +161,75 @@ MODULOS = (
                 requiere=('Alumnos.view_configuracionasistencia',), ayuda={
             'crear': 'Registrar días sin clases (puentes, suspensiones).',
             'baja': 'Quitar un día sin clases.',
+        }),
+    )),
+    Modulo('conducta', 'Conducta', 'flag', 'El registro de conducta de los estudiantes, sus reportes y los catálogos de cada nivel.', (
+        Funcion('Registro de conducta', _permisos('registroconducta', app='Conducta'), etiquetas={'baja': 'Anular'}, ayuda={
+            'ver': 'Consultar la conducta de todo el colegio, sus evidencias, los pendientes y los reportes (imprimir, PDF y Excel).',
+            'crear': 'Registrar incidencias y conductas positivas, con medidas, suspensión y evidencias.',
+            'editar': 'Editar registros (queda constancia de cada cambio), su seguimiento, evidencias y contactos con la familia, y revisar avisos de reincidencia.',
+            'baja': 'Anular un registro indicando el motivo (se conserva para consulta).',
+        }),
+        Funcion('Categorías de conducta', _permisos('categoriaconducta', app='Conducta'), etiquetas={'baja': 'Eliminar'}, ayuda={
+            'ver': 'Consultar las categorías de cada nivel (en Ajustes › Conducta).',
+            'crear': 'Agregar categorías.',
+            'editar': 'Editarlas, activarlas o desactivarlas.',
+            'baja': 'Eliminar una categoría que nunca se usó.',
+        }),
+        Funcion('Motivos de conducta', _permisos('motivoconducta', app='Conducta'), etiquetas={'baja': 'Eliminar'}, ayuda={
+            'ver': 'Consultar los motivos de cada categoría.',
+            'crear': 'Agregar motivos.',
+            'editar': 'Editarlos, activarlos o desactivarlos.',
+            'baja': 'Eliminar un motivo que nunca se usó.',
+        }),
+        Funcion('Medidas disciplinarias', _permisos('medidadisciplinaria', app='Conducta'), etiquetas={'baja': 'Eliminar'}, ayuda={
+            'ver': 'Consultar las medidas de cada nivel.',
+            'crear': 'Agregar medidas.',
+            'editar': 'Editarlas, activarlas o desactivarlas.',
+            'baja': 'Eliminar una medida que nunca se aplicó.',
+        }),
+        Funcion('Motivos de suspensión', _permisos('motivosuspension', app='Conducta'), etiquetas={'baja': 'Eliminar'}, ayuda={
+            'ver': 'Consultar los motivos de suspensión de cada nivel.',
+            'crear': 'Agregar motivos de suspensión.',
+            'editar': 'Editarlos, activarlos o desactivarlos.',
+            'baja': 'Eliminar un motivo que nunca se usó.',
+        }),
+        Funcion('Avisos de reincidencia', {'ver': 'Conducta.view_reglareincidencia', 'editar': 'Conducta.change_reglareincidencia'}, ayuda={
+            'ver': 'Consultar cuándo se avisa de una reincidencia en cada nivel.',
+            'editar': 'Cambiar el número de incidencias y los días del aviso de cada nivel.',
+        }),
+        Funcion('Aprobación de suspensiones y medidas', {'editar': 'Conducta.aprobar_suspension'}, etiquetas={'editar': 'Aprobar o rechazar'}, ayuda={
+            'editar': 'Aprobar o rechazar las solicitudes de suspensión y las medidas que requieren aprobación (nunca las que pidió uno mismo). '
+                      'Quien tiene este permiso registra las suspensiones ya aprobadas.',
+        }),
+    )),
+    Modulo('prefectura', 'Prefectura', 'clipboard-check', 'Estudiantes, asistencia, conducta y seguimiento de los niveles o grupos asignados a cada cuenta de prefectura.', (
+        Funcion('Prefectura', {'ver': 'Prefectura.consultar', 'crear': 'Prefectura.registrar', 'editar': 'Prefectura.corregir'},
+                etiquetas={'ver': 'Consultar', 'crear': 'Registrar', 'editar': 'Corregir lo propio'}, ayuda={
+            'ver': 'Su panel, la ficha de los estudiantes (sin datos financieros, documentos ni expediente clínico), la asistencia, '
+                   'la conducta, el seguimiento y los reportes en pantalla. Una cuenta de prefectura solo ve su alcance.',
+            'crear': 'Registrar incidencias, conductas positivas y entradas o salidas fuera de horario.',
+            'editar': 'Corregir o anular, con motivo, sus propios registros mientras estén abiertos.',
+        }),
+        Funcion('Corrección ampliada', {'editar': 'Prefectura.corregir_otros'}, etiquetas={'editar': 'Corregir de otros'},
+                requiere=('Prefectura.consultar',), ayuda={
+            'editar': 'Corregir o anular registros de otros usuarios y casos cerrados.',
+        }),
+        Funcion('Justificaciones de prefectura', {'crear': 'Prefectura.justificar'}, etiquetas={'crear': 'Justificar'},
+                requiere=('Prefectura.consultar',), ayuda={
+            'crear': 'Justificar faltas y retardos con su comprobante fotográfico, y revocar justificaciones indicando el motivo.',
+        }),
+        Funcion('Solicitudes de suspensión', {'crear': 'Prefectura.solicitar_suspension'}, etiquetas={'crear': 'Solicitar'},
+                requiere=('Prefectura.consultar',), ayuda={
+            'crear': 'Solicitar suspensiones y medidas que requieren aprobación (las aprueba Dirección o el administrador).',
+        }),
+        Funcion('Seguimiento de casos', {'editar': 'Prefectura.dar_seguimiento'}, etiquetas={'editar': 'Dar seguimiento'},
+                requiere=('Prefectura.consultar',), ayuda={
+            'editar': 'Citas con la familia, contactos, acuerdos y compromisos, responsable, fecha límite y cierre de los casos.',
+        }),
+        Funcion('Reportes de prefectura', {'crear': 'Prefectura.exportar'}, etiquetas={'crear': 'Exportar'},
+                requiere=('Prefectura.consultar',), ayuda={
+            'crear': 'Imprimir los reportes y exportarlos a PDF y Excel.',
         }),
     )),
     Modulo('seguridad', 'Usuarios y roles', 'shield-check', 'Quién puede entrar al sistema y qué puede hacer.', (

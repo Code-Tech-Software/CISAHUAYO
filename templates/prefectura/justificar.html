@@ -1,0 +1,53 @@
+{% extends "prefectura/_accion_base.html" %}
+
+{% block title %}Justificar faltas o retardos | CISAHUAYO{% endblock %}
+{% block migaja %}Justificar{% endblock %}
+{% block encabezado %}Justificar faltas o retardos{% endblock %}
+{% block descripcion %}Elige al estudiante y las fechas: verás los registros que se justificarán antes de guardar. El motivo y una foto del comprobante son obligatorios. Cada registro conserva su estado original (la falta sigue siendo falta) y queda vinculado a esta justificación.{% endblock %}
+{% block atributos %} data-justificar data-previa-url="{{ url_previa }}" data-maximo-mb="{{ maximo_mb }}"{% endblock %}
+
+{% block campos %}
+  {% include "prefectura/_picker.html" with campo=form.alumno %}
+  <div class="form-grid">
+    {% include "partials/field.html" with campo=form.desde %}
+    {% include "partials/field.html" with campo=form.hasta %}
+  </div>
+  <fieldset class="field{% if form.estados.errors %} is-invalid{% endif %}">
+    <legend class="field__label field__label--required">{{ form.estados.label }}</legend>
+    <div class="choice-group">
+      {% for opcion in form.estados %}
+        <label class="choice choice--check" for="{{ opcion.id_for_label }}">
+          <input class="choice__input" type="checkbox" name="{{ form.estados.html_name }}" value="{{ opcion.data.value }}" id="{{ opcion.id_for_label }}"{% if opcion.data.selected %} checked{% endif %} data-justificar-estado>
+          <span class="choice__box">{{ opcion.choice_label }}</span>
+        </label>
+      {% endfor %}
+      <label class="choice choice--check" for="{{ form.con_entrada.id_for_label }}">
+        {{ form.con_entrada }}<span class="choice__box">{{ form.con_entrada.label }}</span>
+      </label>
+    </div>
+    {% for error in form.estados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+  </fieldset>
+
+  <section class="prefectura-previa" aria-live="polite" data-previa>
+    <h2 class="subsection-title">Registros que se justificarán</h2>
+    <p class="text-muted" data-previa-estado>Elige al estudiante y las fechas para ver sus faltas y retardos sin justificar.</p>
+    <ul class="prefectura-previa__lista" data-previa-lista hidden></ul>
+    <label class="choice choice--check prefectura-previa__confirmar" data-previa-confirmar hidden>
+      <input class="choice__input" type="checkbox" data-previa-acepto>
+      <span class="choice__box" data-previa-texto>Confirmo que se justifiquen estos registros</span>
+    </label>
+    {{ form.confirmados }}
+  </section>
+
+  {% include "partials/field.html" with campo=form.motivo %}
+
+  <div class="field">
+    <label class="field__label field__label--required" for="comprobante">Foto del comprobante</label>
+    <input class="field__control conducta-archivos" id="comprobante" type="file" name="comprobante" accept="{{ acepta }}" capture="environment" aria-describedby="comprobante-ayuda" data-comprobante>
+    <p class="field__hint" id="comprobante-ayuda">Una fotografía JPG, PNG o WEBP de hasta {{ maximo_mb }} MB (receta, constancia, nota firmada…). Solo la ven quienes pueden consultar la asistencia del estudiante.</p>
+    <figure class="prefectura-comprobante" data-comprobante-vista hidden><img alt="Vista previa del comprobante" data-comprobante-img></figure>
+    <p class="field__error" data-comprobante-error hidden></p>
+  </div>
+{% endblock %}
+
+{% block boton %}Justificar{% endblock %}

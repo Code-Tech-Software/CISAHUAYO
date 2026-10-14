@@ -34,6 +34,66 @@ from CISAHUAYO.pruebas import (
 # Calendario
 # ---------------------------------------------------------------------------
 @PRUEBAS
+class DiasSinClasesPorNivelTests(BaseAsistenciaTestCase):
+    """Un día sin clases de algunos niveles: esos estudiantes no se esperan; los demás tienen clases normalmente."""
+
+    def setUp(self):
+        super().setUp()
+        self.secundaria = crear_grado('SECUNDARIA', 1)
+        materia_en_grado('HIS', self.secundaria, self.ciclo)
+        self.zoe = crear_alumno(uid='EF56GH78')
+        self.inscripcion_zoe = inscribir_antes(self.zoe, self.ciclo, self.secundaria)
+
+    def test_un_nivel_sin_clases_no_es_dia_sin_clases_del_colegio(self):
+        DiaNoLectivo.registrar(lunes(), 'Consejo técnico', ['PRIMARIA'])
+        self.assertIsNone(reglas.motivo_sin_clases(lunes()))
+        self.assertEqual(reglas.motivo_sin_clases(lunes(), nivel='PRIMARIA'), 'Día sin clases: Consejo técnico.')
+        self.assertIsNone(reglas.motivo_sin_clases(lunes(), nivel='SECUNDARIA'))
+        self.assertIn('primaria (Consejo técnico)', reglas.aviso_de_niveles_sin_clases(lunes()))
+        self.assertEqual(set(reglas.inscripciones_del_dia(lunes())), {self.inscripcion_zoe})
+        self.assertEqual(reglas.dias_de_clases(lunes(), lunes(), self.ciclo, 'PRIMARIA'), [])
+        self.assertEqual(reglas.dias_de_clases(lunes(), lunes(), self.ciclo, 'SECUNDARIA'), [lunes()])
+        self.assertEqual(reglas.dias_de_clases(lunes(), lunes(), self.ciclo), [lunes()])
+
+    def test_todos_los_niveles_del_colegio_es_dia_sin_clases(self):
+        # Solo hay grados de primaria y secundaria: con esos dos basta
+        DiaNoLectivo.registrar(lunes(), 'Consejo técnico', ['PRIMARIA'])
+        DiaNoLectivo.registrar(lunes(), 'Festival', ['SECUNDARIA'])
+        self.assertEqual(reglas.motivo_sin_clases(lunes()), 'Día sin clases: Consejo técnico, Festival.')
+        self.assertIsNone(reglas.aviso_de_niveles_sin_clases(lunes()))
+        self.assertEqual(reglas.fechas_sin_clases(lunes(), lunes()), {lunes()})
+
+    def test_la_entrada_rechaza_solo_al_nivel_sin_clases(self):
+        DiaNoLectivo.registrar(lunes(), 'Consejo técnico', ['PRIMARIA'])
+        with self.assertRaises(reglas.EntradaRechazada) as error:
+            reglas.registrar_entrada(self.alumno, 'UID', momento=momento(7, 45))
+        self.assertEqual(error.exception.codigo, 'SIN_CLASES')
+        self.assertEqual(error.exception.mensaje, 'Hoy no hay clases en primaria: Consejo técnico.')
+        self.assertTrue(reglas.registrar_entrada(self.zoe, 'UID', momento=momento(7, 45)).creada)
+
+    def test_el_cierre_no_pone_faltas_al_nivel_sin_clases(self):
+        DiaNoLectivo.registrar(lunes(), 'Consejo técnico', ['PRIMARIA'])
+        self.assertEqual(reglas.cerrar_dia(lunes()), 1)   # solo la de secundaria
+        self.assertFalse(AsistenciaGeneral.objects.filter(inscripcion=self.inscripcion).exists())
+        self.assertTrue(AsistenciaGeneral.objects.filter(inscripcion=self.inscripcion_zoe, estado='FALTA').exists())
+
+    def test_un_dia_de_algunos_niveles_sigue_pendiente_de_cierre(self):
+        hace_una_semana = lunes() - timedelta(days=7)
+        DiaNoLectivo.registrar(hace_una_semana, 'Consejo técnico', ['PRIMARIA'])
+        reglas.registrar_entrada(self.zoe, 'UID', momento=momento(7, 45, hace_una_semana))
+        self.assertIn(hace_una_semana, reglas.dias_pendientes_de_cierre())
+        DiaNoLectivo.registrar(hace_una_semana, 'Consejo técnico', ['SECUNDARIA'])
+        self.assertNotIn(hace_una_semana, reglas.dias_pendientes_de_cierre())
+
+    def test_la_lista_de_dias_registrados_agrupa_los_niveles(self):
+        DiaNoLectivo.registrar(lunes(), 'Consejo técnico', ['SECUNDARIA', 'PRIMARIA'])
+        DiaNoLectivo.registrar(lunes() - timedelta(days=7), 'Puente')
+        dias = reglas.dias_sin_clases_registrados()
+        self.assertEqual([(d.fecha, d.todos, d.nombres) for d in dias],
+                         [(lunes(), False, ['Primaria', 'Secundaria']), (lunes() - timedelta(days=7), True, ['Preescolar', 'Primaria', 'Secundaria', 'Preparatoria'])])
+
+
+@PRUEBAS
 class CalendarioTests(BaseAsistenciaTestCase):
     def test_el_ciclo_de_una_fecha(self):
         self.assertEqual(reglas.ciclo_de_fecha(lunes()), self.ciclo)
@@ -47,7 +107,7 @@ class CalendarioTests(BaseAsistenciaTestCase):
         self.assertIn('fuera de las fechas', reglas.motivo_sin_clases(hoy() + timedelta(days=900)))
 
     def test_un_dia_sin_clases_registrado(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Consejo técnico')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Consejo técnico')
         self.assertEqual(reglas.motivo_sin_clases(lunes()), 'Día sin clases: Consejo técnico.')
 
     def test_fin_de_semana_solo_si_hay_clases_ese_dia(self):
@@ -63,6 +123,11 @@ class CalendarioTests(BaseAsistenciaTestCase):
         fecha = cerrado.fecha_inicio + timedelta(days=(7 - cerrado.fecha_inicio.weekday()) % 7)   # un lunes de ese ciclo
         self.assertIsNone(reglas.motivo_sin_clases(fecha))
         self.assertIn('no es el ciclo actual', reglas.motivo_sin_clases(fecha, exigir_actual=True))
+
+    def test_el_texto_de_los_niveles(self):
+        self.assertEqual(reglas.texto_de_niveles(['SECUNDARIA', 'PRIMARIA']), 'primaria y secundaria')
+        self.assertEqual(reglas.texto_de_niveles(['PREPARATORIA', 'PREESCOLAR', 'PRIMARIA']), 'preescolar, primaria y preparatoria')
+        self.assertEqual(reglas.texto_de_niveles(reglas.NIVELES), 'todos los niveles')
 
     def test_solo_se_captura_en_el_ciclo_actual_y_nunca_en_el_futuro(self):
         self.assertTrue(reglas.asistencia_editable(lunes()))
@@ -192,8 +257,27 @@ class RegistrarEntradaTests(BaseAsistenciaTestCase):
     def test_llegar_despues_de_la_tolerancia_es_retardo_general(self):
         self.entrar((8, 20))
         self.assertEqual(AsistenciaGeneral.objects.get().estado, 'RETARDO')
-        # La primera clase ya empezó (retardo), las demás todavía no
-        self.assertEqual(self.estados_de_materias(), {'MAT': 'RETARDO', 'ESP': 'PRESENTE', 'CIE': 'PRESENTE'})
+        # El retardo en la entrada cuenta como falta en la primera hora (2026-10-14); las demás todavía no empiezan
+        self.assertEqual(self.estados_de_materias(), {'MAT': 'FALTA', 'ESP': 'PRESENTE', 'CIE': 'PRESENTE'})
+        self.assertIn('hora límite de entrada', AsistenciaMateria.objects.get(materia_grado=self.mat).observaciones)
+
+    def test_cada_nivel_tiene_su_hora_limite_de_entrada(self):
+        from Alumnos.models import LimiteEntradaNivel
+        LimiteEntradaNivel.objects.create(nivel='PRIMARIA', hora_limite=time(7, 50))
+        self.entrar((7, 55))   # dentro de la tolerancia general (8:10), pero después del límite de primaria
+        self.assertEqual(AsistenciaGeneral.objects.get().estado, 'RETARDO')
+        self.assertEqual(self.estados_de_materias(), {'MAT': 'FALTA', 'ESP': 'PRESENTE', 'CIE': 'PRESENTE'})
+        # Otro nivel sin límite propio sigue la regla general
+        secundaria = crear_grado('SECUNDARIA', 1)
+        otro = crear_alumno(uid='ZZ99', curp='LIMITE0000000000Z9')
+        inscribir_antes(otro, self.ciclo, secundaria)
+        self.entrar((7, 55), alumno=otro)
+        self.assertEqual(AsistenciaGeneral.objects.get(inscripcion__alumno=otro).estado, 'PRESENTE')
+
+    def test_el_pase_de_lista_del_docente_no_se_toca_con_el_retardo(self):
+        AsistenciaMateria.objects.create(inscripcion=self.inscripcion, materia_grado=self.mat, fecha=lunes(), estado='PRESENTE', origen='PASE')
+        self.entrar((8, 20))
+        self.assertEqual(self.estados_de_materias()['MAT'], 'PRESENTE')
 
     def test_las_clases_que_ya_terminaron_quedan_en_falta(self):
         self.entrar((10, 30))
@@ -246,7 +330,7 @@ class RegistrarEntradaTests(BaseAsistenciaTestCase):
         self.assertFalse(AsistenciaGeneral.objects.exists())
 
     def test_rechaza_un_dia_sin_clases(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Puente')
         with self.assertRaises(reglas.EntradaRechazada) as error:
             self.entrar()
         self.assertEqual(error.exception.codigo, 'SIN_CLASES')
@@ -407,7 +491,7 @@ class CierreTests(BaseAsistenciaTestCase):
         self.assertEqual(self.estados_de_materias(self.ausente), {'MAT': 'FALTA', 'ESP': 'FALTA', 'CIE': 'FALTA'})
 
     def test_no_cierra_un_dia_sin_clases_ni_el_futuro(self):
-        DiaNoLectivo.objects.create(fecha=lunes(), motivo='Asueto')
+        DiaNoLectivo.registrar(fecha=lunes(), motivo='Asueto')
         self.assertIsNone(reglas.cerrar_dia(lunes()))
         self.assertIsNone(reglas.cerrar_dia(hoy() + timedelta(days=1)))
         self.assertFalse(CierreDia.objects.exists())

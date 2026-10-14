@@ -148,7 +148,7 @@ class CuadriculaTests(BaseReporteTests):
         self.assertEqual(celdas[str(self.alumno)][self.d1 + timedelta(days=1)], '')
 
     def test_los_dias_sin_clases_no_son_columnas(self):
-        DiaNoLectivo.objects.create(fecha=self.d1 + timedelta(days=1), motivo='Puente')
+        DiaNoLectivo.registrar(fecha=self.d1 + timedelta(days=1), motivo='Puente')
         self.assertNotIn(self.d1 + timedelta(days=1), self.cuadricula().context['dias'])
 
     def test_con_mas_de_31_dias_avisa(self):

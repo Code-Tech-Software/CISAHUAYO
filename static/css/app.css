@@ -2372,6 +2372,7 @@ body {
 /* --- Page de formulario: tarjetas apiladas con la barra de acciones al final ------------------------------ */
 .form-page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);   /* un textarea o un campo largo no ensancha la página en el teléfono */
   gap: var(--space-5);
   max-width: 56rem;
 }
@@ -2526,6 +2527,52 @@ body {
   font-size: var(--text-sm);
 }
 
+/* --- Línea de tiempo: un historial en una tarjeta (perfil del estudiante, cierres de asistencia) ---------------- */
+.timeline {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border);
+  font-size: var(--text-sm);
+}
+
+.timeline__item:last-child {
+  border-bottom: 0;
+}
+
+.timeline__item--stack {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.timeline__date {
+  min-width: 5.5rem;
+  color: var(--color-text-soft);
+  font-weight: var(--weight-medium);
+  text-transform: capitalize;
+}
+
+.timeline__main {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.timeline__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
 .empty-state--inline {
   padding: var(--space-6) var(--space-4);
 }
@@ -2571,6 +2618,15 @@ body {
 .empty-state__text {
   margin: 0;
   font-size: var(--text-sm);
+}
+
+/* Varias acciones en un estado vacío */
+.empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 /* --- Tag (etiqueta de estado) -----------------------------------------------------------

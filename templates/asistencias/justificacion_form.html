@@ -127,7 +127,7 @@
           {% if es_edicion and justificacion.documento %}
             <p class="attendance-doc-current">
               {% include "partials/icon.html" with name="link" icon_class="icon--sm" %}
-              <a class="link-subtle" href="{{ justificacion.documento.url }}" target="_blank" rel="noopener">Ver comprobante actual</a>
+              <a class="link-subtle" href="{% url 'asistencias:comprobante' justificacion.pk %}" target="_blank" rel="noopener">Ver comprobante actual</a>
             </p>
           {% endif %}
           {{ form.documento }}

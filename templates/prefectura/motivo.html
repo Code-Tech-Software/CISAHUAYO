@@ -1,0 +1,13 @@
+{% extends "prefectura/_accion_base.html" %}
+
+{% block title %}{{ titulo }} | CISAHUAYO{% endblock %}
+{% block migaja %}{{ titulo }}{% endblock %}
+{% block encabezado %}{{ titulo }}{% endblock %}
+{% block descripcion %}{{ descripcion }}{% endblock %}
+
+{% block campos %}
+  {% include "partials/field.html" with campo=form.motivo %}
+{% endblock %}
+
+{% block clase_boton %}btn--danger{% endblock %}
+{% block boton %}{{ boton }}{% endblock %}

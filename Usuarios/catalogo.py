@@ -10,10 +10,20 @@ el código del proyecto pide exista en este catálogo, de modo que nada quede im
 
 Dependencias: «crear», «editar» y «dar de baja» necesitan poder «ver» la misma función (o lo que declare `requiere`);
 al conceder una acción se concede también lo que necesita, y quitar «ver» quita lo que depende de ella.
+
+Permisos reservados (`reservado`): no se conceden a cualquier rol. Justificar faltas es solo del administrador y de
+prefectura (pedido del 2026-10-14): justificar desde Asistencias lo tiene únicamente el rol Administrador (por ser de
+acceso total) y justificar desde Prefectura, únicamente los roles de prefectura.
 """
 from dataclasses import dataclass, field
 
 ACCIONES = (('ver', 'Ver'), ('crear', 'Crear'), ('editar', 'Editar'), ('baja', 'Dar de baja'))
+# Quién puede tener un permiso reservado
+ADMINISTRADOR, PREFECTURA = 'administrador', 'prefectura'
+MOTIVO_RESERVADO = {
+    ADMINISTRADOR: 'Exclusivo del rol Administrador.',
+    PREFECTURA: 'Solo para roles de prefectura (marca «Rol de prefectura»).',
+}
 NOMBRE_DE_ACCION = dict(ACCIONES)
 _PREFIJOS = {'ver': 'view', 'crear': 'add', 'editar': 'change', 'baja': 'delete'}
 
@@ -29,6 +39,7 @@ class Funcion:
     ayuda: dict = field(default_factory=dict)        # acción -> qué permite exactamente
     etiquetas: dict = field(default_factory=dict)    # acción -> nombre propio (p. ej. «Usar» en lugar de «Crear»)
     requiere: tuple = ()                             # permisos de otras funciones que esta necesita
+    reservado: dict = field(default_factory=dict)    # acción -> ADMINISTRADOR o PREFECTURA (no se da a cualquier rol)
 
     def etiqueta(self, accion):
         return self.etiquetas.get(accion) or NOMBRE_DE_ACCION[accion]
@@ -147,11 +158,12 @@ MODULOS = (
             'ver': 'Consultar la asistencia de las materias en el periodo abierto (un docente, solo la de sus materias; todas, con «Asistencia del día y reportes»).',
             'editar': 'Pasar lista: poner presente, falta o retardo en la matriz de asistencia.',
         }),
-        Funcion('Justificaciones', _permisos('justificacion'), etiquetas={'baja': 'Anular'}, ayuda={
+        Funcion('Justificaciones', _permisos('justificacion'), etiquetas={'baja': 'Anular'},
+                reservado={'crear': ADMINISTRADOR, 'editar': ADMINISTRADOR, 'baja': ADMINISTRADOR}, ayuda={
             'ver': 'Consultar las justificaciones de faltas.',
-            'crear': 'Justificar la falta general o solo algunas materias, o una falta de la asistencia por materia con la foto de su comprobante.',
-            'editar': 'Editar una justificación y reactivarla.',
-            'baja': 'Anular una justificación.',
+            'crear': 'Justificar la falta general o solo algunas materias, o una falta de la asistencia por materia con la foto de su comprobante. Exclusivo del administrador.',
+            'editar': 'Editar una justificación y reactivarla. Exclusivo del administrador.',
+            'baja': 'Anular una justificación. Exclusivo del administrador.',
         }),
         Funcion('Ajustes de asistencia', {'ver': 'Alumnos.view_configuracionasistencia', 'editar': 'Alumnos.change_configuracionasistencia'}, ayuda={
             'ver': 'Consultar la hora de entrada, la tolerancia y los días sin clases.',
@@ -161,6 +173,28 @@ MODULOS = (
                 requiere=('Alumnos.view_configuracionasistencia',), ayuda={
             'crear': 'Registrar días sin clases (puentes, suspensiones).',
             'baja': 'Quitar un día sin clases.',
+        }),
+    )),
+    Modulo('calificaciones', 'Calificaciones', 'award', 'Rubros y porcentajes de cada materia, captura de procedimientos y exámenes, cierre y concentrado.', (
+        Funcion('Calificaciones de sus materias', {'crear': 'Calificaciones.capturar'}, etiquetas={'crear': 'Capturar'}, ayuda={
+            'crear': 'Un docente consulta y captura las calificaciones de sus materias asignadas (actividades, conducta, punto de academia) mientras el periodo está abierto.',
+        }),
+        Funcion('Calificaciones de todas las materias', {'ver': 'Calificaciones.ver_todas', 'editar': 'Calificaciones.gestionar_todas'},
+                etiquetas={'editar': 'Capturar y gestionar'}, ayuda={
+            'ver': 'Consultar las calificaciones y concentrados de todas las materias y grupos, e imprimirlos o exportarlos.',
+            'editar': 'Capturar calificaciones y agregar, editar o anular actividades en cualquier materia del colegio.',
+        }),
+        Funcion('Cierre de calificaciones', {'crear': 'Calificaciones.cerrar'}, etiquetas={'crear': 'Cerrar'}, ayuda={
+            'crear': 'Cerrar las calificaciones de un periodo en las materias que captura (exige resolver lo pendiente y guarda la configuración y los resultados).',
+        }),
+        Funcion('Reapertura de calificaciones', {'editar': 'Calificaciones.reabrir'}, etiquetas={'editar': 'Reabrir'},
+                requiere=('Calificaciones.ver_todas',), ayuda={
+            'editar': 'Reabrir calificaciones cerradas indicando el motivo (lo cerrado queda en el historial).',
+        }),
+        Funcion('Configuración de calificaciones', _permisos('configuracionevaluacion', ('ver', 'crear', 'editar'), app='Calificaciones'), ayuda={
+            'ver': 'Consultar los rubros, porcentajes y reglas de cada materia (Ajustes › Calificaciones).',
+            'crear': 'Crear la configuración de referencia, versiones por periodo y copiar la de otra materia.',
+            'editar': 'Editar rubros, porcentajes y reglas, y activar la configuración.',
         }),
     )),
     Modulo('conducta', 'Conducta', 'flag', 'El registro de conducta de los estudiantes, sus reportes y los catálogos de cada nivel.', (
@@ -216,8 +250,8 @@ MODULOS = (
             'editar': 'Corregir o anular registros de otros usuarios y casos cerrados.',
         }),
         Funcion('Justificaciones de prefectura', {'crear': 'Prefectura.justificar'}, etiquetas={'crear': 'Justificar'},
-                requiere=('Prefectura.consultar',), ayuda={
-            'crear': 'Justificar faltas y retardos con su comprobante fotográfico, y revocar justificaciones indicando el motivo.',
+                requiere=('Prefectura.consultar',), reservado={'crear': PREFECTURA}, ayuda={
+            'crear': 'Justificar faltas y retardos con su comprobante fotográfico, y revocar justificaciones indicando el motivo. Solo roles de prefectura.',
         }),
         Funcion('Solicitudes de suspensión', {'crear': 'Prefectura.solicitar_suspension'}, etiquetas={'crear': 'Solicitar'},
                 requiere=('Prefectura.consultar',), ayuda={
@@ -268,6 +302,16 @@ def _requisitos():
 
 REQUISITOS = _requisitos()
 TODOS = frozenset(REQUISITOS)
+# permiso reservado -> quién puede tenerlo
+RESERVADOS = {
+    permiso: funcion.reservado[accion]
+    for modulo in MODULOS for funcion in modulo.funciones for accion, permiso in funcion.permisos.items() if accion in funcion.reservado
+}
+
+
+def reservados_para(es_prefectura=False):
+    """Los permisos que un rol que no es de acceso total no puede tener (los de prefectura, si no es de prefectura)."""
+    return {permiso for permiso, quien in RESERVADOS.items() if quien == ADMINISTRADOR or (quien == PREFECTURA and not es_prefectura)}
 
 
 def _etiquetas():
@@ -347,6 +391,7 @@ def resumen(permisos):
                     'accion': accion, 'nombre': funcion.etiqueta(accion), 'permiso': permiso, 'tiene': tiene,
                     'etiqueta_propia': accion in funcion.etiquetas,
                     'ayuda': funcion.ayuda.get(accion, ''), 'requiere': ' '.join(REQUISITOS[permiso]),
+                    'reservado': RESERVADOS.get(permiso, ''),
                 })
             filas.append({'funcion': funcion, 'celdas': celdas, 'concedidas': [c for c in celdas if c and c['tiene']]})
         salida.append({'modulo': modulo, 'filas': filas, 'concedidos': concedidos, 'posibles': posibles})

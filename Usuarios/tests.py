@@ -812,7 +812,7 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
 
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
-            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias'},
+            'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias', 'Calificaciones'},
             'Recepción': {'Estudiantes', 'Asistencias'},
         }
         for nombre_rol, esperados in casos.items():

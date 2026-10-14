@@ -399,7 +399,8 @@ class CopiarRolTests(BaseRolesTestCase):
         self.client.post(reverse('roles:copiar', args=[self.administrador.pk]))
         copia = Rol.objects.get(grupo__name='Copia de Administrador')
         self.assertFalse(copia.acceso_total or copia.es_sistema)
-        self.assertEqual(permisos_de_rol(copia), set(catalogo.TODOS))   # los permisos sí, pero como un rol normal
+        # los permisos sí, pero como un rol normal: sin los reservados (justificar faltas es del administrador y de prefectura)
+        self.assertEqual(permisos_de_rol(copia), set(catalogo.TODOS) - catalogo.reservados_para(False))
 
     def test_quien_copia_solo_se_lleva_los_permisos_que_tiene(self):
         self.entrar_como(self.gestor_de_roles())
@@ -411,6 +412,73 @@ class CopiarRolTests(BaseRolesTestCase):
         self.assertEqual(self.client.get(reverse('roles:copiar', args=[self.docente.pk])).status_code, 405)
         self.entrar_como(self.gestor_de_roles(('Usuarios.view_rol', 'Usuarios.change_rol'), 'sin_alta'))
         self.assertEqual(self.client.post(reverse('roles:copiar', args=[self.docente.pk])).status_code, 403)
+
+
+# ---------------------------------------------------------------------------
+# Justificar faltas: solo el administrador y prefectura
+# ---------------------------------------------------------------------------
+class JustificarSoloAdministradorYPrefecturaTests(BaseRolesTestCase):
+    JUSTIFICAR = {'Alumnos.add_justificacion', 'Alumnos.change_justificacion', 'Alumnos.delete_justificacion'}
+
+    def test_los_roles_de_arranque_no_justifican_salvo_el_administrador_y_prefectura(self):
+        for rol in Rol.objects.select_related('grupo'):
+            with self.subTest(rol=rol.nombre):
+                permisos = permisos_de_rol(rol)
+                self.assertEqual(bool(permisos & self.JUSTIFICAR), rol.acceso_total)
+                self.assertEqual('Prefectura.justificar' in permisos, rol.acceso_total or rol.nombre == 'Prefectura')
+        for nombre in ('Dirección', 'Control escolar', 'Recepción'):
+            self.assertIn('Alumnos.view_justificacion', permisos_de_rol(Rol.objects.get(grupo__name=nombre)))   # consultar, sí
+
+    def test_un_rol_no_puede_recibir_el_permiso_de_justificar(self):
+        for permiso in sorted(self.JUSTIFICAR):
+            with self.subTest(permiso=permiso):
+                respuesta = self.client.post(reverse('roles:crear'), datos_de_rol([permiso], nombre=f'Con {permiso}'))
+                self.assertContains(respuesta, 'Este rol no puede tener')
+                self.assertContains(respuesta, 'exclusivo del rol administrador')
+        self.assertFalse(Rol.objects.filter(grupo__name__startswith='Con ').exists())
+
+    def test_justificar_en_prefectura_solo_con_un_rol_de_prefectura(self):
+        permisos = ['Prefectura.consultar', 'Prefectura.justificar']
+        respuesta = self.client.post(reverse('roles:crear'), datos_de_rol(permisos, nombre='Orientación'))
+        self.assertContains(respuesta, 'solo para roles de prefectura')
+        self.assertFalse(Rol.objects.filter(grupo__name='Orientación').exists())
+        self.client.post(reverse('roles:crear'), datos_de_rol(permisos, nombre='Prefectura secundaria', es_prefectura='on'))
+        self.assertIn('Prefectura.justificar', permisos_de_rol(Rol.objects.get(grupo__name='Prefectura secundaria')))
+
+    def test_al_editar_un_rol_se_le_quita_lo_que_ya_tenia(self):
+        # Un rol que lo tenía de antes (desde el admin de Django) lo pierde al guardarse
+        rol = crear_rol('Heredado', {'Alumnos.view_justificacion'})
+        rol.grupo.permissions.add(*Permission.objects.filter(content_type__app_label='Alumnos', codename='add_justificacion'))
+        self.client.post(reverse('roles:editar', args=[rol.pk]), datos_de_rol(['Alumnos.view_justificacion'], nombre='Heredado'))
+        self.assertEqual(permisos_de_rol(rol) & self.JUSTIFICAR, set())
+
+    def test_la_matriz_muestra_las_casillas_reservadas_bloqueadas(self):
+        html = self.client.get(reverse('roles:crear')).content.decode()
+        casilla = re.search(r'<input[^>]*value="Alumnos.add_justificacion"[^>]*>', html).group(0)
+        self.assertIn('data-reservado="administrador"', casilla)
+        self.assertIn('disabled', casilla)
+        prefectura = re.search(r'<input[^>]*value="Prefectura.justificar"[^>]*>', html).group(0)
+        self.assertIn('data-reservado="prefectura"', prefectura)
+        self.assertIn('disabled', prefectura)   # se habilita al marcar «Rol de prefectura»
+        editar = self.client.get(reverse('roles:editar', args=[Rol.objects.get(grupo__name='Prefectura').pk])).content.decode()
+        self.assertNotIn('disabled', re.search(r'<input[^>]*value="Prefectura.justificar"[^>]*>', editar).group(0))
+
+    def test_la_migracion_quita_el_permiso_a_los_demas_roles(self):
+        from importlib import import_module
+
+        from django.apps import apps
+        migracion = import_module('Usuarios.migrations.0012_justificar_solo_administrador_y_prefectura')
+        rol = crear_rol('Antiguo', {'Alumnos.view_justificacion'}, descripcion='Pantalla de entrada, asistencia del día y justificaciones.')
+        rol.grupo.permissions.add(*Permission.objects.filter(
+            content_type__app_label__in=('Alumnos', 'Prefectura'), codename__in=('add_justificacion', 'delete_justificacion', 'justificar')))
+        cuenta = crear_usuario('directo')
+        cuenta.user_permissions.add(*Permission.objects.filter(content_type__app_label='Alumnos', codename='change_justificacion'))
+        migracion.quitar_justificar(apps, None)
+        rol.refresh_from_db()
+        self.assertEqual(permisos_de_rol(rol), {'Alumnos.view_justificacion'})
+        self.assertEqual(rol.descripcion, 'Pantalla de entrada y asistencia del día; consulta las justificaciones.')
+        self.assertFalse(cuenta.user_permissions.exists())
+        self.assertIn('Prefectura.justificar', permisos_de_rol(Rol.objects.get(grupo__name='Prefectura')))   # prefectura lo conserva
 
 
 # ---------------------------------------------------------------------------

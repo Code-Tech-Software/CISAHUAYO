@@ -5,7 +5,7 @@ from django.db import transaction
 
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.utils import compactar_espacios
-from Usuarios.catalogo import TODOS, con_requisitos, etiqueta_de
+from Usuarios.catalogo import MOTIVO_RESERVADO, RESERVADOS, TODOS, con_requisitos, etiqueta_de, reservados_para
 from Usuarios.models import Rol
 from Usuarios.seguridad import codigos, objetos_de_permisos, permisos_de_rol, permisos_efectivos
 
@@ -17,7 +17,8 @@ class RolForm(EstiloCamposMixin, forms.Form):
 
     Los permisos llegan como una lista `permisos` de casillas («Alumnos.view_alumno»...). Se les suma lo que cada uno
     necesita (editar exige ver), y quien edita solo puede cambiar los permisos que él mismo tiene: los demás se
-    conservan tal como estaban (la casilla aparece bloqueada).
+    conservan tal como estaban (la casilla aparece bloqueada). Los permisos reservados (justificar faltas) nunca quedan
+    en un rol que no puede tenerlos.
     """
 
     nombre = forms.CharField(max_length=MAXIMO_NOMBRE, label='Nombre del rol', widget=forms.TextInput(attrs={
@@ -75,12 +76,19 @@ class RolForm(EstiloCamposMixin, forms.Form):
             raise ValidationError('Se enviaron permisos que no existen. Recarga la página e inténtalo de nuevo.')
         pedidos = con_requisitos(pedidos)
 
+        # Justificar faltas: solo el administrador (desde Asistencias) y los roles de prefectura (desde Prefectura)
+        reservados = reservados_para(datos.get('es_prefectura', False))
+        prohibidos = pedidos & reservados
+        if prohibidos:
+            nombres = ', '.join(sorted(f'{etiqueta_de(p)} ({MOTIVO_RESERVADO[RESERVADOS[p]].rstrip(".").lower()})' for p in prohibidos))
+            raise ValidationError(f'Este rol no puede tener: {nombres}.')
+
         # Solo se puede conceder lo que uno mismo tiene
         sin_derecho = (pedidos - self.permisos_del_actor) - self.permisos_actuales
         if sin_derecho:
             nombres = ', '.join(sorted(etiqueta_de(p) for p in sin_derecho)[:4])
             raise ValidationError(f'No puedes conceder permisos que tú no tienes: {nombres}.')
-        self.permisos_finales = (pedidos & self.permisos_del_actor) | (self.permisos_actuales - self.permisos_del_actor)
+        self.permisos_finales = ((pedidos & self.permisos_del_actor) | (self.permisos_actuales - self.permisos_del_actor)) - reservados
         return datos
 
     # --- guardado ----------------------------------------------------------------------

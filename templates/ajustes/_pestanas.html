@@ -1,13 +1,16 @@
 {% comment %}
   Secciones de Ajustes (la configuración del sistema, menú Sistema). Parámetros: ajustes_seccion («apariencia»,
-  «asistencia» o «conducta») y puede_configurar_conducta (si ve algún catálogo de conducta). La asistencia se ve con
-  el permiso de sus ajustes; la apariencia, todos.
+  «asistencia», «calificaciones» o «conducta») y puede_configurar_conducta (si ve algún catálogo de conducta). La
+  asistencia y las calificaciones se ven con el permiso de consultar sus ajustes; la apariencia, todos.
 {% endcomment %}
-{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia %}
+{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion %}
   <nav class="pills pills--section" aria-label="Secciones de ajustes">
     <a class="pill{% if ajustes_seccion == 'apariencia' %} is-active{% endif %}" href="{% url 'ajustes:inicio' %}"{% if ajustes_seccion == 'apariencia' %} aria-current="page"{% endif %}>Apariencia</a>
     {% if perms.Alumnos.view_configuracionasistencia %}
       <a class="pill{% if ajustes_seccion == 'asistencia' %} is-active{% endif %}" href="{% url 'asistencias:ajustes' %}"{% if ajustes_seccion == 'asistencia' %} aria-current="page"{% endif %}>Asistencia</a>
+    {% endif %}
+    {% if perms.Calificaciones.view_configuracionevaluacion %}
+      <a class="pill{% if ajustes_seccion == 'calificaciones' %} is-active{% endif %}" href="{% url 'calificaciones:configuracion' %}"{% if ajustes_seccion == 'calificaciones' %} aria-current="page"{% endif %}>Calificaciones</a>
     {% endif %}
     {% if puede_configurar_conducta %}
       <a class="pill{% if ajustes_seccion == 'conducta' %} is-active{% endif %}" href="{% url 'conducta:configuracion' %}"{% if ajustes_seccion == 'conducta' %} aria-current="page"{% endif %}>Conducta</a>

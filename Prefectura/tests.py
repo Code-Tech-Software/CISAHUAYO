@@ -150,14 +150,18 @@ class RolYAlcanceTests(BasePrefecturaTestCase):
         self.como_prefecto(niveles=['PRIMARIA'])
         self.assertRedirects(self.client.get(reverse('inicio')), reverse('prefectura:inicio'))
         peticion = self.client.get(reverse('prefectura:inicio')).wsgi_request
+        titulos = [s['titulo'] for s in navegacion(peticion)['navegacion']]
+        self.assertEqual(titulos.count('Prefectura'), 1)   # solo la suya: la general no le muestra nada
         secciones = {s['titulo']: [e['etiqueta'] for e in s['elementos']] for s in navegacion(peticion)['navegacion']}
         self.assertEqual(secciones['Prefectura'], ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Seguimiento', 'Reportes'])
         self.assertNotIn(None, secciones)   # sin «Panel de control»: su inicio es el de prefectura
         self.assertEqual(secciones['Sistema'], ['Ajustes'])
-        # El administrador conserva su menú, sin la sección de prefectura
+        # El administrador conserva su menú: su «Prefectura» es la general (asistencia y conducta del colegio)
         self.client.force_login(self.admin)
         peticion = self.client.get(reverse('inicio')).wsgi_request
-        self.assertNotIn('Prefectura', [s['titulo'] for s in navegacion(peticion)['navegacion']])
+        secciones = [(s['titulo'], [e['etiqueta'] for e in s['elementos']]) for s in navegacion(peticion)['navegacion']]
+        self.assertEqual([t for t, _ in secciones], [None, 'Comunidad escolar', 'Gestión académica', 'Prefectura', 'Sistema'])
+        self.assertEqual(dict(secciones)['Prefectura'], ['Asistencias', 'Registro de conducta', 'Reportes de conducta'])
 
     def test_la_ficha_no_muestra_datos_clinicos_ni_financieros(self):
         self.alumno.alergias = 'Penicilina'

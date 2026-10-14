@@ -1,0 +1,68 @@
+{% comment %}
+  Qué se está calificando y en qué estado: materia, grupo, docente, periodo, configuración usada, si se puede capturar
+  (y si no, por qué), y el cierre o la reapertura de las calificaciones del periodo.
+{% endcomment %}
+<section class="card cal-estado" aria-label="Estado de las calificaciones">
+  <dl class="cal-estado__datos">
+    <div><dt>Materia</dt><dd>{{ asignacion.materia }}</dd></div>
+    <div><dt>Grupo</dt><dd>{{ asignacion.grupo }}</dd></div>
+    <div><dt>Docente</dt><dd>{{ asignacion.profesor|default:"Sin docente asignado" }}</dd></div>
+    <div><dt>Periodo</dt><dd>{{ periodo.nombre }} <span class="tag{% if periodo.esta_abierto %} tag--success{% endif %}">{{ periodo.estado_display }}</span></dd></div>
+    <div>
+      <dt>Configuración</dt>
+      <dd>
+        {% if tabla.foto %}
+          La usada al cerrar
+        {% elif tabla.configuracion %}
+          {% for rubro in tabla.rubros %}{{ rubro.nombre }} {{ rubro.porcentaje|floatformat:"-2" }} %{% if not forloop.last %} · {% endif %}{% endfor %}
+          {% if not tabla.configuracion.activa %}<span class="tag tag--warning">Borrador</span>{% endif %}
+          {% if tabla.configuracion.periodo_id %}<span class="tag">Versión de {{ periodo.nombre }}</span>{% endif %}
+        {% else %}
+          <span class="tag tag--warning">Sin configurar</span>
+        {% endif %}
+        {% if configurar %}<a class="cal-estado__enlace" href="{% url 'calificaciones:configuracion_materia' asignacion.materia_id %}?ciclo={{ asignacion.ciclo_id }}">Ver configuración</a>{% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt>Calificaciones</dt>
+      <dd>
+        {% if acta.cerrada %}
+          <span class="tag tag--success">Cerradas</span> el {{ acta.cerrada_en|date:"j \d\e F \d\e Y, H:i"|lower }}{% if acta.cerrada_por %} por {{ acta.cerrada_por.get_full_name|default:acta.cerrada_por.username }}{% endif %}
+        {% else %}
+          <span class="tag tag--info">En captura</span>
+        {% endif %}
+      </dd>
+    </div>
+  </dl>
+
+  {% if solo_lectura %}
+    <div class="alert alert--info cal-estado__aviso" role="note">
+      {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+      <p class="alert__body">{{ solo_lectura }}{% if not tabla.configuracion and not tabla.foto and configurar %} <a href="{% url 'calificaciones:configuracion_materia' asignacion.materia_id %}?ciclo={{ asignacion.ciclo_id }}">Configurarla</a>.{% endif %}</p>
+    </div>
+  {% elif tabla.configuracion and not tabla.configuracion.activa %}
+    <div class="alert alert--warning cal-estado__aviso" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body">La configuración de la materia es un borrador (sus rubros activos no suman 100 %): los resultados son provisionales y no se pueden cerrar hasta activarla.</p>
+    </div>
+  {% endif %}
+
+  {% if puede_cerrar or puede_reabrir %}
+    <div class="cal-estado__cierre">
+      {% if puede_cerrar %}
+        {% if problemas_para_cerrar %}
+          <details class="cal-pendientes">
+            <summary>Para cerrar falta resolver {{ problemas_para_cerrar|length }} punto{{ problemas_para_cerrar|length|pluralize }}</summary>
+            <ul>{% for problema in problemas_para_cerrar %}<li>{{ problema }}</li>{% endfor %}</ul>
+          </details>
+        {% else %}
+          <p class="text-muted">Todo está capturado: ya puedes cerrar las calificaciones de {{ periodo.nombre }}.</p>
+        {% endif %}
+        <a class="btn btn--primary btn--sm" href="{% url 'calificaciones:cerrar' acta.pk %}" data-modal-form>{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Cerrar calificaciones</a>
+      {% endif %}
+      {% if puede_reabrir %}
+        <a class="btn btn--sm" href="{% url 'calificaciones:reabrir' acta.pk %}" data-modal-form>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Reabrir</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>

@@ -1,0 +1,15 @@
+{% comment %}
+  Concentrado (como la hoja «Concentrado» del formato): encabezado, número de lista, nombre, calificación final y
+  firma de enterado, con firmas del docente, coordinación y dirección. Dice si es provisional o del periodo cerrado.
+{% endcomment %}
+<div class="cal-barra">
+  <p class="text-muted">{{ concentrado.estado }}</p>
+  <div class="cal-barra__acciones">
+    <a class="btn btn--sm" href="{% url 'calificaciones:concentrado_imprimir' acta.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir</a>
+    <a class="btn btn--sm" href="{% url 'calificaciones:concentrado_imprimir' acta.pk %}?pdf=1" target="_blank" rel="noopener">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+    <a class="btn btn--sm" href="{% url 'calificaciones:concentrado_excel' acta.pk %}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Excel</a>
+  </div>
+</div>
+<div class="card cal-concentrado">
+  {% include "calificaciones/_concentrado_tabla.html" with c=concentrado %}
+</div>

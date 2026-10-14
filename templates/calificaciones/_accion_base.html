@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Base de las acciones de calificaciones (se abren en la ventana modal con data-modal-form y también funcionan como
+  página completa). Bloques: title, migaja, encabezado, descripcion, antes (avisos sobre el formulario), campos,
+  clase_boton y boton. Parámetro: volver (a dónde lleva «Cancelar»).
+{% endcomment %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Calificaciones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% block migaja %}{% endblock %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% block encabezado %}{% endblock %}</h1>
+      <p class="page-header__description">{% block descripcion %}{% endblock %}</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    {% block antes %}{% endblock %}
+    {% block tarjeta %}
+      <section class="card">
+        <div class="card__body form-grid">
+          {% block campos %}{% endblock %}
+        </div>
+      </section>
+    {% endblock %}
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      {% block boton_completo %}<button type="submit" class="btn {% block clase_boton %}btn--primary{% endblock %}">{% block boton %}Guardar{% endblock %}</button>{% endblock %}
+    </div>
+  </form>
+{% endblock %}

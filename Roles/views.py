@@ -51,16 +51,21 @@ def _administrable(request, rol):
     return rol
 
 
-def _matriz(request, marcados, editable):
-    """El catálogo con lo marcado y, al editar, qué casillas están bloqueadas porque quien edita no las tiene."""
+def _matriz(request, marcados, editable, es_prefectura=False):
+    """El catálogo con lo marcado y, al editar, qué casillas están bloqueadas: porque quien edita no las tiene o porque
+    el permiso está reservado (justificar: el administrador; justificar en prefectura: los roles de prefectura)."""
     matriz = catalogo.resumen(marcados)
     if editable:
         propios = permisos_efectivos(request.user)
+        reservados = catalogo.reservados_para(es_prefectura)
         for modulo in matriz:
             for fila in modulo['filas']:
                 for celda in fila['celdas']:
                     if celda:
-                        celda['bloqueada'] = celda['permiso'] not in propios
+                        celda['sin_permiso_propio'] = celda['permiso'] not in propios
+                        if celda['permiso'] in reservados:
+                            celda['tiene'] = False
+                        celda['bloqueada'] = celda['sin_permiso_propio'] or celda['permiso'] in reservados
     return matriz
 
 
@@ -104,7 +109,7 @@ def _formulario(request, form, rol=None):
         'form': form,
         'rol': rol,
         'es_edicion': rol is not None,
-        'matriz': _matriz(request, form.marcados, True),
+        'matriz': _matriz(request, form.marcados, True, es_prefectura=bool(form['es_prefectura'].value())),
         'total_posibles': len(catalogo.TODOS),
     })
 
@@ -195,7 +200,8 @@ def rol_copiar(request, pk):
         nombre = f'{base} ({n})'
 
     propios = permisos_efectivos(request.user)
-    permisos = permisos_de_rol(origen) & propios
+    # La copia nunca es de acceso total: los permisos reservados (justificar faltas) no pasan a ella
+    permisos = (permisos_de_rol(origen) & propios) - catalogo.reservados_para(origen.es_prefectura)
     omitidos = len(permisos_de_rol(origen) - propios)
     with transaction.atomic():
         grupo = Group.objects.create(name=nombre)

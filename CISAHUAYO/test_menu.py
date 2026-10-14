@@ -7,11 +7,16 @@ from CISAHUAYO.context_processors import ACCIONES_RAPIDAS, NAVEGACION, navegacio
 PENDIENTES = set()
 
 
+def _de_cuentas_de_prefectura(seccion):
+    """La sección «Prefectura» de las cuentas de prefectura (no la general de asistencia y conducta)."""
+    return any(el['ruta'].startswith('prefectura:') for el in seccion['elementos'])
+
+
 class MenuConRutasRealesTests(SimpleTestCase):
     def setUp(self):
         self.contexto = navegacion(RequestFactory().get('/'))
-        # Sin usuario no se filtra nada: la sección de prefectura (solo para sus cuentas) se revisa aparte
-        self.items = {el['etiqueta']: el for s in self.contexto['navegacion'] if s['titulo'] != 'Prefectura' for el in s['elementos']}
+        # Sin usuario no se filtra nada: la sección de las cuentas de prefectura (sus rutas prefectura:…) se revisa aparte
+        self.items = {el['etiqueta']: el for s in self.contexto['navegacion'] if not _de_cuentas_de_prefectura(s) for el in s['elementos']}
 
     def test_cada_seccion_del_menu_tiene_su_ruta(self):
         for etiqueta, elemento in self.items.items():
@@ -25,7 +30,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Estudiantes', 'Tutores', 'Profesores',
             'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
-            'Horarios', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
+            'Horarios', 'Calificaciones', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
             'Usuarios', 'Roles y permisos', 'Ajustes',
         ])
 
@@ -65,13 +70,15 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertIn('asistencias:inicio', rutas)
 
     def test_las_secciones_del_menu(self):
-        secciones = {s['titulo']: [el['etiqueta'] for el in s['elementos']] for s in NAVEGACION}
-        self.assertEqual(list(secciones), [None, 'Prefectura', 'Comunidad escolar', 'Gestión académica', 'Sistema'])
-        self.assertEqual(secciones[None], ['Panel de control'])
-        self.assertEqual(secciones['Prefectura'], ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Seguimiento', 'Reportes'])
-        self.assertEqual(secciones['Comunidad escolar'], ['Estudiantes', 'Tutores', 'Profesores'])
-        self.assertEqual(secciones['Gestión académica'], [
-            'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
-            'Horarios', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
+        secciones = [(s['titulo'], [el['etiqueta'] for el in s['elementos']]) for s in NAVEGACION]
+        self.assertEqual(secciones, [
+            (None, ['Panel de control']),
+            # La de las cuentas de prefectura (solo la ven ellas)
+            ('Prefectura', ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Seguimiento', 'Reportes']),
+            ('Comunidad escolar', ['Estudiantes', 'Tutores', 'Profesores']),
+            ('Gestión académica', ['Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias',
+                                   'Asignaciones de materias', 'Horarios', 'Calificaciones']),
+            # La general, debajo de Gestión académica (pedido del 2026-10-14)
+            ('Prefectura', ['Asistencias', 'Registro de conducta', 'Reportes de conducta']),
+            ('Sistema', ['Usuarios', 'Roles y permisos', 'Ajustes']),
         ])
-        self.assertEqual(secciones['Sistema'], ['Usuarios', 'Roles y permisos', 'Ajustes'])

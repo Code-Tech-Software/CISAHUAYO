@@ -3,7 +3,8 @@
    Cada casilla (name="permisos") lleva data-accion (ver, crear, editar, baja) y, si necesita otros permisos,
    data-requiere con sus códigos. Marcar una casilla marca lo que necesita; desmarcar «ver» desmarca lo que depende de
    ella. El servidor aplica las mismas dependencias (Usuarios/catalogo.py), esto solo lo hace visible al instante.
-   También: contadores por módulo y total, «Todo/Nada» por módulo y las ayudas rápidas de arriba.
+   También: contadores por módulo y total, «Todo/Nada» por módulo y las ayudas rápidas de arriba. Las casillas
+   reservadas a prefectura (data-reservado="prefectura") solo se pueden marcar con «Rol de prefectura» encendido.
 */
 (() => {
   'use strict';
@@ -69,6 +70,22 @@
     aplicar(event.target);
     contar();
   });
+
+  /* ------------------------------------------- Reservado a prefectura: depende del interruptor del rol */
+  const esPrefectura = form.querySelector('[name="es_prefectura"]');
+  const reservadasAPrefectura = cajas.filter((caja) => caja.dataset.reservado === 'prefectura');
+  const ajustarReservadas = () => {
+    reservadasAPrefectura.forEach((caja) => {
+      const bloqueada = caja.hasAttribute('data-sin-permiso-propio') || !(esPrefectura && esPrefectura.checked);
+      if (bloqueada && !caja.hasAttribute('data-sin-permiso-propio')) caja.checked = false;
+      caja.disabled = bloqueada;
+      caja.closest('.perm-cell').classList.toggle('is-locked', bloqueada);
+    });
+    contar();
+  };
+  if (esPrefectura && reservadasAPrefectura.length) {
+    esPrefectura.addEventListener('change', ajustarReservadas);
+  }
 
   /* ------------------------------------------------------------- Todo / Nada por módulo */
   form.addEventListener('click', (event) => {

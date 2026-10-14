@@ -1,0 +1,67 @@
+{% comment %}
+  Resumen de calificaciones (como la hoja «General» del formato): por estudiante, cada rubro con su calificación o
+  promedio y su aportación, faltas consideradas, descuento, punto de academia, calificación final y estado. Los rubros
+  de captura directa (conducta), las faltas manuales y el punto de academia se capturan aquí; lo calculado es de solo
+  lectura y se actualiza al guardar (calificaciones.js).
+{% endcomment %}
+{% if not tabla.rubros %}
+  <div class="table-card">
+    <div class="empty-state">
+      {% include "partials/icon.html" with name="settings" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">La materia todavía no tiene rubros</p>
+      <p class="empty-state__text">Las calificaciones se calculan con los rubros y porcentajes de la materia (Ajustes › Calificaciones).</p>
+    </div>
+  </div>
+{% elif not filas %}
+  <div class="table-card">
+    <div class="empty-state">
+      {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">El grupo no tiene estudiantes inscritos</p>
+    </div>
+  </div>
+{% else %}
+  <div class="table-card cal-tabla" data-cal-tabla>
+    <div class="cal-tabla__desplazable">
+      <table class="cal-matriz" data-captura data-url-guardar="{{ url_guardar }}" data-acta="{{ acta.pk }}">
+        <caption class="visually-hidden">Resumen de calificaciones de {{ asignacion.materia }}, {{ asignacion.grupo }}, {{ periodo.nombre }}</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="cal-matriz__num">N.º</th>
+            <th scope="col" class="cal-matriz__nombre">Estudiante</th>
+            {% for columna in columnas %}
+              <th scope="col" class="cal-matriz__rubro">{{ columna.titulo }}<span class="cal-matriz__sub">{% if columna.directo %}Calificación{% else %}Promedio{% endif %}</span></th>
+              <th scope="col" class="cal-matriz__rubro cal-aportacion">Aportación<span class="cal-matriz__sub">{{ columna.rubro.porcentaje|floatformat:"-2" }} %</span></th>
+            {% endfor %}
+            <th scope="col">Faltas<span class="cal-matriz__sub">{% if tabla.faltas_manuales %}captura manual{% elif tabla.origen_faltas == 'TODAS' %}de la asistencia{% else %}sin justificar{% endif %}</span></th>
+            <th scope="col" class="cal-descuento">Descuento<span class="cal-matriz__sub">{% if tabla.reglas.penalizar_faltas %}−{{ tabla.reglas.puntos_por_bloque|floatformat:"-2" }} c/{{ tabla.reglas.faltas_por_bloque }}{% else %}no aplica{% endif %}</span></th>
+            {% if tabla.con_academia %}<th scope="col">Punto de academia<span class="cal-matriz__sub">+{{ tabla.reglas.valor_punto_academia|floatformat:"-2" }} otorgado</span></th>{% endif %}
+            <th scope="col" class="cal-final">Final<span class="cal-matriz__sub">máx. {{ tabla.reglas.limite_maximo|floatformat:"-2" }}</span></th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in filas %}
+            <tr data-inscripcion="{{ fila.inscripcion.pk }}" data-fila>
+              <td class="cal-matriz__num">{{ fila.numero }}</td>
+              <th scope="row" class="cal-matriz__nombre" data-nombre>{{ fila.nombre }}</th>
+              {% for celda in fila.celdas %}
+                {% if celda.entrada %}
+                  {% include "calificaciones/_celda.html" %}
+                {% else %}
+                  <td class="cal-calculada {{ celda.clase }}" data-calc="{{ celda.calc }}">{{ celda.valor|default:"—" }}</td>
+                {% endif %}
+              {% endfor %}
+              <td class="cal-final" data-calc="final">{{ fila.calc.final|default:"—" }}</td>
+              <td><span class="cal-estado-fila cal-estado-fila--{{ fila.calc.estado_clave }}" data-calc="estado" data-estado-clave="{{ fila.calc.estado_clave }}">{{ fila.calc.estado }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="text-muted cal-nota">
+    Las aportaciones se redondean a dos decimales como en el formato. Sin calificación en un rubro no hay calificación final; con actividades por calificar, la final es provisional.
+    {% if not tabla.faltas_manuales %}Las faltas salen de la asistencia de la materia en el periodo{% if tabla.origen_faltas == 'SIN_JUSTIFICAR' %} (solo las no justificadas){% endif %}: se corrigen en Asistencias.{% endif %}
+    {% if tabla.reglas.limite_minimo is None %}Sin calificación mínima, como el formato.{% endif %}
+  </p>
+{% endif %}

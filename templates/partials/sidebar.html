@@ -43,4 +43,6 @@
       </div>
     {% endfor %}
   </nav>
+  {# Sin defer, justo después del menú: aparece en la posición en que se dejó, sin volver al principio #}
+  <script src="{% static 'js/menu-posicion.js' %}"></script>
 </aside>

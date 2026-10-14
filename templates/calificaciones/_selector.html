@@ -1,0 +1,47 @@
+{% comment %}
+  Qué se califica: ciclo (si hay más de uno), grupo y materia (la administración) o solo materia (el docente), y
+  periodo. Cada cambio se envía solo (calificaciones.js); sin JavaScript, con «Ver».
+{% endcomment %}
+<form class="filters cal-selector" method="get" aria-label="Materia, grupo y periodo" data-cal-selector>
+  {% if ciclos|length > 1 %}
+    <div class="filters__field">
+      <label class="field__label" for="cal-ciclo">Ciclo</label>
+      <select class="field__control field__control--select" id="cal-ciclo" name="ciclo" data-cal-reinicia>
+        {% for opcion in ciclos %}<option value="{{ opcion.pk }}"{% if opcion.pk == ciclo.pk %} selected{% endif %}>{{ opcion }}</option>{% endfor %}
+      </select>
+    </div>
+  {% else %}
+    <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+  {% endif %}
+  {% if ve_todas %}
+    <div class="filters__field">
+      <label class="field__label" for="cal-grupo">Grupo</label>
+      <select class="field__control field__control--select" id="cal-grupo" name="grupo" data-cal-reinicia>
+        {% for grupo in grupos %}<option value="{{ grupo.pk }}"{% if grupo.pk == asignacion.grupo_id %} selected{% endif %}>{{ grupo }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
+      <label class="field__label" for="cal-materia">Materia</label>
+      <select class="field__control field__control--select" id="cal-materia" name="materia" data-cal-materia>
+        {% for opcion in materias_del_grupo %}<option value="{{ opcion.pk }}"{% if opcion.pk == asignacion.pk %} selected{% endif %}>{{ opcion.materia }}</option>{% endfor %}
+      </select>
+    </div>
+  {% else %}
+    <div class="filters__field">
+      <label class="field__label" for="cal-materia">Materia y grupo</label>
+      <select class="field__control field__control--select" id="cal-materia" name="materia" data-cal-materia>
+        {% for opcion in asignaciones %}<option value="{{ opcion.pk }}"{% if opcion.pk == asignacion.pk %} selected{% endif %}>{{ opcion.materia }} · {{ opcion.grupo }}</option>{% endfor %}
+      </select>
+    </div>
+  {% endif %}
+  <div class="filters__field">
+    <label class="field__label" for="cal-periodo">Periodo</label>
+    <select class="field__control field__control--select" id="cal-periodo" name="periodo" data-cal-periodo{% if not periodos %} disabled{% endif %}>
+      {% for opcion in periodos %}<option value="{{ opcion.pk }}"{% if opcion.pk == periodo.pk %} selected{% endif %}>{{ opcion.nombre }} · {{ opcion.estado_display|lower }}</option>{% endfor %}
+    </select>
+  </div>
+  {% if pestana and pestana != 'resumen' %}<input type="hidden" name="pestana" value="{{ pestana }}">{% endif %}
+  <div class="filters__actions">
+    <button type="submit" class="btn btn--primary btn--sm" data-cal-ver>Ver</button>
+  </div>
+</form>

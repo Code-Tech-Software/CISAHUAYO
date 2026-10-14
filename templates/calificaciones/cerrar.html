@@ -1,0 +1,26 @@
+{% extends "calificaciones/_accion_base.html" %}
+
+{% block title %}Cerrar calificaciones | CISAHUAYO{% endblock %}
+{% block migaja %}Cerrar calificaciones{% endblock %}
+{% block encabezado %}Cerrar calificaciones{% endblock %}
+{% block descripcion %}{{ acta.asignacion.materia }} · {{ acta.asignacion.grupo }} · {{ acta.periodo.nombre }} · {{ estudiantes }} estudiante{{ estudiantes|pluralize }}.{% endblock %}
+
+{% block antes %}
+  {% if problemas %}
+    <div class="alert alert--warning" role="alert">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Todavía no se puede cerrar.</strong> Falta resolver:</p>
+        <ul>{% for problema in problemas %}<li>{{ problema }}</li>{% endfor %}</ul>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert--info" role="note">
+      {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+      <p class="alert__body">Al cerrar ya no se podrán cambiar calificaciones ni actividades de este periodo. Se guardan la configuración y los resultados usados: aunque después se cambie la configuración de la materia, estos resultados no cambian. Solo quien tiene permiso puede reabrirlas, con motivo.</p>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block tarjeta %}{% endblock %}
+{% block boton_completo %}{% if not problemas %}<button type="submit" class="btn btn--primary">Cerrar calificaciones</button>{% endif %}{% endblock %}

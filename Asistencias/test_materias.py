@@ -351,12 +351,16 @@ class JustificarTests(BaseMateriasTestCase):
         self.assertNotContains(respuesta, 'data-justificar-dialogo')
         self.assertEqual(self.justificar(registro).status_code, 403)
         self.assertFalse(Justificacion.objects.exists())
-        # Con el permiso de justificaciones, sí
+        # Justificar es solo del administrador (y de prefectura): otro rol no lo recibe aunque se le pida
         rol = crear_rol('Control', {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.add_justificacion'})
         self.client.force_login(crear_usuario('lupe', rol))
+        self.assertNotContains(self.client.get(URL, {'materia': self.mat.pk}), 'data-justificable')
+        self.assertEqual(self.justificar(registro).status_code, 403)
+        # El administrador, sí
+        self.client.force_login(self.admin)
         self.assertContains(self.client.get(URL, {'materia': self.mat.pk}), 'data-justificable')
         self.assertEqual(self.justificar(registro).status_code, 200)
-        self.assertEqual(Justificacion.objects.get().registrada_por.username, 'lupe')
+        self.assertEqual(Justificacion.objects.get().registrada_por, self.admin)
 
     def test_si_el_comprobante_no_se_puede_guardar_la_falta_no_cambia(self):
         registro = self.falta()

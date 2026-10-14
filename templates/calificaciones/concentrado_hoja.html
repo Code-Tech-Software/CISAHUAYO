@@ -1,0 +1,48 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Concentrado de calificaciones listo para imprimir o guardar en PDF desde el navegador (hoja vertical, tema claro).
+  Con ?pdf=1 abre solo el diálogo de impresión (ahí se elige «Guardar como PDF»).
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Concentrado · {{ c.materia }} · {{ c.grupo }} · {{ c.periodo }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+  <style>@page { size: A4 portrait; margin: 12mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a las calificaciones</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte cal-hoja">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Concentrado de calificaciones</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Generado</dt><dd>{{ c.generado|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
+        <div><dt>Generado por</dt><dd>{{ c.usuario }}</dd></div>
+      </dl>
+    </header>
+    <section class="reporte__seccion cal-concentrado">
+      {% include "calificaciones/_concentrado_tabla.html" %}
+    </section>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

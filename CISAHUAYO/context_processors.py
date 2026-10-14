@@ -14,6 +14,11 @@ def _es_docente_que_pasa_lista(usuario):
     return profesor_de(usuario) is not None
 
 
+def _entra_a_calificaciones(usuario):
+    """Un docente (sus materias) o quien ve o gestiona las calificaciones de todo el colegio."""
+    return any(usuario.has_perm(p) for p in ('Calificaciones.capturar', 'Calificaciones.ver_todas', 'Calificaciones.gestionar_todas'))
+
+
 def _usa_prefectura(usuario):
     """Una cuenta de prefectura (su rol es de prefectura) que puede consultar: su menú es el de prefectura."""
     if not usuario.has_perm('Prefectura.consultar'):
@@ -88,6 +93,14 @@ NAVEGACION = (
             {'etiqueta': 'Materias', 'icono': 'book-open', 'ruta': 'materias:lista', 'permiso': 'Alumnos.view_materia'},
             {'etiqueta': 'Asignaciones de materias', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
             {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
+            {'etiqueta': 'Calificaciones', 'icono': 'award', 'ruta': 'calificaciones:inicio', 'destinos': ((_entra_a_calificaciones, 'calificaciones:inicio'),)},
+        ),
+    },
+    {
+        # Asistencia y conducta del colegio (pedido del 2026-10-14). Las cuentas de prefectura no la ven: tienen su propia
+        # sección «Prefectura» arriba (con su alcance), así que nadie ve las dos.
+        'titulo': 'Prefectura',
+        'elementos': (
             {
                 'etiqueta': 'Asistencias', 'icono': 'user-check', 'ruta': 'asistencias:inicio',
                 'destinos': (

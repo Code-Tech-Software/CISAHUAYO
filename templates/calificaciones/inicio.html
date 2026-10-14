@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Calificaciones | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Calificaciones</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Calificaciones</h1>
+      <p class="page-header__description">{% if ve_todas %}Las calificaciones de todas las materias y grupos del colegio.{% else %}Las calificaciones de tus materias.{% endif %} Elige la materia, el grupo y el periodo.</p>
+    </div>
+    {% if acta %}
+      <div class="page-header__actions">
+        <a class="btn" href="{% url 'calificaciones:historial' acta.pk %}">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Historial</a>
+      </div>
+    {% endif %}
+  </header>
+
+  {% if not asignaciones %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="award" icon_class="icon--lg empty-state__icon" %}
+        {% if not ve_todas and not profesor %}
+          <p class="empty-state__title">Esta sección es para docentes</p>
+          <p class="empty-state__text">Tu cuenta no está vinculada a una ficha de profesor. Quien administra el sistema puede vincularla desde la ficha del profesor («Dar acceso al sistema»).</p>
+        {% elif not ciclo %}
+          <p class="empty-state__title">No hay materias que mostrar</p>
+          <p class="empty-state__text">Todavía no hay un ciclo escolar con materias asignadas{% if not ve_todas %} a ti{% endif %}.</p>
+        {% else %}
+          <p class="empty-state__title">No hay materias en el ciclo {{ ciclo }}</p>
+          <p class="empty-state__text">{% if ve_todas %}Asigna materias a los grupos para capturar sus calificaciones.{% else %}Cuando dirección te asigne una materia, aparecerá aquí.{% endif %}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% include "calificaciones/_selector.html" %}
+
+    {% if not periodo %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">El nivel no tiene periodos de evaluación en el ciclo {{ ciclo }}</p>
+          <p class="empty-state__text">Las calificaciones se capturan por periodo (parcial, bimestre…). Registra los periodos del nivel para empezar.</p>
+          {% if perms.Alumnos.view_periodo %}<a class="btn btn--sm" href="{% url 'periodos:lista' %}">Ver periodos</a>{% endif %}
+        </div>
+      </div>
+    {% else %}
+      {% include "calificaciones/_estado.html" %}
+
+      <nav class="tabs__list cal-pestanas" aria-label="Pestañas de calificaciones">
+        {% for clave, nombre in pestanas %}
+          <a class="tabs__tab" href="?ciclo={{ ciclo.pk }}&amp;materia={{ asignacion.pk }}&amp;periodo={{ periodo.pk }}{% if clave != 'resumen' %}&amp;pestana={{ clave }}{% endif %}"{% if clave == pestana %} aria-current="page" aria-selected="true"{% else %} aria-selected="false"{% endif %}>{{ nombre }}</a>
+        {% endfor %}
+      </nav>
+
+      {% if pestana == 'resumen' %}
+        {% include "calificaciones/_resumen.html" %}
+      {% elif pestana == 'concentrado' %}
+        {% include "calificaciones/_concentrado.html" %}
+      {% else %}
+        {% include "calificaciones/_actividades.html" %}
+      {% endif %}
+
+      {% if editable and pestana != 'concentrado' %}
+        {# Estado del guardado (calificaciones.js): se guarda solo al salir de cada celda #}
+        <div class="cal-guardado" data-guardado role="status" aria-live="polite" hidden>
+          <span class="cal-guardado__texto" data-guardado-texto></span>
+          <button type="button" class="btn btn--sm" data-reintentar hidden>Reintentar</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-descartar hidden>Descartar</button>
+        </div>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/calificaciones.js' %}" defer></script>
+{% endblock %}

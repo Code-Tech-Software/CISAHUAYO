@@ -2,7 +2,8 @@
   Matriz editable de permisos: un bloque por módulo con sus funciones y, por cada una, casillas de ver, crear, editar y
   dar de baja. Las casillas llevan `data-requiere` (lo que necesitan) para que static/js/roles.js marque o desmarque
   lo que depende de ellas; el servidor aplica las mismas dependencias. Parámetro: matriz (Usuarios.catalogo.resumen,
-  con `bloqueada` en las celdas que quien edita no puede cambiar).
+  con `bloqueada` en las celdas que quien edita no puede cambiar). Las reservadas llevan `data-reservado`: las de
+  prefectura se habilitan al marcar «Rol de prefectura»; las del administrador nunca.
 {% endcomment %}
 <div class="perm-matrix" data-matriz>
   {% for modulo in matriz %}
@@ -33,8 +34,8 @@
             <span class="perm-row__name">{{ fila.funcion.nombre }}</span>
             {% for celda in fila.celdas %}
               {% if celda %}
-                <label class="perm-cell{% if celda.bloqueada %} is-locked{% endif %}" title="{{ celda.ayuda|default:celda.nombre }}{% if celda.bloqueada %} (No puedes cambiarlo: tú no tienes este permiso.){% endif %}">
-                  <input class="perm-cell__input" type="checkbox" name="permisos" value="{{ celda.permiso }}" data-accion="{{ celda.accion }}"{% if celda.requiere %} data-requiere="{{ celda.requiere }}"{% endif %}{% if celda.tiene %} checked{% endif %}{% if celda.bloqueada %} disabled{% endif %}>
+                <label class="perm-cell{% if celda.bloqueada %} is-locked{% endif %}" title="{{ celda.ayuda|default:celda.nombre }}{% if celda.sin_permiso_propio %} (No puedes cambiarlo: tú no tienes este permiso.){% endif %}">
+                  <input class="perm-cell__input" type="checkbox" name="permisos" value="{{ celda.permiso }}" data-accion="{{ celda.accion }}"{% if celda.requiere %} data-requiere="{{ celda.requiere }}"{% endif %}{% if celda.reservado %} data-reservado="{{ celda.reservado }}"{% endif %}{% if celda.sin_permiso_propio %} data-sin-permiso-propio{% endif %}{% if celda.tiene %} checked{% endif %}{% if celda.bloqueada %} disabled{% endif %}>
                   <span class="perm-cell__box" aria-hidden="true"></span>
                   <span class="perm-cell__label{% if celda.etiqueta_propia %} perm-cell__label--propia{% endif %}">{{ celda.nombre }}</span>
                   <span class="visually-hidden"> de {{ fila.funcion.nombre }}</span>

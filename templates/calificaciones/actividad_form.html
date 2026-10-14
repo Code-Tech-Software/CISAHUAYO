@@ -1,0 +1,17 @@
+{% extends "calificaciones/_accion_base.html" %}
+
+{% block title %}{{ titulo }} | CISAHUAYO{% endblock %}
+{% block migaja %}{{ titulo }}{% endblock %}
+{% block encabezado %}{{ titulo }}{% endblock %}
+{% block descripcion %}{{ acta.asignacion.materia }} · {{ acta.asignacion.grupo }} · {{ acta.periodo.nombre }}. Todas las actividades de un rubro pesan lo mismo en su promedio.{% endblock %}
+
+{% block campos %}
+  <input type="hidden" name="pestana" value="{{ pestana }}">
+  {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
+  {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
+  {% include "partials/field.html" with campo=form.fecha %}
+  {% include "partials/field.html" with campo=form.rubro %}
+  {% include "partials/field.html" with campo=form.orden %}
+{% endblock %}
+
+{% block boton %}{% if actividad %}Guardar cambios{% else %}Agregar{% endif %}{% endblock %}

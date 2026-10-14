@@ -1,0 +1,28 @@
+{% extends "calificaciones/_accion_base.html" %}
+
+{% block title %}{% if calificadas %}Anular{% else %}Eliminar{% endif %} «{{ actividad.nombre }}» | CISAHUAYO{% endblock %}
+{% block migaja %}{% if calificadas %}Anular actividad{% else %}Eliminar actividad{% endif %}{% endblock %}
+{% block encabezado %}{% if calificadas %}Anular «{{ actividad.nombre }}»{% else %}Eliminar «{{ actividad.nombre }}»{% endif %}{% endblock %}
+{% block descripcion %}{{ actividad.get_tipo_display }} del {{ actividad.fecha|date:"d/m/Y" }} · {{ actividad.rubro.nombre }}.{% endblock %}
+
+{% block antes %}
+  <div class="alert {% if calificadas %}alert--warning{% else %}alert--info{% endif %}" role="note">
+    {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+    <p class="alert__body">
+      {% if calificadas %}
+        Ya tiene {{ calificadas }} calificación{{ calificadas|pluralize:"es" }}: no se borra. Al anularla, sus calificaciones se conservan en el historial pero <strong>dejan de contar en el promedio</strong> de «{{ actividad.rubro.nombre }}» y deja de estar pendiente. Los promedios y las calificaciones finales en captura se recalculan.
+      {% else %}
+        No tiene calificaciones capturadas: se elimina y desaparece la columna.
+      {% endif %}
+    </p>
+  </div>
+{% endblock %}
+
+{% block tarjeta %}
+  {% if calificadas %}
+    <section class="card"><div class="card__body">{% include "partials/field.html" with campo=form.motivo %}</div></section>
+  {% endif %}
+{% endblock %}
+
+{% block clase_boton %}btn--danger{% endblock %}
+{% block boton %}{% if calificadas %}Anular actividad{% else %}Eliminar actividad{% endif %}{% endblock %}

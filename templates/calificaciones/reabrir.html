@@ -1,0 +1,20 @@
+{% extends "calificaciones/_accion_base.html" %}
+
+{% block title %}Reabrir calificaciones | CISAHUAYO{% endblock %}
+{% block migaja %}Reabrir calificaciones{% endblock %}
+{% block encabezado %}Reabrir calificaciones{% endblock %}
+{% block descripcion %}{{ acta.asignacion.materia }} · {{ acta.asignacion.grupo }} · {{ acta.periodo.nombre }}, cerradas el {{ acta.cerrada_en|date:"d/m/Y H:i" }}.{% endblock %}
+
+{% block antes %}
+  <div class="alert alert--warning" role="note">
+    {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+    <p class="alert__body">Las calificaciones vuelven a captura y se recalculan con la configuración vigente de la materia. Lo que se había cerrado (configuración y resultados) queda guardado en el historial con tu motivo.</p>
+  </div>
+{% endblock %}
+
+{% block campos %}
+  {% include "partials/field.html" with campo=form.motivo clase="form-grid__full" %}
+{% endblock %}
+
+{% block clase_boton %}btn--danger{% endblock %}
+{% block boton %}Reabrir{% endblock %}

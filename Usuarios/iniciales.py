@@ -8,11 +8,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
 
-from .catalogo import con_requisitos, permisos_de_modulos
+from .catalogo import con_requisitos, permisos_de_modulos, reservados_para
 from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
-ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias', 'conducta')
+ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias',
+             'calificaciones', 'conducta')
 
 
 def _direccion():
@@ -23,9 +24,9 @@ def _control_escolar():
     return (
         permisos_de_modulos('alumnos', 'tutores', 'inscripciones')
         | permisos_de_modulos('profesores', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
-        | {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.view_justificacion',
-           'Alumnos.add_justificacion', 'Alumnos.change_justificacion', 'Alumnos.delete_justificacion'}
+        | {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.view_justificacion'}
         | {'Conducta.view_registroconducta', 'Conducta.add_registroconducta', 'Conducta.change_registroconducta'}
+        | permisos_de_modulos('calificaciones', solo=('ver',))
     )
 
 
@@ -33,13 +34,14 @@ def _docente():
     return (
         permisos_de_modulos('alumnos', 'tutores', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Alumnos.view_asistenciamateria', 'Alumnos.change_asistenciamateria', 'Alumnos.view_justificacion'}
+        | {'Calificaciones.capturar', 'Calificaciones.cerrar'}
     )
 
 
 def _recepcion():
     return {
         'Alumnos.view_alumno', 'Alumnos.add_asistenciageneral', 'Alumnos.view_asistenciageneral',
-        'Alumnos.view_justificacion', 'Alumnos.add_justificacion',
+        'Alumnos.view_justificacion',
     }
 
 
@@ -51,9 +53,9 @@ def _prefectura():
 # nombre, descripción, color, permisos
 PREDETERMINADOS = (
     ('Dirección', 'Todos los módulos escolares. Consulta usuarios y roles, pero no los administra.', 1, _direccion),
-    ('Control escolar', 'Altas y cambios de estudiantes, tutores e inscripciones; consulta del resto y justificaciones.', 2, _control_escolar),
-    ('Docente', 'Consulta estudiantes, grados, materias y horarios, y pasa lista en sus clases.', 4, _docente),
-    ('Recepción', 'Pantalla de entrada, asistencia del día y justificaciones.', 5, _recepcion),
+    ('Control escolar', 'Altas y cambios de estudiantes, tutores e inscripciones; consulta del resto.', 2, _control_escolar),
+    ('Docente', 'Consulta estudiantes, grados, materias y horarios; pasa lista y captura las calificaciones de sus clases.', 4, _docente),
+    ('Recepción', 'Pantalla de entrada y asistencia del día; consulta las justificaciones.', 5, _recepcion),
     ('Prefectura', 'Estudiantes, asistencia, conducta y seguimiento de los niveles o grupos que se le asignen.', 6, _prefectura),
 )
 
@@ -67,7 +69,9 @@ def _crear_rol(nombre, descripcion, tono, permisos=(), **extra):
     grupo, _ = Group.objects.get_or_create(name=nombre)
     rol, _ = Rol.objects.get_or_create(grupo=grupo, defaults={'descripcion': descripcion, 'tono': tono, **extra})
     if permisos:
-        grupo.permissions.set(objetos_de_permisos(con_requisitos(permisos)))
+        # Justificar faltas: solo el administrador (lo tiene por ser de acceso total) y prefectura
+        permisos = con_requisitos(permisos) - reservados_para(extra.get('es_prefectura', False))
+        grupo.permissions.set(objetos_de_permisos(permisos))
     return rol
 
 

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ materia.nombre }} · Ajustes de calificaciones | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'calificaciones:configuracion' %}?ciclo={{ ciclo.pk }}">Calificaciones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ materia.nombre }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes</h1>
+      <p class="page-header__description">Configuración de calificaciones de <strong>{{ materia.nombre }}</strong>{% if materia.grado %} ({{ materia.grado }}){% endif %} en el ciclo {{ ciclo }}.</p>
+    </div>
+    <div class="page-header__actions">
+      <a class="btn" href="{% url 'calificaciones:configuracion' %}?ciclo={{ ciclo.pk }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Todas las materias</a>
+      {% if puede_crear and puede_editar %}
+        <a class="btn" href="{{ url_copiar }}">{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar configuración de otra materia</a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "ajustes/_pestanas.html" %}
+
+  {% if base %}
+    <nav class="pills pills--section cal-versiones" aria-label="Versiones de la configuración">
+      <a class="pill{% if elegida == base %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}"{% if elegida == base %} aria-current="page"{% endif %}>Todo el ciclo</a>
+      {% for version in versiones %}
+        <a class="pill{% if elegida == version %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}&amp;version={{ version.pk }}"{% if elegida == version %} aria-current="page"{% endif %}>Solo {{ version.periodo.nombre }}</a>
+      {% endfor %}
+      {% if puede_crear and version_form.fields.periodo.queryset.exists %}
+        <form class="cal-versiones__nueva" method="post" action="{% url 'calificaciones:configuracion_version' base.pk %}">
+          {% csrf_token %}
+          <label class="visually-hidden" for="{{ version_form.periodo.id_for_label }}">Periodo</label>
+          {{ version_form.periodo }}
+          <button type="submit" class="btn btn--sm">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Versión para un periodo</button>
+        </form>
+      {% endif %}
+    </nav>
+  {% endif %}
+
+  {% if not elegida %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="settings" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{{ materia.nombre }} todavía no tiene configuración</p>
+        <p class="empty-state__text">Sin rubros ni porcentajes no se pueden capturar sus calificaciones. Empieza con la configuración de referencia del formato ({% for nombre, porcentaje, tipo in inicial %}{{ nombre }} {{ porcentaje }} %{% if not forloop.last %}, {% endif %}{% endfor %}) o copia la de otra materia; después la ajustas.</p>
+        {% if puede_crear %}
+          <div class="empty-state__actions">
+            <form method="post" action="{% url 'calificaciones:configuracion_crear' materia.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+              <button type="submit" class="btn btn--primary btn--sm">Usar la configuración de referencia</button>
+            </form>
+            {% if puede_editar %}<a class="btn btn--sm" href="{{ url_copiar }}">Copiar de otra materia</a>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <section class="card cal-config" aria-labelledby="titulo-config">
+      <header class="card__header card__header--icon cal-config__cabecera">
+        {% include "partials/icon.html" with name="settings" %}
+        <h2 class="card__title" id="titulo-config">{% if elegida.periodo %}Solo {{ elegida.periodo.nombre }}{% else %}Todo el ciclo{% endif %}</h2>
+        <span class="tag {% if resumen.clave == 'activa' %}tag--success{% else %}tag--warning{% endif %}">{{ resumen.texto }}</span>
+      </header>
+      <div class="card__body cal-config__cuerpo">
+        <p class="text-muted">
+          {% if elegida.periodo %}Esta versión se usa solo en {{ elegida.periodo.nombre }}; los demás periodos usan la de todo el ciclo{% else %}Se usa en todos los periodos que no tienen versión propia{% endif %}.
+          {% if elegida.copiada_de %}Copiada de {{ elegida.copiada_de }}; es independiente de su origen.{% endif %}
+          {% if elegida.modificado_por %}Última modificación: {{ elegida.modificado|date:"d/m/Y H:i" }} por {{ elegida.modificado_por.get_full_name|default:elegida.modificado_por.username }}.{% endif %}
+        </p>
+        {% if uso.con_capturas %}
+          <div class="alert alert--warning" role="note">
+            {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+            <p class="alert__body">Ya hay calificaciones capturadas con esta configuración. Si cambias porcentajes o reglas, los resultados <strong>en captura</strong> ({{ uso.en_captura }} acta{{ uso.en_captura|pluralize }}) se recalculan; las calificaciones <strong>cerradas</strong> ({{ uso.cerradas }}) conservan la configuración con la que se cerraron. Los rubros con capturas no se eliminan ni cambian de tipo: se desactivan.</p>
+          </div>
+        {% endif %}
+        {% if problemas %}
+          <div class="alert alert--info" role="note">
+            {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+            <div class="alert__body"><p>Es un borrador: se puede guardar, pero no sirve para cerrar calificaciones.</p><ul>{% for problema in problemas %}<li>{{ problema }}</li>{% endfor %}</ul></div>
+          </div>
+        {% endif %}
+
+        {% if formset %}
+          <form method="post" class="cal-config__form" novalidate data-config-rubros>
+            {% csrf_token %}
+            <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+            {% if elegida.periodo %}<input type="hidden" name="version" value="{{ elegida.pk }}">{% endif %}
+            {{ formset.management_form }}
+            {% if formset.non_form_errors %}<div class="alert alert--error" role="alert">{% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}<div class="alert__body">{% for error in formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}</div></div>{% endif %}
+
+            <h3 class="subsection-title">Rubros y porcentajes</h3>
+            <div class="table-card table-card--flush cal-rubros__contenedor">
+              <table class="table cal-rubros">
+                <caption class="visually-hidden">Rubros de evaluación</caption>
+                <thead class="table__head">
+                  <tr>
+                    <th class="table__th" scope="col"><span class="visually-hidden">Orden</span></th>
+                    <th class="table__th" scope="col">Rubro</th>
+                    <th class="table__th" scope="col">Porcentaje</th>
+                    <th class="table__th" scope="col">Tipo de captura</th>
+                    <th class="table__th" scope="col">Activo</th>
+                    <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Quitar</span></th>
+                  </tr>
+                </thead>
+                <tbody class="table__body" data-rubros>
+                  {% for form in formset %}
+                    {% include "calificaciones/configuracion/_rubro.html" %}
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="2"><button type="button" class="btn btn--ghost btn--sm" data-agregar-rubro>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar rubro</button></td>
+                    <td colspan="4" class="cal-rubros__suma" data-suma aria-live="polite"></td>
+                  </tr>
+                </tfoot>
+              </table>
+              <template data-plantilla-rubro>{% with form=formset.empty_form %}{% include "calificaciones/configuracion/_rubro.html" %}{% endwith %}</template>
+            </div>
+
+            <h3 class="subsection-title">Reglas adicionales</h3>
+            <div class="cal-reglas">
+              <fieldset class="cal-reglas__grupo">
+                <legend>Faltas</legend>
+                <label class="choice choice--check" for="{{ reglas_form.penalizar_faltas.id_for_label }}">{{ reglas_form.penalizar_faltas }}<span class="choice__box">{{ reglas_form.penalizar_faltas.label }}</span></label>
+                <div class="form-grid">
+                  {% include "partials/field.html" with campo=reglas_form.faltas_por_bloque %}
+                  {% include "partials/field.html" with campo=reglas_form.puntos_por_bloque %}
+                  {% include "partials/field.html" with campo=reglas_form.origen_faltas clase="form-grid__full" %}
+                </div>
+              </fieldset>
+              <fieldset class="cal-reglas__grupo">
+                <legend>Punto de academia</legend>
+                <label class="choice choice--check" for="{{ reglas_form.punto_academia.id_for_label }}">{{ reglas_form.punto_academia }}<span class="choice__box">Usar punto de academia (casilla «Otorgado» por estudiante)</span></label>
+                <div class="form-grid">{% include "partials/field.html" with campo=reglas_form.valor_punto_academia %}</div>
+              </fieldset>
+              <fieldset class="cal-reglas__grupo">
+                <legend>Límites</legend>
+                <div class="form-grid">{% include "partials/field.html" with campo=reglas_form.limite_maximo %}</div>
+                <label class="choice choice--check" for="{{ reglas_form.usar_limite_minimo.id_for_label }}">{{ reglas_form.usar_limite_minimo }}<span class="choice__box">{{ reglas_form.usar_limite_minimo.label }}</span></label>
+                <p class="field__hint">{{ reglas_form.usar_limite_minimo.help_text }}</p>
+                <div class="form-grid">{% include "partials/field.html" with campo=reglas_form.limite_minimo %}</div>
+              </fieldset>
+            </div>
+
+            <div class="action-bar">
+              <a class="btn" href="{% url 'calificaciones:configuracion' %}?ciclo={{ ciclo.pk }}">Cancelar</a>
+              <button type="submit" class="btn" name="accion" value="borrador">Guardar como borrador</button>
+              <button type="submit" class="btn btn--primary" name="accion" value="activar">Guardar y activar</button>
+            </div>
+          </form>
+        {% else %}
+          <h3 class="subsection-title">Rubros y porcentajes</h3>
+          <ul class="cal-lista-rubros">
+            {% for rubro in elegida.rubros.all %}
+              <li{% if not rubro.activo %} class="text-muted"{% endif %}><strong>{{ rubro.nombre }}</strong> · {{ rubro.porcentaje|floatformat:"-2" }} % · {{ rubro.get_tipo_display }}{% if not rubro.activo %} (inactivo){% endif %}</li>
+            {% endfor %}
+          </ul>
+          <h3 class="subsection-title">Reglas adicionales</h3>
+          <ul class="cal-lista-rubros">{% for linea in descripcion_reglas %}<li>{{ linea }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+    </section>
+
+    {% if cambios %}
+      <section class="card cal-config__historial" aria-labelledby="titulo-cambios">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-cambios">Cambios recientes</h2></header>
+        <ul class="card__body cal-cambios">
+          {% for cambio in cambios %}
+            <li>
+              <span class="text-muted">{{ cambio.fecha|date:"d/m/Y H:i" }} · {{ cambio.usuario.get_full_name|default:cambio.usuario.username|default:"—" }}</span>
+              <span>{{ cambio.descripcion }}</span>
+              {% if cambio.cambios %}<span class="text-muted">{% for que, antes, despues in cambio.cambios %}{{ que }}: {{ antes|default:"—" }} → {{ despues|default:"—" }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/calificaciones-configuracion.js' %}" defer></script>
+{% endblock %}

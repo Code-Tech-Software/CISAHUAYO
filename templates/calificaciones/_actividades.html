@@ -1,0 +1,83 @@
+{% comment %}
+  Procedimientos o exámenes (como la hoja «Procedimientos» del formato): estudiantes en filas y actividades en
+  columnas, sin un límite fijo de actividades. Todas pesan lo mismo dentro de su rubro: el promedio es la suma de las
+  calificaciones capturadas entre cuántas hay. Una celda vacía está pendiente (no cuenta); un cero sí cuenta.
+{% endcomment %}
+  <div class="cal-barra">
+    <p class="text-muted">
+      {% if rubros_de_la_pestana %}
+        {% for rubro in rubros_de_la_pestana %}{{ rubro.nombre }} ({{ rubro.porcentaje|floatformat:"-2" }} %){% if not forloop.last %}, {% endif %}{% endfor %}:
+        {{ actividades|length }} {% if es_procedimiento %}procedimiento{{ actividades|length|pluralize }}{% else %}examen{{ actividades|length|pluralize:"es" }}{% endif %}.
+        Vacío = pendiente (no cuenta); 0 = calificación (sí cuenta).
+      {% endif %}
+    </p>
+    {% if puede_agregar %}
+      <a class="btn btn--primary btn--sm" href="{% url 'calificaciones:actividad_crear' acta.pk %}?pestana={{ pestana }}" data-modal-form>
+        {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} {% if es_procedimiento %}Agregar procedimiento{% else %}Agregar examen{% endif %}
+      </a>
+    {% endif %}
+  </div>
+
+  {% if not rubros_de_la_pestana and not actividades %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="settings" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Esta materia no evalúa {% if es_procedimiento %}procedimientos{% else %}exámenes{% endif %}</p>
+        <p class="empty-state__text">Su configuración no tiene un rubro activo de «{% if es_procedimiento %}promedio de procedimientos{% else %}promedio de exámenes{% endif %}».</p>
+      </div>
+    </div>
+  {% elif not actividades %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clipboard-list" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Todavía no hay {% if es_procedimiento %}procedimientos{% else %}exámenes{% endif %} en {{ periodo.nombre }}</p>
+        <p class="empty-state__text">{% if puede_agregar %}Agrega el primero para capturar sus calificaciones.{% else %}Aparecerán aquí cuando se agreguen.{% endif %}</p>
+      </div>
+    </div>
+  {% elif not filas %}
+    <div class="table-card"><div class="empty-state"><p class="empty-state__title">El grupo no tiene estudiantes inscritos</p></div></div>
+  {% else %}
+    <div class="table-card cal-tabla" data-cal-tabla>
+      <div class="cal-tabla__desplazable">
+        <table class="cal-matriz" data-captura data-url-guardar="{{ url_guardar }}" data-acta="{{ acta.pk }}">
+          <caption class="visually-hidden">{% if es_procedimiento %}Procedimientos{% else %}Exámenes{% endif %} de {{ asignacion.materia }}, {{ asignacion.grupo }}, {{ periodo.nombre }}</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="cal-matriz__num">N.º</th>
+              <th scope="col" class="cal-matriz__nombre">Estudiante</th>
+              {% for actividad in actividades %}
+                <th scope="col" class="cal-actividad{% if actividad.anulada %} cal-actividad--anulada{% endif %}" title="{{ actividad.nombre }}{% if actividad.descripcion %}: {{ actividad.descripcion }}{% endif %}{% if actividad.anulada %} · Anulada: {{ actividad.motivo_anulacion }}{% endif %}">
+                  <span class="cal-actividad__nombre">{{ actividad.nombre }}</span>
+                  <span class="cal-matriz__sub">{{ actividad.fecha|date:"d/m" }}{% if varios_rubros %} · {{ actividad.rubro.nombre }}{% endif %}{% if actividad.anulada %} · anulada{% endif %}</span>
+                  {% if editable and not actividad.anulada %}
+                    <span class="cal-actividad__acciones">
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'calificaciones:actividad_editar' actividad.pk %}" data-modal-form aria-label="Editar {{ actividad.nombre }}" data-tooltip="Editar">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}</a>
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'calificaciones:actividad_quitar' actividad.pk %}" data-modal-form aria-label="Quitar o anular {{ actividad.nombre }}" data-tooltip="Quitar o anular">{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}</a>
+                    </span>
+                  {% endif %}
+                </th>
+              {% endfor %}
+              {% for rubro in rubros_de_la_pestana %}
+                <th scope="col" class="cal-promedio">Promedio<span class="cal-matriz__sub">{{ rubro.nombre }}</span></th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in filas %}
+              <tr data-inscripcion="{{ fila.inscripcion.pk }}" data-fila>
+                <td class="cal-matriz__num">{{ fila.numero }}</td>
+                <th scope="row" class="cal-matriz__nombre" data-nombre>{{ fila.nombre }}</th>
+                {% for celda in fila.celdas %}{% include "calificaciones/_celda.html" %}{% endfor %}
+                {% for celda in fila.promedios %}
+                  <td class="cal-calculada {{ celda.clase }}" data-calc="{{ celda.calc }}">{{ celda.valor|default:"Sin calificar" }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if editable %}
+      <p class="text-muted cal-nota">Muévete con las flechas, Enter o Tab. Puedes pegar un rango copiado de Excel: se revisa celda por celda antes de guardar. Cada calificación se guarda sola al salir de la celda.</p>
+    {% endif %}
+  {% endif %}

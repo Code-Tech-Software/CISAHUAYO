@@ -1,0 +1,35 @@
+{% comment %}El concentrado (en la pestaña y en la hoja para imprimir). Parámetro: c (views.concentrado).{% endcomment %}
+<div class="cal-concentrado__encabezado">
+  <p class="cal-concentrado__nivel">Nivel {{ c.nivel|lower }} · Ciclo escolar {{ c.ciclo }}</p>
+  <p class="cal-concentrado__titulo">Concentrado de calificaciones por materia</p>
+  {% if not c.cerrada %}<p class="cal-concentrado__provisional">Provisional</p>{% endif %}
+</div>
+<dl class="cal-concentrado__datos">
+  <div><dt>Asignatura</dt><dd>{{ c.materia }}</dd></div>
+  <div><dt>Grupo</dt><dd>{{ c.grupo }}</dd></div>
+  <div><dt>Profesor</dt><dd>{{ c.docente }}</dd></div>
+  <div><dt>Periodo</dt><dd>{{ c.periodo }}</dd></div>
+  <div><dt>Estado</dt><dd>{{ c.estado }}</dd></div>
+</dl>
+<table class="cal-concentrado__tabla">
+  <thead>
+    <tr><th scope="col">No.</th><th scope="col">Nombre</th><th scope="col">Calificación final</th><th scope="col">Firma de enterado</th></tr>
+  </thead>
+  <tbody>
+    {% for f in c.filas %}
+      <tr>
+        <td>{{ f.numero }}</td>
+        <td>{{ f.nombre }}</td>
+        <td class="cal-concentrado__final">{% if f.final %}{{ f.final }}{% if f.provisional %} <span class="cal-concentrado__marca">provisional</span>{% endif %}{% else %}<span class="text-muted">Sin calificar</span>{% endif %}</td>
+        <td class="cal-concentrado__firma"></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4">El grupo no tiene estudiantes inscritos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="cal-concentrado__firmas">
+  <div><span class="cal-concentrado__linea"></span><p>Firma del profesor</p><p class="text-muted">{{ c.docente }}</p></div>
+  <div><span class="cal-concentrado__linea"></span><p>Vo.Bo. Coordinación</p></div>
+  <div><span class="cal-concentrado__linea"></span><p>Vo.Bo. Dirección</p></div>
+</div>

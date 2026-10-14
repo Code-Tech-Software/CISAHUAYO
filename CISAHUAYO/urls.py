@@ -33,6 +33,8 @@ urlpatterns = [
     path('', include('Conducta.urls')),
     path('ajustes/', include('Ajustes.urls')),
     path('prefectura/', include('Prefectura.urls')),
+    # Calificaciones (calificaciones/…) y su configuración en Ajustes (ajustes/calificaciones/…)
+    path('', include('Calificaciones.urls')),
 ]  # Para servir archivos multimedia en desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

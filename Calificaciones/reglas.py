@@ -891,6 +891,30 @@ def reabrir(acta, motivo, usuario):
     return acta
 
 
+@dataclass
+class Movimientos:
+    """El historial de movimientos de un acta reabierta (ver `historial_de_movimientos`)."""
+    lista: list          # los más recientes primero (hasta el límite)
+    total: int
+
+    @property
+    def hay_mas(self):
+        return self.total > len(self.lista)
+
+
+def historial_de_movimientos(acta, limite=200):
+    """Desde la primera reapertura del acta (pedido del 2026-10-14): las reaperturas (usuario, fecha y motivo), cada
+    calificación modificada (estudiante, rubro o actividad, valor anterior y nuevo, usuario y fecha), los cambios de
+    actividades y los nuevos cierres, del más reciente al más antiguo. Es la bitácora del acta (`CambioCalificacion`),
+    que no se edita ni se borra: se conserva entre reaperturas y después del cierre. None si nunca se ha reabierto."""
+    primera = acta.cambios.filter(accion=CambioCalificacion.REAPERTURA).order_by('fecha', 'pk').first()
+    if primera is None:
+        return None
+    desde = acta.cambios.filter(pk__gte=primera.pk)
+    lista = list(desde.select_related('usuario', 'inscripcion__alumno').order_by('-fecha', '-pk')[:limite])
+    return Movimientos(lista=lista, total=desde.count())
+
+
 def ciclos_con_materias(usuario):
     """Los ciclos (del más reciente) en los que la persona tiene materias que ver."""
     if ve_todas(usuario):

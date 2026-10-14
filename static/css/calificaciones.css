@@ -121,8 +121,7 @@
 }
 
 .cal-matriz {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--text-sm);
@@ -130,21 +129,44 @@
 
 .cal-matriz th,
 .cal-matriz td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   border-bottom: var(--border);
   text-align: center;
   white-space: nowrap;
 }
 
-.cal-matriz thead th {
+/* El encabezado completo (una o dos filas) queda fijo al desplazarse */
+.cal-matriz thead {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
+}
+
+.cal-matriz thead th {
   background: var(--color-surface-2);
   color: var(--color-text-soft);
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
+  line-height: 1.25;
   vertical-align: bottom;
+  white-space: normal;
+}
+
+/* Resumen: el nombre del rubro una vez sobre sus dos columnas (calificación y aportación) */
+.cal-matriz__grupo {
+  border-bottom: 0 !important;
+  color: var(--color-text-strong) !important;
+  vertical-align: middle !important;
+}
+
+.cal-matriz__porcentaje {
+  color: var(--color-primary-text);
+  white-space: nowrap;
+}
+
+.cal-matriz__rubro {
+  min-width: 4.5rem;
+  font-weight: var(--weight-regular) !important;
 }
 
 .cal-matriz__sub {
@@ -163,21 +185,21 @@
 
 .cal-matriz__num {
   left: 0;
-  width: 3rem;
-  min-width: 3rem;
+  width: 2.5rem;
+  min-width: 2.5rem;
   color: var(--color-text-muted);
 }
 
+/* El nombre completo; si falta espacio, un nombre largo pasa a dos líneas (no se corta) */
 .cal-matriz__nombre {
-  left: 3rem;
-  min-width: 14rem;
-  max-width: 20rem;
-  overflow: hidden;
+  left: 2.5rem;
+  min-width: 10.5rem;
   border-right: var(--border);
   color: var(--color-text-strong);
   font-weight: var(--weight-medium);
+  line-height: 1.3;
   text-align: left !important;
-  text-overflow: ellipsis;
+  white-space: normal !important;
 }
 
 .cal-matriz thead .cal-matriz__num,
@@ -205,6 +227,14 @@
 
 .cal-descuento {
   color: var(--color-danger);
+}
+
+/* Faltas y, debajo, lo que descuentan */
+.cal-faltas__descuento {
+  display: block;
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .cal-final {
@@ -251,7 +281,7 @@
 }
 
 .cal-entrada {
-  width: 4.25rem;
+  width: 3.25rem;
   min-height: 2rem;
   padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid var(--color-border-control);
@@ -310,6 +340,11 @@
 }
 
 /* Estado de cada estudiante */
+.cal-matriz__estado {
+  min-width: 6.5rem;
+  white-space: normal !important;
+}
+
 .cal-estado-fila {
   display: inline-block;
   padding: 0.125rem var(--space-2);
@@ -364,6 +399,32 @@
 .cal-guardado[data-tono="error"] {
   border-color: var(--color-danger-border);
   color: var(--color-danger);
+}
+
+/* --- Historial de movimientos (debajo de la tabla, en un acta reabierta) ----------------------------------------------- */
+.cal-movimientos {
+  margin-top: var(--space-6);
+}
+
+.cal-movimientos__intro {
+  margin: 0;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.cal-movimientos__tabla .table__cell {
+  font-size: var(--text-sm);
+}
+
+.cal-movimientos__cambio {
+  white-space: nowrap;
+}
+
+.cal-movimientos__pie {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border);
+  font-size: var(--text-sm);
 }
 
 /* --- Concentrado ------------------------------------------------------------------------------------------------------- */

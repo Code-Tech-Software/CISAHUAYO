@@ -10,6 +10,7 @@ urlpatterns = [
     path('exportar/', views.profesor_exportar, name='exportar'),
     path('asignar/', views.asignar, name='asignar'),
     path('<int:pk>/', views.profesor_detalle, name='detalle'),
+    path('<int:pk>/horario/imprimir/', views.profesor_horario_imprimir, name='horario_imprimir'),
     path('<int:pk>/editar/', views.profesor_editar, name='editar'),
     path('<int:pk>/baja/', views.profesor_baja, name='baja'),
     path('<int:pk>/reactivar/', views.profesor_reactivar, name='reactivar'),

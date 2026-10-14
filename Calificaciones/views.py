@@ -67,10 +67,12 @@ def inicio(request):
         'ciclos': ciclos, 'ciclo': ciclo, 'asignaciones': asignaciones, 've_todas': reglas.ve_todas(usuario),
         'profesor': profesor_de(usuario), 'pestanas': PESTANAS,
     }
+    elegida = request.GET.get('materia', '')
     if not asignaciones:
+        if elegida:
+            raise PermissionDenied   # una materia pedida que no puede abrir (aunque no tenga ninguna)
         return render(request, 'calificaciones/inicio.html', contexto)
 
-    elegida = request.GET.get('materia', '')
     if elegida:
         asignacion = _elegir(asignaciones, elegida)
         if asignacion is None:
@@ -102,7 +104,8 @@ def inicio(request):
         'columnas': columnas_del_resumen(tabla),
         'url_guardar': reverse('calificaciones:guardar', args=[acta.pk]),
         'configurar': usuario.has_perm(reglas.VER_CONFIG),
-        'cambios_recientes': acta.cambios.select_related('usuario', 'inscripcion__alumno')[:5],
+        # Debajo de la tabla de captura, si el acta se ha reabierto alguna vez
+        'movimientos': reglas.historial_de_movimientos(acta) if pestana != 'concentrado' else None,
     })
     editable = not motivo
     if pestana in TIPOS_DE_ACTIVIDAD:
@@ -143,7 +146,7 @@ def calculados(tabla, fila):
     elif fila.estado == reglas.SIN_CALIFICAR:
         estado = 'Sin calificar'
     elif r.final is None:
-        estado = 'En captura · falta algún rubro'
+        estado = 'Falta algún rubro'
     elif r.pendientes:
         estado = f'Provisional · {r.pendientes} pendiente{"s" if r.pendientes != 1 else ""}'
     else:
@@ -175,12 +178,12 @@ def celdas_del_resumen(tabla, fila, editable):
         else:
             celdas.append(_calculada(f'valor-{rubro.pk}', calc))
         celdas.append(_calculada(f'aportacion-{rubro.pk}', calc, 'cal-aportacion'))
+    # Faltas y, debajo, lo que descuentan (una sola columna)
     if tabla.faltas_manuales:
         valor = '' if fila.faltas_manuales is None else str(fila.faltas_manuales)
-        celdas.append({**_entrada('faltas', 'manual', fila, valor, editable, 'Faltas'), 'faltas': True})
+        celdas.append({**_entrada('faltas', 'manual', fila, valor, editable, 'Faltas'), 'faltas': True, 'descuento': calc['descuento']})
     else:
-        celdas.append(_calculada('faltas', calc))
-    celdas.append(_calculada('descuento', calc, 'cal-descuento'))
+        celdas.append({'faltas_calculadas': True, 'faltas': calc['faltas'], 'descuento': calc['descuento']})
     if tabla.con_academia:
         celdas.append({**_entrada('academia', 'punto', fila, '1' if fila.academia else '0', editable, 'Punto de academia'), 'casilla': True,
                        'marcada': fila.academia})

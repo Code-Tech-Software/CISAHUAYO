@@ -10,9 +10,10 @@
     </label>
   </td>
 {% elif celda.editable %}
-  <td class="cal-celda">
+  <td class="cal-celda{% if celda.faltas %} cal-faltas{% endif %}">
     <input class="cal-entrada" type="text" inputmode="{% if celda.faltas %}numeric{% else %}decimal{% endif %}" autocomplete="off" maxlength="6" value="{{ celda.valor }}" data-celda data-tipo="{{ celda.tipo }}" data-id="{{ celda.id }}" data-inscripcion="{{ celda.inscripcion }}" data-clave="{{ celda.clave }}" data-anterior="{{ celda.valor }}"{% if celda.faltas %} data-entero{% endif %} aria-label="{{ celda.etiqueta }}">
+    {% if celda.faltas %}<span class="cal-faltas__descuento" data-calc="descuento" data-vacio="">{{ celda.descuento }}</span>{% endif %}
   </td>
 {% else %}
-  <td class="cal-celda cal-celda--fija{% if celda.anulada %} cal-celda--anulada{% endif %}"{% if celda.anulada %} title="Actividad anulada: no cuenta"{% endif %}>{{ celda.valor|default:"·" }}</td>
+  <td class="cal-celda cal-celda--fija{% if celda.anulada %} cal-celda--anulada{% endif %}{% if celda.faltas %} cal-faltas{% endif %}"{% if celda.anulada %} title="Actividad anulada: no cuenta"{% endif %}>{{ celda.valor|default:"·" }}{% if celda.faltas %}<span class="cal-faltas__descuento" data-calc="descuento" data-vacio="">{{ celda.descuento }}</span>{% endif %}</td>
 {% endif %}

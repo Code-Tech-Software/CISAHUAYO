@@ -3,6 +3,9 @@
 
 {% block title %}Calificaciones | CISAHUAYO{% endblock %}
 
+{# La tabla del resumen lleva todos los rubros: la página usa todo el ancho de la pantalla #}
+{% block clase_pagina %} page--ancha{% endblock %}
+
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
 {% endblock %}
@@ -69,6 +72,8 @@
       {% else %}
         {% include "calificaciones/_actividades.html" %}
       {% endif %}
+
+      {% if movimientos %}{% include "calificaciones/_movimientos.html" %}{% endif %}
 
       {% if editable and pestana != 'concentrado' %}
         {# Estado del guardado (calificaciones.js): se guarda solo al salir de cada celda #}

@@ -475,6 +475,60 @@ class CierreTests(BaseCalificacionesTestCase):
         self.assertEqual(reapertura.motivo, 'Error de captura en Zoe.')
         self.assertEqual(len(reapertura.datos['resultados']), 2)   # lo que se había cerrado queda guardado
 
+    def pagina(self, pestana=None):
+        datos = {'materia': self.mat.pk, 'periodo': self.periodo.pk}
+        if pestana:
+            datos['pestana'] = pestana
+        return self.client.get(URL, datos)
+
+    def test_el_historial_de_movimientos_aparece_al_reabrir(self):
+        self.completar()
+        reglas.cerrar(self.acta, self.admin)
+        cerrada = self.pagina()
+        self.assertIsNone(cerrada.context['movimientos'])   # cerrada pero nunca reabierta: no hay sección
+        self.assertNotContains(cerrada, 'Historial de movimientos')
+
+        reglas.reabrir(self.acta, 'Error de captura en Zoe.', self.admin)
+        self.guardar([{'clave': 'c', 'tipo': 'rubro', 'id': self.conducta.pk, 'inscripcion': self.zoe.pk, 'valor': '10', 'anterior': '9'}])
+        reglas.cerrar(self.acta, self.docente)
+        respuesta = self.pagina()
+        movimientos = respuesta.context['movimientos'].lista
+        # del más reciente al más antiguo; desde la reapertura (sin el primer cierre ni las capturas de antes)
+        self.assertEqual([m.accion for m in movimientos], ['CIERRE', 'CAPTURA', 'REAPERTURA'])
+        cierre, captura, reapertura = movimientos
+        self.assertEqual(cierre.usuario, self.docente)
+        self.assertEqual((captura.inscripcion, captura.que, captura.anterior, captura.nuevo, captura.usuario),
+                         (self.zoe, 'Actitudes / Conducta', '9', '10', self.admin))
+        self.assertEqual((reapertura.usuario, reapertura.motivo), (self.admin, 'Error de captura en Zoe.'))
+        # sigue disponible después del nuevo cierre, debajo de cada tabla de captura (no en el concentrado)
+        self.assertContains(respuesta, 'Historial de movimientos')
+        self.assertContains(respuesta, 'Nuevo cierre')
+        self.assertContains(respuesta, 'Error de captura en Zoe.')
+        for pestana in ('procedimientos', 'examenes'):
+            self.assertContains(self.pagina(pestana), 'Historial de movimientos')
+        self.assertNotContains(self.pagina('concentrado'), 'Historial de movimientos')
+        # solo lectura: la sección no lleva formularios ni campos
+        seccion = respuesta.content.decode().split('id="titulo-movimientos"')[1].split('</section>')[0]
+        self.assertNotIn('<form', seccion)
+        self.assertNotIn('<input', seccion)
+
+    def test_el_historial_se_conserva_entre_reaperturas_y_es_de_cada_acta(self):
+        self.completar()
+        reglas.cerrar(self.acta, self.admin)
+        reglas.reabrir(self.acta, 'Primera reapertura.', self.admin)
+        reglas.cerrar(self.acta, self.admin)
+        reglas.reabrir(self.acta, 'Segunda reapertura.', self.admin)
+        movimientos = reglas.historial_de_movimientos(self.acta).lista
+        self.assertEqual([m.motivo for m in movimientos if m.accion == 'REAPERTURA'], ['Segunda reapertura.', 'Primera reapertura.'])
+        self.assertEqual([m.accion for m in movimientos], ['REAPERTURA', 'CIERRE', 'REAPERTURA'])
+        # cada materia, grupo y periodo tiene el suyo
+        self.assertIsNone(reglas.historial_de_movimientos(reglas.acta_para(self.esp, self.periodo)))
+        # y respeta el acceso: un docente de otra materia no abre esta
+        ajeno = crear_usuario('ajeno', Rol.objects.get(grupo__name='Docente'))
+        crear_profesor(usuario=ajeno, nombre='Ana')
+        self.client.force_login(ajeno)
+        self.assertEqual(self.pagina().status_code, 403)
+
     def test_el_docente_cierra_sus_materias(self):
         self.completar()
         self.client.force_login(self.docente)

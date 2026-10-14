@@ -29,7 +29,6 @@ from Alumnos.asistencias import (
     conteos,
     dias_de_clases,
     dias_pendientes_de_cierre,
-    dias_sin_clases_registrados,
     fijar_asistencia_general,
     inscripciones_del_dia,
     motivo_sin_clases,
@@ -801,12 +800,13 @@ def ajustes(request):
     return render(request, 'asistencias/ajustes.html', {
         'ajustes_seccion': 'asistencia', 'puede_configurar_conducta': puede_configurar(request.user),
         'form': form,
-        'dia_form': DiaNoLectivoForm(),
-        'dias_sin_clases': dias_sin_clases_registrados(),
-        'proximos': DiaNoLectivo.objects.filter(fecha__gte=hoy).values('fecha').distinct().count(),
         'cierres': CierreDia.objects.select_related('cerrado_por')[:8],
         'hoy': hoy,
     })
+
+
+def URL_DIAS_SIN_CLASES():   # noqa: N802 (la tarjeta está en Ciclos escolares desde el 2026-10-14)
+    return f"{reverse('ciclos:lista')}#dias-sin-clases"
 
 
 @require_POST
@@ -821,7 +821,7 @@ def dia_sin_clases_crear(request):
                                   f'para {texto_de_niveles(datos["niveles"])}: {datos["motivo"]}.')
     else:
         messages.error(request, 'No se registró: ' + ' '.join(error for errores in form.errors.values() for error in errores))
-    return redirect('asistencias:ajustes')
+    return redirect(URL_DIAS_SIN_CLASES())
 
 
 @require_POST
@@ -834,4 +834,4 @@ def dia_sin_clases_eliminar(request, pk):
     niveles = list(registros.values_list('nivel', flat=True))
     registros.delete()
     messages.success(request, f'Se quitó el día sin clases del {_texto_de_fecha(dia.fecha)} ({texto_de_niveles(niveles)}).')
-    return redirect('asistencias:ajustes')
+    return redirect(URL_DIAS_SIN_CLASES())

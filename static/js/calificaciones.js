@@ -158,7 +158,7 @@
         elemento.className = `cal-estado-fila cal-estado-fila--${datos.estado_clave}`;
         return;
       }
-      elemento.textContent = valor || (elemento.classList.contains('cal-promedio') ? 'Sin calificar' : '—');
+      elemento.textContent = valor || (elemento.dataset.vacio ?? (elemento.classList.contains('cal-promedio') ? 'Sin calificar' : '—'));
     });
   };
 

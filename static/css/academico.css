@@ -579,6 +579,38 @@ a.slot__name:hover {
    7. IMPRESIÓN
    Al imprimir un horario solo sale su tarjeta: el horario semanal del grado.
    ========================================================================== */
+/* --- Horario del profesor en hoja de reporte (profesores/horario_hoja.html) ------------------------------------- */
+.horario-hoja__resumen {
+  margin-top: var(--space-6);
+  break-inside: avoid;
+}
+
+.horario-hoja .timetable-wrap {
+  overflow: visible;
+}
+
+.horario-hoja .slot__name {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media print {
+  /* La hoja de reporte se imprime completa (no aplica el recorte de .print-area) y con los colores de cada materia */
+  .hoja-reporte * {
+    visibility: visible;
+  }
+
+  .horario-hoja .timetable,
+  .horario-hoja .slot {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .horario-hoja .timetable {
+    font-size: 8.5pt;
+  }
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -771,4 +803,42 @@ a.slot__name:hover {
   margin-top: calc(var(--space-2) * -1);
   padding-top: var(--space-2);
   border-top: var(--border);
+}
+
+
+/* ==========================================================================
+   Días sin clases (tarjeta de Ciclos escolares, antes en Ajustes › Asistencia)
+   ========================================================================== */
+.dias-sin-clases {
+  margin-top: var(--space-6);
+}
+
+.dias-sin-clases__form {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.dias-sin-clases__accion {
+  display: flex;
+  align-items: end;
+}
+
+.dias-sin-clases__niveles {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+@media (min-width: 40rem) {
+  .dias-sin-clases__form {
+    grid-template-columns: 11rem 11rem minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  /* Los niveles debajo de las fechas y el motivo; «Agregar» a su lado */
+  .dias-sin-clases__niveles {
+    grid-column: 1 / 4;
+  }
 }

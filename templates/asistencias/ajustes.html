@@ -18,7 +18,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Ajustes</h1>
-      <p class="page-header__description">La asistencia del colegio: las reglas de la entrada, los días sin clases y el cierre de los días.</p>
+      <p class="page-header__description">La asistencia del colegio: las reglas de la entrada y el cierre de los días. Los días sin clases están en Ciclos escolares.</p>
     </div>
   </header>
 
@@ -78,79 +78,6 @@
         {% endif %}
       </div>
     </article>
-
-    <section class="card attendance-days info-grid__wide" aria-labelledby="titulo-dias">
-      <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="titulo-dias">Días sin clases</h2>
-      </header>
-      <div class="card__body">
-        <p class="text-muted">En estos días los estudiantes de los niveles elegidos no registran entrada y no se les generan faltas: asuetos, consejos técnicos, vacaciones, suspensiones. Los demás niveles tienen clases normalmente.</p>
-        {% if perms.Alumnos.add_dianolectivo %}
-          <form class="attendance-days__form" method="post" action="{% url 'asistencias:dia_sin_clases_crear' %}" novalidate>
-            {% csrf_token %}
-            {% include "partials/field.html" with campo=dia_form.desde %}
-            {% include "partials/field.html" with campo=dia_form.hasta %}
-            {% include "partials/field.html" with campo=dia_form.motivo %}
-            <fieldset class="field attendance-days__niveles" data-niveles-sin-clases>
-              <legend class="field__label field__label--required">{{ dia_form.niveles.label }}</legend>
-              <div class="choice-group">
-                {% for opcion in dia_form.niveles %}
-                  <label class="choice choice--check" for="{{ opcion.id_for_label }}">
-                    {{ opcion.tag }}<span class="choice__box">{{ opcion.choice_label }}</span>
-                  </label>
-                {% endfor %}
-              </div>
-            </fieldset>
-            <div class="attendance-days__action"><button type="submit" class="btn btn--primary">Agregar</button></div>
-          </form>
-        {% endif %}
-      </div>
-      {% if dias_sin_clases %}
-        <div class="table-card table-card--flush">
-          <table class="table table--people">
-            <caption class="visually-hidden">Días sin clases registrados</caption>
-            <thead class="table__head">
-              <tr>
-                <th class="table__th" scope="col">Día</th>
-                <th class="table__th" scope="col">Niveles</th>
-                <th class="table__th" scope="col">Motivo</th>
-                <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
-              </tr>
-            </thead>
-            <tbody class="table__body">
-              {% for dia in dias_sin_clases %}
-                <tr class="table__row">
-                  <td class="table__cell table__cell--main">{{ dia.fecha|date:"l j \d\e F \d\e Y"|lower }}{% if dia.fecha >= hoy %} <span class="tag tag--info">Próximo</span>{% endif %}</td>
-                  <td class="table__cell" data-label="Niveles">
-                    {% if dia.todos %}
-                      <span class="tag tag--info">Todos los niveles</span>
-                    {% else %}
-                      <span class="tag-list">{% for nombre in dia.nombres %}<span class="tag">{{ nombre }}</span>{% endfor %}</span>
-                    {% endif %}
-                  </td>
-                  <td class="table__cell" data-label="Motivo">{{ dia.motivo }}</td>
-                  <td class="table__cell table__cell--actions">
-                    {% if perms.Alumnos.delete_dianolectivo %}
-                      <form method="post" action="{% url 'asistencias:dia_sin_clases_eliminar' dia.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Quitar el día sin clases del {{ dia.fecha|date:'j M Y' }} ({% if dia.todos %}todos los niveles{% else %}{{ dia.nombres|join:', ' }}{% endif %})" data-tooltip="Quitar">
-                          {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
-                        </button>
-                      </form>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <div class="empty-state empty-state--inline">
-          <p class="empty-state__title">Aún no hay días sin clases</p>
-          <p class="empty-state__text">Los fines de semana sin horario ya se omiten solos; aquí registras los demás.</p>
-        </div>
-      {% endif %}
-    </section>
 
     {% if cierres %}
       <section class="card info-grid__wide" aria-labelledby="titulo-cierres">

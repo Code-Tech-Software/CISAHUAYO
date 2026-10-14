@@ -107,7 +107,7 @@
       </header>
 
       <main class="app__content" id="contenido" tabindex="-1">
-        <div class="page">
+        <div class="page{% block clase_pagina %}{% endblock %}">
           {% block content %}{% endblock %}
         </div>
       </main>

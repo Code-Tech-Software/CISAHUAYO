@@ -545,23 +545,6 @@
   color: var(--color-text-soft);
 }
 
-.attendance-days__form {
-  display: grid;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-.attendance-days__action {
-  display: flex;
-  align-items: end;
-}
-
-.attendance-days__niveles {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
 
 
 /* ==========================================================================
@@ -1150,16 +1133,6 @@
    7. RESPONSIVE
    ========================================================================== */
 @media (min-width: 40rem) {
-  .attendance-days__form {
-    grid-template-columns: 11rem 11rem minmax(0, 1fr) auto;
-    align-items: start;
-  }
-
-  /* Los niveles debajo de las fechas y el motivo; «Agregar» a su lado */
-  .attendance-days__niveles {
-    grid-column: 1 / 4;
-  }
-
   .filters--pair {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

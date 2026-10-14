@@ -93,6 +93,11 @@ MODULOS = (
             'crear': 'Crear ciclos escolares nuevos.',
             'editar': 'Editar un ciclo, marcarlo como actual o cerrarlo.',
         }),
+        Funcion('Días sin clases', {'crear': 'Alumnos.add_dianolectivo', 'baja': 'Alumnos.delete_dianolectivo'}, etiquetas={'baja': 'Quitar'},
+                requiere=('Alumnos.view_cicloescolar',), ayuda={
+            'crear': 'Registrar días sin clases (puentes, consejos técnicos, vacaciones) de los niveles elegidos, en Ciclos escolares.',
+            'baja': 'Quitar un día sin clases.',
+        }),
     )),
     Modulo('grados', 'Grados', 'layers', 'Los grados del colegio (hay un solo grupo por grado).', (
         Funcion('Grados', _permisos('grado'), ayuda={
@@ -166,13 +171,8 @@ MODULOS = (
             'baja': 'Anular una justificación. Exclusivo del administrador.',
         }),
         Funcion('Ajustes de asistencia', {'ver': 'Alumnos.view_configuracionasistencia', 'editar': 'Alumnos.change_configuracionasistencia'}, ayuda={
-            'ver': 'Consultar la hora de entrada, la tolerancia y los días sin clases.',
+            'ver': 'Consultar la hora de entrada, la tolerancia, la hora límite por nivel y los cierres del día (Ajustes › Asistencia).',
             'editar': 'Cambiar la hora de entrada y la tolerancia.',
-        }),
-        Funcion('Días sin clases', {'crear': 'Alumnos.add_dianolectivo', 'baja': 'Alumnos.delete_dianolectivo'}, etiquetas={'baja': 'Quitar'},
-                requiere=('Alumnos.view_configuracionasistencia',), ayuda={
-            'crear': 'Registrar días sin clases (puentes, suspensiones).',
-            'baja': 'Quitar un día sin clases.',
         }),
     )),
     Modulo('calificaciones', 'Calificaciones', 'award', 'Rubros y porcentajes de cada materia, captura de procedimientos y exámenes, cierre y concentrado.', (

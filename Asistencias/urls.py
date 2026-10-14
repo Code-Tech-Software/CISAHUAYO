@@ -42,8 +42,9 @@ urlpatterns = [
     path('asistencias/reporte/exportar/', views.reporte_exportar, name='reporte_exportar'),
     path('asistencias/alumno/<int:pk>/', views.alumno, name='alumno'),
 
-    # Ajustes › Asistencia (menú Sistema): reglas de la entrada, días sin clases y cierres
+    # Ajustes › Asistencia (menú Sistema): reglas de la entrada y cierres
     path('ajustes/asistencia/', views.ajustes, name='ajustes'),
-    path('ajustes/asistencia/dias/nuevo/', views.dia_sin_clases_crear, name='dia_sin_clases_crear'),
-    path('ajustes/asistencia/dias/<int:pk>/eliminar/', views.dia_sin_clases_eliminar, name='dia_sin_clases_eliminar'),
+    # Días sin clases: su tarjeta está en Ciclos escolares
+    path('ciclos/dias-sin-clases/nuevo/', views.dia_sin_clases_crear, name='dia_sin_clases_crear'),
+    path('ciclos/dias-sin-clases/<int:pk>/eliminar/', views.dia_sin_clases_eliminar, name='dia_sin_clases_eliminar'),
 ]

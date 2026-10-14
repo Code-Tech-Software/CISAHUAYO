@@ -1,0 +1,78 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Horario semanal de un profesor con el formato de los reportes (encabezado institucional, datos y la cuadrícula en
+  color), listo para imprimir o guardar en PDF desde el navegador (hoja horizontal, tema claro). Con ?pdf=1 abre solo el
+  diálogo de impresión.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Horario de {{ profesor }} · {{ ciclo|default:"sin ciclo" }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <style>@page { size: A4 landscape; margin: 10mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver al profesor</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte horario-hoja">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Horario del profesor</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Profesor</dt><dd>{{ profesor }}</dd></div>
+        <div><dt>Ciclo escolar</dt><dd>{{ ciclo|default:"—" }}</dd></div>
+        <div><dt>Carga semanal</dt><dd>{{ horas_semanales|default:"Sin horario" }}{% if asignaciones %} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }} en {{ grupos }} grupo{{ grupos|pluralize }}{% endif %}</dd></div>
+        <div><dt>Generado</dt><dd>{{ generado|date:"j \d\e F \d\e Y, H:i"|lower }} · {{ usuario }}</dd></div>
+      </dl>
+    </header>
+
+    <section class="reporte__seccion" aria-labelledby="titulo-semana">
+      <h2 class="reporte__subtitulo" id="titulo-semana">Horario semanal</h2>
+      {% if cuadricula.filas %}
+        {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta="Horario semanal de "|add:profesor.nombre_completo modo="profesor" %}
+      {% else %}
+        <p class="text-muted">{{ profesor }} todavía no tiene horario en este ciclo.</p>
+      {% endif %}
+    </section>
+
+    {% if asignaciones %}
+      <section class="reporte__seccion horario-hoja__resumen" aria-labelledby="titulo-materias">
+        <h2 class="reporte__subtitulo" id="titulo-materias">Materias que imparte</h2>
+        <table class="reporte__tabla">
+          <thead>
+            <tr><th scope="col">Materia</th><th scope="col">Grupo</th><th scope="col">Horario</th><th scope="col">Horas por semana</th></tr>
+          </thead>
+          <tbody>
+            {% for asignacion in asignaciones %}
+              <tr>
+                <th scope="row">{{ asignacion.materia }}</th>
+                <td>{{ asignacion.grupo }}</td>
+                <td>{% for linea in asignacion.lineas %}{{ linea }}{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-muted">Sin horario</span>{% endfor %}</td>
+                <td>{{ asignacion.duracion|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endif %}
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

@@ -3,8 +3,7 @@
    Comportamiento de las pantallas de la sección (la pantalla de la entrada tiene su propio script):
    - elegir una fecha envía el formulario de la página;
    - ventana para registrar o corregir la asistencia general de un alumno ([data-asistencia-editar]);
-   - ventana para anular una justificación ([data-anular-justificacion]);
-   - días sin clases: «Todos los niveles» marca o desmarca los cuatro ([data-niveles-sin-clases]).
+   - ventana para anular una justificación ([data-anular-justificacion]).
 */
 (() => {
   'use strict';
@@ -47,18 +46,4 @@
       anular.querySelector('[data-anular-dia]').textContent = boton.dataset.dia;
     });
   }
-
-  /* --- Días sin clases: «Todos los niveles» y los niveles sueltos se mantienen de acuerdo ----------------------- */
-  document.querySelectorAll('[data-niveles-sin-clases]').forEach((grupo) => {
-    const todos = grupo.querySelector('input[value="TODOS"]');
-    const niveles = [...grupo.querySelectorAll('input[type="checkbox"]')].filter((casilla) => casilla !== todos);
-    if (!todos) return;
-    grupo.addEventListener('change', (event) => {
-      if (event.target === todos) {
-        niveles.forEach((casilla) => { casilla.checked = todos.checked; });
-      } else {
-        todos.checked = niveles.every((casilla) => casilla.checked);
-      }
-    });
-  });
 })();

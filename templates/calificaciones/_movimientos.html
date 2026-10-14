@@ -1,0 +1,54 @@
+{% comment %}
+  Historial de movimientos de un acta reabierta (debajo de la tabla de captura): desde la primera reapertura, las
+  reaperturas con su motivo, cada calificación modificada (antes y después), los cambios de actividades y los nuevos
+  cierres, del más reciente al más antiguo. Solo lectura: la bitácora no se edita ni se borra.
+  Parámetros: movimientos (reglas.historial_de_movimientos), acta.
+{% endcomment %}
+<section class="card cal-movimientos" aria-labelledby="titulo-movimientos">
+  <header class="card__header card__header--icon">
+    {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-movimientos">Historial de movimientos</h2>
+  </header>
+  <p class="text-muted cal-movimientos__intro">
+    {{ acta.asignacion.materia }} · {{ acta.asignacion.grupo }} · {{ acta.periodo.nombre }}: lo que pasó desde que estas calificaciones se reabrieron, del más reciente al más antiguo. Solo lectura.
+  </p>
+  <div class="table-card table-card--flush">
+    <table class="table cal-movimientos__tabla">
+      <caption class="visually-hidden">Historial de movimientos de las calificaciones</caption>
+      <thead class="table__head">
+        <tr>
+          <th class="table__th" scope="col">Fecha y hora</th>
+          <th class="table__th" scope="col">Movimiento</th>
+          <th class="table__th" scope="col">Estudiante</th>
+          <th class="table__th" scope="col">Rubro o actividad</th>
+          <th class="table__th" scope="col">Cambio</th>
+          <th class="table__th" scope="col">Usuario</th>
+          <th class="table__th" scope="col">Motivo</th>
+        </tr>
+      </thead>
+      <tbody class="table__body">
+        {% for movimiento in movimientos.lista %}
+          <tr class="table__row" data-movimiento="{{ movimiento.accion }}">
+            <td class="table__cell" data-label="Fecha y hora">{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+            <td class="table__cell table__cell--main" data-label="Movimiento">
+              <span class="tag{% if movimiento.accion == 'REAPERTURA' %} tag--warning{% elif movimiento.accion == 'CIERRE' %} tag--success{% elif movimiento.accion == 'CAPTURA' %} tag--info{% endif %}">{% if movimiento.accion == 'CIERRE' %}Nuevo cierre{% elif movimiento.accion == 'CAPTURA' %}Calificación modificada{% else %}{{ movimiento.get_accion_display }}{% endif %}</span>
+            </td>
+            <td class="table__cell" data-label="Estudiante">{{ movimiento.inscripcion.alumno|default:"—" }}</td>
+            <td class="table__cell" data-label="Rubro o actividad">{% if movimiento.accion == 'REAPERTURA' or movimiento.accion == 'CIERRE' %}—{% else %}{{ movimiento.que }}{% endif %}</td>
+            <td class="table__cell cal-movimientos__cambio" data-label="Cambio">
+              {% if movimiento.accion == 'CAPTURA' %}
+                {{ movimiento.anterior|default:"vacía" }} → <strong>{{ movimiento.nuevo|default:"vacía" }}</strong>
+              {% elif movimiento.anterior or movimiento.nuevo %}
+                {{ movimiento.anterior|default:"—" }}{% if movimiento.nuevo %} → {{ movimiento.nuevo }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="table__cell" data-label="Usuario">{{ movimiento.usuario.get_full_name|default:movimiento.usuario.username|default:"—" }}</td>
+            <td class="table__cell" data-label="Motivo">{{ movimiento.motivo|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if movimientos.hay_mas %}
+    <p class="text-muted cal-movimientos__pie">Se muestran los {{ movimientos.lista|length }} más recientes de {{ movimientos.total }}. <a href="{% url 'calificaciones:historial' acta.pk %}">Ver el historial completo</a>.</p>
+  {% endif %}
+</section>

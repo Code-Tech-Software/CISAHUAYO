@@ -5,9 +5,12 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from Alumnos.academico import activar_ciclo, alumnos_sin_inscribir, ciclo_actual
+from Alumnos.asistencias import dias_sin_clases_registrados
 from Alumnos.models import CicloEscolar, Grado, Inscripcion, MateriaGrado
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
+
+from Asistencias.forms import DiaNoLectivoForm
 
 from .forms import CicloForm, FiltroCiclosForm
 
@@ -51,6 +54,10 @@ def ciclo_lista(request):
         'estado': estado,
         'conteos': conteos,
         'actual': actual,
+        # Días sin clases (antes en Ajustes › Asistencia)
+        'dias_sin_clases': dias_sin_clases_registrados(),
+        'dia_form': DiaNoLectivoForm() if request.user.has_perm('Alumnos.add_dianolectivo') else None,
+        'hoy': hoy,
     })
 
 

@@ -451,6 +451,11 @@ body {
   margin-inline: auto;
 }
 
+/* Páginas de tablas anchas (p. ej. Calificaciones): usan todo el ancho disponible ({% block clase_pagina %}) */
+.page--ancha {
+  max-width: none;
+}
+
 .app__backdrop {
   position: fixed;
   inset: 0;

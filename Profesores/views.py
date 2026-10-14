@@ -154,12 +154,8 @@ def profesor_desvincular(request, pk):
 # ---------------------------------------------------------------------------
 # Perfil: materias que imparte y su horario semanal (por ciclo)
 # ---------------------------------------------------------------------------
-@requiere_permisos('Alumnos.view_profesor')
-def profesor_detalle(request, pk):
-    profesor = get_object_or_404(Profesor, pk=pk)
-    ciclos = list(CicloEscolar.objects.all())
-    ciclo = elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
-
+def _horario_del_profesor(profesor, ciclo):
+    """(asignaciones con su resumen de horario, bloques, minutos por semana) del profesor en el ciclo."""
     asignaciones = []
     if ciclo:
         asignaciones = con_resumen_de_horario(
@@ -169,7 +165,15 @@ def profesor_detalle(request, pk):
         )
     # Cada bloque ya trae su asignación (con materia y grado) gracias al prefetch: sin consultas por celda
     bloques = [bloque for asignacion in asignaciones for bloque in asignacion.horarios.all()]
-    minutos = minutos_semanales(bloques)
+    return asignaciones, bloques, minutos_semanales(bloques)
+
+
+@requiere_permisos('Alumnos.view_profesor')
+def profesor_detalle(request, pk):
+    profesor = get_object_or_404(Profesor, pk=pk)
+    ciclos = list(CicloEscolar.objects.all())
+    ciclo = elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
+    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo)
     editable = ciclo_editable(ciclo) and profesor.estatus == 'ACTIVO'
 
     # Materias del ciclo que todavía no tienen profesor, de los niveles en los que da clases: de ahí se le asignan
@@ -289,6 +293,22 @@ def profesor_reactivar(request, pk):
             aviso = f' Su cuenta «{profesor.usuario.username}» sigue desactivada: reactívala en «Usuarios» si volverá a entrar al sistema.'
         messages.success(request, f'{profesor} fue reactivado. Asígnale de nuevo las materias que imparte.{aviso}')
     return redirect('profesores:lista')
+
+
+@requiere_permisos('Alumnos.view_profesor')
+def profesor_horario_imprimir(request, pk):
+    """El horario semanal del profesor en el formato de los reportes, listo para imprimir o guardar en PDF (con
+    ?pdf=1 se abre solo el diálogo de impresión)."""
+    profesor = get_object_or_404(Profesor, pk=pk)
+    ciclo = elegir_ciclo(request.GET.get('ciclo', ''), list(CicloEscolar.objects.all()))
+    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo)
+    volver = f"{reverse('profesores:detalle', args=[profesor.pk])}{f'?ciclo={ciclo.pk}' if ciclo else ''}#horario"
+    return render(request, 'profesores/horario_hoja.html', {
+        'profesor': profesor, 'ciclo': ciclo, 'asignaciones': asignaciones, 'cuadricula': cuadricula(bloques),
+        'horas_semanales': formatear_duracion(minutos) if minutos else '', 'grupos': len({a.grupo_id for a in asignaciones}),
+        'generado': timezone.localtime(), 'usuario': request.user.get_full_name() or request.user.get_username(),
+        'imprimir_al_abrir': request.GET.get('pdf') == '1', 'volver': volver,
+    })
 
 
 # ---------------------------------------------------------------------------

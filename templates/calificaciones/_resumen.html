@@ -26,33 +26,39 @@
         <caption class="visually-hidden">Resumen de calificaciones de {{ asignacion.materia }}, {{ asignacion.grupo }}, {{ periodo.nombre }}</caption>
         <thead>
           <tr>
-            <th scope="col" class="cal-matriz__num">N.º</th>
-            <th scope="col" class="cal-matriz__nombre">Estudiante</th>
+            <th scope="col" rowspan="2" class="cal-matriz__num">N.º</th>
+            <th scope="col" rowspan="2" class="cal-matriz__nombre">Estudiante</th>
             {% for columna in columnas %}
-              <th scope="col" class="cal-matriz__rubro">{{ columna.titulo }}<span class="cal-matriz__sub">{% if columna.directo %}Calificación{% else %}Promedio{% endif %}</span></th>
-              <th scope="col" class="cal-matriz__rubro cal-aportacion">Aportación<span class="cal-matriz__sub">{{ columna.rubro.porcentaje|floatformat:"-2" }} %</span></th>
+              <th scope="colgroup" colspan="2" class="cal-matriz__grupo">{{ columna.rubro.nombre }} <span class="cal-matriz__porcentaje">{{ columna.rubro.porcentaje|floatformat:"-2" }} %</span></th>
             {% endfor %}
-            <th scope="col">Faltas<span class="cal-matriz__sub">{% if tabla.faltas_manuales %}captura manual{% elif tabla.origen_faltas == 'TODAS' %}de la asistencia{% else %}sin justificar{% endif %}</span></th>
-            <th scope="col" class="cal-descuento">Descuento<span class="cal-matriz__sub">{% if tabla.reglas.penalizar_faltas %}−{{ tabla.reglas.puntos_por_bloque|floatformat:"-2" }} c/{{ tabla.reglas.faltas_por_bloque }}{% else %}no aplica{% endif %}</span></th>
-            {% if tabla.con_academia %}<th scope="col">Punto de academia<span class="cal-matriz__sub">+{{ tabla.reglas.valor_punto_academia|floatformat:"-2" }} otorgado</span></th>{% endif %}
-            <th scope="col" class="cal-final">Final<span class="cal-matriz__sub">máx. {{ tabla.reglas.limite_maximo|floatformat:"-2" }}</span></th>
-            <th scope="col">Estado</th>
+            <th scope="col" rowspan="2">Faltas<span class="cal-matriz__sub">{% if tabla.faltas_manuales %}captura manual{% elif tabla.origen_faltas == 'TODAS' %}de la asistencia{% else %}sin justificar{% endif %}</span><span class="cal-matriz__sub cal-descuento">{% if tabla.reglas.penalizar_faltas %}−{{ tabla.reglas.puntos_por_bloque|floatformat:"-2" }} c/{{ tabla.reglas.faltas_por_bloque }}{% else %}sin descuento{% endif %}</span></th>
+            {% if tabla.con_academia %}<th scope="col" rowspan="2">Academia<span class="cal-matriz__sub">+{{ tabla.reglas.valor_punto_academia|floatformat:"-2" }} si se otorga</span></th>{% endif %}
+            <th scope="col" rowspan="2" class="cal-final">Final<span class="cal-matriz__sub">máx. {{ tabla.reglas.limite_maximo|floatformat:"-2" }}</span></th>
+            <th scope="col" rowspan="2">Estado</th>
+          </tr>
+          <tr>
+            {% for columna in columnas %}
+              <th scope="col" class="cal-matriz__rubro">{% if columna.directo %}Calificación{% else %}Promedio{% endif %}</th>
+              <th scope="col" class="cal-matriz__rubro cal-aportacion">Aportación</th>
+            {% endfor %}
           </tr>
         </thead>
         <tbody>
           {% for fila in filas %}
             <tr data-inscripcion="{{ fila.inscripcion.pk }}" data-fila>
               <td class="cal-matriz__num">{{ fila.numero }}</td>
-              <th scope="row" class="cal-matriz__nombre" data-nombre>{{ fila.nombre }}</th>
+              <th scope="row" class="cal-matriz__nombre" data-nombre title="{{ fila.nombre }}">{{ fila.nombre }}</th>
               {% for celda in fila.celdas %}
                 {% if celda.entrada %}
                   {% include "calificaciones/_celda.html" %}
+                {% elif celda.faltas_calculadas %}
+                  <td class="cal-calculada cal-faltas"><span data-calc="faltas">{{ celda.faltas }}</span><span class="cal-faltas__descuento" data-calc="descuento" data-vacio="">{{ celda.descuento }}</span></td>
                 {% else %}
                   <td class="cal-calculada {{ celda.clase }}" data-calc="{{ celda.calc }}">{{ celda.valor|default:"—" }}</td>
                 {% endif %}
               {% endfor %}
               <td class="cal-final" data-calc="final">{{ fila.calc.final|default:"—" }}</td>
-              <td><span class="cal-estado-fila cal-estado-fila--{{ fila.calc.estado_clave }}" data-calc="estado" data-estado-clave="{{ fila.calc.estado_clave }}">{{ fila.calc.estado }}</span></td>
+              <td class="cal-matriz__estado"><span class="cal-estado-fila cal-estado-fila--{{ fila.calc.estado_clave }}" data-calc="estado" data-estado-clave="{{ fila.calc.estado_clave }}">{{ fila.calc.estado }}</span></td>
             </tr>
           {% endfor %}
         </tbody>

@@ -379,9 +379,10 @@
     <section class="tabs__panel" role="tabpanel" id="horario" aria-labelledby="tab-horario">
       {% if cuadricula.filas %}
         <div class="panel-actions">
-          <button type="button" class="btn btn--sm" data-print>
+          {# La hoja con el formato de los reportes; abre el diálogo de impresión (ahí también se guarda en PDF) #}
+          <a class="btn btn--sm" href="{% url 'profesores:horario_imprimir' profesor.pk %}?ciclo={{ ciclo.pk }}&amp;pdf=1" target="_blank" rel="noopener">
             {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir
-          </button>
+          </a>
         </div>
         <section class="card print-area" aria-labelledby="titulo-horario">
           <header class="card__header card__header--icon">

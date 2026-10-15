@@ -115,6 +115,7 @@ def crear_cuenta(profesor, *, username, email, rol, contrasena='', pedir_cambio=
     perfil.telefono = (profesor.telefono or '')[:10]
     perfil.cargo = 'Docente'
     perfil.debe_cambiar_contrasena = pedir_cambio
+    perfil.contrasena_visible = contrasena_en_claro   # un administrador la puede consultar después
     perfil.save()
     asignar_rol(usuario, rol)
     vincular(profesor, usuario)

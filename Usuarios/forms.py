@@ -66,7 +66,7 @@ def campo_pedir_cambio():
     """Si la persona deberá elegir una contraseña propia al entrar. Es opcional: puede quedarse con la que se le asigna."""
     return forms.BooleanField(
         required=False, initial=False, label='Pedir que la cambie al entrar',
-        help_text='Si lo marcas, la primera vez que entre deberá elegir una contraseña propia. Si no, puede seguir usando la que se le asigna.',
+        help_text='Si lo marcas, la primera vez que entre deberá elegir una contraseña propia (esa ya no se puede consultar). Si no, puede seguir usando la que se le asigna.',
         widget=forms.CheckboxInput(attrs={'class': 'choice__input'}),
     )
 
@@ -497,6 +497,7 @@ class UsuarioForm(EstiloCamposMixin, forms.ModelForm):
         if nuevo:
             self.pedir_cambio = bool(self.cleaned_data.get('pedir_cambio'))
             perfil.debe_cambiar_contrasena = self.pedir_cambio   # opcional: puede quedarse con la que se le asigna
+            perfil.contrasena_visible = self.contrasena_en_claro   # un administrador la puede consultar después
         perfil.save()
 
         rol = self.cleaned_data.get('rol')

@@ -203,7 +203,7 @@ class AltaDeUsuariosTests(BaseUsuariosTestCase):
 
         primera = self.client.get(reverse('usuarios:lista')).content.decode()
         self.assertIn(temporal, primera)
-        self.assertIn('no se volverá a mostrar', primera)
+        self.assertIn('podrás consultar la contraseña en su perfil', primera)   # quien la creó es administrador
         segunda = self.client.get(reverse('usuarios:lista')).content.decode()
         self.assertNotIn(temporal, segunda)
 
@@ -594,12 +594,14 @@ class RestablecerContrasenaTests(BaseUsuariosTestCase):
         self.assertIn('name="pedir_cambio"', ventana)
         self.assertNotIn('checked', re.search(r'<input[^>]*name="pedir_cambio"[^>]*>', ventana).group(0))
 
-    def test_la_muestra_una_sola_vez(self):
+    def test_la_tarjeta_de_credenciales_sale_una_sola_vez(self):
+        """Después, la contraseña solo la consulta un administrador en el perfil (test_contrasena_visible.py)."""
         self.client.post(reverse('usuarios:restablecer', args=[self.usuario.pk]))
         temporal = self.client.session['credenciales_usuario']['contrasena']
         url = reverse('usuarios:detalle', args=[self.usuario.pk])
-        self.assertIn(temporal, self.client.get(url).content.decode())
-        self.assertNotIn(temporal, self.client.get(url).content.decode())
+        primera = self.client.get(url).content.decode()
+        self.assertIn(f'id="credencial-contrasena">{temporal}<', primera)
+        self.assertNotIn('id="credencial-contrasena"', self.client.get(url).content.decode())
 
     def test_cierra_su_sesion_abierta(self):
         sesion = Client()

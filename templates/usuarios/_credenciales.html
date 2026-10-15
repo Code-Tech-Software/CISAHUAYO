@@ -1,6 +1,6 @@
 {% comment %}
-  Credenciales de una cuenta recién creada o restablecida. Se muestran una sola vez: la contraseña se guarda cifrada y no
-  puede recuperarse después (si se pierde, se restablece).
+  Credenciales de una cuenta recién creada o restablecida. La tarjeta se muestra una sola vez; después, solo un
+  administrador puede consultar la contraseña en el perfil de la cuenta (Usuarios/contrasenas.py).
   Parámetro: credenciales (nombre, url, usuario, contrasena, titulo, etiqueta, pedir_cambio).
 {% endcomment %}
 <section class="credentials" aria-labelledby="credenciales-titulo">
@@ -8,7 +8,7 @@
   <div class="credentials__body">
     <h2 class="credentials__title" id="credenciales-titulo">{{ credenciales.titulo|default:"Credenciales de acceso" }}</h2>
     <p class="credentials__text">
-      Para <strong>{{ credenciales.nombre }}</strong>. Entrégalas ahora: por seguridad la contraseña <strong>no se volverá a mostrar</strong>.
+      Para <strong>{{ credenciales.nombre }}</strong>. Entrégalas ahora:{% if user.is_superuser %} podrás consultar la contraseña en su perfil mientras no la cambie.{% else %} por seguridad la contraseña <strong>no se volverá a mostrar</strong>.{% endif %}
       {% if credenciales.pedir_cambio %}Al entrar por primera vez el sistema le pedirá elegir una propia.{% else %}Puede seguir usando esta contraseña; si quiere, la cambia en «Mi cuenta».{% endif %}
     </p>
     <dl class="credentials__list">

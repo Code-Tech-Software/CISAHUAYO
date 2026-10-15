@@ -71,7 +71,11 @@ class PerfilUsuario(models.Model):
         help_text='Si está activo, en su siguiente acceso deberá elegir una contraseña propia. Es opcional: se pide al '
                   'crear la cuenta o al restablecer su contraseña.',
     )
-    tema = models.CharField('tema de color', max_length=20, choices=temas.opciones, default=temas.PREDETERMINADO)
+    # Contraseña consultable (pedido del 2026-10-15, como en estudiantes y tutores): la que asigna o restablece quien
+    # administra, legible solo para un administrador. Nunca la que elige la propia persona: si la contraseña cambia por
+    # otro camino, se borra sola (Usuarios/contrasenas.py).
+    contrasena_visible = models.CharField('contraseña consultable', max_length=128, blank=True, editable=False)
+    tema =models.CharField('tema de color', max_length=20, choices=temas.opciones, default=temas.PREDETERMINADO)
     menu_lateral = models.CharField('menú lateral', max_length=10, choices=temas.MENUS, default=temas.MENU_CLARO)
     # Dirección de nivel (pedido del 2026-10-14): quien puede aprobar suspensiones y medidas solo resuelve las de los
     # niveles que dirige (el administrador, todas)

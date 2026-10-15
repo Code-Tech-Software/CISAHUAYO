@@ -719,6 +719,34 @@ a.mini-list__name:hover {
   grid-column: 1 / -1;
 }
 
+/* La contraseña que consulta un administrador: el campo oculto con mostrar y copiar, el aviso y «Restablecer» en una
+   sola línea (todo el renglón en el teléfono; tres franjas desde 40rem, donde siempre caben al menos tres) */
+.identity__fact--contrasena {
+  grid-column: span 2;
+}
+
+@media (min-width: 40rem) {
+  .identity__fact--contrasena {
+    grid-column: span 3;
+  }
+}
+
+.identity__fact--contrasena dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* El bloque del campo se funde con la línea: así «Restablecer» va junto a los botones mientras quepa */
+.identity__fact--contrasena .secret {
+  display: contents;
+}
+
+.identity__fact--contrasena .identity__fact-action {
+  margin-left: 0;
+}
+
 .form-page--narrow {
   max-width: 34rem;
 }

@@ -2,7 +2,8 @@
   La contraseña de un estudiante o de un tutor en su perfil. Solo un administrador la ve (oculta de entrada, con botones
   para mostrarla y copiarla); los demás ven puntos. Quien puede editar tiene el botón que abre #modal-contrasena.
   Parámetros: persona (con contrasena y contrasena_visible), campo_id (id del campo), rotulo («del estudiante», «del
-  tutor»), puede_restablecer.
+  tutor»), puede_restablecer y, opcionales, sin_consulta (por qué no se puede consultar) y modal (la ventana que abre el
+  botón; por omisión #modal-contrasena). También la usa el perfil de una cuenta del sistema (usuarios/detalle.html).
 {% endcomment %}
 <div class="secret">
   {% if not persona.contrasena %}
@@ -18,14 +19,14 @@
         {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
       </button>
     {% else %}
-      <span class="text-muted">No se puede consultar: es anterior a esta función. Restablécela para asignar una nueva.</span>
+      <span class="text-muted">{% firstof sin_consulta "No se puede consultar: es anterior a esta función. Restablécela para asignar una nueva." %}</span>
     {% endif %}
   {% else %}
     <span class="secret__mask" aria-hidden="true">••••••••</span>
     <span class="text-muted">Solo un administrador puede consultarla.</span>
   {% endif %}
   {% if puede_restablecer %}
-    <button type="button" class="btn btn--sm" data-modal-open="modal-contrasena">
+    <button type="button" class="btn btn--sm" data-modal-open="{% firstof modal "modal-contrasena" %}">
       {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} {% if persona.contrasena %}Restablecer contraseña{% else %}Asignar contraseña{% endif %}
     </button>
   {% endif %}

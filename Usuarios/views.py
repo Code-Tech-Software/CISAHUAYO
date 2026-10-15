@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 
-from . import catalogo
+from . import catalogo, contrasenas
 from .forms import CambioContrasenaForm, FiltroUsuariosForm, MiCuentaForm, UsuarioForm, validar_contrasena_inicial
 from .docentes import profesor_de
 from .models import PerfilUsuario
@@ -51,7 +51,8 @@ def _gestionable(request, usuario):
 
 
 def guardar_credenciales(request, usuario, contrasena, titulo, url=None, escrita=False, pedir_cambio=False, etiqueta=None):
-    """Deja en la sesión las credenciales de una cuenta para mostrarlas una sola vez (la contraseña no se guarda en claro)."""
+    """Deja en la sesión las credenciales de una cuenta para mostrarlas una vez al terminar (después, solo un administrador
+    puede consultar la contraseña en el perfil: Usuarios/contrasenas.py)."""
     request.session[SESION_CREDENCIALES] = {
         'pk': usuario.pk,
         'nombre': nombre_de(usuario),
@@ -202,6 +203,10 @@ def usuario_detalle(request, pk):
             'Es tu propia cuenta.' if es_yo else 'Es el único administrador activo.' if ultimo_administrador else ''
         ),
         'puede_restablecer': request.user.has_perm('auth.change_user') and gestionable and usuario.is_active and not es_yo,
+        # Solo un administrador consulta la contraseña (como en estudiantes y tutores); los demás ven si está vigente
+        'consulta_contrasena': {
+            'contrasena': usuario.has_usable_password(), 'contrasena_visible': contrasenas.consultable(usuario),
+        } if request.user.is_superuser else None,
         'credenciales': request.session.pop(SESION_CREDENCIALES, None),
         'alcance': alcance_de_cuenta(usuario) if rol and rol.es_prefectura else None,
         'direccion': direccion_de_cuenta(usuario, permisos),
@@ -383,8 +388,9 @@ def usuario_reactivar(request, pk):
 @require_POST
 @requiere_permisos('auth.change_user')
 def usuario_restablecer(request, pk):
-    """Cambia la contraseña de otra cuenta: la que se escriba (debe cumplir las reglas de seguridad) o, si se deja vacía,
-    una generada. Se muestra una sola vez. Si se marca, la persona deberá cambiarla al entrar."""
+    """Restablece la contraseña de otra cuenta: la que se escriba (debe cumplir las reglas de seguridad) o, si se deja
+    vacía, una generada. Se muestra al terminar y un administrador puede consultarla después en el perfil. Si se marca,
+    la persona deberá cambiarla al entrar (y la suya ya no se podrá consultar)."""
     usuario = _gestionable(request, get_object_or_404(Usuario, pk=pk))
     if usuario.pk == request.user.pk:
         messages.error(request, 'Para cambiar tu propia contraseña usa «Mi cuenta».')
@@ -408,14 +414,16 @@ def usuario_restablecer(request, pk):
     pedir_cambio = bool(request.POST.get('pedir_cambio'))
     perfil = PerfilUsuario.de(usuario)
     perfil.debe_cambiar_contrasena = pedir_cambio
-    perfil.save(update_fields=['debe_cambiar_contrasena', 'modificado'])
+    perfil.contrasena_visible = contrasena   # un administrador la puede consultar en el perfil
+    perfil.save(update_fields=['debe_cambiar_contrasena', 'contrasena_visible', 'modificado'])
     registrar(request.user, usuario, ACCION_CAMBIO, 'Contraseña cambiada' + (' (deberá cambiarla al entrar).' if pedir_cambio else '.'))
     guardar_credenciales(request, usuario, contrasena, 'Contraseña cambiada', pedir_cambio=pedir_cambio,
                          etiqueta='Contraseña nueva' if escrita else 'Contraseña generada')
     if escrita:
         messages.success(request, f'Se cambió la contraseña de {nombre_de(usuario)}.')
     else:
-        messages.success(request, f'Se generó una contraseña nueva para {nombre_de(usuario)}. Entrégasela: no se volverá a mostrar.')
+        despues = 'podrás consultarla en su perfil' if request.user.is_superuser else 'no se volverá a mostrar'
+        messages.success(request, f'Se generó una contraseña nueva para {nombre_de(usuario)}. Entrégasela: {despues}.')
     return redirect('usuarios:detalle', usuario.pk)
 
 

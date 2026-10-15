@@ -35,6 +35,9 @@ urlpatterns = [
     path('prefectura/', include('Prefectura.urls')),
     # Calificaciones (calificaciones/…) y su configuración en Ajustes (ajustes/calificaciones/…)
     path('', include('Calificaciones.urls')),
+    # Portales (cada uno con su propia sesión: CISAHUAYO/portales.py)
+    path('portal/estudiantes/', include('PortalEstudiantes.urls')),
+    path('portal/tutores/', include('PortalTutores.urls')),
 ]  # Para servir archivos multimedia en desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -5,7 +5,9 @@ comprueba que:
 - sin sesión, nada responde con datos: se manda a iniciar sesión (o 401 en las que responden JSON);
 - con sesión pero sin permisos, todo responde 403;
 - cada permiso que una vista exige existe en el catálogo, de modo que un rol puede concederlo;
-- las únicas rutas sin permiso propio son las de la lista de excepciones, y están justificadas.
+- las únicas rutas sin permiso propio son las de la lista de excepciones, y están justificadas;
+- las de los portales de estudiantes y de tutores no usan permisos sino su propia sesión (`portal_requerido`, de
+  CISAHUAYO/portales.py): sin ella se manda a iniciar sesión y una cuenta del sistema recibe 403 como las demás.
 """
 from django.test import Client
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
@@ -105,9 +107,21 @@ class NingunaRutaSeAbreSinAutorizacionTests(BaseTestCase):
         for nombre, ruta, vista, _ in self.rutas:
             if nombre in SIN_SESION or nombre in SOLO_CON_SESION or nombre in CON_COMPROBACION_PROPIA:
                 continue
-            if not getattr(vista, 'permisos_requeridos', None):
+            if not getattr(vista, 'permisos_requeridos', None) and not getattr(vista, 'portal_requerido', None):
                 sin_declarar.append(f'{nombre} ({ruta})')
-        self.assertEqual(sin_declarar, [], 'Estas rutas no usan requiere_permisos(...)')
+        self.assertEqual(sin_declarar, [], 'Estas rutas no usan requiere_permisos(...) ni portal_requerido(...)')
+
+    def test_las_rutas_de_los_portales_exigen_la_sesion_de_su_portal(self):
+        de_portal = [(nombre, ruta, vista, argumentos) for nombre, ruta, vista, argumentos in self.rutas if nombre.startswith('portal_')]
+        self.assertEqual({n.split(':')[0] for n, *_ in de_portal}, {'portal_estudiantes', 'portal_tutores'})
+        anonimo = Client()
+        for nombre, ruta, vista, argumentos in de_portal:
+            with self.subTest(nombre=nombre):
+                tipo = vista.portal_requerido
+                self.assertEqual(tipo, 'estudiante' if nombre.startswith('portal_estudiantes') else 'tutor')
+                _, respuesta = self.peticion(anonimo, nombre, argumentos, ruta)
+                self.assertEqual(respuesta.status_code, 302)
+                self.assertIn(f'acceso={"estudiantes" if tipo == "estudiante" else "tutores"}', respuesta['Location'])
 
     def test_todo_permiso_exigido_por_una_ruta_se_puede_conceder_desde_el_catalogo(self):
         for nombre, ruta, vista, _ in self.rutas:

@@ -1,0 +1,28 @@
+{% extends "portales/base.html" %}
+{% comment %}
+  Uno de los estudiantes del tutor en su portal (PortalTutores/views.estudiante): lo mismo que ve el estudiante en el
+  suyo (portales/_estudiante.html). Recibe lo de PortalEstudiantes/resumen.py y `vinculo`.
+{% endcomment %}
+
+{% block titulo %}{{ alumno.nombre_completo }}{% endblock %}
+
+{% block contenido %}
+  <a class="portal-back" href="{{ portal.inicio }}">
+    {% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Tus estudiantes
+  </a>
+
+  <header class="portal-hero">
+    {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
+    <div class="portal-hero__text">
+      <p class="portal-hero__eyebrow">{{ vinculo.get_parentesco_display }} de</p>
+      <h1 class="portal-hero__title">{{ alumno.nombre_completo }}</h1>
+      <p class="portal-hero__meta">
+        {% if inscripcion %}<span>{{ inscripcion.grupo }}</span><span>Ciclo {{ ciclo }}</span>{% endif %}
+        <span>Referencia {{ alumno.referencia }}</span>
+        {% if alumno.estatus != "ACTIVO" %}<span class="tag tag--warning">{{ alumno.get_estatus_display }}</span>{% endif %}
+      </p>
+    </div>
+  </header>
+
+  {% include "portales/_estudiante.html" with quien="Su" %}
+{% endblock %}

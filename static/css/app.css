@@ -3791,6 +3791,38 @@ body {
   display: block;
 }
 
+/* --- Acceso al portal ----------------------------------------------------------------------------------------
+   En el perfil de un estudiante o de un tutor (parcial partials/acceso_portal.html). */
+.portal-access {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.portal-access__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.portal-access__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.credentials__text--aviso {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-warning);
+  font-weight: var(--weight-semibold);
+}
+
 /* --- Importación desde CSV -----------------------------------------------------------------------------------
    Resumen de lo que pasó con cada fila de un archivo importado (estudiantes y tutores), la tabla de filas con
    errores y la lista de indicaciones de la pantalla de importación. */

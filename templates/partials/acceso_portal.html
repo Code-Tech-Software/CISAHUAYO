@@ -1,0 +1,34 @@
+{% comment %}
+  El acceso de un estudiante o de un tutor a su portal, en su perfil (dentro de un <dl class="details">): cómo está,
+  cuándo entró por última vez y, para quien puede editar, activar o desactivar el acceso y desbloquearlo tras varios
+  intentos fallidos. Parámetros: persona, portal (CISAHUAYO.portales.estado_de_cuenta), accion (url de la acción),
+  puede_cambiar.
+{% endcomment %}
+<div class="details__item details__item--wide">
+  <dt class="details__label">Acceso al portal</dt>
+  <dd class="details__value portal-access">
+    <span class="portal-access__state">
+      <span class="tag {{ portal.tono }}">{{ portal.texto }}</span>
+      <span class="text-muted">{% if persona.ultimo_acceso %}Último acceso el {{ persona.ultimo_acceso|date:"j \d\e F \d\e Y \a \l\a\s H:i"|lower }}{% else %}Todavía no ha entrado{% endif %}</span>
+    </span>
+    {% if puede_cambiar %}
+      <form class="portal-access__actions" method="post" action="{{ accion }}">
+        {% csrf_token %}
+        {% if portal.clave == "bloqueado" %}
+          <button type="submit" class="btn btn--sm" name="accion" value="desbloquear">
+            {% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Desbloquear
+          </button>
+        {% endif %}
+        {% if persona.acceso_portal %}
+          <button type="submit" class="btn btn--sm" name="accion" value="desactivar">
+            {% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Desactivar acceso
+          </button>
+        {% else %}
+          <button type="submit" class="btn btn--sm btn--primary" name="accion" value="activar">
+            {% include "partials/icon.html" with name="log-in" icon_class="icon--sm" %} Activar acceso
+          </button>
+        {% endif %}
+      </form>
+    {% endif %}
+  </dd>
+</div>

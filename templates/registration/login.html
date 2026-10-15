@@ -1,7 +1,12 @@
 {% extends "acceso_base.html" %}
 {% comment %}
-  Pantalla de inicio de sesión (vista CISAHUAYO/acceso.py, ruta /admin/login/). Entra cualquier cuenta activa: lo que
-  puede hacer cada una lo define su rol. Recibe: form (usuario y contraseña) y next (la página que se pidió, si la hubo).
+  Pantalla de inicio de sesión (vista CISAHUAYO/acceso.py, ruta /admin/login/). Tres accesos en pestañas:
+  - Sistema: personal y docentes (usuario y contraseña de su cuenta; lo que puede hacer cada una lo define su rol).
+  - Estudiantes: correo electrónico y contraseña (portal de estudiantes).
+  - Tutores: usuario y contraseña (portal de tutores).
+  Las pestañas son enlaces (?acceso=…): funcionan sin JavaScript; acceso.js las cambia sin recargar.
+  Recibe: form (sistema), form_estudiantes, form_tutores, acceso (pestaña activa), acceso_elegido (se pidió esa
+  pestaña o una página de ese portal), next y sesion_portal.
 {% endcomment %}
 
 {% block titulo %}Iniciar sesión{% endblock %}
@@ -9,66 +14,162 @@
 {% block tarjeta %}
   <header class="access__head">
     <h1 class="access__title">Iniciar sesión</h1>
-    <p class="access__lead">Ingresa con tu usuario y contraseña del colegio.</p>
+    <p class="access__lead">Elige cómo quieres entrar.</p>
   </header>
 
-  {# Solo se llega aquí con sesión iniciada al pedir el panel de administración de Django sin ser de staff #}
+  {% for message in messages %}
+    <div class="alert alert--{% if message.level_tag == 'error' %}error{% else %}{{ message.level_tag }}{% endif %}" role="{% if message.level >= 30 %}alert{% else %}status{% endif %}">
+      {% if message.level_tag == "success" %}{% include "partials/icon.html" with name="circle-check" icon_class="alert__icon" %}{% elif message.level >= 30 %}{% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}{% else %}{% include "partials/icon.html" with name="info" icon_class="alert__icon" %}{% endif %}
+      <div class="alert__body"><p>{{ message }}</p></div>
+    </div>
+  {% endfor %}
+
   {% if user.is_authenticated %}
     <div class="alert alert--warning" role="alert">
       {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
       <div class="alert__body">
-        <p>Ya iniciaste sesión como <strong>{{ user.get_username }}</strong>, pero esa cuenta no puede entrar a la administración de Django. Entra con otra cuenta o vuelve al <a href="{% url 'inicio' %}">inicio del sistema</a>.</p>
+        {% if acceso == "sistema" %}
+          {# Solo se llega aquí con sesión iniciada al pedir el panel de administración de Django sin ser de staff #}
+          <p>Ya iniciaste sesión como <strong>{{ user.get_username }}</strong>, pero esa cuenta no puede entrar a la administración de Django. Entra con otra cuenta o vuelve al <a href="{% url 'inicio' %}">inicio del sistema</a>.</p>
+        {% else %}
+          <p>Tienes abierta la sesión del sistema como <strong>{{ user.get_username }}</strong>. Si entras a un portal, esa sesión se cerrará. <a href="{% url 'inicio' %}">Volver al sistema</a></p>
+        {% endif %}
       </div>
     </div>
-  {% endif %}
-
-  {% if form.non_field_errors %}
-    <div class="alert alert--error" role="alert">
-      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+  {% elif sesion_portal %}
+    <div class="alert" role="status">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
       <div class="alert__body">
-        {% for error in form.non_field_errors.as_data %}
-          {% if error.code == 'invalid_login' %}
-            <p>El usuario o la contraseña no son correctos, o la cuenta está desactivada. Revisa que estén bien escritos (importan las mayúsculas).</p>
-          {% else %}
-            <p>{{ error.message }}</p>
-          {% endif %}
-        {% endfor %}
+        <p>Tienes una sesión abierta en el {{ sesion_portal.nombre|lower }} como <strong>{{ sesion_portal.cuenta }}</strong>. <a href="{{ sesion_portal.url }}">Ir al portal</a></p>
       </div>
     </div>
   {% endif %}
 
-  <form class="access__form" method="post" data-access-form>
-    {% csrf_token %}
-    <input type="hidden" name="next" value="{{ next }}">
+  {# Sin una pestaña pedida, acceso.js elige la última con la que se entró en este dispositivo #}
+  <div class="access-tabs" role="tablist" aria-label="Tipo de acceso" data-access-tabs{% if acceso_elegido %} data-access-explicit{% endif %}>
+    <a class="access-tab" role="tab" id="tab-sistema" href="?acceso=sistema{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-sistema"
+       aria-selected="{% if acceso == 'sistema' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'sistema' %}0{% else %}-1{% endif %}" data-access-tab="sistema">
+      <span class="access-tab__icon">{% include "partials/icon.html" with name="briefcase" %}</span>
+      <span class="access-tab__label">Sistema</span>
+    </a>
+    <a class="access-tab" role="tab" id="tab-estudiantes" href="?acceso=estudiantes{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-estudiantes"
+       aria-selected="{% if acceso == 'estudiantes' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'estudiantes' %}0{% else %}-1{% endif %}" data-access-tab="estudiantes">
+      <span class="access-tab__icon">{% include "partials/icon.html" with name="graduation-cap" %}</span>
+      <span class="access-tab__label">Estudiantes</span>
+    </a>
+    <a class="access-tab" role="tab" id="tab-tutores" href="?acceso=tutores{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-tutores"
+       aria-selected="{% if acceso == 'tutores' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'tutores' %}0{% else %}-1{% endif %}" data-access-tab="tutores">
+      <span class="access-tab__icon">{% include "partials/icon.html" with name="users" %}</span>
+      <span class="access-tab__label">Tutores</span>
+    </a>
+  </div>
 
-    <div class="field{% if form.username.errors %} is-invalid{% endif %}">
-      <label class="field__label" for="id_username">Usuario</label>
-      <input class="field__control" type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}"
-             autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="150" required autofocus>
-      {% for error in form.username.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
-    </div>
+  {# --- Sistema --------------------------------------------------------------------------------------------- #}
+  <section class="access-panel" role="tabpanel" id="panel-sistema" aria-labelledby="tab-sistema" data-access-panel="sistema"{% if acceso != "sistema" %} hidden{% endif %}>
+    <p class="access-panel__lead">Para el personal del colegio: administración, control escolar y docentes.</p>
 
-    <div class="field{% if form.password.errors %} is-invalid{% endif %}">
-      <label class="field__label" for="id_password">Contraseña</label>
-      <div class="password-field">
-        <input class="field__control" type="password" name="password" id="id_password" autocomplete="current-password" required>
-        <button type="button" class="btn btn--ghost btn--icon btn--sm password-field__toggle" data-password-toggle aria-controls="id_password" aria-pressed="false" aria-label="Mostrar la contraseña">
-          {% include "partials/icon.html" with name="eye" icon_class="password-field__eye" %}
-          {% include "partials/icon.html" with name="eye-off" icon_class="password-field__eye-off" %}
-        </button>
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">
+          {% for error in form.non_field_errors.as_data %}
+            {% if error.code == 'invalid_login' %}
+              <p>El usuario o la contraseña no son correctos, o la cuenta está desactivada. Revisa que estén bien escritos (importan las mayúsculas).</p>
+            {% else %}
+              <p>{{ error.message }}</p>
+            {% endif %}
+          {% endfor %}
+        </div>
       </div>
-      <p class="field__hint access__caps" data-caps-aviso hidden>
-        {% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %}
-        Tienes activado el bloqueo de mayúsculas.
-      </p>
-      {% for error in form.password.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
-    </div>
+    {% endif %}
 
-    <button type="submit" class="btn btn--primary btn--block access__submit">
-      Entrar
-      {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
-    </button>
-  </form>
+    <form class="access__form" method="post" action="{% url 'login' %}" data-access-form>
+      {% csrf_token %}
+      <input type="hidden" name="acceso" value="sistema">
+      <input type="hidden" name="next" value="{{ next }}">
 
-  <p class="access__help">¿No puedes entrar? Pide a la dirección del colegio que revise tu cuenta.</p>
+      <div class="field{% if form.username.errors %} is-invalid{% endif %}">
+        <label class="field__label" for="id_username">Usuario</label>
+        <div class="access-input">
+          {% include "partials/icon.html" with name="user" icon_class="access-input__icon" %}
+          <input class="field__control" type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}"
+                 autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="150" required{% if acceso == "sistema" %} autofocus{% endif %}>
+        </div>
+        {% for error in form.username.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      </div>
+
+      {% include "registration/_campo_contrasena.html" with campo_id="id_password" nombre="password" errores=form.password.errors %}
+
+      <button type="submit" class="btn btn--primary btn--block access__submit">
+        Entrar al sistema
+        {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+      </button>
+    </form>
+
+    <p class="access__help">¿No puedes entrar? Pide a la dirección del colegio que revise tu cuenta.</p>
+  </section>
+
+  {# --- Estudiantes ------------------------------------------------------------------------------------------ #}
+  <section class="access-panel" role="tabpanel" id="panel-estudiantes" aria-labelledby="tab-estudiantes" data-access-panel="estudiantes"{% if acceso != "estudiantes" %} hidden{% endif %}>
+    <p class="access-panel__lead">Consulta tu horario, tu asistencia y tus calificaciones. Entra con tu correo electrónico.</p>
+    {% include "registration/_errores_portal.html" with formulario=form_estudiantes %}
+
+    <form class="access__form" method="post" action="{% url 'login' %}" data-access-form>
+      {% csrf_token %}
+      <input type="hidden" name="acceso" value="estudiantes">
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="field{% if form_estudiantes.correo.errors %} is-invalid{% endif %}">
+        <label class="field__label" for="{{ form_estudiantes.correo.id_for_label }}">Correo electrónico</label>
+        <div class="access-input">
+          {% include "partials/icon.html" with name="mail" icon_class="access-input__icon" %}
+          <input class="field__control" type="email" name="{{ form_estudiantes.correo.html_name }}" id="{{ form_estudiantes.correo.id_for_label }}"
+                 value="{{ form_estudiantes.correo.value|default:'' }}" placeholder="nombre@correo.com" autocomplete="username" autocapitalize="none"
+                 autocorrect="off" spellcheck="false" maxlength="254" required{% if acceso == "estudiantes" %} autofocus{% endif %}>
+        </div>
+        {% for error in form_estudiantes.correo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      </div>
+
+      {% include "registration/_campo_contrasena.html" with campo_id=form_estudiantes.contrasena.id_for_label nombre=form_estudiantes.contrasena.html_name errores=form_estudiantes.contrasena.errors %}
+
+      <button type="submit" class="btn btn--primary btn--block access__submit">
+        Entrar al portal
+        {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+      </button>
+    </form>
+
+    <p class="access__help">¿Olvidaste tu contraseña? Acude a control escolar para que la restablezcan.</p>
+  </section>
+
+  {# --- Tutores ---------------------------------------------------------------------------------------------- #}
+  <section class="access-panel" role="tabpanel" id="panel-tutores" aria-labelledby="tab-tutores" data-access-panel="tutores"{% if acceso != "tutores" %} hidden{% endif %}>
+    <p class="access-panel__lead">Sigue el horario, la asistencia y las calificaciones de tus hijos. Entra con tu usuario.</p>
+    {% include "registration/_errores_portal.html" with formulario=form_tutores %}
+
+    <form class="access__form" method="post" action="{% url 'login' %}" data-access-form>
+      {% csrf_token %}
+      <input type="hidden" name="acceso" value="tutores">
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="field{% if form_tutores.usuario.errors %} is-invalid{% endif %}">
+        <label class="field__label" for="{{ form_tutores.usuario.id_for_label }}">Usuario</label>
+        <div class="access-input">
+          {% include "partials/icon.html" with name="user" icon_class="access-input__icon" %}
+          <input class="field__control" type="text" name="{{ form_tutores.usuario.html_name }}" id="{{ form_tutores.usuario.id_for_label }}"
+                 value="{{ form_tutores.usuario.value|default:'' }}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
+                 maxlength="40" required{% if acceso == "tutores" %} autofocus{% endif %}>
+        </div>
+        {% for error in form_tutores.usuario.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      </div>
+
+      {% include "registration/_campo_contrasena.html" with campo_id=form_tutores.contrasena.id_for_label nombre=form_tutores.contrasena.html_name errores=form_tutores.contrasena.errors %}
+
+      <button type="submit" class="btn btn--primary btn--block access__submit">
+        Entrar al portal
+        {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+      </button>
+    </form>
+
+    <p class="access__help">¿Olvidaste tu usuario o tu contraseña? Acude a la dirección del colegio.</p>
+  </section>
 {% endblock %}

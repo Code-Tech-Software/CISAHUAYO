@@ -190,6 +190,8 @@
                 {% include "partials/contrasena_consulta.html" with persona=alumno campo_id="contrasena-estudiante" rotulo="del estudiante" puede_restablecer=perms.Alumnos.change_alumno %}
               </dd>
             </div>
+            {% url 'alumnos:portal' alumno.pk as accion_portal %}
+            {% include "partials/acceso_portal.html" with persona=alumno accion=accion_portal puede_cambiar=perms.Alumnos.change_alumno %}
           </dl>
         </article>
       </div>

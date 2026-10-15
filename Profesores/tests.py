@@ -384,6 +384,21 @@ class DetalleTests(BaseTestCase):
         self.assertEqual([(f['inicio'], f['fin']) for f in cuadricula['filas']], [(time(8, 0), time(9, 0)), (time(10, 0), time(10, 30))])
         self.assertContains(self.detalle(), 'Matemáticas')
 
+    def test_imprime_el_horario_con_el_formato_de_los_reportes(self):
+        url = reverse('profesores:horario_imprimir', args=[self.profesor.pk])
+        self.assertContains(self.detalle(), f'{url}?ciclo={self.actual.pk}&amp;pdf=1')   # el botón «Imprimir» lleva a la hoja
+        hoja = self.client.get(url, {'ciclo': self.actual.pk, 'pdf': '1'})
+        self.assertContains(hoja, 'class="hoja-reporte"')
+        self.assertContains(hoja, 'data-imprimir-al-abrir')
+        self.assertContains(hoja, 'Horario del profesor')
+        self.assertContains(hoja, '2 h 30 min')
+        self.assertEqual([a.pk for a in hoja.context['asignaciones']], [self.a1.pk, self.a2.pk])
+        self.assertEqual(len(hoja.context['cuadricula']['filas']), 2)
+        # el de otro ciclo, con lo de ese ciclo; sin permiso de ver profesores, nada
+        self.assertEqual([a.pk for a in self.client.get(url, {'ciclo': self.cerrado.pk}).context['asignaciones']], [self.vieja.pk])
+        self.client.force_login(self.sin_permisos)
+        self.assertEqual(self.client.get(url).status_code, 403)
+
     def test_elige_otro_ciclo(self):
         respuesta = self.detalle(ciclo=self.cerrado.pk)
         self.assertEqual(respuesta.context['ciclo'], self.cerrado)

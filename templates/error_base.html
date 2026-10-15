@@ -2,19 +2,21 @@
 {% comment %}
   Base de las páginas de error que se muestran solas, sin menú (token de seguridad vencido). Los errores del servidor
   (500) llevan su propia hoja de estilos dentro de la página para no depender de nada que pueda estar fallando.
+  Con la paleta Corporate, como las pantallas de acceso (acceso_base.html).
   Bloques: titulo (pestaña), contenido.
 {% endcomment %}
-<html lang="es">
+<html lang="es" data-tema="corporate">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#245a62">
+  <meta name="theme-color" content="#555663">
   <title>{% block titulo %}Error{% endblock %} | CISAHUAYO</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
   <link rel="stylesheet" href="{% static 'css/acceso.css' %}">
   <script src="{% static 'js/preload.js' %}"></script>
 </head>

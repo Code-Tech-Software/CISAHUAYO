@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from CISAHUAYO import portales
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 
@@ -32,6 +33,17 @@ from .utils import ESTADOS_MX, generar_contrasena, proteger_celda_csv
 from .vinculos import prefetch_vinculos_activos
 
 SESION_CREDENCIALES = 'credenciales_alumno'
+
+
+def _credenciales(alumno, contrasena):
+    """Las credenciales que se muestran una vez: con su correo, que es con lo que entra al portal de estudiantes."""
+    datos = {'pk': alumno.pk, 'nombre': str(alumno), 'url': alumno.get_absolute_url(), 'referencia': alumno.referencia,
+             'contrasena': contrasena, 'portal': portales.NOMBRE[portales.ESTUDIANTE]}
+    if alumno.correo_electronico:
+        datos.update(etiqueta='Correo electrónico', usuario=alumno.correo_electronico)
+    else:
+        datos['aviso'] = 'Para entrar al portal necesita un correo electrónico: regístralo al editar sus datos.'
+    return datos
 SESION_IMPORTACION = 'importacion_estudiantes'                  # el resumen de la última importación (se muestra una vez)
 SESION_IMPORTACION_CREDENCIALES = 'importacion_credenciales'    # sus contraseñas, para descargarlas
 
@@ -128,13 +140,7 @@ def alumno_crear(request):
             except IntegrityError:
                 form.add_error(None, 'No se pudo guardar: la referencia, la CURP o algún dato único acaba de registrarse. Revisa e intenta de nuevo.')
             else:
-                request.session[SESION_CREDENCIALES] = {
-                    'pk': alumno.pk,
-                    'nombre': str(alumno),
-                    'url': alumno.get_absolute_url(),
-                    'referencia': alumno.referencia,
-                    'contrasena': form.contrasena_en_claro,
-                }
+                request.session[SESION_CREDENCIALES] = _credenciales(alumno, form.contrasena_en_claro)
                 detalle = f' e inscrito en {inscrito.grado}' if inscrito else ''
                 messages.success(request, f'{alumno} fue registrado correctamente{detalle}.')
                 return redirect('alumnos:lista')
@@ -217,6 +223,7 @@ def alumno_detalle(request, pk):
         'asistencia': _resumen_asistencia(inscripcion_actual),
         'justificaciones': alumno.inscripciones.aggregate(total=Count('justificaciones'))['total'],
         'credenciales': credenciales,
+        'portal': portales.estado_de_cuenta(portales.ESTUDIANTE, alumno),
         'esta_de_baja': alumno.estatus == 'BAJA',
         'inscribir_form': InscribirForm(alumno=alumno),
         # La baja tiene su propia acción: el menú ofrece solo los demás estatus
@@ -314,15 +321,21 @@ def alumno_contrasena(request, pk):
         return redirect(alumno)
     nueva = form.cleaned_data['contrasena'] or generar_contrasena()
     alumno.establecer_contrasena(nueva)
-    alumno.save(update_fields=['contrasena', 'contrasena_visible'])
-    request.session[SESION_CREDENCIALES] = {
-        'pk': alumno.pk,
-        'nombre': str(alumno),
-        'url': alumno.get_absolute_url(),
-        'referencia': alumno.referencia,
-        'contrasena': nueva,
-    }
+    alumno.save(update_fields=['contrasena', 'contrasena_visible', 'intentos_fallidos', 'bloqueado_hasta'])
+    request.session[SESION_CREDENCIALES] = _credenciales(alumno, nueva)
     messages.success(request, f'Se asignó una nueva contraseña a {alumno}.')
+    return redirect(alumno)
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_alumno')
+def alumno_portal(request, pk):
+    """Activa, desactiva o desbloquea el acceso del estudiante al portal de estudiantes."""
+    alumno = get_object_or_404(Alumno, pk=pk)
+    try:
+        messages.success(request, portales.administrar_acceso(alumno, request.POST.get('accion', '')))
+    except ValueError as error:
+        messages.error(request, str(error))
     return redirect(alumno)
 
 

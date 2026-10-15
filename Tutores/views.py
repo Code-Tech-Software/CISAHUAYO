@@ -21,6 +21,7 @@ from Alumnos.utils import (
     usuario_disponible,
 )
 from Alumnos.vinculos import asegurar_tutor_principal, sincronizar_principales
+from CISAHUAYO import portales
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 
@@ -40,6 +41,7 @@ def _guardar_credenciales(request, tutor, contrasena):
         'etiqueta': 'Usuario',
         'usuario': tutor.usuario,
         'contrasena': contrasena,
+        'portal': portales.NOMBRE[portales.TUTOR],
     }
 
 
@@ -183,6 +185,7 @@ def tutor_detalle(request, pk):
         'esta_de_baja': tutor.estatus == 'INACTIVO',
         'vinculo_form': VinculoForm(),
         'credenciales': credenciales,
+        'portal': portales.estado_de_cuenta(portales.TUTOR, tutor),
     })
 
 
@@ -251,9 +254,21 @@ def tutor_contrasena(request, pk):
         return redirect(tutor)
     nueva = form.cleaned_data['contrasena'] or generar_contrasena()
     tutor.establecer_contrasena(nueva)
-    tutor.save(update_fields=['contrasena', 'contrasena_visible', 'modificado'])
+    tutor.save(update_fields=['contrasena', 'contrasena_visible', 'intentos_fallidos', 'bloqueado_hasta', 'modificado'])
     _guardar_credenciales(request, tutor, nueva)
     messages.success(request, f'Se asignó una nueva contraseña a {tutor}.')
+    return redirect(tutor)
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_tutor')
+def tutor_portal(request, pk):
+    """Activa, desactiva o desbloquea el acceso del tutor al portal de tutores."""
+    tutor = get_object_or_404(Tutor, pk=pk)
+    try:
+        messages.success(request, portales.administrar_acceso(tutor, request.POST.get('accion', '')))
+    except ValueError as error:
+        messages.error(request, str(error))
     return redirect(tutor)
 
 

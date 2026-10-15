@@ -76,6 +76,12 @@ class Alumno(models.Model):
     # la que se verifica; esta es solo de consulta y queda vacía en los estudiantes anteriores, hasta que se restablezca.
     contrasena_visible = models.CharField(max_length=64, blank=True, default='', editable=False, verbose_name='Contraseña (consulta)')
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
+    # Portal (pedido del 2026-10-14): el estudiante entra con su correo electrónico y su contraseña. Se puede desactivar sin cambiar
+    # su estatus; tras varios intentos fallidos se bloquea un rato (CISAHUAYO/portales.py).
+    acceso_portal = models.BooleanField(default=True, verbose_name='Acceso al portal')
+    ultimo_acceso = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Último acceso al portal')
+    intentos_fallidos = models.PositiveSmallIntegerField(default=0, editable=False, verbose_name='Intentos fallidos')
+    bloqueado_hasta = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Bloqueado hasta')
 
     def __str__(self):
         return (
@@ -85,9 +91,11 @@ class Alumno(models.Model):
         ).strip()
 
     def establecer_contrasena(self, contrasena):
-        """Asigna la contraseña (cifrada para verificarla y legible para consulta). No guarda el registro."""
+        """Asigna la contraseña (cifrada para verificarla y legible para consulta) y quita el bloqueo del portal por
+        intentos fallidos. No guarda el registro."""
         self.contrasena = make_password(contrasena)
         self.contrasena_visible = contrasena
+        self.intentos_fallidos, self.bloqueado_hasta = 0, None
 
     @property
     def nombre_completo(self):
@@ -994,6 +1002,12 @@ class Tutor(models.Model):
     usuario = models.CharField(max_length=40, unique=True, null=True, blank=True, verbose_name='Usuario')
     contrasena = models.CharField(max_length=128, blank=True, default='', verbose_name='Contraseña')
     contrasena_visible = models.CharField(max_length=64, blank=True, default='', editable=False, verbose_name='Contraseña (consulta)')
+    # Portal (pedido del 2026-10-14): el tutor entra con su usuario y su contraseña. Se puede desactivar sin cambiar
+    # su estatus; tras varios intentos fallidos se bloquea un rato (CISAHUAYO/portales.py).
+    acceso_portal = models.BooleanField(default=True, verbose_name='Acceso al portal')
+    ultimo_acceso = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Último acceso al portal')
+    intentos_fallidos = models.PositiveSmallIntegerField(default=0, editable=False, verbose_name='Intentos fallidos')
+    bloqueado_hasta = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Bloqueado hasta')
     creado = models.DateTimeField( auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 
@@ -1015,9 +1029,11 @@ class Tutor(models.Model):
         super().save(*args, **kwargs)
 
     def establecer_contrasena(self, contrasena):
-        """Asigna la contraseña (cifrada para verificarla y legible para consulta). No guarda el registro."""
+        """Asigna la contraseña (cifrada para verificarla y legible para consulta) y quita el bloqueo del portal por
+        intentos fallidos. No guarda el registro."""
         self.contrasena = make_password(contrasena)
         self.contrasena_visible = contrasena
+        self.intentos_fallidos, self.bloqueado_hasta = 0, None
 
     @property
     def nombre_completo(self):

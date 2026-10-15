@@ -1,0 +1,167 @@
+{% comment %}
+  Lo que ven de un estudiante su portal y el de sus tutores: totales, hoy (entrada y clases), asistencia reciente,
+  horario semanal y calificaciones de los periodos cerrados. Recibe lo que arma PortalEstudiantes/resumen.py (alumno,
+  inscripcion, ciclo, hoy, asistencia, clases_hoy, sin_clases_hoy, calificaciones, cuadricula, etiqueta_horario) y
+  `quien` («Tu», «Su») para los textos.
+{% endcomment %}
+{% if not inscripcion %}
+  <div class="card">
+    <div class="empty-state">
+      <span class="empty-state__icon">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--lg" %}</span>
+      <h2 class="empty-state__title">Sin inscripción en el ciclo actual</h2>
+      <p class="empty-state__text">{% if quien == "Tu" %}Todavía no estás inscrito{% else %}{{ alumno.nombre }} todavía no está inscrito{% endif %} en el ciclo escolar actual. Cuando control escolar registre la inscripción, aquí aparecerán el horario, la asistencia y las calificaciones.</p>
+    </div>
+  </div>
+{% else %}
+  {# --- Totales ----------------------------------------------------------------------------------------------- #}
+  <section class="stat-grid portal-stats" aria-label="Resumen del ciclo {{ ciclo }}">
+    <div class="stat">
+      <p class="stat__label">Asistencia</p>
+      <p class="stat__value">{% if asistencia.porcentaje is not None %}{{ asistencia.porcentaje }}%{% else %}—{% endif %}</p>
+      <p class="stat__hint">{% if asistencia.registros %}{{ asistencia.registros }} día{{ asistencia.registros|pluralize }} con registro{% else %}Todavía no hay registros{% endif %}</p>
+    </div>
+    <div class="stat{% if asistencia.sin_justificar %} stat--attention{% endif %}">
+      <p class="stat__label">Faltas</p>
+      <p class="stat__value">{{ asistencia.faltas }}</p>
+      <p class="stat__hint">{% if asistencia.justificadas %}{{ asistencia.justificadas }} justificada{{ asistencia.justificadas|pluralize }}{% else %}Ninguna justificada{% endif %}</p>
+    </div>
+    <div class="stat">
+      <p class="stat__label">Retardos</p>
+      <p class="stat__value">{{ asistencia.retardos }}</p>
+      <p class="stat__hint">En el ciclo {{ ciclo }}</p>
+    </div>
+    <div class="stat">
+      <p class="stat__label">Promedio general</p>
+      <p class="stat__value">{{ calificaciones.promedio_general|default:"—" }}</p>
+      <p class="stat__hint">{% if calificaciones.periodos %}{{ calificaciones.cerrados }} de {{ calificaciones.periodos|length }} periodo{{ calificaciones.periodos|length|pluralize }} con calificaciones{% else %}Sin periodos de evaluación{% endif %}</p>
+    </div>
+  </section>
+
+  <div class="portal-grid">
+    {# --- Hoy ------------------------------------------------------------------------------------------------- #}
+    <article class="card portal-today">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title">Hoy, {{ hoy|date:"l j \d\e F"|lower }}</h2>
+      </header>
+      <div class="card__body">
+        {% with registro=asistencia.hoy %}
+          {% if registro or not sin_clases_hoy %}
+            <p class="portal-today__entry">
+              {% if registro %}
+                {% if registro.estado == "PRESENTE" %}<span class="tag tag--success">Presente</span>
+                {% elif registro.estado == "RETARDO" %}<span class="tag tag--warning">Retardo</span>
+                {% else %}<span class="tag tag--danger">Falta</span>{% if registro.justificada %} <span class="tag tag--info">Justificada</span>{% endif %}{% endif %}
+                {% if registro.hora_entrada %}<span class="text-muted">Entrada a las {{ registro.hora_entrada|time:"H:i" }}</span>{% endif %}
+              {% else %}
+                <span class="tag">Sin registro de entrada</span>
+              {% endif %}
+            </p>
+          {% endif %}
+        {% endwith %}
+
+        {% if sin_clases_hoy %}
+          <p class="portal-note">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} {{ sin_clases_hoy }}</p>
+        {% elif clases_hoy %}
+          <ol class="portal-classes" aria-label="Clases de hoy">
+            {% for clase in clases_hoy %}
+              <li class="portal-class portal-class--{{ clase.momento }}{% if clase.es_receso %} portal-class--receso{% endif %}">
+                <span class="portal-class__time">{{ clase.inicio|time:"H:i" }}<span>{{ clase.fin|time:"H:i" }}</span></span>
+                <span class="portal-class__text">
+                  <span class="portal-class__name">{{ clase.nombre }}</span>
+                  <span class="portal-class__detail">{{ clase.detalle }}</span>
+                </span>
+                {% if clase.momento == "ahora" %}<span class="tag tag--primary">Ahora</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="portal-note">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} No hay clases registradas para hoy en el horario del grupo.</p>
+        {% endif %}
+      </div>
+    </article>
+
+    {# --- Asistencia reciente ------------------------------------------------------------------------------------ #}
+    <article class="card">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="user-check" %}<h2 class="card__title">Faltas y retardos recientes</h2>
+      </header>
+      <div class="card__body">
+        {% if asistencia.incidencias %}
+          <ul class="portal-incidents">
+            {% for registro in asistencia.incidencias %}
+              <li class="portal-incident">
+                <span class="portal-incident__date">{{ registro.fecha|date:"D j \d\e M"|lower }}</span>
+                {% if registro.estado == "RETARDO" %}<span class="tag tag--warning">Retardo{% if registro.hora_entrada %} · {{ registro.hora_entrada|time:"H:i" }}{% endif %}</span>
+                {% else %}<span class="tag tag--danger">Falta</span>{% endif %}
+                {% if registro.justificada %}<span class="tag tag--info">Justificada</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="portal-note portal-note--good">{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Sin faltas ni retardos en este ciclo.</p>
+        {% endif %}
+      </div>
+    </article>
+  </div>
+
+  {# --- Horario semanal ------------------------------------------------------------------------------------------ #}
+  {% if cuadricula %}
+    <section class="card portal-section" aria-labelledby="titulo-horario">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">Horario de {{ inscripcion.grupo }}</h2>
+      </header>
+      <div class="card__body">
+        {% if cuadricula.filas %}
+          {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta=etiqueta_horario modo="grado" editable=False %}
+        {% else %}
+          <p class="portal-note">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} El horario del grupo todavía no está registrado.</p>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+
+  {# --- Calificaciones ------------------------------------------------------------------------------------------- #}
+  {% if calificaciones.filas %}
+    <section class="card portal-section" aria-labelledby="titulo-calificaciones">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="award" %}<h2 class="card__title" id="titulo-calificaciones">Calificaciones</h2>
+      </header>
+      <div class="card__body">
+        <p class="portal-section__lead">Solo aparecen las calificaciones de los periodos que ya cerró el profesor de cada materia.</p>
+        {% if calificaciones.periodos %}
+          <div class="portal-grades-wrap" role="region" aria-label="Calificaciones por periodo" tabindex="0">
+            <table class="portal-grades">
+              <thead>
+                <tr>
+                  <th scope="col">Materia</th>
+                  {% for periodo in calificaciones.periodos %}<th scope="col" class="portal-grades__num">{{ periodo.nombre }}</th>{% endfor %}
+                  <th scope="col" class="portal-grades__num">Promedio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for fila in calificaciones.filas %}
+                  <tr>
+                    <th scope="row"><span class="portal-grades__subject">{{ fila.materia }}</span>{% if fila.profesor %}<span class="portal-grades__teacher">{{ fila.profesor }}</span>{% endif %}</th>
+                    {% for valor in fila.valores %}
+                      <td class="portal-grades__num{% if valor is not None and valor < 6 %} is-failing{% endif %}">{% if valor is not None %}{{ valor }}{% else %}<span class="text-muted" aria-label="Sin calificación">—</span>{% endif %}</td>
+                    {% endfor %}
+                    <td class="portal-grades__num portal-grades__avg">{{ fila.promedio|default:"—" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Promedio del periodo</th>
+                  {% for valor in calificaciones.promedios_por_periodo %}<td class="portal-grades__num">{{ valor|default:"—" }}</td>{% endfor %}
+                  <td class="portal-grades__num portal-grades__avg">{{ calificaciones.promedio_general|default:"—" }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        {% else %}
+          <p class="portal-note">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} Todavía no hay periodos de evaluación en este ciclo.</p>
+        {% endif %}
+      </div>
+    </section>
+  {% endif %}
+{% endif %}

@@ -106,7 +106,7 @@ class AltaConAccesoTests(BaseTestCase):
 
     def test_el_formulario_pide_usuario_y_contrasena(self):
         html = self.client.get(self.url).content.decode()
-        self.assertIn('Acceso al sistema', html)
+        self.assertIn('Acceso al portal', html)
         campo_usuario = re.search(r'<input[^>]*name="usuario"[^>]*>', html).group(0)
         self.assertIn('placeholder="Se propone con su nombre: maria.lopez"', campo_usuario)
         self.assertIn(f'data-usuario-url="{reverse("tutores:usuario")}"', campo_usuario)
@@ -265,7 +265,7 @@ class PerfilConAccesoTests(BaseTestCase):
 
     def test_el_administrador_ve_el_usuario_y_la_contrasena_oculta_hasta_que_la_muestra(self):
         html = self.client.get(self.perfil).content.decode()
-        self.assertIn('Acceso al sistema', html)
+        self.assertIn('Acceso al portal', html)
         self.assertIn('maria.lopez', html)
         campo = re.search(r'<input[^>]*id="contrasena-tutor"[^>]*>', html).group(0)
         self.assertIn('type="password"', campo)

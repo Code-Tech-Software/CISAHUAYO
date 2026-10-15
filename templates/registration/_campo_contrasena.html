@@ -1,0 +1,20 @@
+{% comment %}
+  Campo de contraseña de la pantalla de acceso, con el botón para mostrarla u ocultarla y el aviso de bloqueo de
+  mayúsculas (los maneja acceso.js). Parámetros: campo_id, nombre (name del campo), errores.
+{% endcomment %}
+<div class="field{% if errores %} is-invalid{% endif %}">
+  <label class="field__label" for="{{ campo_id }}">Contraseña</label>
+  <div class="access-input password-field">
+    {% include "partials/icon.html" with name="lock" icon_class="access-input__icon" %}
+    <input class="field__control" type="password" name="{{ nombre }}" id="{{ campo_id }}" autocomplete="current-password" required>
+    <button type="button" class="btn btn--ghost btn--icon btn--sm password-field__toggle" data-password-toggle aria-controls="{{ campo_id }}" aria-pressed="false" aria-label="Mostrar la contraseña">
+      {% include "partials/icon.html" with name="eye" icon_class="password-field__eye" %}
+      {% include "partials/icon.html" with name="eye-off" icon_class="password-field__eye-off" %}
+    </button>
+  </div>
+  <p class="field__hint access__caps" data-caps-aviso hidden>
+    {% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %}
+    Tienes activado el bloqueo de mayúsculas.
+  </p>
+  {% for error in errores %}<p class="field__error">{{ error }}</p>{% endfor %}
+</div>

@@ -144,7 +144,7 @@
 
         <article class="card">
           <header class="card__header card__header--icon">
-            {% include "partials/icon.html" with name="key" %}<h2 class="card__title">Acceso al sistema</h2>
+            {% include "partials/icon.html" with name="key" %}<h2 class="card__title">Acceso al portal</h2>
           </header>
           <dl class="details card__body">
             <div class="details__item details__item--wide">
@@ -157,6 +157,8 @@
                 {% include "partials/contrasena_consulta.html" with persona=tutor campo_id="contrasena-tutor" rotulo="del tutor" puede_restablecer=perms.Alumnos.change_tutor %}
               </dd>
             </div>
+            {% url 'tutores:portal' tutor.pk as accion_portal %}
+            {% include "partials/acceso_portal.html" with persona=tutor accion=accion_portal puede_cambiar=perms.Alumnos.change_tutor %}
           </dl>
         </article>
 

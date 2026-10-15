@@ -1,0 +1,21 @@
+{% extends "portales/base.html" %}
+{% comment %}
+  Inicio del portal de estudiantes (PortalEstudiantes/views.inicio): saludo y datos escolares, y su resumen
+  (portales/_estudiante.html).
+{% endcomment %}
+
+{% block contenido %}
+  <header class="portal-hero">
+    {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
+    <div class="portal-hero__text">
+      <p class="portal-hero__eyebrow">{{ portal.saludo }}</p>
+      <h1 class="portal-hero__title">{{ alumno.nombre }} {{ alumno.apellido_paterno }}</h1>
+      <p class="portal-hero__meta">
+        {% if inscripcion %}<span>{{ inscripcion.grupo }}</span><span>Ciclo {{ ciclo }}</span>{% endif %}
+        <span>Referencia {{ alumno.referencia }}</span>
+      </p>
+    </div>
+  </header>
+
+  {% include "portales/_estudiante.html" with quien="Tu" %}
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "portales/base.html" %}
+{% comment %}
+  Inicio del portal de tutores (PortalTutores/views.inicio): una tarjeta por cada estudiante con vínculo activo, con su
+  entrada de hoy, su asistencia y su promedio; cada una lleva al detalle (horario, asistencia y calificaciones).
+  Recibe `estudiantes`: lo que arma PortalEstudiantes/resumen.py (sin horario) más su `vinculo`.
+{% endcomment %}
+
+{% block contenido %}
+  <header class="portal-hero">
+    {% include "partials/avatar.html" with persona=portal.cuenta tamano="lg" %}
+    <div class="portal-hero__text">
+      <p class="portal-hero__eyebrow">{{ portal.saludo }}</p>
+      <h1 class="portal-hero__title">{{ portal.cuenta.nombre }} {{ portal.cuenta.apellido_paterno }}</h1>
+      <p class="portal-hero__meta">
+        <span>{% if estudiantes %}{{ estudiantes|length }} estudiante{{ estudiantes|length|pluralize }} a tu cargo{% else %}Sin estudiantes vinculados{% endif %}</span>
+        <span>Usuario {{ portal.cuenta.usuario }}</span>
+      </p>
+    </div>
+  </header>
+
+  {% if estudiantes %}
+    <h2 class="portal-heading">Tus estudiantes</h2>
+    <div class="portal-kids">
+      {% for e in estudiantes %}
+        {% with alumno=e.alumno vinculo=e.vinculo %}
+          <article class="card portal-kid">
+            <header class="portal-kid__head">
+              {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
+              <div class="portal-kid__title">
+                <h3 class="portal-kid__name">{{ alumno.nombre_completo }}</h3>
+                <p class="portal-kid__meta">{% if e.inscripcion %}{{ e.inscripcion.grupo }} · Ciclo {{ e.ciclo }}{% else %}Sin inscripción en el ciclo actual{% endif %}</p>
+                <p class="portal-kid__tags">
+                  <span class="tag">{{ vinculo.get_parentesco_display }}</span>
+                  {% if alumno.estatus != "ACTIVO" %}<span class="tag tag--warning">{{ alumno.get_estatus_display }}</span>{% endif %}
+                </p>
+              </div>
+            </header>
+
+            {% if e.inscripcion %}
+              <div class="portal-kid__today">
+                <span class="portal-kid__label">Hoy</span>
+                {% with registro=e.asistencia.hoy %}
+                  {% if registro %}
+                    {% if registro.estado == "PRESENTE" %}<span class="tag tag--success">Presente</span>
+                    {% elif registro.estado == "RETARDO" %}<span class="tag tag--warning">Retardo</span>
+                    {% else %}<span class="tag tag--danger">Falta</span>{% if registro.justificada %} <span class="tag tag--info">Justificada</span>{% endif %}{% endif %}
+                    {% if registro.hora_entrada %}<span class="text-muted">a las {{ registro.hora_entrada|time:"H:i" }}</span>{% endif %}
+                  {% elif e.sin_clases_hoy %}
+                    <span class="text-muted">{{ e.sin_clases_hoy }}</span>
+                  {% else %}
+                    <span class="text-muted">Sin registro de entrada</span>
+                  {% endif %}
+                {% endwith %}
+              </div>
+
+              <dl class="portal-kid__stats">
+                <div><dt>Asistencia</dt><dd>{% if e.asistencia.porcentaje is not None %}{{ e.asistencia.porcentaje }}%{% else %}—{% endif %}</dd></div>
+                <div><dt>Faltas</dt><dd>{{ e.asistencia.faltas }}{% if e.asistencia.justificadas %} <small>({{ e.asistencia.justificadas }} just.)</small>{% endif %}</dd></div>
+                <div><dt>Retardos</dt><dd>{{ e.asistencia.retardos }}</dd></div>
+                <div><dt>Promedio</dt><dd>{{ e.calificaciones.promedio_general|default:"—" }}</dd></div>
+              </dl>
+            {% endif %}
+
+            <footer class="portal-kid__foot">
+              <a class="btn btn--primary btn--block" href="{% url 'portal_tutores:estudiante' alumno.pk %}">
+                Ver horario, asistencia y calificaciones
+                {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+              </a>
+            </footer>
+          </article>
+        {% endwith %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <span class="empty-state__icon">{% include "partials/icon.html" with name="users" icon_class="icon--lg" %}</span>
+        <h2 class="empty-state__title">Todavía no tienes estudiantes vinculados</h2>
+        <p class="empty-state__text">Cuando el colegio te vincule con tus hijos, aquí verás su asistencia, su horario y sus calificaciones. Si crees que es un error, acude a la dirección del colegio.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -65,6 +65,9 @@ INSTALLED_APPS = [
     'Ajustes',
     'Usuarios',
     'Roles',
+    # Portales de estudiantes y de tutores: sus cuentas son los propios Alumno y Tutor (CISAHUAYO/portales.py)
+    'PortalEstudiantes',
+    'PortalTutores',
 ]
 
 MIDDLEWARE = [
@@ -125,17 +128,15 @@ LOGIN_REDIRECT_URL = 'inicio'
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 
-
-
 DATABASES = {
-   'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
+    'default': dj_database_url.config(default=os.getenv("DATABASE_URL"))
 }
 
 #DATABASES = {
-#    'default': {
- #     'ENGINE': 'django.db.backends.sqlite3',
- #      'NAME': BASE_DIR / 'db.sqlite3',
- #   }
+ #   'default': {
+  #      'ENGINE': 'django.db.backends.sqlite3',
+   #     'NAME': BASE_DIR / 'db.sqlite3',
+   # }
 #}
 
 # Password validation

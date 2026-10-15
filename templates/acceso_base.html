@@ -1,22 +1,23 @@
 {% load static %}<!DOCTYPE html>
 {% comment %}
-  Base de las pantallas de acceso (iniciar y cerrar sesión). Son páginas aparte, sin menú: a la izquierda la marca del
-  colegio (solo en pantallas anchas) y a la derecha la tarjeta con el formulario o el mensaje.
-  Las usan las plantillas que reemplazan a las del admin de Django (admin/login.html y registration/logged_out.html);
-  las rutas y el comportamiento siguen siendo los del admin. Estilos: static/css/acceso.css · script: static/js/acceso.js.
-  Bloques: titulo (pestaña), tarjeta (contenido de la columna del formulario).
+  Base de las pantallas de acceso (iniciar y cerrar sesión del sistema y de los portales). Son páginas aparte, sin menú:
+  a la izquierda el panel de marca del colegio (solo en pantallas anchas) y a la derecha la tarjeta con el formulario o
+  el mensaje. Siempre con la paleta Corporate (data-tema="corporate", static/css/temas.css): todavía no se sabe quién
+  entra, así que no se usa el tema de nadie.
+  Estilos: static/css/acceso.css · script: static/js/acceso.js. Bloques: titulo (pestaña), tarjeta (contenido).
 {% endcomment %}
-<html lang="es">
+<html lang="es" data-tema="corporate">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#245a62">
+  <meta name="theme-color" content="#555663">
   <title>{% block titulo %}Acceso{% endblock %} | CISAHUAYO</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
   <link rel="stylesheet" href="{% static 'css/acceso.css' %}">
   <script src="{% static 'js/preload.js' %}"></script>
 </head>
@@ -31,25 +32,25 @@
       </div>
 
       <div class="access__brand-top">
-        <span class="access__logo"><img src="{% static 'img/logointer.svg' %}" alt=""></span>
+        <span class="access__logo"><img src="{% static 'img/logointer.svg' %}" alt="" width="28" height="31"></span>
         <p class="access__school">Colegio Interamericano<br>de Sahuayo</p>
       </div>
 
       <div class="access__pitch">
-        <p class="access__eyebrow">Administración escolar</p>
-        <h2 class="access__pitch-title">Todo el colegio, en un solo lugar.</h2>
+        <p class="access__eyebrow">Plataforma escolar</p>
+        <h2 class="access__pitch-title">Toda la comunidad escolar, en un solo lugar.</h2>
         <ul class="access__points">
           <li class="access__point">
+            <span class="access__point-icon">{% include "partials/icon.html" with name="briefcase" %}</span>
+            <span><strong>Sistema</strong> Administración, control escolar y docentes</span>
+          </li>
+          <li class="access__point">
             <span class="access__point-icon">{% include "partials/icon.html" with name="graduation-cap" %}</span>
-            Estudiantes, tutores y profesores
+            <span><strong>Estudiantes</strong> Tu horario, tu asistencia y tus calificaciones</span>
           </li>
           <li class="access__point">
-            <span class="access__point-icon">{% include "partials/icon.html" with name="calendar-range" %}</span>
-            Ciclos, grados, materias y horarios
-          </li>
-          <li class="access__point">
-            <span class="access__point-icon">{% include "partials/icon.html" with name="user-check" %}</span>
-            Asistencia desde la entrada hasta cada clase
+            <span class="access__point-icon">{% include "partials/icon.html" with name="users" %}</span>
+            <span><strong>Tutores</strong> El seguimiento de sus hijos, al día</span>
           </li>
         </ul>
       </div>
@@ -59,7 +60,11 @@
 
     <main class="access__main" id="contenido">
       <div class="access__card">
-        <span class="access__logo access__logo--compact"><img src="{% static 'img/logointer.svg' %}" alt=""></span>
+        {# En pantallas angostas el panel de marca no se ve: el escudo y el nombre van arriba de la tarjeta #}
+        <div class="access__compact-brand">
+          <span class="access__logo access__logo--sm"><img src="{% static 'img/logointer.svg' %}" alt="" width="22" height="24"></span>
+          <span class="access__compact-school">Colegio Interamericano de Sahuayo</span>
+        </div>
         {% block tarjeta %}{% endblock %}
       </div>
     </main>

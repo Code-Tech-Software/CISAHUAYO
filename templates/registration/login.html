@@ -49,8 +49,8 @@
   <div class="access-tabs" role="tablist" aria-label="Tipo de acceso" data-access-tabs{% if acceso_elegido %} data-access-explicit{% endif %}>
     <a class="access-tab" role="tab" id="tab-sistema" href="?acceso=sistema{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-sistema"
        aria-selected="{% if acceso == 'sistema' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'sistema' %}0{% else %}-1{% endif %}" data-access-tab="sistema">
-      <span class="access-tab__icon">{% include "partials/icon.html" with name="briefcase" %}</span>
-      <span class="access-tab__label">Sistema</span>
+      <span class="access-tab__icon">{% include "partials/icon.html" with name="school" %}</span>
+      <span class="access-tab__label">Escuela</span>
     </a>
     <a class="access-tab" role="tab" id="tab-estudiantes" href="?acceso=estudiantes{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-estudiantes"
        aria-selected="{% if acceso == 'estudiantes' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'estudiantes' %}0{% else %}-1{% endif %}" data-access-tab="estudiantes">

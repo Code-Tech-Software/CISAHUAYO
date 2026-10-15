@@ -250,6 +250,14 @@
     <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
     <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
   </symbol>
+  <symbol id="school" viewBox="0 0 24 24">
+    <path d="M14 22v-4a2 2 0 1 0-4 0v4"/>
+    <path d="m18 10 3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10"/>
+    <path d="M18 5v17"/>
+    <path d="m4 6 7.106-3.553a2 2 0 0 1 1.788 0L20 6"/>
+    <path d="M6 5v17"/>
+    <circle cx="12" cy="9" r="2"/>
+  </symbol>
   <symbol id="trending-up" viewBox="0 0 24 24">
     <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
     <polyline points="16 7 22 7 22 13"/>

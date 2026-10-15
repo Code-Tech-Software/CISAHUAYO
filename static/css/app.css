@@ -805,7 +805,12 @@ body {
     align-items: center;
     gap: var(--space-2);
     padding-inline-end: var(--space-3);
+    overflow: hidden;
     background-image: none;
+    /* El valor elegido en un renglón, como en las listas nativas: en una columna angosta no crece y todas las listas de
+       una fila miden lo mismo (el texto largo se corta; la lista abierta lo muestra completo) */
+    text-overflow: ellipsis;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -864,6 +869,7 @@ body {
     gap: var(--space-2);
     min-height: 2.25rem;
     padding: var(--space-2) var(--space-3);
+    white-space: normal;
     border-radius: var(--radius-md);
     color: var(--color-text);
     font-size: var(--text-sm);

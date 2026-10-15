@@ -104,22 +104,48 @@
 /* ==========================================================================
    2. FILTROS (registro y reportes: los mismos)
    ========================================================================== */
-/* Una fila debajo de otra a cualquier ancho (la rejilla de .filters reparte columnas en pantallas medianas) */
+/* Una fila debajo de otra a cualquier ancho (la rejilla de .filters reparte columnas en pantallas medianas). Las columnas
+   dependen del ancho del propio panel de filtros (no de la pantalla, que también tiene el menú lateral). El panel queda
+   sobre lo que le sigue: así la lista de la búsqueda de estudiantes no se esconde bajo el reporte. */
 .filters.filtros-conducta {
+  position: relative;
+  z-index: 2;
+  container-type: inline-size;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 
+/* Cuatro columnas iguales (dos o una si no caben): cada fila completa y todos los campos alineados arriba, aunque uno
+   tenga algo debajo (las fichas de los estudiantes elegidos) */
 .filtros-conducta__fila {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: var(--space-3);
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4) var(--space-3);
+  align-items: start;
+}
+
+@container (min-width: 30rem) {
+  .filtros-conducta__fila {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 50rem) {
+  .filtros-conducta__fila {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Etiquetas de un renglón: los controles quedan a la misma altura */
+.filtros-conducta .field__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .filtros-conducta__mas {
   border-top: var(--border);
-  padding-top: var(--space-3);
+  padding-top: var(--space-4);
 }
 
 .filtros-conducta__resumen {
@@ -137,9 +163,25 @@
   margin-bottom: 0;
 }
 
-/* Varios estudiantes (reportes): la búsqueda y los elegidos como chips */
-.filtros-conducta__estudiantes {
-  grid-column: span 2;
+/* Varios estudiantes (reportes): la búsqueda (tres columnas; toda la fila si no hay opción de bitácora) y los elegidos
+   como fichas debajo. En dos columnas, el buscador y la opción de bitácora ocupan cada uno su fila. */
+.filtros-conducta__estudiantes,
+.filtros-conducta__bitacora {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 50rem) {
+  .filtros-conducta__estudiantes {
+    grid-column: span 3;
+  }
+
+  .filtros-conducta__estudiantes--solo {
+    grid-column: 1 / -1;
+  }
+
+  .filtros-conducta__bitacora {
+    grid-column: auto;
+  }
 }
 
 .conducta-elegidos {
@@ -151,7 +193,8 @@
   list-style: none;
 }
 
-.conducta-elegidos:empty {
+/* Sin estudiantes elegidos no ocupa lugar (la lista trae espacios en blanco: :empty no basta) */
+.conducta-elegidos:not(:has(li)) {
   display: none;
 }
 

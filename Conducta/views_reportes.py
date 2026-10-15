@@ -16,7 +16,8 @@ from .permisos import VER
 
 def _contenido(request):
     from .views import registros_de
-    form = FiltroForm(request.GET or None, modo='reporte', alcance=alcance_de(request.user))
+    from Bitacoras.reportes import puede_incluir
+    form = FiltroForm(request.GET or None, modo='reporte', alcance=alcance_de(request.user), con_bitacora=puede_incluir(request.user))
     return form, reportes.construir(form.tipo_de_reporte, form.filtro(), request.user, registros=registros_de(request.user))
 
 

@@ -13,7 +13,7 @@ from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
 ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias',
-             'calificaciones', 'conducta')
+             'calificaciones', 'bitacoras', 'conducta')
 
 
 def _direccion():
@@ -35,6 +35,15 @@ def _docente():
         permisos_de_modulos('alumnos', 'tutores', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Alumnos.view_asistenciamateria', 'Alumnos.change_asistenciamateria', 'Alumnos.view_justificacion'}
         | {'Calificaciones.capturar', 'Calificaciones.cerrar'}
+        | {'Bitacoras.registrar'}
+    )
+
+
+def _coordinacion():
+    # Sus niveles se eligen en su ficha de usuario («Niveles que coordina»)
+    return (
+        permisos_de_modulos('alumnos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
+        | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
     )
 
 
@@ -47,14 +56,15 @@ def _recepcion():
 
 def _prefectura():
     # Corregir lo de otros y los casos cerrados (Prefectura.corregir_otros) lo concede el administrador si quiere
-    return permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}
+    return (permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
 
 
 # nombre, descripción, color, permisos
 PREDETERMINADOS = (
     ('Dirección', 'Todos los módulos escolares. Consulta usuarios y roles, pero no los administra.', 1, _direccion),
     ('Control escolar', 'Altas y cambios de estudiantes, tutores e inscripciones; consulta del resto.', 2, _control_escolar),
-    ('Docente', 'Consulta estudiantes, grados, materias y horarios; pasa lista y captura las calificaciones de sus clases.', 4, _docente),
+    ('Docente', 'Consulta estudiantes, grados, materias y horarios; pasa lista, captura las calificaciones y lleva la bitácora de sus clases.', 4, _docente),
+    ('Coordinación académica', 'Bitácoras por grupo de los niveles que coordina (se eligen en su ficha); consulta estudiantes, grupos, materias y horarios.', 1, _coordinacion),
     ('Recepción', 'Pantalla de entrada y asistencia del día; consulta las justificaciones.', 5, _recepcion),
     ('Prefectura', 'Estudiantes, asistencia, conducta y seguimiento de los niveles o grupos que se le asignen.', 6, _prefectura),
 )

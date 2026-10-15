@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Nueva entrada o edición (Bitacoras/views.crear y editar). Captura rápida: grupo, materia y bloque (al elegir el grupo,
+  bitacoras.js trae sus materias y estudiantes), los estudiantes con búsqueda o la observación general, y lo ocurrido.
+  Un docente arranca con la clase que está dando (o la última que terminó hoy). El envío doble no duplica la entrada
+  (clave_envio).
+{% endcomment %}
+
+{% block title %}{% if es_edicion %}Editar entrada de bitácora{% else %}Nueva entrada de bitácora{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/bitacoras.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:lista' %}">Bitácoras por grupo</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if es_edicion %}Editar entrada{% else %}Nueva entrada{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if es_edicion %}Editar entrada{% else %}Nueva entrada{% endif %}</h1>
+      <p class="page-header__description">
+        {% if es_edicion %}Cada cambio queda en el historial de la entrada, con quién lo hizo, cuándo y el valor anterior y el nuevo. El grupo no cambia.
+        {% else %}Lo ocurrido en una clase{% if ciclo %} del ciclo {{ ciclo }}{% endif %}. Puedes registrar varias entradas de la misma clase; cada una se guarda una sola vez aunque implique a varios estudiantes.{% endif %}
+      </p>
+    </div>
+  </header>
+
+  <div class="alert bitacora-leyenda" role="note">
+    {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+    <div class="alert__body"><p>{{ leyenda }}</p></div>
+  </div>
+
+  {% if sin_materias %}
+    <div class="card">
+      <div class="empty-state">
+        <span class="empty-state__icon">{% include "partials/icon.html" with name="book-open" icon_class="icon--lg" %}</span>
+        <h2 class="empty-state__title">No tienes grupos ni materias para registrar</h2>
+        <p class="empty-state__text">Solo se registra en las materias del ciclo actual que tienes asignadas (o en los grupos de tu alcance). Si crees que es un error, pide a la administración que revise tus asignaciones.</p>
+        <div class="empty-state__actions"><a class="btn" href="{{ volver }}">Volver</a></div>
+      </div>
+    </div>
+  {% else %}
+    <form class="form-page bitacora-form" method="post" novalidate data-bitacora-form data-opciones-url="{{ url_opciones }}"{% if es_edicion %} data-edicion{% endif %}>
+      {% csrf_token %}
+      {{ form.clave_envio }}
+      <input type="hidden" name="volver" value="{{ volver }}">
+
+      {% if form.non_field_errors %}
+        <div class="alert alert--error" role="alert">
+          {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+          <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+        </div>
+      {% endif %}
+
+      {# --- La clase -------------------------------------------------------------------------------- #}
+      <section class="card" aria-labelledby="seccion-clase">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="presentation" %}<h2 class="card__title" id="seccion-clase">La clase</h2>
+          {% if clase_actual %}<span class="tag tag--primary card__header-action" title="La clase que estás dando o la última que terminó hoy">Tu clase de hoy</span>{% endif %}
+        </header>
+        <div class="card__body form-grid bitacora-form__clase">
+          {% if es_edicion %}
+            <div class="field">
+              <span class="field__label">Grupo</span>
+              <p class="bitacora-form__fijo">{{ entrada.grupo_texto }} <span class="text-muted">· ciclo {{ entrada.ciclo }}</span></p>
+              <input type="hidden" value="{{ entrada.grupo_id }}" data-bitacora-grupo-fijo>
+            </div>
+          {% else %}
+            <div class="field{% if form.grupo.errors %} is-invalid{% endif %}">
+              <label class="field__label field__label--required" for="{{ form.grupo.id_for_label }}">{{ form.grupo.label }}</label>
+              <select class="field__control field__control--select" name="{{ form.grupo.html_name }}" id="{{ form.grupo.id_for_label }}" required data-bitacora-grupo>
+                <option value="">Elige el grupo…</option>
+                {% for grupo in form.fields.grupo.queryset %}
+                  <option value="{{ grupo.pk }}"{% if form.grupo.value|stringformat:"s" == grupo.pk|stringformat:"s" %} selected{% endif %}>{{ grupo }}</option>
+                {% endfor %}
+              </select>
+              {% for error in form.grupo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="field{% if form.asignacion.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="{{ form.asignacion.id_for_label }}">{{ form.asignacion.label }}</label>
+            <select class="field__control field__control--select" name="{{ form.asignacion.html_name }}" id="{{ form.asignacion.id_for_label }}" required data-bitacora-materia>
+              <option value="">Elige la materia…</option>
+              {% for asignacion in form.asignaciones %}
+                <option value="{{ asignacion.pk }}" data-grupo="{{ asignacion.grupo_id }}"{% if form.asignacion.value|stringformat:"s" == asignacion.pk|stringformat:"s" %} selected{% endif %}>{{ asignacion.materia.nombre }}</option>
+              {% endfor %}
+            </select>
+            {% for error in form.asignacion.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+
+          <div class="field{% if form.fecha.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="{{ form.fecha.id_for_label }}">{{ form.fecha.label }}</label>
+            {{ form.fecha }}
+            {% for error in form.fecha.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+
+          <div class="field{% if form.bloque.errors %} is-invalid{% endif %}">
+            <label class="field__label" for="{{ form.bloque.id_for_label }}">{{ form.bloque.label }}</label>
+            <select class="field__control field__control--select" name="{{ form.bloque.html_name }}" id="{{ form.bloque.id_for_label }}" data-bitacora-bloque>
+              <option value="">Sin bloque</option>
+              {% for bloque in form.fields.bloque.queryset %}
+                <option value="{{ bloque.pk }}" data-materia="{{ bloque.materia_grado_id }}" data-dia="{{ bloque.dia_semana }}"{% if form.bloque.value|stringformat:"s" == bloque.pk|stringformat:"s" %} selected{% endif %}>{{ bloque.get_dia_semana_display }} {{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}</option>
+              {% endfor %}
+            </select>
+            <p class="field__hint">Los de esa materia en el día de la fecha. El periodo se toma de la fecha.</p>
+            {% for error in form.bloque.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+      </section>
+
+      {# --- Estudiantes ------------------------------------------------------------------------------ #}
+      <section class="card" aria-labelledby="seccion-estudiantes">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="users" %}<h2 class="card__title" id="seccion-estudiantes">Estudiantes implicados</h2>
+        </header>
+        <div class="card__body bitacora-form__estudiantes">
+          <label class="bitacora-general" for="{{ form.general.id_for_label }}">
+            <input type="checkbox" name="{{ form.general.html_name }}" id="{{ form.general.id_for_label }}"{% if form.general.value %} checked{% endif %} data-bitacora-general>
+            <span>
+              <strong>{{ form.general.label }}</strong>
+              <span class="text-muted">{{ form.general.help_text }}</span>
+            </span>
+          </label>
+
+          <fieldset class="field bitacora-alumnos{% if form.alumnos.errors %} is-invalid{% endif %}" data-bitacora-alumnos{% if form.general.value %} hidden{% endif %}>
+            <legend class="visually-hidden">Estudiantes implicados</legend>
+            <div class="bitacora-alumnos__barra">
+              <div class="bitacora-alumnos__buscar">
+                {% include "partials/icon.html" with name="search" icon_class="bitacora-alumnos__lupa" %}
+                <input class="field__control" type="search" placeholder="Buscar por nombre o número de control…" aria-label="Buscar estudiante" autocomplete="off" data-bitacora-buscar>
+              </div>
+              <p class="bitacora-alumnos__conteo" aria-live="polite" data-bitacora-conteo></p>
+            </div>
+            <ul class="bitacora-alumnos__lista" data-bitacora-lista>
+              {% for alumno, elegido in form.estudiantes %}
+                <li data-texto="{{ alumno.nombre_completo|lower }} {{ alumno.referencia|lower }}">
+                  <label class="bitacora-alumno" for="alumno-{{ alumno.pk }}">
+                    <input type="checkbox" name="{{ form.alumnos.html_name }}" value="{{ alumno.pk }}" id="alumno-{{ alumno.pk }}"{% if elegido %} checked{% endif %}>
+                    {% include "partials/avatar.html" with persona=alumno tamano="sm" %}
+                    <span class="bitacora-alumno__texto"><span class="bitacora-alumno__nombre">{{ alumno }}</span><span class="bitacora-alumno__ref">{{ alumno.referencia }}</span></span>
+                  </label>
+                </li>
+              {% endfor %}
+            </ul>
+            <p class="bitacora-alumnos__vacio text-muted" data-bitacora-vacio{% if form.estudiantes %} hidden{% endif %}>Elige el grupo para ver a sus estudiantes.</p>
+            <p class="bitacora-alumnos__nada text-muted" data-bitacora-nada hidden>Nadie coincide con la búsqueda.</p>
+            {% for error in form.alumnos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </fieldset>
+        </div>
+      </section>
+
+      {# --- Lo ocurrido ------------------------------------------------------------------------------ #}
+      <section class="card" aria-labelledby="seccion-hechos">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title" id="seccion-hechos">Lo ocurrido</h2>
+        </header>
+        <div class="card__body form-grid">
+          {% include "partials/field.html" with campo=form.titulo clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
+          {% include "partials/field.html" with campo=form.seguimiento clase="form-grid__full" %}
+          <p class="bitacora-form__nota text-muted form-grid__full">Pueden ser situaciones positivas, dificultades, acuerdos, participación o convivencia: no se consideran conductas negativas ni generan sanciones.</p>
+        </div>
+      </section>
+
+      <div class="action-bar">
+        <a class="btn" href="{{ volver }}">Cancelar</a>
+        {% if not es_edicion %}
+          <button type="submit" class="btn" name="otra" value="1">Guardar y registrar otra</button>
+        {% endif %}
+        <button type="submit" class="btn btn--primary">{% if es_edicion %}Guardar cambios{% else %}Guardar entrada{% endif %}</button>
+      </div>
+    </form>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/bitacoras.js' %}" defer></script>
+{% endblock %}

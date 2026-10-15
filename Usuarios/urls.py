@@ -14,4 +14,5 @@ urlpatterns = [
     path('<int:pk>/restablecer/', views.usuario_restablecer, name='restablecer'),
     path('<int:pk>/alcance/', views.usuario_alcance, name='alcance'),
     path('<int:pk>/direccion/', views.usuario_direccion, name='direccion'),
+    path('<int:pk>/coordinacion/', views.usuario_coordinacion, name='coordinacion'),
 ]

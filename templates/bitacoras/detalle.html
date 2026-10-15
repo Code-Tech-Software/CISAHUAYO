@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Una entrada de bitácora con su historial de cambios (Bitacoras/views.detalle): alta, ediciones con los valores
+  anteriores y nuevos, y anulación con su motivo.
+{% endcomment %}
+
+{% block title %}{{ entrada.titulo }} · Bitácora de {{ entrada.grupo_texto }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/bitacoras.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:lista' %}">Bitácoras por grupo</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:lista' %}?grupo={{ entrada.grupo_id }}&amp;ciclo={{ entrada.ciclo_id }}">{{ entrada.grupo_texto }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ entrada.fecha|date:"d/m/Y" }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="bitacora-detalle__eyebrow">{{ entrada.materia_nombre }} · {{ entrada.grupo_texto }}</p>
+      <h1 class="page-header__title">{{ entrada.titulo }}</h1>
+      <p class="page-header__description"><span class="tag bitacora-sello">{{ sello }}</span></p>
+    </div>
+    <div class="page-header__actions">
+      <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver</a>
+      {% if entrada.modificable %}
+        <a class="btn" href="{% url 'bitacoras:anular' entrada.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Anular</a>
+        <a class="btn btn--primary" href="{% url 'bitacoras:editar' entrada.pk %}?volver={{ request.get_full_path|urlencode }}">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if entrada.anulada %}
+    <div class="alert alert--warning alert--spaced" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Entrada anulada</strong> el {{ entrada.anulada_en|date:"d/m/Y \a \l\a\s H:i" }} por {% firstof entrada.anulada_por.get_full_name entrada.anulada_por.username "—" %}. No aparece en la bitácora ni en los reportes; se conserva para auditoría.</p>
+        <p>Motivo: {{ entrada.motivo_anulacion }}</p>
+      </div>
+    </div>
+  {% elif motivo_sin_cambios and entrada.ciclo.estado == 'CERRADO' %}
+    <p class="bitacora-alcance text-muted">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} {{ motivo_sin_cambios }}</p>
+  {% endif %}
+
+  <div class="bitacora-detalle">
+    <article class="card">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title">Lo ocurrido</h2>
+      </header>
+      <div class="card__body">
+        <p class="bitacora-entrada__texto">{{ entrada.descripcion|linebreaksbr }}</p>
+        {% if entrada.seguimiento %}
+          <p class="bitacora-entrada__seguimiento"><span>Acuerdos y seguimiento</span>{{ entrada.seguimiento|linebreaksbr }}</p>
+        {% endif %}
+        <h3 class="bitacora-detalle__subtitulo">{% if entrada.general %}Observación general del grupo{% else %}Estudiantes implicados ({{ entrada.vinculos.all|length }}){% endif %}</h3>
+        {% if entrada.general %}
+          <p class="text-muted">Aparece en la bitácora del grupo y en sus reportes grupales; no se atribuye a ningún estudiante ni a sus reportes individuales.</p>
+        {% else %}
+          <ul class="bitacora-estudiantes">
+            {% for vinculo in entrada.vinculos.all %}
+              <li><a class="bitacora-estudiante" href="{% url 'bitacoras:estudiante' vinculo.alumno_id %}">{% include "partials/avatar.html" with persona=vinculo.alumno tamano="sm" %}<span>{{ vinculo.alumno }}</span></a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </article>
+
+    <aside class="card">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title">Datos de la clase</h2>
+      </header>
+      <dl class="details card__body">
+        <div class="details__item"><dt class="details__label">Fecha de la clase</dt><dd class="details__value">{{ entrada.fecha|date:"l j \d\e F \d\e Y"|lower|capfirst }}</dd></div>
+        <div class="details__item"><dt class="details__label">Bloque</dt><dd class="details__value">{% if entrada.hora_inicio %}{{ entrada.hora_inicio|time:"H:i" }}–{{ entrada.hora_fin|time:"H:i" }}{% else %}Sin bloque{% endif %}</dd></div>
+        <div class="details__item"><dt class="details__label">Materia</dt><dd class="details__value">{{ entrada.materia_nombre }}</dd></div>
+        <div class="details__item"><dt class="details__label">Grupo</dt><dd class="details__value">{{ entrada.grupo_texto }}</dd></div>
+        <div class="details__item"><dt class="details__label">Ciclo y periodo</dt><dd class="details__value">{{ entrada.ciclo }}{% if entrada.periodo %} · {{ entrada.periodo.nombre }}{% else %} · <span class="text-muted">sin periodo en esa fecha</span>{% endif %}</dd></div>
+        <div class="details__item"><dt class="details__label">Registró</dt><dd class="details__value">{{ entrada.autor_nombre }}<span class="text-muted bitacora-bloque">el {{ entrada.creado|date:"d/m/Y \a \l\a\s H:i" }}</span></dd></div>
+        {% if entrada.editada %}
+          <div class="details__item"><dt class="details__label">Última edición</dt><dd class="details__value">{% firstof entrada.editada_por.get_full_name entrada.editada_por.username "—" %}<span class="text-muted bitacora-bloque">el {{ entrada.editada_en|date:"d/m/Y \a \l\a\s H:i" }} · {{ entrada.ediciones }} edici{{ entrada.ediciones|pluralize:"ón,ones" }}</span></dd></div>
+        {% endif %}
+      </dl>
+    </aside>
+  </div>
+
+  <section class="card bitacora-historial" aria-labelledby="titulo-historial">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-historial">Historial de cambios</h2>
+    </header>
+    <ol class="bitacora-historial__lista">
+      {% for cambio in cambios %}
+        <li class="bitacora-historial__item bitacora-historial__item--{{ cambio.accion|lower }}">
+          <p class="bitacora-historial__titulo"><strong>{{ cambio.get_accion_display }}</strong> · {{ cambio.usuario_nombre }} · {{ cambio.fecha|date:"d/m/Y H:i" }}</p>
+          {% if cambio.motivo %}<p>Motivo: {{ cambio.motivo }}</p>{% endif %}
+          {% if cambio.accion == 'EDICION' %}
+            <dl class="bitacora-historial__cambios">
+              {% for que, antes, despues in cambio.cambios %}
+                <div><dt>{{ que }}</dt><dd><del>{{ antes }}</del> <span aria-hidden="true">→</span><span class="visually-hidden">cambió a</span> <ins>{{ despues }}</ins></dd></div>
+              {% endfor %}
+            </dl>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endblock %}

@@ -1,26 +1,5 @@
-{# Primera fila de filtros de los reportes: qué reporte y de qué estudiantes (uno o varios, con la búsqueda) #}
+{# Primera fila de filtros de los reportes: qué reporte (le siguen ciclo, nivel y tipo, en _filtros.html) #}
 <div class="filters__field">
   <label class="field__label" for="{{ filtro.reporte.id_for_label }}">{{ filtro.reporte.label }}</label>
   {{ filtro.reporte }}
-</div>
-<div class="filters__field filtros-conducta__estudiantes" data-varios-estudiantes data-buscar-url="{{ url_buscar }}">
-  <label class="field__label" for="buscar-estudiantes">Estudiantes <span class="text-muted">(uno o varios)</span></label>
-  <div class="live-search">
-    <div class="live-search__field">
-      {% include "partials/icon.html" with name="search" icon_class="live-search__icon" %}
-      <input class="field__control live-search__input" id="buscar-estudiantes" type="text" role="combobox" aria-expanded="false"
-             aria-controls="resultados-estudiantes" aria-autocomplete="list" autocomplete="off" spellcheck="false"
-             placeholder="Todos, o busca por nombre o número de control…" data-varios-input>
-      <div class="live-search__results" id="resultados-estudiantes" role="listbox" aria-label="Estudiantes encontrados" data-varios-resultados hidden></div>
-    </div>
-  </div>
-  <ul class="conducta-elegidos" data-varios-elegidos aria-label="Estudiantes elegidos">
-    {% for alumno in alumnos_elegidos %}
-      <li class="conducta-elegido">
-        <input type="hidden" name="alumnos" value="{{ alumno.pk }}">
-        <span>{{ alumno }}</span>
-        <button type="button" class="conducta-elegido__quitar" aria-label="Quitar a {{ alumno }}" data-varios-quitar>{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
-      </li>
-    {% endfor %}
-  </ul>
 </div>

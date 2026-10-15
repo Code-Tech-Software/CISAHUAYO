@@ -19,6 +19,15 @@ def _entra_a_calificaciones(usuario):
     return any(usuario.has_perm(p) for p in ('Calificaciones.capturar', 'Calificaciones.ver_todas', 'Calificaciones.gestionar_todas'))
 
 
+def _entra_a_bitacoras(usuario):
+    """Un docente (sus clases) o quien consulta o registra en las bitácoras de todos los grupos de su alcance."""
+    return any(usuario.has_perm(p) for p in ('Bitacoras.registrar', 'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas', 'Bitacoras.gestionar'))
+
+
+def _registra_en_bitacoras(usuario):
+    return usuario.has_perm('Bitacoras.registrar') or usuario.has_perm('Bitacoras.registrar_todas')
+
+
 def _usa_prefectura(usuario):
     """Una cuenta de prefectura (su rol es de prefectura) que puede consultar: su menú es el de prefectura."""
     if not usuario.has_perm('Prefectura.consultar'):
@@ -94,6 +103,7 @@ NAVEGACION = (
             {'etiqueta': 'Asignaciones de materias', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
             {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
             {'etiqueta': 'Calificaciones', 'icono': 'award', 'ruta': 'calificaciones:inicio', 'destinos': ((_entra_a_calificaciones, 'calificaciones:inicio'),)},
+            {'etiqueta': 'Bitácoras por grupo', 'icono': 'notebook-pen', 'ruta': 'bitacoras:lista', 'destinos': ((_entra_a_bitacoras, 'bitacoras:lista'),)},
         ),
     },
     {
@@ -129,6 +139,7 @@ NAVEGACION = (
 # no piden permiso, a todos).
 ACCIONES_RAPIDAS = (
     {'etiqueta': 'Nuevo estudiante', 'icono': 'plus', 'ruta': 'alumnos:crear', 'permiso': 'Alumnos.add_alumno'},
+    {'etiqueta': 'Nueva entrada de bitácora', 'icono': 'notebook-pen', 'ruta': 'bitacoras:crear', 'permiso': _registra_en_bitacoras},
     {'etiqueta': 'Nuevo tutor', 'icono': 'plus', 'ruta': 'tutores:crear', 'permiso': 'Alumnos.add_tutor'},
     {'etiqueta': 'Nueva inscripción', 'icono': 'plus', 'ruta': 'inscripciones:crear', 'permiso': 'Alumnos.add_inscripcion'},
     {'etiqueta': 'Nuevo ciclo escolar', 'icono': 'plus', 'ruta': 'ciclos:crear', 'permiso': 'Alumnos.add_cicloescolar'},

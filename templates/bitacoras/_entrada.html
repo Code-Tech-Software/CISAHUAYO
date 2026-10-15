@@ -1,0 +1,53 @@
+{% load alumnos_extras %}{% comment %}
+  Una entrada de la bitácora en un historial. Parámetros: entrada (con vinculos y `modificable`), volver (la página a
+  la que se regresa), mostrar_grupo ("1" para mostrar el grupo, en el historial de varios grupos) y privado (historial
+  de un estudiante: no muestra los nombres de los demás implicados, solo cuántos son; requiere `entrada.implicados`).
+{% endcomment %}
+<article class="bitacora-entrada{% if entrada.general %} bitacora-entrada--general{% endif %}{% if entrada.anulada %} is-anulada{% endif %}" aria-labelledby="entrada-{{ entrada.pk }}">
+  <div class="bitacora-entrada__fecha" aria-hidden="true">
+    <span class="bitacora-entrada__dia">{{ entrada.fecha|date:"j" }}</span>
+    <span class="bitacora-entrada__mes">{{ entrada.fecha|date:"M"|lower }}</span>
+    <span class="bitacora-entrada__semana">{{ entrada.fecha|date:"D"|lower }}</span>
+  </div>
+  <div class="bitacora-entrada__cuerpo">
+    <p class="bitacora-entrada__meta">
+      <span class="visually-hidden">Clase del {{ entrada.fecha|date:"l j \d\e F \d\e Y" }}:</span>
+      <strong>{{ entrada.materia_nombre }}</strong>
+      {% if entrada.hora_inicio %}<span>{{ entrada.hora_inicio|time:"H:i" }}–{{ entrada.hora_fin|time:"H:i" }}</span>{% endif %}
+      {% if mostrar_grupo == "1" %}<span>{{ entrada.grupo_texto }}</span>{% endif %}
+      {% if entrada.periodo %}<span>{{ entrada.periodo.nombre }}</span>{% endif %}
+    </p>
+    <h3 class="bitacora-entrada__titulo" id="entrada-{{ entrada.pk }}">
+      <a href="{% url 'bitacoras:detalle' entrada.pk %}?volver={{ volver|urlencode }}">{{ entrada.titulo }}</a>
+    </h3>
+    <p class="bitacora-entrada__etiquetas">
+      {% if entrada.general %}<span class="tag tag--info">Observación general del grupo</span>{% endif %}
+      {% if entrada.anulada %}<span class="tag tag--danger">Anulada</span>{% endif %}
+      {% if entrada.editada %}<span class="tag" title="Última edición: {{ entrada.editada_en|date:'d/m/Y H:i' }}">Editada{% if entrada.ediciones > 1 %} {{ entrada.ediciones }} veces{% endif %}</span>{% endif %}
+    </p>
+    <p class="bitacora-entrada__texto">{{ entrada.descripcion|linebreaksbr }}</p>
+    {% if entrada.seguimiento %}
+      <p class="bitacora-entrada__seguimiento"><span>Acuerdos y seguimiento</span>{{ entrada.seguimiento|linebreaksbr }}</p>
+    {% endif %}
+    {% if not entrada.general %}
+      {% if privado %}
+        {% if entrada.implicados > 1 %}<p class="bitacora-entrada__otros text-muted">Junto con {{ entrada.implicados|add:"-1" }} estudiante{{ entrada.implicados|add:"-1"|pluralize }} más.</p>{% endif %}
+      {% else %}
+        <ul class="bitacora-estudiantes" aria-label="Estudiantes implicados">
+          {% for vinculo in entrada.vinculos.all %}
+            <li><a class="bitacora-estudiante" href="{% url 'bitacoras:estudiante' vinculo.alumno_id %}">{% include "partials/avatar.html" with persona=vinculo.alumno tamano="sm" %}<span>{{ vinculo.alumno }}</span></a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endif %}
+    <footer class="bitacora-entrada__pie">
+      <span class="text-muted">Registró <strong>{{ entrada.autor_nombre }}</strong> el {{ entrada.creado|date:"d/m/Y \a \l\a\s H:i" }}</span>
+      <span class="bitacora-entrada__acciones">
+        <a class="btn btn--ghost btn--sm" href="{% url 'bitacoras:detalle' entrada.pk %}?volver={{ volver|urlencode }}">Ver</a>
+        {% if entrada.modificable %}
+          <a class="btn btn--ghost btn--sm" href="{% url 'bitacoras:editar' entrada.pk %}?volver={{ volver|urlencode }}">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
+        {% endif %}
+      </span>
+    </footer>
+  </div>
+</article>

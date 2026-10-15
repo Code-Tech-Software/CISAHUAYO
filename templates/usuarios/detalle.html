@@ -144,6 +144,19 @@
     </section>
   {% endif %}
 
+  {% if coordinacion is not None %}
+    <section class="card alcance-prefectura" aria-labelledby="coordinacion-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title" id="coordinacion-titulo">Coordinación de bitácoras</h2>
+        {% if puede_editar %}<a class="btn btn--sm card__header-action" href="{% url 'usuarios:coordinacion' usuario.pk %}" data-modal-form>Niveles que coordina</a>{% endif %}
+      </header>
+      <div class="card__body">
+        <p class="alcance-prefectura__texto">{% for clave, nombre in coordinacion %}{{ nombre }}{% if not forloop.last %} · {% endif %}{% empty %}Todo el colegio{% endfor %}</p>
+        <p class="text-muted">Consulta y registra en las bitácoras de todos los grupos de estos niveles (sin niveles elegidos, de todo el colegio). Lo de otros niveles no aparece en sus consultas ni reportes.</p>
+      </div>
+    </section>
+  {% endif %}
+
   {% if motivo_no_desactivar and perms.auth.delete_user and not es_yo %}
     <p class="text-muted"><small>No se puede desactivar: {{ motivo_no_desactivar|lower }}</small></p>
   {% endif %}

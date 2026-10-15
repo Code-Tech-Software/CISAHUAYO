@@ -18,7 +18,8 @@ VER, EXPORTAR = 'Prefectura.consultar', 'Prefectura.exportar'
 
 def _contenido(request):
     alcance = alcance_de(request.user)
-    form = FiltroForm(request.GET or None, modo='reporte', alcance=alcance, reportes=reportes.TIPOS)
+    from Bitacoras.reportes import puede_incluir
+    form = FiltroForm(request.GET or None, modo='reporte', alcance=alcance, reportes=reportes.TIPOS, con_bitacora=puede_incluir(request.user))
     contenido = reportes.construir(form.tipo_de_reporte, form.filtro(), request.user, alcance, registros_de(request.user))
     return form, contenido
 

@@ -1,7 +1,10 @@
 {% comment %}
   Filtros del registro y de los reportes de conducta (los mismos criterios en ambos: Conducta/reglas.py · Filtro).
   Parámetros: filtro (FiltroListaForm o ReporteForm), mas_filtros (cuántos hay aplicados además de los principales),
-  principal (la plantilla con los campos de la primera fila) y limpiar (dirección sin filtros).
+  principal (la plantilla con el primer campo de la primera fila), segunda (opcional: la plantilla de una segunda fila,
+  la de los estudiantes en los reportes) y limpiar (dirección sin filtros).
+  Las filas son una rejilla de cuatro columnas iguales (dos o una en pantallas angostas), con todos los campos alineados
+  arriba: la primera fila y cada fila de «Más filtros» llevan cuatro campos.
   conducta.js limita las opciones que dependen de otras (grupo del grado, motivo de la categoría…).
 {% endcomment %}
 <div class="filtros-conducta__fila">
@@ -19,6 +22,11 @@
     {{ filtro.tipo }}
   </div>
 </div>
+{% if segunda %}
+  <div class="filtros-conducta__fila">
+    {% include segunda %}
+  </div>
+{% endif %}
 
 <details class="filtros-conducta__mas"{% if mas_filtros %} open{% endif %}>
   <summary class="filtros-conducta__resumen">

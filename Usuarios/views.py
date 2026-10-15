@@ -205,6 +205,53 @@ def usuario_detalle(request, pk):
         'credenciales': request.session.pop(SESION_CREDENCIALES, None),
         'alcance': alcance_de_cuenta(usuario) if rol and rol.es_prefectura else None,
         'direccion': direccion_de_cuenta(usuario, permisos),
+        'coordinacion': coordinacion_de_cuenta(usuario, permisos, rol),
+    })
+
+
+BITACORAS_AMPLIAS = ('Bitacoras.consultar_todas', 'Bitacoras.registrar_todas', 'Bitacoras.gestionar')
+
+
+def coordinacion_de_cuenta(usuario, permisos, rol):
+    """Los niveles a los que llegan sus bitácoras de todos los grupos ([(clave, nombre)]; vacío = todo el colegio), o
+    None si no aplica: el administrador, las cuentas de prefectura (usan su alcance) y quien no tiene esos permisos."""
+    if usuario.is_superuser or (rol is not None and (rol.es_prefectura or rol.acceso_total)) or not any(p in permisos for p in BITACORAS_AMPLIAS):
+        return None
+    from Alumnos.models import Grado
+    elegidos = set(PerfilUsuario.de(usuario).niveles_bitacora)
+    return [(clave, nombre) for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos]
+
+
+@requiere_permisos('auth.change_user')
+def usuario_coordinacion(request, pk):
+    """Los niveles que coordina una cuenta con las bitácoras de todos los grupos: solo consulta y registra en esos."""
+    from django import forms as formularios
+
+    from Alumnos.models import Grado
+
+    usuario = _gestionable(request, get_object_or_404(_consulta(), pk=pk))
+    perfil = PerfilUsuario.de(usuario)
+    permisos = permisos_efectivos(usuario) if usuario.is_active else permisos_de_cuenta(usuario)
+    if coordinacion_de_cuenta(usuario, permisos, rol_de(usuario)) is None:
+        messages.info(request, 'Solo las cuentas que consultan o registran en las bitácoras de todos los grupos coordinan niveles '
+                               '(prefectura usa su alcance y el administrador ve todo).')
+        return redirect('usuarios:detalle', usuario.pk)
+    campo = formularios.MultipleChoiceField(choices=Grado.NIVEL_CHOICES, required=False)
+    elegidos = perfil.niveles_bitacora
+    if request.method == 'POST':
+        try:
+            elegidos = campo.clean(request.POST.getlist('niveles'))
+        except ValidationError:
+            messages.error(request, 'Elige niveles de la lista.')
+        else:
+            perfil.niveles_bitacora = list(elegidos)
+            perfil.save(update_fields=['niveles_bitacora', 'modificado'])
+            nombres = ', '.join(nombre for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos) or 'todo el colegio'
+            registrar(request.user, usuario, ACCION_CAMBIO, f'Niveles que coordina (bitácoras): {nombres}.')
+            messages.success(request, f'Las bitácoras de {nombre_de(usuario)} llegan a: {nombres}.')
+            return redirect('usuarios:detalle', usuario.pk)
+    return render(request, 'usuarios/coordinacion.html', {
+        'usuario': usuario, 'niveles': [(clave, nombre, clave in elegidos) for clave, nombre in Grado.NIVEL_CHOICES],
     })
 
 

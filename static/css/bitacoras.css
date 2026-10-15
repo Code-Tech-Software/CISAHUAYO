@@ -1,0 +1,577 @@
+/* ==========================================================================
+   CISAHUAYO · Bitácoras por grupo (templates/bitacoras/) y su sección en los reportes de conducta
+   Sobre los componentes de app.css (tarjetas, filtros, etiquetas, avisos, avatares). Orden: 1. Alcance y filtros ·
+   2. Entradas del historial · 3. Captura · 4. Detalle e historial de cambios · 5. Reportes · 6. Pantallas angostas.
+   ========================================================================== */
+
+/* --- 1. Alcance y filtros ------------------------------------------------------------------------------- */
+/* Una fila debajo de otra a cualquier ancho (la rejilla de .filters reparte columnas en pantallas medianas) */
+.filters.bitacora-filtros {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.bitacora-alcance {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.bitacora-filtros__fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.bitacora-filtros__buscar {
+  grid-column: span 2;
+}
+
+.bitacora-filtros__mas {
+  padding-top: var(--space-3);
+  border-top: var(--border);
+}
+
+.bitacora-filtros__resumen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.bitacora-filtros__mas:not([open]) .bitacora-filtros__resumen {
+  margin-bottom: 0;
+}
+
+.bitacora-ciclos {
+  margin-bottom: var(--space-4);
+}
+
+/* --- 2. Entradas del historial --------------------------------------------------------------------------- */
+.bitacora-lista {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bitacora-entrada {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr);
+  border: var(--border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.bitacora-entrada--general {
+  border-left-color: var(--color-info);
+}
+
+.bitacora-entrada.is-anulada {
+  border-left-color: var(--color-border-strong);
+  opacity: 0.72;
+}
+
+.bitacora-entrada.is-anulada .bitacora-entrada__titulo a {
+  text-decoration: line-through;
+}
+
+.bitacora-entrada__fecha {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 0.1rem;
+  padding: var(--space-4) var(--space-2);
+  border-right: var(--border);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: var(--color-surface-2);
+  text-align: center;
+}
+
+.bitacora-entrada__dia {
+  color: var(--color-text-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.bitacora-entrada__mes,
+.bitacora-entrada__semana {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.bitacora-entrada__cuerpo {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.bitacora-entrada__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.bitacora-entrada__meta strong {
+  color: var(--color-primary-text);
+}
+
+.bitacora-entrada__titulo {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.3;
+}
+
+.bitacora-entrada__titulo a {
+  color: var(--color-text-strong);
+  text-decoration: none;
+}
+
+.bitacora-entrada__titulo a:hover {
+  color: var(--color-primary-text);
+  text-decoration: underline;
+}
+
+.bitacora-entrada__etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.bitacora-entrada__etiquetas:empty {
+  display: none;
+}
+
+.bitacora-entrada__texto {
+  margin: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.bitacora-entrada__seguimiento {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.bitacora-entrada__seguimiento > span {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.bitacora-entrada__otros {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.bitacora-estudiantes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bitacora-estudiante {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.15rem var(--space-3) 0.15rem 0.15rem;
+  border: var(--border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.bitacora-estudiante:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.bitacora-entrada__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border);
+  font-size: var(--text-sm);
+}
+
+.bitacora-entrada__acciones {
+  display: flex;
+  gap: var(--space-1);
+}
+
+/* --- 3. Captura ---------------------------------------------------------------------------------------- */
+.bitacora-leyenda {
+  margin-bottom: var(--space-4);
+}
+
+.bitacora-form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.bitacora-form__clase {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
+.bitacora-form__fijo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.bitacora-form__nota {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.bitacora-form__estudiantes {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.bitacora-general {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  cursor: pointer;
+}
+
+.bitacora-general input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  accent-color: var(--color-primary);
+}
+
+.bitacora-general > span {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.bitacora-general:has(input:checked) {
+  border-color: var(--color-info);
+  background: var(--color-info-bg);
+}
+
+.bitacora-alumnos {
+  gap: var(--space-3);
+}
+
+.bitacora-alumnos__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.bitacora-alumnos__buscar {
+  position: relative;
+  flex: 1 1 16rem;
+}
+
+.bitacora-alumnos__buscar .field__control {
+  padding-left: var(--space-10);
+}
+
+.bitacora-alumnos__lupa {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.bitacora-alumnos__conteo {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.bitacora-alumnos__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-2);
+  max-height: 24rem;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.bitacora-alumno {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.bitacora-alumno:hover {
+  border-color: var(--color-border-strong);
+}
+
+.bitacora-alumno input {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--color-primary);
+}
+
+.bitacora-alumno:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.bitacora-alumno:has(input:focus-visible) {
+  box-shadow: var(--ring-focus);
+}
+
+.bitacora-alumno__texto {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.bitacora-alumno__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bitacora-alumno__ref {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.bitacora-alumnos__vacio,
+.bitacora-alumnos__nada {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* --- 4. Detalle e historial de cambios ---------------------------------------------------------------------- */
+.bitacora-detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+  align-items: start;
+}
+
+.bitacora-detalle .card__body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.bitacora-detalle__eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.bitacora-detalle__subtitulo {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base);
+}
+
+.bitacora-bloque {
+  display: block;
+}
+
+.bitacora-sello {
+  --tag-fg: var(--color-info);
+  --tag-bg: var(--color-info-bg);
+  white-space: normal;
+}
+
+.bitacora-historial__lista {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-5) var(--space-4);
+  list-style: none;
+}
+
+.bitacora-historial__item {
+  position: relative;
+  padding: var(--space-3) 0 var(--space-3) var(--space-5);
+  border-left: 2px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.bitacora-historial__item::before {
+  content: "";
+  position: absolute;
+  top: 1.05rem;
+  left: -0.4rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.bitacora-historial__item--anulacion::before {
+  background: var(--color-danger);
+}
+
+.bitacora-historial__item p {
+  margin: 0 0 var(--space-1);
+}
+
+.bitacora-historial__cambios {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+.bitacora-historial__cambios dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.bitacora-historial__cambios dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bitacora-historial__cambios del {
+  color: var(--color-danger);
+}
+
+.bitacora-historial__cambios ins {
+  color: var(--color-success);
+  text-decoration: none;
+}
+
+/* --- 5. Sección en los reportes de conducta ----------------------------------------------------------------- */
+.bitacora-reporte__conteo {
+  display: inline-grid;
+  min-width: 1.6rem;
+  place-items: center;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-info-bg);
+  color: var(--color-info);
+  font-size: var(--text-xs);
+}
+
+.bitacora-reporte__sello {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+/* Texto largo: alineado a la izquierda y arriba, con espacio para la observación */
+.bitacora-reporte__tabla th,
+.bitacora-reporte__tabla td {
+  text-align: left;
+  vertical-align: top;
+}
+
+.bitacora-reporte__tabla td:nth-last-child(2) {
+  min-width: 18rem;
+}
+
+.bitacora-reporte__tabla td:last-child {
+  min-width: 11rem;
+}
+
+@media print {
+  .bitacora-reporte,
+  .bitacora-reporte .bitacora-sello {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .bitacora-reporte__tabla tr {
+    break-inside: avoid;
+  }
+}
+
+/* --- 6. Pantallas angostas ------------------------------------------------------------------------------- */
+@media (max-width: 48rem) {
+  .bitacora-detalle {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bitacora-filtros__buscar {
+    grid-column: auto;
+  }
+
+  .bitacora-entrada {
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+  }
+
+  .bitacora-entrada__cuerpo {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .bitacora-entrada__dia {
+    font-size: var(--text-xl);
+  }
+
+  .bitacora-form .action-bar {
+    flex-wrap: wrap;
+  }
+}

@@ -673,6 +673,7 @@ class Filtro:
     suspension: str = ''        # 'con' (aprobada), 'sin', 'vigente' (hoy) o 'pendiente' (solicitud por aprobar)
     estado: str = ''            # un estado, 'abiertos' (abierto o en seguimiento) o 'vencidos'
     registros: str = VIGENTES   # vigentes, anulados o todos
+    bitacora: bool = True       # reportes por grupo e individuales: con la sección «Observaciones de bitácora»
 
     def rango(self):
         """(inicio, fin, aviso) de las fechas del hecho: las del periodo (si se eligió) cruzadas con el rango. `aviso`
@@ -784,6 +785,8 @@ class Filtro:
         if self.estado:
             partes.append(('Seguimiento', {'vencidos': 'Vencidos', 'abiertos': 'Abiertos o en seguimiento'}.get(self.estado) or NOMBRE_DE_ESTADO[self.estado]))
         partes.append(('Registros', {VIGENTES: 'Vigentes (sin anulados)', ANULADOS: 'Solo anulados', TODOS: 'Vigentes y anulados'}[self.registros]))
+        if not self.bitacora:
+            partes.append(('Observaciones de bitácora', 'Excluidas'))
         return partes
 
 

@@ -6,6 +6,7 @@
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
   <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/bitacoras.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -27,7 +28,7 @@
   </header>
 
   <form class="filters filtros-conducta" method="get" role="search" aria-label="Filtros del reporte" data-filtros-conducta>
-    {% include "conducta/_filtros.html" with principal="conducta/_filtros_principales_reporte.html" limpiar=request.path %}
+    {% include "conducta/_filtros.html" with principal="conducta/_filtros_principales_reporte.html" segunda="conducta/_filtros_estudiantes_reporte.html" limpiar=request.path %}
   </form>
 
   <article class="card conducta-reporte">

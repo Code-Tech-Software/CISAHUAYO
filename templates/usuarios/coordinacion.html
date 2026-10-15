@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static usuarios_extras %}
+
+{% block title %}Niveles que coordina {{ usuario|nombre_visible }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'usuarios:lista' %}">Usuarios</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'usuarios:detalle' usuario.pk %}">{{ usuario|nombre_visible }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Niveles que coordina</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Niveles que coordina</h1>
+      <p class="page-header__description">{{ usuario|nombre_visible }} consulta y registra en las bitácoras de todos los grupos de estos niveles. Sin ningún nivel elegido, llega a todo el colegio.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <section class="card">
+      <div class="card__body">
+        <fieldset class="field">
+          <legend class="field__label">Niveles</legend>
+          <div class="choice-group">
+            {% for clave, nombre, elegido in niveles %}
+              <label class="choice choice--check" for="nivel-{{ clave }}">
+                <input class="choice__input" type="checkbox" name="niveles" value="{{ clave }}" id="nivel-{{ clave }}"{% if elegido %} checked{% endif %}>
+                <span class="choice__box">{{ nombre }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <p class="field__hint">Bachillerato es el nivel «Preparatoria» del sistema. Solo aplica a las bitácoras por grupo.</p>
+        </fieldset>
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{% url 'usuarios:detalle' usuario.pk %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </div>
+  </form>
+{% endblock %}

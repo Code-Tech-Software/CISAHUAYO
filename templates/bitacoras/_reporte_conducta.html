@@ -1,0 +1,44 @@
+{% comment %}
+  «Observaciones de bitácora» en un reporte de conducta (vista previa, hoja para imprimir y PDF; el Excel lleva lo mismo).
+  Se leen de las entradas originales y no cuentan como incidencias, positivas, medidas ni suspensiones.
+  Parámetros: entradas, grupal (True: reporte por grupo, con estudiantes y observaciones generales; False: historial
+  individual, sin los nombres de los demás implicados) y contenido (sello y título).
+{% endcomment %}
+<section class="conducta-reporte__bloque bitacora-reporte" aria-label="{{ contenido.bitacora_titulo }}">
+  <h3 class="reporte__subtitulo">{{ contenido.bitacora_titulo }} <span class="bitacora-reporte__conteo">{{ entradas|length }}</span></h3>
+  <p class="bitacora-reporte__sello"><span class="tag bitacora-sello">{{ contenido.bitacora_sello }}</span> No se suman a las incidencias, sanciones ni conteos de este reporte.</p>
+  {% if entradas %}
+    <div class="reporte__marco-tabla">
+      <table class="reporte__tabla bitacora-reporte__tabla">
+        <thead>
+          <tr>
+            <th scope="col">Fecha de la clase</th>
+            {% if grupal %}<th scope="col">Grupo</th>{% endif %}
+            <th scope="col">Materia</th>
+            <th scope="col">Autor</th>
+            {% if grupal %}<th scope="col">Estudiantes</th>{% endif %}
+            <th scope="col">Observación</th>
+            <th scope="col">Acuerdos o seguimiento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entrada in entradas %}
+            <tr>
+              <td>{{ entrada.fecha|date:"d/m/Y" }}{% if entrada.hora_inicio %}<span class="text-muted conducta-bloque">{{ entrada.hora_inicio|time:"H:i" }}–{{ entrada.hora_fin|time:"H:i" }}</span>{% endif %}</td>
+              {% if grupal %}<td>{{ entrada.grupo_texto }}</td>{% endif %}
+              <td>{{ entrada.materia_nombre }}</td>
+              <td>{{ entrada.autor_nombre }}</td>
+              {% if grupal %}
+                <td>{% if entrada.general %}<em>Observación general del grupo</em>{% else %}{% for vinculo in entrada.vinculos.all %}{{ vinculo.alumno }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+              {% endif %}
+              <td><strong>{{ entrada.titulo }}</strong><span class="conducta-bloque">{{ entrada.descripcion|linebreaksbr }}</span></td>
+              <td>{{ entrada.seguimiento|linebreaksbr|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-muted">Sin observaciones de bitácora con esos filtros.</p>
+  {% endif %}
+</section>

@@ -79,6 +79,12 @@ class PerfilUsuario(models.Model):
         'niveles que dirige', default=list, blank=True,
         help_text='Autoriza las suspensiones y medidas de estos niveles (si su rol tiene el permiso de aprobar).',
     )
+    # Coordinación (Bitácoras por grupo, 2026-10-14): quien consulta o registra en las bitácoras de todos los grupos
+    # solo llega a los de estos niveles; sin niveles, a todo el colegio. Prefectura usa su propio alcance.
+    niveles_bitacora = models.JSONField(
+        'niveles que coordina', default=list, blank=True,
+        help_text='Limita las bitácoras de todos los grupos a estos niveles (vacío: todo el colegio).',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

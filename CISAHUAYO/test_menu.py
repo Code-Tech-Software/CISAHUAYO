@@ -30,7 +30,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Estudiantes', 'Tutores', 'Profesores',
             'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
-            'Horarios', 'Calificaciones', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
+            'Horarios', 'Calificaciones', 'Bitácoras por grupo', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
             'Usuarios', 'Roles y permisos', 'Ajustes',
         ])
 
@@ -77,7 +77,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
             ('Prefectura', ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Seguimiento', 'Reportes']),
             ('Comunidad escolar', ['Estudiantes', 'Tutores', 'Profesores']),
             ('Gestión académica', ['Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias',
-                                   'Asignaciones de materias', 'Horarios', 'Calificaciones']),
+                                   'Asignaciones de materias', 'Horarios', 'Calificaciones', 'Bitácoras por grupo']),
             # La general, debajo de Gestión académica (pedido del 2026-10-14)
             ('Prefectura', ['Asistencias', 'Registro de conducta', 'Reportes de conducta']),
             ('Sistema', ['Usuarios', 'Roles y permisos', 'Ajustes']),

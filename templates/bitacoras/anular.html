@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Anular una entrada de bitácora (se abre en la ventana modal con data-modal-form y también como página completa). La
+  entrada no se borra: queda con el motivo para auditoría y deja de aparecer en la bitácora y en los reportes.
+{% endcomment %}
+
+{% block title %}Anular entrada de bitácora | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/bitacoras.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:lista' %}">Bitácoras por grupo</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:detalle' entrada.pk %}">{{ entrada.fecha|date:"d/m/Y" }} · {{ entrada.titulo }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Anular</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Anular entrada</h1>
+      <p class="page-header__description">La entrada no se borra: se conserva en su historial con el motivo, quién la anuló y cuándo, y deja de aparecer en la bitácora y en los reportes.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    <section class="card">
+      <div class="card__body">
+        <p class="bitacora-form__fijo"><strong>{{ entrada.titulo }}</strong> · {{ entrada.materia_nombre }} · {{ entrada.grupo_texto }} · {{ entrada.fecha|date:"d/m/Y" }}</p>
+        {% include "partials/field.html" with campo=form.motivo %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{% url 'bitacoras:detalle' entrada.pk %}">Cancelar</a>
+      <button type="submit" class="btn btn--danger">Anular entrada</button>
+    </div>
+  </form>
+{% endblock %}

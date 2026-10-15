@@ -836,7 +836,8 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
                   ('pendiente', 'Solicitud pendiente'), ('sin', 'Sin suspensión aprobada')]
     ESTADOS = [('', 'Cualquier seguimiento'), ('abiertos', 'Abiertos o en seguimiento'), *RegistroConducta.ESTADOS, ('vencidos', 'Vencidos')]
     REGISTROS = [(reglas.VIGENTES, 'Vigentes'), (reglas.ANULADOS, 'Anulados'), (reglas.TODOS, 'Vigentes y anulados')]
-    SOLO_LISTA, SOLO_REPORTE = ('q',), ('reporte', 'alumnos')
+    SOLO_LISTA, SOLO_REPORTE = ('q',), ('reporte', 'alumnos', 'bitacora')
+    BITACORA = [('', 'Incluirlas'), ('no', 'Excluirlas')]
 
     q = forms.CharField(required=False, label='Estudiante', widget=forms.TextInput(attrs={
         'type': 'search', 'placeholder': 'Nombre o número de control…', 'autocomplete': 'off',
@@ -858,11 +859,15 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
     suspension = forms.ChoiceField(choices=SUSPENSION, required=False, label='Suspensión')
     estado = forms.ChoiceField(choices=ESTADOS, required=False, label='Seguimiento')
     registros = forms.ChoiceField(choices=REGISTROS, required=False, label='Registros')
+    # Bitácoras por grupo: sección aparte en los reportes por grupo e individuales (solo para quien consulta bitácoras)
+    bitacora = forms.ChoiceField(choices=BITACORA, required=False, label='Observaciones de bitácora')
 
-    def __init__(self, *args, modo='lista', alcance=None, reportes=None, **kwargs):
+    def __init__(self, *args, modo='lista', alcance=None, reportes=None, con_bitacora=False, **kwargs):
         super().__init__(*args, **kwargs)
         for nombre in (self.SOLO_REPORTE if modo == 'lista' else self.SOLO_LISTA):
             del self.fields[nombre]
+        if 'bitacora' in self.fields and not con_bitacora:
+            del self.fields['bitacora']
         if reportes is not None and 'reporte' in self.fields:
             self.fields['reporte'].choices = reportes
         self.reportes = dict(reportes or TiposDeReporte.REPORTES)
@@ -911,14 +916,14 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
             categoria=datos.get('categoria'), motivo=datos.get('motivo'), gravedad=datos.get('gravedad') or '',
             medida=datos.get('medida'), suspension=datos.get('suspension') or '', estado=datos.get('estado') or '',
             registros=datos.get('registros') or reglas.VIGENTES, texto=datos.get('q') or '',
-            alumnos=list(datos.get('alumnos') or []),
+            alumnos=list(datos.get('alumnos') or []), bitacora=datos.get('bitacora') != 'no',
         )
 
     @property
     def activos(self):
         """Cuántos filtros de «Más filtros» hay aplicados (para dejarlo abierto)."""
         datos = self._datos()
-        principales = ('ciclo', 'q', 'reporte', 'alumnos', 'nivel', 'tipo', 'registros')
+        principales = ('ciclo', 'q', 'reporte', 'alumnos', 'nivel', 'tipo', 'registros', 'bitacora')
         return sum(1 for k, v in datos.items() if v and k not in principales) + (datos.get('registros') not in (None, '', reglas.VIGENTES))
 
     @property

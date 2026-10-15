@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Historial de bitácora de un estudiante (Bitacoras/views.estudiante): solo las entradas que lo nombran (nunca las
+  observaciones generales del grupo), de todos los ciclos y con el grupo y la materia de entonces. No muestra los nombres
+  de los demás implicados.
+{% endcomment %}
+
+{% block title %}Bitácora de {{ alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/bitacoras.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:lista' %}">Bitácoras por grupo</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header bitacora-estudiante-encabezado">
+    <div class="bitacora-estudiante-encabezado__persona">
+      {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
+      <div>
+        <h1 class="page-header__title">{{ alumno }}</h1>
+        <p class="page-header__description">Número de control {{ alumno.referencia }}{% if inscripcion %} · {{ inscripcion.grupo }} · ciclo {{ inscripcion.ciclo }}{% else %} · sin inscripción en el ciclo actual{% endif %}</p>
+      </div>
+    </div>
+  </header>
+
+  <p class="bitacora-alcance text-muted">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} Las entradas en las que aparece este estudiante, con el grupo y la materia de cuando ocurrieron. Las observaciones generales del grupo no se le atribuyen.</p>
+
+  {% if ciclos|length > 1 or ciclo %}
+    <nav class="pills bitacora-ciclos" aria-label="Ciclo escolar">
+      <a class="pill{% if not ciclo %} is-active{% endif %}" href="{{ request.path }}"{% if not ciclo %} aria-current="page"{% endif %}>Todos los ciclos</a>
+      {% for c in ciclos %}
+        <a class="pill{% if ciclo == c %} is-active{% endif %}" href="?ciclo={{ c.pk }}"{% if ciclo == c %} aria-current="page"{% endif %}>{{ c }}</a>
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status"><strong>{{ pagina.paginator.count }}</strong> entrada{{ pagina.paginator.count|pluralize }} · <span class="tag bitacora-sello">{{ sello }}</span></p>
+    <ol class="bitacora-lista" aria-label="Entradas del estudiante">
+      {% for entrada in pagina %}
+        <li>{% include "bitacoras/_entrada.html" with mostrar_grupo="1" privado=True %}</li>
+      {% endfor %}
+    </ol>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango etiqueta="entradas" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <span class="empty-state__icon">{% include "partials/icon.html" with name="notebook-pen" icon_class="icon--lg" %}</span>
+        <h2 class="empty-state__title">Sin entradas de bitácora</h2>
+        <p class="empty-state__text">Todavía no hay observaciones que nombren a este estudiante{% if ciclo %} en el ciclo {{ ciclo }}{% endif %} dentro de tu alcance.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

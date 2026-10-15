@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Bitácoras por grupo (Bitacoras/views.lista): el historial de lo ocurrido en las clases, de lo más reciente a lo más
+  antiguo, con sus filtros. Elegido un grupo, es la bitácora de ese grupo. Las entradas son informativas: no afectan
+  calificaciones ni conducta.
+{% endcomment %}
+
+{% block title %}{% if grupo %}Bitácora de {{ grupo }}{% else %}Bitácoras por grupo{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/bitacoras.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  {% if grupo %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'bitacoras:lista' %}">Bitácoras por grupo</a></li>
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ grupo }}</span></li>
+  {% else %}
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Bitácoras por grupo</span></li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if grupo %}Bitácora de {{ grupo }}{% else %}Bitácoras por grupo{% endif %}</h1>
+      <p class="page-header__description">Lo ocurrido en cada clase, con los estudiantes implicados o como observación general del grupo. Son observaciones informativas y de seguimiento: no afectan calificaciones académicas ni de conducta.</p>
+    </div>
+    {% if puede_registrar %}
+      <div class="page-header__actions">
+        <a class="btn btn--primary" href="{{ url_nueva }}{% if '?' in url_nueva %}&amp;{% else %}?{% endif %}volver={{ volver|urlencode }}">
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Nueva entrada
+        </a>
+      </div>
+    {% endif %}
+  </header>
+
+  <p class="bitacora-alcance text-muted">{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Tu alcance: <strong>{{ alcance.descripcion }}</strong></p>
+
+  <form class="filters bitacora-filtros" method="get" role="search" aria-label="Filtrar la bitácora">
+    <div class="bitacora-filtros__fila">
+      <div class="filters__field">
+        <label class="field__label" for="{{ filtro.grupo.id_for_label }}">{{ filtro.grupo.label }}</label>
+        {{ filtro.grupo }}
+      </div>
+      <div class="filters__field">
+        <label class="field__label" for="{{ filtro.ciclo.id_for_label }}">{{ filtro.ciclo.label }}</label>
+        {{ filtro.ciclo }}
+      </div>
+      <div class="filters__field">
+        <label class="field__label" for="{{ filtro.materia.id_for_label }}">{{ filtro.materia.label }}</label>
+        {{ filtro.materia }}
+      </div>
+      <div class="filters__field">
+        <label class="field__label" for="{{ filtro.alumno.id_for_label }}">{{ filtro.alumno.label }}</label>
+        <select class="field__control field__control--select" name="alumno" id="{{ filtro.alumno.id_for_label }}"{% if not grupo and not filtro.alumno.value %} disabled title="Elige primero un grupo"{% endif %}>
+          <option value="">{% if grupo or filtro.alumno.value %}Todos los estudiantes{% else %}Elige primero un grupo{% endif %}</option>
+          {% for alumno in alumnos_del_filtro %}
+            <option value="{{ alumno.pk }}"{% if filtro.alumno.value|stringformat:"s" == alumno.pk|stringformat:"s" %} selected{% endif %}>{{ alumno }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filters__field bitacora-filtros__buscar">
+        <label class="field__label" for="{{ filtro.q.id_for_label }}">{{ filtro.q.label }}</label>
+        {{ filtro.q }}
+      </div>
+    </div>
+
+    <details class="bitacora-filtros__mas"{% if mas_filtros %} open{% endif %}>
+      <summary class="bitacora-filtros__resumen">
+        {% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Más filtros{% if mas_filtros %} <span class="pill__count">{{ mas_filtros }}</span>{% endif %}
+      </summary>
+      <div class="bitacora-filtros__fila">
+        <div class="filters__field">
+          <label class="field__label" for="{{ filtro.periodo.id_for_label }}">{{ filtro.periodo.label }}</label>
+          {{ filtro.periodo }}
+        </div>
+        <div class="filters__field">
+          <label class="field__label" for="{{ filtro.desde.id_for_label }}">Desde (fecha de la clase)</label>
+          {{ filtro.desde }}
+        </div>
+        <div class="filters__field">
+          <label class="field__label" for="{{ filtro.hasta.id_for_label }}">{{ filtro.hasta.label }}</label>
+          {{ filtro.hasta }}
+        </div>
+        <div class="filters__field">
+          <label class="field__label" for="{{ filtro.autor.id_for_label }}">{{ filtro.autor.label }}</label>
+          {{ filtro.autor }}
+        </div>
+        {% if filtro.registros %}
+          <div class="filters__field">
+            <label class="field__label" for="{{ filtro.registros.id_for_label }}">{{ filtro.registros.label }}</label>
+            {{ filtro.registros }}
+          </div>
+        {% endif %}
+      </div>
+    </details>
+
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar filtros</button>
+      <a class="btn btn--ghost btn--sm" href="{{ request.path }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if aviso %}
+    <div class="alert alert--warning alert--spaced" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>{{ aviso }}</p></div>
+    </div>
+  {% endif %}
+
+  {% if pagina.paginator.count %}
+    <p class="results-summary" role="status">
+      <strong>{{ totales.total }}</strong> entrada{{ totales.total|pluralize }}
+      · <strong>{{ totales.generales }}</strong> observaci{{ totales.generales|pluralize:"ón general,ones generales" }} del grupo
+      · <strong>{{ totales.estudiantes }}</strong> estudiante{{ totales.estudiantes|pluralize }} implicado{{ totales.estudiantes|pluralize }}
+    </p>
+    <ol class="bitacora-lista" aria-label="Entradas de la bitácora">
+      {% for entrada in pagina %}
+        <li>{% include "bitacoras/_entrada.html" with mostrar_grupo=grupo|yesno:"0,1" %}</li>
+      {% endfor %}
+    </ol>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango etiqueta="entradas" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <span class="empty-state__icon">{% include "partials/icon.html" with name="notebook-pen" icon_class="icon--lg" %}</span>
+        <h2 class="empty-state__title">{% if grupo %}La bitácora de {{ grupo }} no tiene entradas con estos filtros{% else %}Sin entradas con estos filtros{% endif %}</h2>
+        <p class="empty-state__text">Prueba con otro ciclo o quita filtros.{% if puede_registrar %} Durante o al terminar una clase, registra lo ocurrido con «Nueva entrada».{% endif %}</p>
+        {% if puede_registrar %}
+          <div class="empty-state__actions">
+            <a class="btn btn--primary" href="{{ url_nueva }}{% if '?' in url_nueva %}&amp;{% else %}?{% endif %}volver={{ volver|urlencode }}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Nueva entrada</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

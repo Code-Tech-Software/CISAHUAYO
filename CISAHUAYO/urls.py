@@ -35,6 +35,8 @@ urlpatterns = [
     path('prefectura/', include('Prefectura.urls')),
     # Calificaciones (calificaciones/…) y su configuración en Ajustes (ajustes/calificaciones/…)
     path('', include('Calificaciones.urls')),
+    # Bitácoras por grupo: observaciones informativas de cada clase (Bitacoras/alcance.py)
+    path('bitacoras/', include('Bitacoras.urls')),
     # Portales (cada uno con su propia sesión: CISAHUAYO/portales.py)
     path('portal/estudiantes/', include('PortalEstudiantes.urls')),
     path('portal/tutores/', include('PortalTutores.urls')),

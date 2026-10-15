@@ -1,6 +1,9 @@
 """Reportes de conducta: un solo `contenido` (mismos filtros y mismos conteos) para la vista previa, la hoja para
 imprimir o guardar en PDF y el libro de Excel. Cada incidente cuenta una vez aunque tenga varias medidas; los
 estudiantes involucrados se cuentan aparte; los anulados quedan fuera salvo que se pidan.
+
+Los reportes por grupo e individuales llevan además, por omisión, la sección «Observaciones de bitácora»
+(Bitacoras/reportes.py): se lee de las entradas originales, no se suma a ningún conteo de conducta y se puede excluir.
 """
 from django.utils import timezone
 
@@ -47,7 +50,8 @@ def construir(tipo, filtro, usuario, hoy=None, registros=None, titulos=None):
     else:
         contenido['suspensiones'] = reglas.suspensiones_de(registros, hoy)
         contenido['vacio'] = not contenido['suspensiones']
-    return contenido
+    from Bitacoras.reportes import agregar_a
+    return agregar_a(contenido, tipo, filtro, usuario, grupal=Tipos.GRUPO, individual=Tipos.HISTORIAL)
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +144,15 @@ def hojas(contenido):
         for titulo, columna, datos in (('Por categoría', 'Categoría', totales['categorias']), ('Por motivo', 'Motivo', totales['motivos']),
                                        ('Por gravedad', 'Gravedad', totales['gravedades'])):
             filas_totales += [[Celda(titulo, SECCION)], _titulos(columna, 'Registros'), *[[n, t] for n, t in datos], []]
-        return [Hoja('Registros', filas, anchos=ANCHOS_DE_REGISTRO), Hoja('Totales', filas_totales, anchos=[40, 12])]
+        libro = [Hoja('Registros', filas, anchos=ANCHOS_DE_REGISTRO), Hoja('Totales', filas_totales, anchos=[40, 12])]
+        if contenido.get('bitacora_incluida'):
+            from Bitacoras import reportes as bitacoras
+            filas_bitacora = _encabezado(contenido) + [
+                [Celda(bitacoras.TITULO, SECCION)], [contenido['bitacora_sello']], ['Observaciones de bitácora', len(contenido['bitacora'])], [],
+                _titulos(*bitacoras.TITULOS_GRUPALES), *[bitacoras.fila_grupal(e) for e in contenido['bitacora']],
+            ]
+            libro.append(Hoja('Bitácora', filas_bitacora, anchos=bitacoras.ANCHOS_GRUPALES))
+        return libro
 
     if tipo == Tipos.HISTORIAL:
         filas = _encabezado(contenido)
@@ -158,6 +170,10 @@ def hojas(contenido):
                     r.fecha, reglas.NOMBRE_DE_TIPO[r.tipo], r.categoria_nombre, r.motivo_nombre, reglas.NOMBRE_DE_GRAVEDAD.get(r.gravedad, ''),
                     r.descripcion, _medidas(r), _suspension_texto(r), r.acuerdos, r.get_estado_display(), contactos, 'Anulado' if r.anulado else '',
                 ])
+            if contenido.get('bitacora_incluida'):
+                from Bitacoras import reportes as bitacoras
+                filas += [[], [Celda(f"{bitacoras.TITULO} ({len(historial['bitacora'])})", SECCION)], [contenido['bitacora_sello']],
+                          _titulos(*bitacoras.TITULOS_INDIVIDUALES), *[bitacoras.fila_individual(e) for e in historial['bitacora']]]
             filas.append([])
         return [Hoja('Historial', filas, anchos=[11, 16, 22, 26, 11, 50, 28, 30, 40, 15, 50, 9])]
 

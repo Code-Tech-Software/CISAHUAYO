@@ -197,6 +197,18 @@ MODULOS = (
             'editar': 'Editar rubros, porcentajes y reglas, y activar la configuración.',
         }),
     )),
+    Modulo('bitacoras', 'Bitácoras por grupo', 'notebook-pen', 'Observaciones informativas de lo ocurrido en cada clase, por grupo y por estudiante (no afectan calificaciones ni conducta).', (
+        Funcion('Bitácora de sus clases', {'crear': 'Bitacoras.registrar'}, etiquetas={'crear': 'Registrar'}, ayuda={
+            'crear': 'Un docente registra y consulta las entradas de los grupos y materias que tiene asignados, y edita o anula las suyas.',
+        }),
+        Funcion('Bitácoras de todos los grupos', {'ver': 'Bitacoras.consultar_todas', 'crear': 'Bitacoras.registrar_todas', 'editar': 'Bitacoras.gestionar'},
+                etiquetas={'editar': 'Gestionar'}, ayuda={
+            'ver': 'Consultar la bitácora de cualquier grupo y el historial de cualquier estudiante de su alcance: una cuenta de prefectura, '
+                   'el suyo; otra cuenta, los «Niveles que coordina» de su ficha (sin niveles, todo el colegio).',
+            'crear': 'Registrar entradas en cualquier grupo y materia de su alcance (y editar o anular las propias).',
+            'editar': 'Editar o anular entradas de otros usuarios de su alcance y consultar las anuladas (auditoría).',
+        }),
+    )),
     Modulo('conducta', 'Conducta', 'flag', 'El registro de conducta de los estudiantes, sus reportes y los catálogos de cada nivel.', (
         Funcion('Registro de conducta', _permisos('registroconducta', app='Conducta'), etiquetas={'baja': 'Anular'}, ayuda={
             'ver': 'Consultar la conducta de todo el colegio, sus evidencias, los pendientes y los reportes (imprimir, PDF y Excel).',

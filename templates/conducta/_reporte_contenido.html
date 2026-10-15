@@ -115,6 +115,9 @@
       <p class="text-muted">Sin registros con esos filtros.</p>
     {% endif %}
   </section>
+  {% if contenido.bitacora_incluida %}
+    {% include "bitacoras/_reporte_conducta.html" with entradas=contenido.bitacora grupal=True %}
+  {% endif %}
 
 {% elif contenido.tipo == 'historial' %}
   {% if contenido.sin_estudiantes %}
@@ -143,6 +146,9 @@
         </ol>
       {% else %}
         <p class="text-muted">Sin registros con esos filtros.</p>
+      {% endif %}
+      {% if contenido.bitacora_incluida %}
+        {% include "bitacoras/_reporte_conducta.html" with entradas=historial.bitacora grupal=False %}
       {% endif %}
     </section>
   {% endfor %}

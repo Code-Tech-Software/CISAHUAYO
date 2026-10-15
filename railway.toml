@@ -1,0 +1,6 @@
+# Configuración de despliegue en Railway (tiene prioridad sobre la del panel de Railway).
+# La mensajería en tiempo real usa WebSockets: el sistema debe servirse con daphne (ASGI, CISAHUAYO/asgi.py), no con
+# gunicorn (WSGI), que solo atiende HTTP y responde 404 a /ws/mensajes/. --proxy-headers: daphne confía en el proxy de
+# Railway para saber que la conexión es HTTPS y la IP real de quien se conecta.
+[deploy]
+startCommand = "sh -c 'python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${PORT:-8000} --proxy-headers CISAHUAYO.asgi:application'"

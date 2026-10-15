@@ -1,0 +1,38 @@
+{% comment %}
+  Menú de la cuenta en los portales (como partials/user_menu.html del sistema): quién entró, su tipo de cuenta y cerrar
+  sesión. Recibe `portal` (CISAHUAYO.portales.contexto).
+{% endcomment %}
+<div class="menu" data-menu>
+  <button type="button" class="user-trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-usuario" aria-label="Menú de la cuenta, {{ portal.cuenta.nombre_completo }} ({{ portal.rotulo }})">
+    {% include "partials/avatar.html" with persona=portal.cuenta extra="avatar--ring" %}
+    <span class="user-trigger__text" aria-hidden="true">
+      <span class="user-trigger__name">{{ portal.cuenta.nombre_completo }}</span>
+      <span class="user-trigger__role">{{ portal.rotulo }}</span>
+    </span>
+    {% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm user-trigger__chevron" %}
+  </button>
+  <div class="menu__panel" id="menu-usuario" data-menu-panel hidden>
+    <div class="menu__header">
+      <p class="menu__title">{{ portal.cuenta.nombre_completo }}</p>
+      <p class="menu__subtitle">{{ portal.rotulo }} · {{ portal.nombre }}</p>
+    </div>
+    <div class="menu__separator"></div>
+    <ul class="menu__list">
+      <li>
+        <a class="menu__item" href="{{ portal.inicio }}">
+          {% include "partials/icon.html" with name="layout-dashboard" %}
+          Inicio
+        </a>
+      </li>
+      <li>
+        <form method="post" action="{{ portal.salir }}">
+          {% csrf_token %}
+          <button type="submit" class="menu__item menu__item--danger">
+            {% include "partials/icon.html" with name="log-out" %}
+            Cerrar sesión
+          </button>
+        </form>
+      </li>
+    </ul>
+  </div>
+</div>

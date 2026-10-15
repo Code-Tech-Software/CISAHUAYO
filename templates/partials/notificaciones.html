@@ -1,0 +1,48 @@
+{% comment %}
+  La campana de notificaciones de la barra superior (en el sistema y en los portales). Muestra los avisos de la
+  mensajería: quién escribió, una vista previa y cuántos mensajes sin leer; cada aviso abre la conversación.
+  static/js/avisos.js la mantiene al día en tiempo real (WebSocket en mensajeria.ws), reproduce el aviso en pantalla y,
+  si se permitió, envía el aviso del navegador. Datos: procesador de contexto «mensajeria» (Mensajes/context_processors.py).
+{% endcomment %}
+<div class="menu menu--wide notificaciones" data-menu{% if mensajeria.activa %} data-notificaciones data-ws="{{ mensajeria.ws }}" data-resumen-url="{{ mensajeria.url_resumen }}" data-bandeja-url="{{ mensajeria.url_bandeja }}"{% endif %}>
+  <button type="button" class="btn btn--ghost btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-notificaciones" data-tooltip="Notificaciones"
+          aria-label="Notificaciones{% if mensajeria.no_leidos %}, {{ mensajeria.no_leidos }} mensaje{{ mensajeria.no_leidos|pluralize }} sin leer{% endif %}" data-notificaciones-boton>
+    {% include "partials/icon.html" with name="bell" %}
+    <span class="badge topbar__badge" aria-hidden="true" data-notificaciones-total{% if not mensajeria.no_leidos %} hidden{% endif %}>{{ mensajeria.no_leidos }}</span>
+  </button>
+  <div class="menu__panel notificaciones__panel" id="menu-notificaciones" data-menu-panel hidden>
+    <div class="menu__header notificaciones__encabezado">
+      <p class="menu__title">Notificaciones</p>
+      {% if mensajeria.activa %}<a class="notificaciones__todo" href="{{ mensajeria.url_bandeja }}">Ver mensajes</a>{% endif %}
+    </div>
+    <div class="menu__separator"></div>
+    <ul class="notificaciones__lista" data-notificaciones-lista aria-label="Mensajes sin leer"{% if not mensajeria.avisos %} hidden{% endif %}>
+      {% for aviso in mensajeria.avisos %}
+        <li data-aviso-conversacion="{{ aviso.conversacion }}">
+          <a class="aviso" href="{{ aviso.url }}">
+            <span class="avatar avatar--sm aviso__avatar" aria-hidden="true">{{ aviso.iniciales }}</span>
+            <span class="aviso__texto">
+              <span class="aviso__fila"><span class="aviso__nombre">{{ aviso.nombre }}</span><span class="aviso__hora">{{ aviso.hora }}</span></span>
+              <span class="aviso__vista">{{ aviso.vista_previa }}</span>
+            </span>
+            <span class="aviso__conteo" aria-label="{{ aviso.no_leidos }} sin leer">{{ aviso.no_leidos }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+    <div class="empty-state notificaciones__vacio" data-notificaciones-vacio{% if mensajeria.avisos %} hidden{% endif %}>
+      {% include "partials/icon.html" with name="inbox" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">Estás al día</p>
+      <p class="empty-state__text">No tienes mensajes nuevos.</p>
+    </div>
+    {% if mensajeria.activa %}
+      {# Solo aparece si el navegador permite avisos y todavía no se ha decidido (static/js/avisos.js) #}
+      <div class="notificaciones__permiso" data-notificaciones-permiso hidden>
+        <p>Recibe un aviso del navegador cuando te llegue un mensaje, aunque estés en otra pestaña.</p>
+        <button type="button" class="btn btn--sm btn--primary" data-notificaciones-activar>
+          {% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Activar avisos del navegador
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</div>

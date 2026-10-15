@@ -1,0 +1,150 @@
+{% extends base %}
+{% load static %}
+{% comment %}
+  Mensajería (Mensajes/views.py): a la izquierda las conversaciones y la búsqueda de personas; a la derecha la
+  conversación abierta, su historial y el campo para escribir. Es la misma pantalla en el sistema y en los portales
+  (`base` y `espacio` cambian). static/js/mensajes.js la mantiene al día en tiempo real con los eventos de avisos.js y
+  envía sin recargar; sin JavaScript también funciona (formularios normales).
+{% endcomment %}
+
+{% block title %}{% if conversacion and otro %}{{ otro.nombre }} · {% endif %}Mensajes | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/mensajes.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
+  {% if conversacion %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ urls.inicio }}">Mensajes</a></li>
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ otro.nombre|default:"Conversación" }}</span></li>
+  {% else %}
+    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Mensajes</span></li>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="chat{% if conversacion %} chat--abierta{% endif %}" data-chat data-yo="{{ yo.pk }}"
+       data-contactos-url="{{ urls.contactos }}" data-nueva-url="{{ urls.nueva }}"
+       {% if conversacion %}data-conversacion="{{ conversacion.pk }}" data-enviar-url="{{ url_enviar }}" data-leida-url="{{ url_leida }}"{% endif %}>
+    {% csrf_token %}
+
+    {# --- Conversaciones y búsqueda ------------------------------------------------------------------- #}
+    <aside class="chat__lista" aria-label="Conversaciones">
+      <header class="chat__lista-encabezado">
+        <h1 class="chat__titulo">Mensajes</h1>
+      </header>
+      <form class="chat__buscar" method="get" action="{{ urls.inicio }}" role="search">
+        {% include "partials/icon.html" with name="search" icon_class="chat__buscar-icono" %}
+        <input class="field__control" type="search" name="q" value="{{ busqueda }}" placeholder="Buscar o empezar una conversación…"
+               aria-label="Buscar a una persona o una conversación" autocomplete="off" data-chat-buscar>
+      </form>
+
+      <section class="chat__personas" aria-label="Personas a las que puedes escribir" data-chat-personas{% if contactos is None %} hidden{% endif %}>
+        <h2 class="chat__subtitulo">Escribir a…</h2>
+        <ul class="chat__personas-lista" data-chat-personas-lista>
+          {% for contacto in contactos %}
+            <li>
+              <form method="post" action="{{ urls.nueva }}">
+                {% csrf_token %}
+                <button type="submit" class="chat-persona" name="destinatario" value="{{ contacto.clave }}">
+                  <span class="avatar avatar--sm chat-persona__avatar chat-persona__avatar--{{ contacto.tipo|lower }}" aria-hidden="true">{{ contacto.iniciales }}</span>
+                  <span class="chat-persona__texto"><span class="chat-persona__nombre">{{ contacto.nombre }}</span><span class="chat-persona__detalle">{{ contacto.detalle }}</span></span>
+                </button>
+              </form>
+            </li>
+          {% empty %}
+            <li class="chat__nadie">Nadie coincide con «{{ busqueda }}» entre las personas a las que puedes escribir.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <ul class="chat__conversaciones" data-chat-conversaciones aria-label="Tus conversaciones">
+        {% for item in bandeja %}
+          <li data-conversacion-item="{{ item.pk }}" data-texto="{{ item.otro.nombre|lower }}">
+            <a class="chat-item{% if conversacion and conversacion.pk == item.pk %} is-actual{% endif %}{% if item.no_leidos %} is-sin-leer{% endif %}" href="{% url espacio|add:':conversacion' item.pk %}"{% if conversacion and conversacion.pk == item.pk %} aria-current="page"{% endif %}>
+              <span class="avatar chat-item__avatar chat-persona__avatar--{{ item.otro.tipo|lower }}" aria-hidden="true">{{ item.otro.iniciales }}</span>
+              <span class="chat-item__texto">
+                <span class="chat-item__fila">
+                  <span class="chat-item__nombre">{{ item.otro.nombre }}</span>
+                  <time class="chat-item__hora" datetime="{{ item.actualizada|date:'c' }}" data-chat-item-hora>{% if item.actualizada|date:"Y-m-d" == hoy_iso %}{{ item.actualizada|time:"H:i" }}{% else %}{{ item.actualizada|date:"d/m" }}{% endif %}</time>
+                </span>
+                <span class="chat-item__fila">
+                  <span class="chat-item__vista" data-chat-item-vista>{% if item.mio %}Tú: {% endif %}{{ item.ultimo_mensaje.texto|truncatechars:80 }}</span>
+                  <span class="chat-item__conteo" data-chat-item-conteo aria-label="{{ item.no_leidos }} sin leer"{% if not item.no_leidos %} hidden{% endif %}>{{ item.no_leidos }}</span>
+                </span>
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="chat__vacio" data-chat-sin-conversaciones{% if bandeja %} hidden{% endif %}>
+        {% include "partials/icon.html" with name="message-circle" icon_class="icon--lg" %}
+        <p>Todavía no tienes conversaciones. Busca a una persona para escribirle.</p>
+      </div>
+    </aside>
+
+    {# --- Conversación abierta --------------------------------------------------------------------- #}
+    <section class="chat__hilo" aria-label="{% if conversacion %}Conversación con {{ otro.nombre }}{% else %}Conversación{% endif %}">
+      {% if conversacion %}
+        <header class="chat__hilo-encabezado">
+          <a class="btn btn--ghost btn--icon chat__volver" href="{{ urls.inicio }}" aria-label="Volver a las conversaciones">{% include "partials/icon.html" with name="arrow-left" %}</a>
+          <span class="avatar chat-persona__avatar--{{ otro.tipo|lower }}" aria-hidden="true">{{ otro.iniciales }}</span>
+          <div class="chat__hilo-quien">
+            <h2 class="chat__hilo-nombre">{{ otro.nombre }}</h2>
+            <p class="chat__hilo-detalle">{{ descripcion_otro }}</p>
+          </div>
+        </header>
+
+        <div class="chat__mensajes" data-chat-mensajes tabindex="0" role="log" aria-live="polite" aria-label="Mensajes">
+          {% if hay_anteriores %}
+            <p class="chat__anteriores"><a class="btn btn--sm btn--ghost" href="?antes={{ primero }}">Ver mensajes anteriores</a></p>
+          {% endif %}
+          {% for mensaje in mensajes %}
+            {% ifchanged mensaje.dia %}<p class="chat__dia" data-chat-dia="{{ mensaje.creado|date:'Y-m-d' }}"><span>{{ mensaje.dia }}</span></p>{% endifchanged %}
+            <div class="burbuja{% if mensaje.mio %} burbuja--mia{% endif %}" id="mensaje-{{ mensaje.pk }}" data-mensaje="{{ mensaje.pk }}">
+              <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
+              <p class="burbuja__pie">
+                <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|time:"H:i" }}</time>
+                {% if mensaje.mio %}
+                  <span class="burbuja__estado{% if mensaje.leido %} is-leido{% endif %}" data-estado>
+                    {% if mensaje.leido %}{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %}<span class="visually-hidden">Leído</span>{% else %}{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}<span class="visually-hidden">Enviado</span>{% endif %}
+                  </span>
+                {% endif %}
+              </p>
+            </div>
+          {% empty %}
+            <p class="chat__inicio-conversacion" data-chat-sin-mensajes>Aún no hay mensajes. Escribe el primero.</p>
+          {% endfor %}
+        </div>
+
+        {% if puede_escribir %}
+          <form class="chat__escribir" method="post" action="{{ url_enviar }}" data-chat-formulario data-no-busy>
+            {% csrf_token %}
+            <label class="visually-hidden" for="texto-mensaje">Mensaje para {{ otro.nombre }}</label>
+            <textarea class="field__control chat__campo" id="texto-mensaje" name="texto" rows="1" maxlength="{{ maximo }}" required
+                      placeholder="Escribe un mensaje…" data-chat-campo></textarea>
+            <button type="submit" class="btn btn--primary btn--icon chat__enviar" aria-label="Enviar" data-tooltip="Enviar (Intro)">
+              {% include "partials/icon.html" with name="send" %}
+            </button>
+          </form>
+          <p class="chat__error" role="alert" data-chat-error hidden></p>
+        {% else %}
+          <p class="chat__cerrada">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Ya no puedes escribir en esta conversación (la cuenta está inactiva o ya no tienen relación escolar). El historial se conserva.</p>
+        {% endif %}
+      {% else %}
+        <div class="chat__nada">
+          {% include "partials/icon.html" with name="message-circle" icon_class="chat__nada-icono" %}
+          <h2>Tus mensajes</h2>
+          <p>Elige una conversación o busca a una persona para escribirle. Los mensajes llegan al momento, sin recargar la página.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/mensajes.js' %}" defer></script>
+{% endblock %}

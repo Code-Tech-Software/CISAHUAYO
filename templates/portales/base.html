@@ -1,72 +1,32 @@
-{% load static %}<!DOCTYPE html>
+{% extends "base.html" %}
+{% load static %}
 {% comment %}
-  Base de los portales de estudiantes y de tutores (PortalEstudiantes, PortalTutores). Sin el menú del sistema: una
-  barra con el escudo, el nombre del portal, quién entró y el botón para cerrar sesión. Con la paleta Corporate, como la
-  pantalla de acceso. Recibe `portal` (CISAHUAYO.portales.contexto).
-  Estilos: static/css/portales.css (más app.css, temas.css y academico.css para el horario) · script: static/js/app.js
-  (avisos, tema claro/oscuro). Bloques: titulo (pestaña), contenido.
+  Base de los portales de estudiantes y de tutores (PortalEstudiantes, PortalTutores): la misma estructura que el
+  sistema (menú lateral, barra superior con notificaciones y menú de la cuenta), con la paleta Corporate, el menú del
+  portal (`navegacion` y `portal`, de CISAHUAYO.portales.contexto) y sin el buscador de comandos del personal.
+  Las páginas usan los bloques de base.html: title, breadcrumbs, extra_head ({{ block.super }} conserva los estilos
+  del portal), content y extra_js.
 {% endcomment %}
-<html lang="es" data-tema="corporate">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#555663">
-  <title>{% block titulo %}Inicio{% endblock %} · {{ portal.nombre }} | CISAHUAYO</title>
-  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+
+{% block tema %}corporate{% endblock %}
+{% block atributos_html %}{% endblock %}
+{% block color_tema %}#555663{% endblock %}
+{% block fuentes %}<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">{% endblock %}
+
+{% block title %}Inicio · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
   <link rel="stylesheet" href="{% static 'css/portales.css' %}">
-  <script src="{% static 'js/preload.js' %}"></script>
-</head>
-<body class="portal-page">
-  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+{% endblock %}
 
-  <header class="portal-bar">
-    <div class="portal-bar__inner">
-      <a class="portal-bar__brand" href="{{ portal.inicio }}">
-        <span class="portal-bar__logo"><img src="{% static 'img/logointer.svg' %}" alt="" width="20" height="22"></span>
-        <span class="portal-bar__names">
-          <span class="portal-bar__school">Colegio Interamericano de Sahuayo</span>
-          <span class="portal-bar__portal">{{ portal.nombre }}</span>
-        </span>
-      </a>
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Inicio</span></li>
+{% endblock %}
 
-      <div class="portal-bar__end">
-        <button type="button" class="btn btn--ghost btn--icon theme-toggle portal-bar__icon-btn" data-theme-toggle aria-pressed="false" aria-label="Tema oscuro" data-tooltip="Tema oscuro">
-          {% include "partials/icon.html" with name="moon" icon_class="theme-toggle__moon" %}
-          {% include "partials/icon.html" with name="sun" icon_class="theme-toggle__sun" %}
-        </button>
-        <div class="portal-user">
-          {% include "partials/avatar.html" with persona=portal.cuenta tamano="sm" %}
-          <span class="portal-user__text">
-            <span class="portal-user__name">{{ portal.cuenta.nombre_completo }}</span>
-            <span class="portal-user__role">{{ portal.rotulo }}</span>
-          </span>
-        </div>
-        <form method="post" action="{{ portal.salir }}">
-          {% csrf_token %}
-          <button type="submit" class="btn btn--sm portal-bar__salir" aria-label="Cerrar sesión">
-            {% include "partials/icon.html" with name="log-out" icon_class="icon--sm" %}<span class="portal-bar__salir-texto">Cerrar sesión</span>
-          </button>
-        </form>
-      </div>
-    </div>
-  </header>
+{% block buscador %}{% endblock %}
+{% block paleta %}{% endblock %}
 
-  <main class="portal" id="contenido">
-    {% block contenido %}{% endblock %}
-  </main>
+{% block menu_usuario %}{% include "portales/_menu_usuario.html" %}{% endblock %}
 
-  <footer class="portal-foot">
-    <p>© {% now "Y" %} Colegio Interamericano de Sahuayo · {{ portal.nombre }}</p>
-    <p>¿Ves algún dato incorrecto? Acude a control escolar.</p>
-  </footer>
-
-  {% include "partials/messages.html" %}
-  <script src="{% static 'js/app.js' %}" defer></script>
-</body>
-</html>
+{% block pie %}{{ portal.nombre }} · ¿Ves algún dato incorrecto? Acude a control escolar.{% endblock %}

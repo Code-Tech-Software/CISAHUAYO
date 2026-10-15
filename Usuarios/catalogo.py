@@ -197,6 +197,16 @@ MODULOS = (
             'editar': 'Editar rubros, porcentajes y reglas, y activar la configuración.',
         }),
     )),
+    Modulo('mensajes', 'Mensajes', 'message-circle', 'Conversaciones en tiempo real entre el personal, los docentes, los estudiantes y los tutores.', (
+        Funcion('Mensajería', {'crear': 'Mensajes.usar'}, etiquetas={'crear': 'Usar'}, ayuda={
+            'crear': 'Conversar con otros usuarios del sistema. Un docente, además, con los estudiantes de los grupos donde imparte '
+                     'clase y con sus tutores.',
+        }),
+        Funcion('Atención a estudiantes y familias', {'crear': 'Mensajes.contactar_familias'}, etiquetas={'crear': 'Atender'}, ayuda={
+            'crear': 'Escribir a cualquier estudiante o tutor y aparecer entre los contactos de todos ellos (una cuenta de '
+                     'prefectura, solo los de su alcance).',
+        }),
+    )),
     Modulo('bitacoras', 'Bitácoras por grupo', 'notebook-pen', 'Observaciones informativas de lo ocurrido en cada clase, por grupo y por estudiante (no afectan calificaciones ni conducta).', (
         Funcion('Bitácora de sus clases', {'crear': 'Bitacoras.registrar'}, etiquetas={'crear': 'Registrar'}, ayuda={
             'crear': 'Un docente registra y consulta las entradas de los grupos y materias que tiene asignados, y edita o anula las suyas.',

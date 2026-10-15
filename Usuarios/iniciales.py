@@ -13,7 +13,7 @@ from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
 ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias',
-             'calificaciones', 'bitacoras', 'conducta')
+             'calificaciones', 'bitacoras', 'conducta', 'mensajes')
 
 
 def _direccion():
@@ -27,6 +27,7 @@ def _control_escolar():
         | {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.view_justificacion'}
         | {'Conducta.view_registroconducta', 'Conducta.add_registroconducta', 'Conducta.change_registroconducta'}
         | permisos_de_modulos('calificaciones', solo=('ver',))
+        | {'Mensajes.usar', 'Mensajes.contactar_familias'}
     )
 
 
@@ -36,6 +37,7 @@ def _docente():
         | {'Alumnos.view_asistenciamateria', 'Alumnos.change_asistenciamateria', 'Alumnos.view_justificacion'}
         | {'Calificaciones.capturar', 'Calificaciones.cerrar'}
         | {'Bitacoras.registrar'}
+        | {'Mensajes.usar'}
     )
 
 
@@ -44,19 +46,21 @@ def _coordinacion():
     return (
         permisos_de_modulos('alumnos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
+        | {'Mensajes.usar'}
     )
 
 
 def _recepcion():
     return {
         'Alumnos.view_alumno', 'Alumnos.add_asistenciageneral', 'Alumnos.view_asistenciageneral',
-        'Alumnos.view_justificacion',
+        'Alumnos.view_justificacion', 'Mensajes.usar',
     }
 
 
 def _prefectura():
     # Corregir lo de otros y los casos cerrados (Prefectura.corregir_otros) lo concede el administrador si quiere
-    return (permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
+    return ((permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
+            | {'Mensajes.usar', 'Mensajes.contactar_familias'})
 
 
 # nombre, descripción, color, permisos

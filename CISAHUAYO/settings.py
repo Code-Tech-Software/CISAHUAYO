@@ -36,6 +36,8 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
+    # Servidor ASGI (Django Channels): `runserver` y producción atienden también los WebSockets de la mensajería
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -69,6 +71,8 @@ INSTALLED_APPS = [
     # Portales de estudiantes y de tutores: sus cuentas son los propios Alumno y Tutor (CISAHUAYO/portales.py)
     'PortalEstudiantes',
     'PortalTutores',
+    # Mensajería interna en tiempo real (Django Channels + Redis): Mensajes/
+    'Mensajes',
 ]
 
 MIDDLEWARE = [
@@ -113,12 +117,15 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'CISAHUAYO.context_processors.navegacion',
                 'CISAHUAYO.context_processors.apariencia',
+                'Mensajes.context_processors.mensajeria',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'CISAHUAYO.wsgi.application'
+# Mensajería en tiempo real: el sistema se sirve con ASGI (daphne, ver Procfile) para atender los WebSockets
+ASGI_APPLICATION = 'CISAHUAYO.asgi.application'
 
 # Las vistas protegidas redirigen aquí cuando no hay sesión. Cámbialo por tu propio login cuando exista.
 LOGIN_URL = 'admin:login'
@@ -134,10 +141,10 @@ DATABASES = {
 }
 
 # DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
+#   'default': {
+#      'ENGINE': 'django.db.backends.sqlite3',
+#     'NAME': BASE_DIR / 'db.sqlite3',
+# }
 # }
 
 # Password validation
@@ -183,3 +190,25 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# Mensajería en tiempo real (Django Channels). Los mensajes se guardan en la base de datos; Redis solo reparte los avisos
+# entre los procesos del servidor. La dirección está en la variable de entorno REDIS_URL (.env en local, variables de
+# Railway en producción): nunca en el código. Sin REDIS_URL, o al correr las pruebas, la capa es en memoria (un proceso).
+import hashlib
+import sys
+
+_REDIS_URL = os.getenv('REDIS_URL', '')
+if _REDIS_URL and 'test' not in sys.argv:
+    # Cada entorno (cada base de datos) usa su propio prefijo: si dos comparten el mismo Redis (el local y el de
+    # Railway), los avisos de uno nunca llegan a las personas conectadas al otro.
+    _base = DATABASES['default']
+    _entorno = hashlib.sha256(
+        f"{_base.get('ENGINE')}|{_base.get('HOST') or ''}|{_base.get('NAME')}".encode()).hexdigest()[:12]
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {'hosts': [_REDIS_URL], 'prefix': f'cisahuayo:{_entorno}'},
+        },
+    }
+else:
+    CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}

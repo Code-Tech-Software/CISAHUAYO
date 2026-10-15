@@ -161,19 +161,51 @@ def saludo(hora):
     return 'Buenos días' if hora.hour < 12 else ('Buenas tardes' if hora.hour < 19 else 'Buenas noches')
 
 
+def _elemento(etiqueta, icono, url, activo, **extra):
+    return {'etiqueta': etiqueta, 'icono': icono, 'url': url, 'disponible': True, 'activo': activo, **extra}
+
+
+def navegacion(request, tipo, cuenta):
+    """El menú lateral del portal, con el mismo formato que el del sistema (CISAHUAYO.context_processors): Inicio,
+    Mensajes (con los no leídos) y, para un tutor, cada uno de sus estudiantes."""
+    inicio = reverse(INICIO[tipo])
+    mensajes = reverse(f'{INICIO[tipo].split(":")[0]}:mensajes:inicio')
+    secciones = [{'titulo': None, 'elementos': [
+        _elemento('Inicio', 'layout-dashboard', inicio, request.path == inicio),
+        _elemento('Mensajes', 'message-circle', mensajes, request.path.startswith(mensajes), contador='mensajes'),
+    ]}]
+    if tipo == TUTOR:
+        from Alumnos.models import TutorAlumno
+        estudiantes = []
+        for vinculo in TutorAlumno.objects.filter(tutor=cuenta, activo=True).select_related('alumno').order_by('alumno__nombre'):
+            url = reverse('portal_tutores:estudiante', args=[vinculo.alumno_id])
+            estudiantes.append(_elemento(vinculo.alumno.nombre_completo, 'graduation-cap', url, request.path == url))
+        if estudiantes:
+            secciones.append({'titulo': 'Mis estudiantes', 'elementos': estudiantes})
+    return secciones
+
+
 def contexto(request):
-    """Lo que usa la base de los portales (templates/portales/base.html): de qué portal es y quién entró."""
+    """Lo que usa la base de los portales (templates/portales/base.html): de qué portal es, quién entró y su menú."""
     tipo, cuenta = request.cuenta_portal_tipo, request.cuenta_portal
-    return {'portal': {
-        'tipo': tipo, 'nombre': NOMBRE[tipo], 'rotulo': ROTULO[tipo], 'cuenta': cuenta,
-        'inicio': reverse(INICIO[tipo]), 'salir': reverse(SALIR[tipo]), 'saludo': saludo(timezone.localtime()),
-    }}
+    return {
+        'portal': {
+            'tipo': tipo, 'nombre': NOMBRE[tipo], 'rotulo': ROTULO[tipo], 'cuenta': cuenta,
+            'inicio': reverse(INICIO[tipo]), 'salir': reverse(SALIR[tipo]), 'saludo': saludo(timezone.localtime()),
+        },
+        'navegacion': navegacion(request, tipo, cuenta),
+    }
 
 
 def sesion(request):
     """(tipo, cuenta) de la sesión del portal vigente, o (None, None). Una cuenta que ya no puede entrar (baja,
     acceso desactivado, contraseña restablecida) ya no tiene sesión."""
-    datos = request.session.get(CLAVE_DE_SESION)
+    return sesion_de(request.session)
+
+
+def sesion_de(sesion_django):
+    """Lo mismo que `sesion`, a partir de la sesión de Django (también la de un WebSocket: scope['session'])."""
+    datos = sesion_django.get(CLAVE_DE_SESION)
     if not isinstance(datos, dict) or datos.get('tipo') not in (ESTUDIANTE, TUTOR):
         return None, None
     tipo = datos['tipo']

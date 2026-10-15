@@ -4,13 +4,14 @@
   suyo (portales/_estudiante.html). Recibe lo de PortalEstudiantes/resumen.py y `vinculo`.
 {% endcomment %}
 
-{% block titulo %}{{ alumno.nombre_completo }}{% endblock %}
+{% block title %}{{ alumno.nombre_completo }} · {{ portal.nombre }} | CISAHUAYO{% endblock %}
 
-{% block contenido %}
-  <a class="portal-back" href="{{ portal.inicio }}">
-    {% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Tus estudiantes
-  </a>
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno.nombre_completo }}</span></li>
+{% endblock %}
 
+{% block content %}
   <header class="portal-hero">
     {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
     <div class="portal-hero__text">

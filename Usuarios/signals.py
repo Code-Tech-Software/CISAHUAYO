@@ -30,4 +30,11 @@ def crear_roles_iniciales(sender, **kwargs):
     # Una migración parcial (p. ej. `migrate Alumnos`) puede dejar esta app sin sus tablas
     if Rol._meta.db_table not in connections[using].introspection.table_names():
         return
+    # Los permisos de las apps que van después de Usuarios en INSTALLED_APPS (Mensajes, los portales…) todavía no se
+    # crean en este punto: se crean ya, para que los roles de arranque los reciban
+    from django.apps import apps
+    from django.contrib.auth.management import create_permissions
+    for app_config in apps.get_app_configs():
+        if app_config.models_module is not None:
+            create_permissions(app_config, verbosity=0, using=using)
     crear()

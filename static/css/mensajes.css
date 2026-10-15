@@ -1,0 +1,499 @@
+/* ==========================================================================
+   CISAHUAYO · Mensajería (templates/mensajes/bandeja.html), en el sistema y en los portales
+   Dos paneles: las conversaciones (con la búsqueda de personas) y la conversación abierta, que se desplaza por dentro.
+   En pantallas angostas se ve uno a la vez (la conversación, cuando hay una abierta). Sin degradados.
+   ========================================================================== */
+.chat {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  height: clamp(28rem, calc(100dvh - 11rem), 52rem);
+  overflow: hidden;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* --- Conversaciones ----------------------------------------------------------------------------------- */
+.chat__lista {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: var(--border);
+  background: var(--color-surface);
+}
+
+.chat__lista-encabezado {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.chat__titulo {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.chat__buscar {
+  position: relative;
+  margin: 0 var(--space-4) var(--space-3);
+}
+
+.chat__buscar .field__control {
+  padding-left: var(--space-10);
+}
+
+.chat__buscar-icono {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.chat__subtitulo {
+  margin: 0 var(--space-4) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.chat__personas {
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border);
+}
+
+.chat__personas-lista,
+.chat__conversaciones {
+  margin: 0;
+  padding: 0 var(--space-2);
+  list-style: none;
+}
+
+.chat__personas-lista {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.chat__personas-lista form {
+  margin: 0;
+}
+
+.chat__nadie {
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.chat-persona {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-persona:hover,
+.chat-persona:focus-visible {
+  background: var(--color-surface-hover);
+}
+
+.chat-persona__texto {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.chat-persona__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-persona__detalle {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* El color del avatar según la clase de cuenta */
+.chat-persona__avatar--sistema {
+  --avatar-tone: var(--color-primary-text);
+  --avatar-tint: var(--color-primary-soft);
+}
+
+.chat-persona__avatar--estudiante {
+  --avatar-tone: var(--color-tone-3);
+  --avatar-tint: var(--color-tone-3-tint);
+}
+
+.chat-persona__avatar--tutor {
+  --avatar-tone: var(--color-tone-4);
+  --avatar-tint: var(--color-tone-4-tint);
+}
+
+.chat__conversaciones {
+  flex: 1;
+  padding-block: var(--space-2);
+  overflow-y: auto;
+}
+
+/* Sin conversaciones, el aviso va justo debajo de la búsqueda (no al fondo) */
+.chat__conversaciones:not(:has(li)) {
+  display: none;
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.chat-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.chat-item.is-actual {
+  background: var(--color-primary-soft);
+}
+
+.chat-item__avatar {
+  flex-shrink: 0;
+}
+
+.chat-item__texto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.chat-item__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.chat-item__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-item__hora {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.chat-item__vista {
+  overflow: hidden;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-item.is-sin-leer .chat-item__vista {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.chat-item.is-sin-leer .chat-item__hora {
+  color: var(--color-primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.chat-item__conteo {
+  display: inline-grid;
+  flex-shrink: 0;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+.chat-item__conteo[hidden] {
+  display: none;
+}
+
+.chat__vacio {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.chat__vacio p {
+  margin: 0;
+}
+
+/* --- Conversación abierta ---------------------------------------------------------------------------- */
+.chat__hilo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-bg);
+}
+
+.chat__hilo-encabezado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border);
+  background: var(--color-surface);
+}
+
+.chat__volver {
+  display: none;
+}
+
+.chat__hilo-quien {
+  min-width: 0;
+}
+
+.chat__hilo-nombre {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat__hilo-detalle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.chat__mensajes {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat__mensajes:focus-visible {
+  outline: none;
+  box-shadow: inset var(--ring-focus);
+}
+
+.chat__anteriores {
+  margin: 0 0 var(--space-2);
+  text-align: center;
+}
+
+.chat__dia {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.chat__dia span {
+  padding: 0.15rem var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+}
+
+.chat__inicio-conversacion {
+  margin: auto;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.burbuja {
+  align-self: flex-start;
+  max-width: min(36rem, 80%);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  border: var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.burbuja--mia {
+  align-self: flex-end;
+  border-color: transparent;
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.burbuja.is-nueva {
+  animation: burbuja-entra var(--duration-base) var(--ease-out);
+}
+
+.burbuja__texto {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.burbuja__pie {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin: 0.15rem 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.burbuja--mia .burbuja__pie {
+  color: color-mix(in srgb, var(--color-on-primary) 78%, transparent);
+}
+
+.burbuja__estado {
+  display: inline-flex;
+}
+
+.burbuja__estado .icon {
+  --size: 0.95rem;
+}
+
+.burbuja--mia .burbuja__estado.is-leido {
+  color: var(--color-on-primary);
+}
+
+@keyframes burbuja-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+}
+
+.chat__escribir {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border);
+  background: var(--color-surface);
+}
+
+.chat__campo {
+  flex: 1;
+  min-height: var(--control-height-md);
+  max-height: 9rem;
+  resize: none;
+  overflow-y: auto;
+}
+
+.chat__enviar {
+  flex-shrink: 0;
+}
+
+.chat__error,
+.chat__cerrada {
+  margin: 0;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+}
+
+.chat__error {
+  color: var(--color-danger);
+}
+
+.chat__cerrada {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-top: var(--border);
+  color: var(--color-text-muted);
+}
+
+.chat__nada {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.chat__nada h2 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-lg);
+}
+
+.chat__nada p {
+  max-width: 26rem;
+  margin: 0;
+}
+
+.chat__nada-icono {
+  --size: 2.75rem;
+  color: var(--color-primary-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burbuja.is-nueva {
+    animation: none;
+  }
+}
+
+/* --- Pantallas angostas: un panel a la vez ---------------------------------------------------------------- */
+@media (max-width: 48rem) {
+  .chat {
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100dvh - 9rem);
+  }
+
+  .chat--abierta .chat__lista,
+  .chat:not(.chat--abierta) .chat__hilo {
+    display: none;
+  }
+
+  .chat__lista {
+    border-right: 0;
+  }
+
+  .chat__volver {
+    display: inline-grid;
+  }
+
+  .chat__mensajes {
+    padding: var(--space-3);
+  }
+
+  .burbuja {
+    max-width: 88%;
+  }
+}

@@ -35,12 +35,14 @@
     <aside class="chat__lista" aria-label="Conversaciones">
       <header class="chat__lista-encabezado">
         <h1 class="chat__titulo">Mensajes</h1>
+        <span class="chat__no-leidos" data-mensajes-no-leidos aria-label="{{ mensajeria.no_leidos }} sin leer"{% if not mensajeria.no_leidos %} hidden{% endif %}>{{ mensajeria.no_leidos }}</span>
       </header>
       <form class="chat__buscar" method="get" action="{{ urls.inicio }}" role="search">
         {% include "partials/icon.html" with name="search" icon_class="chat__buscar-icono" %}
-        <input class="field__control" type="search" name="q" value="{{ busqueda }}" placeholder="Buscar o empezar una conversación…"
+        <input class="field__control" type="search" name="q" value="{{ busqueda }}" placeholder="Buscar a una persona…"
                aria-label="Buscar a una persona o una conversación" autocomplete="off" data-chat-buscar>
       </form>
+      <p class="chat__buscando" role="status" data-chat-buscando hidden>Buscando personas…</p>
 
       <section class="chat__personas" aria-label="Personas a las que puedes escribir" data-chat-personas{% if contactos is None %} hidden{% endif %}>
         <h2 class="chat__subtitulo">Escribir a…</h2>
@@ -81,7 +83,7 @@
         {% endfor %}
       </ul>
       <div class="chat__vacio" data-chat-sin-conversaciones{% if bandeja %} hidden{% endif %}>
-        {% include "partials/icon.html" with name="message-circle" icon_class="icon--lg" %}
+        <span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" %}</span>
         <p>Todavía no tienes conversaciones. Busca a una persona para escribirle.</p>
       </div>
     </aside>
@@ -116,27 +118,30 @@
               </p>
             </div>
           {% empty %}
-            <p class="chat__inicio-conversacion" data-chat-sin-mensajes>Aún no hay mensajes. Escribe el primero.</p>
+            <p class="chat__inicio-conversacion" data-chat-sin-mensajes><span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" %}</span>Aún no hay mensajes.{% if puede_escribir %} Escribe el primero.{% endif %}</p>
           {% endfor %}
         </div>
 
         {% if puede_escribir %}
+          <p class="chat__error" role="alert" data-chat-error hidden></p>
           <form class="chat__escribir" method="post" action="{{ url_enviar }}" data-chat-formulario data-no-busy>
             {% csrf_token %}
             <label class="visually-hidden" for="texto-mensaje">Mensaje para {{ otro.nombre }}</label>
-            <textarea class="field__control chat__campo" id="texto-mensaje" name="texto" rows="1" maxlength="{{ maximo }}" required
-                      placeholder="Escribe un mensaje…" data-chat-campo></textarea>
-            <button type="submit" class="btn btn--primary btn--icon chat__enviar" aria-label="Enviar" data-tooltip="Enviar (Intro)">
-              {% include "partials/icon.html" with name="send" %}
-            </button>
+            <div class="chat__caja">
+              <textarea class="field__control chat__campo" id="texto-mensaje" name="texto" rows="1" maxlength="{{ maximo }}" required
+                        placeholder="Escribe un mensaje…" aria-describedby="atajos-mensaje" data-chat-campo></textarea>
+              <button type="submit" class="btn btn--primary btn--icon chat__enviar" aria-label="Enviar" data-tooltip="Enviar (Intro)">
+                {% include "partials/icon.html" with name="send" %}
+              </button>
+            </div>
+            <p class="chat__atajos" id="atajos-mensaje"><kbd>Intro</kbd> para enviar · <kbd>Mayús</kbd> + <kbd>Intro</kbd> para un salto de línea</p>
           </form>
-          <p class="chat__error" role="alert" data-chat-error hidden></p>
         {% else %}
           <p class="chat__cerrada">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Ya no puedes escribir en esta conversación (la cuenta está inactiva o ya no tienen relación escolar). El historial se conserva.</p>
         {% endif %}
       {% else %}
         <div class="chat__nada">
-          {% include "partials/icon.html" with name="message-circle" icon_class="chat__nada-icono" %}
+          <span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" icon_class="chat__nada-icono" %}</span>
           <h2>Tus mensajes</h2>
           <p>Elige una conversación o busca a una persona para escribirle. Los mensajes llegan al momento, sin recargar la página.</p>
         </div>

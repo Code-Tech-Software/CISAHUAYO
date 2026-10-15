@@ -23,6 +23,7 @@
   const buscar = chat.querySelector('[data-chat-buscar]');
   const personas = chat.querySelector('[data-chat-personas]');
   const personasLista = chat.querySelector('[data-chat-personas-lista]');
+  const buscando = chat.querySelector('[data-chat-buscando]');
   const csrf = chat.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
   const sprite = document.querySelector('svg use')?.getAttribute('href')?.split('#')[0] || '';
 
@@ -197,6 +198,7 @@
     enviando = true;
     const boton = formulario.querySelector('button[type="submit"]');
     boton.disabled = true;
+    boton.classList.add('is-loading');
     if (error) error.hidden = true;
     try {
       const respuesta = await post(formulario.action, new FormData(formulario));
@@ -214,6 +216,7 @@
     } finally {
       enviando = false;
       boton.disabled = false;
+      boton.classList.remove('is-loading');
       campo.focus();
     }
   });
@@ -259,19 +262,24 @@
     });
     window.clearTimeout(pausa);
     if (consulta.length < 2) {
+      if (buscando) buscando.hidden = true;
       if (personas) personas.hidden = true;
       return;
     }
     pausa = window.setTimeout(async () => {
       pedido?.abort();
-      pedido = new AbortController();
+      const este = new AbortController();
+      pedido = este;
+      if (buscando) buscando.hidden = false;
       try {
         const respuesta = await fetch(`${chat.dataset.contactosUrl}?q=${encodeURIComponent(consulta)}`, {
-          headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: pedido.signal,
+          headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: este.signal,
         });
         if (respuesta.ok) pintarPersonas((await respuesta.json()).contactos, consulta);
       } catch (problema) {
         /* búsqueda cancelada o sin conexión */
+      } finally {
+        if (pedido === este && buscando) buscando.hidden = true;
       }
     }, 250);
   });

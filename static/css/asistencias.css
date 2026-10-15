@@ -93,6 +93,76 @@
 /* ==========================================================================
    2. CIFRAS Y MARCAS DE ESTADO
    ========================================================================== */
+/* Colores de cada estado (los valores están en app.css: --asistencia-*). Cada marca que representa un estado
+   —indicador de la matriz, menú y leyendas; etiqueta; celda y clave del reporte; ficha de materia; opción del selector
+   del día; cifra— recibe aquí su fondo, su texto y su tono (el color que lo identifica sobre la superficie: el relleno en
+   los estados llenos, el texto en los claros), y cada componente solo usa --estado-fondo / --estado-texto /
+   --estado-tono. «Falta / Ausente» es el mismo estado (F). */
+.indicador-asistencia--presente,
+.tag--presente,
+.matrix__cell--a,
+.matrix__key--a,
+.subject-chip--a,
+.segmented__option--ok,
+.stat--ok,
+.count--ok {
+  --estado-fondo: var(--asistencia-presente-bg);
+  --estado-texto: var(--asistencia-presente-fg);
+  --estado-tono: var(--asistencia-presente-bg);
+}
+
+.indicador-asistencia--falta,
+.tag--falta,
+.matrix__cell--f,
+.matrix__key--f,
+.subject-chip--f,
+.segmented__option--miss,
+.stat--miss,
+.count--miss {
+  --estado-fondo: var(--asistencia-falta-bg);
+  --estado-texto: var(--asistencia-falta-fg);
+  --estado-tono: var(--asistencia-falta-fg);
+}
+
+.indicador-asistencia--retardo,
+.tag--retardo,
+.matrix__cell--r,
+.matrix__key--r,
+.subject-chip--r,
+.segmented__option--late,
+.stat--late,
+.count--late {
+  --estado-fondo: var(--asistencia-retardo-bg);
+  --estado-texto: var(--asistencia-retardo-fg);
+  --estado-tono: var(--asistencia-retardo-fg);
+}
+
+.indicador-asistencia--justificada,
+.tag--justificada,
+.matrix__cell--j,
+.matrix__key--j,
+.subject-chip--j {
+  --estado-fondo: var(--asistencia-justificada-bg);
+  --estado-texto: var(--asistencia-justificada-fg);
+  --estado-tono: var(--asistencia-justificada-fg);
+}
+
+/* Suspensión de clases (día sin clases: la columna sigue bloqueada) */
+.indicador-asistencia--suspension {
+  --estado-fondo: var(--asistencia-suspension-bg);
+  --estado-texto: var(--asistencia-suspension-fg);
+  --estado-tono: var(--asistencia-suspension-bg);
+}
+
+/* Etiqueta de un estado (asistencias/_estado.html): la .tag de app.css con los colores del estado */
+.tag--presente,
+.tag--falta,
+.tag--retardo,
+.tag--justificada {
+  --tag-bg: var(--estado-fondo);
+  --tag-fg: var(--estado-texto);
+}
+
 .stat-grid--five {
   grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
 }
@@ -103,16 +173,10 @@
   font-weight: var(--weight-semibold);
 }
 
-.stat--ok .stat__value {
-  color: var(--color-success);
-}
-
-.stat--late .stat__value {
-  color: var(--color-warning);
-}
-
+.stat--ok .stat__value,
+.stat--late .stat__value,
 .stat--miss .stat__value {
-  color: var(--color-danger);
+  color: var(--estado-tono);
 }
 
 /* Número con el color de su estado */
@@ -121,16 +185,10 @@
   font-weight: var(--weight-bold);
 }
 
-.count--ok {
-  color: var(--color-success);
-}
-
-.count--late {
-  color: var(--color-warning);
-}
-
+.count--ok,
+.count--late,
 .count--miss {
-  color: var(--color-danger);
+  color: var(--estado-tono);
 }
 
 .attendance-progress {
@@ -299,22 +357,11 @@
   color: var(--color-text-strong);
 }
 
-.segmented__option--ok .segmented__input:checked + span {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-  box-shadow: inset 0 0 0 1px var(--color-success-border);
-}
-
-.segmented__option--late .segmented__input:checked + span {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-  box-shadow: inset 0 0 0 1px var(--color-warning-border);
-}
-
-.segmented__option--miss .segmented__input:checked + span {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-  box-shadow: inset 0 0 0 1px var(--color-danger-border);
+/* La opción elegida, con los colores de su estado y un filete de su tono */
+.segmented__option .segmented__input:checked + span {
+  background: var(--estado-fondo);
+  color: var(--estado-texto);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--estado-tono) 40%, var(--estado-fondo));
 }
 
 .segmented__input:focus-visible + span {
@@ -427,27 +474,15 @@
 }
 
 .matrix__cell--a,
-.matrix__key--a {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
 .matrix__cell--r,
-.matrix__key--r {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-}
-
 .matrix__cell--f,
-.matrix__key--f {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
 .matrix__cell--j,
+.matrix__key--a,
+.matrix__key--r,
+.matrix__key--f,
 .matrix__key--j {
-  background: var(--color-info-bg);
-  color: var(--color-info);
+  background: var(--estado-fondo);
+  color: var(--estado-texto);
 }
 
 .matrix__key,
@@ -473,24 +508,12 @@
   letter-spacing: 0.02em;
 }
 
-.subject-chip--a {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.subject-chip--r {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-}
-
-.subject-chip--f {
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
+.subject-chip--a,
+.subject-chip--r,
+.subject-chip--f,
 .subject-chip--j {
-  background: var(--color-info-bg);
-  color: var(--color-info);
+  background: var(--estado-fondo);
+  color: var(--estado-texto);
 }
 
 
@@ -1285,9 +1308,8 @@
 /* ==========================================================================
    9. MATRIZ DE ASISTENCIA POR MATERIA (templates/asistencias/_matriz.html: docente.html y materias.html)
    Matriz estudiantes × días del periodo: encabezado y nombres fijos al desplazarse, la columna de hoy resaltada
-   (sin tocar los colores de los estados) y un indicador circular por celda. Los colores salen de los roles, así
-   que cambian con cada tema: presente = éxito, falta = peligro, retardo = aviso, justificada = información y
-   suspensión = acento. Comportamiento en static/js/asistencia-docente.js.
+   (sin tocar los colores de los estados) y un indicador circular por celda. Los colores de los estados son fijos
+   (iguales en todos los temas) y se asignan en la sección 2. Comportamiento en static/js/asistencia-docente.js.
    ========================================================================== */
 /* Filtros: materia, desde y hasta (dentro del periodo) y los rangos de un clic */
 .asistencia-docente__filtros {
@@ -1406,30 +1428,16 @@
   transition: box-shadow var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
 }
 
-/* Llenos: el texto va del color de la superficie (blanco en claro, oscuro en oscuro) */
-.indicador-asistencia--presente {
-  --ind-bg: var(--color-success);
-  --ind-fg: var(--color-surface);
-}
-
-.indicador-asistencia--falta {
-  --ind-bg: var(--color-danger);
-  --ind-fg: var(--color-surface);
-}
-
-.indicador-asistencia--retardo {
-  --ind-bg: var(--color-warning);
-  --ind-fg: var(--color-surface);
-}
-
-.indicador-asistencia--justificada {
-  --ind-bg: var(--color-info);
-  --ind-fg: var(--color-surface);
-}
-
+/* Presente, falta, retardo, justificada y suspensión de clases: los colores de su estado (sección 2), con un filete
+   de su tono para que los de fondo claro no se pierdan sobre el blanco de la matriz */
+.indicador-asistencia--presente,
+.indicador-asistencia--falta,
+.indicador-asistencia--retardo,
+.indicador-asistencia--justificada,
 .indicador-asistencia--suspension {
-  --ind-bg: var(--color-accent);
-  --ind-fg: var(--color-on-accent);
+  --ind-bg: var(--estado-fondo);
+  --ind-fg: var(--estado-texto);
+  --ind-borde: color-mix(in srgb, var(--estado-tono) 40%, var(--estado-fondo));
 }
 
 /* Estudiante suspendido (conducta): una S en un círculo blanco, igual en cualquier tema. Autorizada, con borde
@@ -1994,7 +2002,7 @@
 }
 
 .reporte__tabla thead th.is-suspension {
-  background: color-mix(in srgb, var(--color-accent) 24%, var(--color-surface));
+  background: color-mix(in srgb, var(--asistencia-suspension-bg) 16%, var(--color-surface));
 }
 
 .reporte__sin-registro {

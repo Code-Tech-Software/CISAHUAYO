@@ -162,6 +162,19 @@
   --color-info-bg: #edf5fb;
   --color-info-border: #bbd9ee;
 
+  /* Estados de asistencia (pedido del 2026-10-15): fondo y texto fijos, iguales en todos los temas y en el modo oscuro
+     (no son colores de rol: ningún tema los redefine). Los reparte static/css/asistencias.css, sección 2. */
+  --asistencia-presente-bg: #1ea150;
+  --asistencia-presente-fg: #ffffff;
+  --asistencia-falta-bg: #fde7e6;
+  --asistencia-falta-fg: #c53646;
+  --asistencia-retardo-bg: #fcf0ea;
+  --asistencia-retardo-fg: #cb914c;
+  --asistencia-suspension-bg: #de333d;
+  --asistencia-suspension-fg: #ffffff;
+  --asistencia-justificada-bg: #ecf4fe;
+  --asistencia-justificada-fg: #5b8aca;
+
   /* Colores con que se distingue a cada persona, materia o grado (iniciales, tarjetas y bloques del horario) */
   --color-tone-1: var(--color-teal-700);
   --color-tone-2: var(--color-gold-700);

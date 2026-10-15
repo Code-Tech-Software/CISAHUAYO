@@ -142,7 +142,7 @@
                   <td class="table__cell table__col--wide" data-label="Materias del día">
                     {% if inscripcion.materias %}
                       {{ inscripcion.materias.asistidas }} de {{ inscripcion.materias.total }}
-                      {% if inscripcion.materias.faltas %}<span class="tag tag--danger">{{ inscripcion.materias.faltas }} falta{{ inscripcion.materias.faltas|pluralize }}</span>{% endif %}
+                      {% if inscripcion.materias.faltas %}<span class="tag tag--falta">{{ inscripcion.materias.faltas }} falta{{ inscripcion.materias.faltas|pluralize }}</span>{% endif %}
                     {% else %}<span class="text-muted">—</span>{% endif %}
                   </td>
                   <td class="table__cell table__cell--actions">

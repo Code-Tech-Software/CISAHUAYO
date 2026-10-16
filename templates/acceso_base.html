@@ -1,9 +1,10 @@
 {% load static %}<!DOCTYPE html>
 {% comment %}
   Base de las pantallas de acceso (iniciar y cerrar sesión del sistema y de los portales). Son páginas aparte, sin menú:
-  a la izquierda el panel de marca del colegio (solo en pantallas anchas) y a la derecha la tarjeta con el formulario o
-  el mensaje. Siempre con la paleta Corporate (data-tema="corporate", static/css/temas.css): todavía no se sabe quién
-  entra, así que no se usa el tema de nadie.
+  en pantallas anchas, a la izquierda el panel de marca con el escudo del colegio al centro (protagonista) y a la derecha
+  la tarjeta con el formulario o el mensaje; en pantallas angostas, una sola columna con el escudo centrado arriba de la
+  tarjeta. El escudo es el SVG del colegio (vectorial: nítido a cualquier tamaño). Siempre con la paleta Corporate
+  (data-tema="corporate", static/css/temas.css): todavía no se sabe quién entra, así que no se usa el tema de nadie.
   Estilos: static/css/acceso.css · script: static/js/acceso.js. Bloques: titulo (pestaña), tarjeta (contenido).
 {% endcomment %}
 <html lang="es" data-tema="corporate">
@@ -23,7 +24,7 @@
 </head>
 <body class="access-page">
   <div class="access">
-    <aside class="access__brand">
+    <aside class="access__brand" aria-label="Colegio Interamericano de Sahuayo">
       <div class="access__shapes" aria-hidden="true">
         <span class="access__disc"></span>
         <span class="access__ring"></span>
@@ -31,40 +32,44 @@
         <span class="access__dot"></span>
       </div>
 
-      <div class="access__brand-top">
-        <span class="access__logo"><img src="{% static 'img/logointer.svg' %}" alt="" width="28" height="31"></span>
-        <p class="access__school">Colegio Interamericano<br>de Sahuayo</p>
+      {# El escudo, al centro del panel (horizontal y verticalmente); debajo, el nombre del colegio y, al pie, los accesos #}
+      <div class="access__lockup">
+        <span class="access__emblem"><img class="access__emblem-img" src="{% static 'img/logointer.svg' %}" alt="" width="150" height="158" decoding="async" fetchpriority="high"></span>
       </div>
 
-      <div class="access__pitch">
-        <p class="access__eyebrow">Plataforma escolar</p>
-        <h2 class="access__pitch-title">Toda la comunidad escolar, en un solo lugar.</h2>
-        <ul class="access__points">
-          <li class="access__point">
-            <span class="access__point-icon">{% include "partials/icon.html" with name="school" %}</span>
-            <span><strong>Escuela</strong> Administración, control escolar y docentes</span>
-          </li>
-          <li class="access__point">
-            <span class="access__point-icon">{% include "partials/icon.html" with name="graduation-cap" %}</span>
-            <span><strong>Estudiantes</strong> Tu horario, tu asistencia y tus calificaciones</span>
-          </li>
-          <li class="access__point">
-            <span class="access__point-icon">{% include "partials/icon.html" with name="users" %}</span>
-            <span><strong>Tutores</strong> El seguimiento de sus hijos, al día</span>
-          </li>
-        </ul>
-      </div>
+      <div class="access__brand-bottom">
+        <div class="access__brand-text">
+          <p class="access__school">Colegio Interamericano de Sahuayo</p>
+          <p class="access__tagline"><span class="access__eyebrow">Sistema de Gestión Integral CIS</span> Toda la comunidad escolar, en un solo lugar.</p>
+        </div>
 
-      <p class="access__legal">© {% now "Y" %} Colegio Interamericano de Sahuayo</p>
+        <div class="access__brand-foot">
+          <ul class="access__points">
+            <li class="access__point">
+              <span class="access__point-icon">{% include "partials/icon.html" with name="school" %}</span>
+              <span><strong>Escuela</strong> Administración, control escolar y docentes</span>
+            </li>
+            <li class="access__point">
+              <span class="access__point-icon">{% include "partials/icon.html" with name="graduation-cap" %}</span>
+              <span><strong>Estudiantes</strong> Tu horario, tu asistencia y tus calificaciones</span>
+            </li>
+            <li class="access__point">
+              <span class="access__point-icon">{% include "partials/icon.html" with name="users" %}</span>
+              <span><strong>Tutores</strong> El seguimiento de sus hijos, al día</span>
+            </li>
+          </ul>
+          <p class="access__legal">© {% now "Y" %} Colegio Interamericano de Sahuayo</p>
+        </div>
+      </div>
     </aside>
 
     <main class="access__main" id="contenido">
+      {# En pantallas angostas el panel de marca no se ve: el escudo, centrado, y el nombre van arriba de la tarjeta #}
+      <div class="access__compact-brand">
+        <span class="access__emblem"><img class="access__emblem-img" src="{% static 'img/logointer.svg' %}" alt="" width="150" height="158" decoding="async"></span>
+        <span class="access__compact-school">Colegio Interamericano de Sahuayo</span>
+      </div>
       <div class="access__card">
-        {# En pantallas angostas el panel de marca no se ve: el escudo y el nombre van arriba de la tarjeta #}
-        <div class="access__compact-brand">
-          <span class="access__logo access__logo--sm"><img src="{% static 'img/logointer.svg' %}" alt="" width="22" height="24"></span>
-          <span class="access__compact-school">Colegio Interamericano de Sahuayo</span>
-        </div>
         {% block tarjeta %}{% endblock %}
       </div>
     </main>

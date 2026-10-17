@@ -180,10 +180,10 @@ class ConversacionTests(Colegio, BaseTestCase):
         self.assertRedirects(respuesta, reverse('portal_tutores:mensajes:conversacion', args=[conversacion.pk]), fetch_redirect_response=False)
         tutor.post(reverse('portal_tutores:mensajes:enviar', args=[conversacion.pk]), {'texto': '¿Cómo va Ana?'})
         self.assertEqual(self.client.get(BANDEJA).context['bandeja'][0].otro.tutor, self.rosa)
-        # su menú lateral: Inicio, Mensajes y sus estudiantes
+        # su menú lateral: Inicio, Mensajes, Comunicados y sus estudiantes
         inicio = tutor.get(reverse('portal_tutores:inicio'))
         secciones = [(s['titulo'], [e['etiqueta'] for e in s['elementos']]) for s in inicio.context['navegacion']]
-        self.assertEqual(secciones, [(None, ['Inicio', 'Mensajes']), ('Mis estudiantes', [self.ana.nombre_completo])])
+        self.assertEqual(secciones, [(None, ['Inicio', 'Mensajes', 'Comunicados']), ('Mis estudiantes', [self.ana.nombre_completo])])
         self.assertContains(inicio, 'class="sidebar"')
         self.assertContains(inicio, 'class="topbar"')
 

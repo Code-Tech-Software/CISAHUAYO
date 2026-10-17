@@ -1,0 +1,30 @@
+{% comment %}
+  La ventana de «Crear comunicado» del listado (static/js/comunicados-form.js). Cerrarla con lo escrito pide confirmar.
+{% endcomment %}
+<dialog class="modal modal--crear-comunicado" data-crear-modal aria-labelledby="crear-comunicado-titulo" aria-describedby="crear-comunicado-descripcion">
+  <div class="modal__panel crear-comunicado">
+    <header class="crear-comunicado__cabecera">
+      <div>
+        <h2 class="crear-comunicado__titulo" id="crear-comunicado-titulo">Crear comunicado</h2>
+        <p class="crear-comunicado__descripcion" id="crear-comunicado-descripcion">Comparte avisos con tutores, estudiantes y profesores</p>
+      </div>
+      <button type="button" class="btn btn--ghost btn--icon crear-comunicado__cerrar" data-crear-cerrar aria-label="Cerrar" data-tooltip="Cerrar">
+        {% include "partials/icon.html" with name="x" %}
+      </button>
+    </header>
+    <div class="crear-comunicado__cuerpo">
+      {% include "comunicados/_formulario.html" %}
+    </div>
+
+    <div class="crear-comunicado__confirmar" data-crear-confirmar role="alertdialog" aria-labelledby="crear-confirmar-titulo" aria-describedby="crear-confirmar-texto" hidden>
+      <div class="modal__confirm-card">
+        <p class="modal__confirm-title" id="crear-confirmar-titulo">¿Descartar el comunicado?</p>
+        <p class="modal__confirm-text" id="crear-confirmar-texto">Lo que escribiste y los destinatarios elegidos no se han enviado y se perderán.</p>
+        <div class="modal__confirm-actions">
+          <button type="button" class="btn" data-crear-seguir>Seguir editando</button>
+          <button type="button" class="btn btn--danger" data-crear-descartar>Descartar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>

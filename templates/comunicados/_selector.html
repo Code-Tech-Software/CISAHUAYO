@@ -1,0 +1,111 @@
+{% comment %}
+  Selector de destinatarios (static/js/comunicados-form.js lo llena con lo que responde comunicados:destinatarios: solo
+  las personas del alcance de quien envía). A la izquierda, el árbol nivel → grado → grupo → materia; a la derecha, las
+  pestañas Tutores, Estudiantes y Profesores con su lista. En el móvil, las dos partes se alternan con «Grupos» y
+  «Personas». «Cancelar» descarta lo que se cambió en esta apertura; «Confirmar» guarda la selección en el formulario.
+{% endcomment %}
+<dialog class="modal modal--selector" data-selector aria-labelledby="selector-titulo" aria-describedby="selector-instruccion">
+  <div class="modal__panel selector">
+    <header class="selector__cabecera">
+      <span class="selector__icono" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
+      <div class="selector__titulos">
+        <h2 class="selector__titulo" id="selector-titulo">Destinatarios del comunicado</h2>
+        <p class="selector__instruccion" id="selector-instruccion">Marca un nivel, grupo o materia para incluir a todo el grupo en la pestaña elegida (tutores, estudiantes o profesores) y desmarca a quien no quieras. También puedes buscar y marcar personas sueltas.</p>
+      </div>
+      <button type="button" class="btn btn--ghost btn--icon selector__cerrar" data-selector-cancelar aria-label="Cerrar sin guardar los cambios" data-tooltip="Cerrar">
+        {% include "partials/icon.html" with name="x" %}
+      </button>
+    </header>
+
+    <div class="selector__pasos" role="tablist" aria-label="Partes del selector">
+      <button type="button" class="selector__paso" role="tab" id="selector-paso-grupos" aria-controls="selector-grupos" aria-selected="true" data-selector-paso="grupos">
+        {% include "partials/icon.html" with name="layers" icon_class="icon--sm" %} Grupos y materias
+      </button>
+      <button type="button" class="selector__paso" role="tab" id="selector-paso-personas" aria-controls="selector-personas" aria-selected="false" data-selector-paso="personas">
+        {% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Personas <span class="selector__paso-cuenta" data-selector-paso-cuenta hidden></span>
+      </button>
+    </div>
+
+    <div class="selector__estado" data-selector-estado>
+      <div class="selector__cargando" data-selector-cargando>
+        <span class="skeleton skeleton--title"></span><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton skeleton--short"></span>
+        <p class="visually-hidden" role="status">Cargando a las personas que puedes elegir…</p>
+      </div>
+      <div class="empty-state" data-selector-error hidden>
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No se pudo cargar la lista de personas</p>
+        <p class="empty-state__text" data-selector-error-texto>Revisa tu conexión e inténtalo de nuevo.</p>
+        <div class="empty-state__actions"><button type="button" class="btn btn--sm" data-selector-reintentar>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Reintentar</button></div>
+      </div>
+    </div>
+
+    <div class="selector__cuerpo" data-selector-cuerpo hidden>
+      <section class="selector__columna selector__columna--arbol" id="selector-grupos" role="tabpanel" aria-labelledby="selector-paso-grupos" data-selector-parte="grupos">
+        <h3 class="selector__seccion-titulo" id="selector-arbol-titulo">¿A qué niveles, grupos o materias?</h3>
+        {# En el móvil las pestañas quedan en «Personas»: aquí se ve (y se cambia) a quiénes incluye lo que se marca #}
+        <div class="selector__incluir" role="group" aria-label="Lo que marques incluye a">
+          <span class="selector__incluir-texto" aria-hidden="true">Incluir a:</span>
+          <button type="button" class="segmentado__opcion" data-pestana-movil="tutores" aria-pressed="true">Tutores</button>
+          <button type="button" class="segmentado__opcion" data-pestana-movil="estudiantes" aria-pressed="false">Estudiantes</button>
+          <button type="button" class="segmentado__opcion" data-pestana-movil="profesores" aria-pressed="false">Profesores</button>
+        </div>
+        <div class="selector__panel">
+          <label class="selector__buscar">
+            <span class="visually-hidden">Buscar nivel, grado, grupo o materia</span>
+            {% include "partials/icon.html" with name="search" icon_class="icon--sm selector__buscar-icono" %}
+            <input class="selector__buscar-campo" type="search" placeholder="Buscar nivel, grado, grupo o materia…" autocomplete="off" data-arbol-buscar>
+          </label>
+          <div class="arbol" role="group" aria-labelledby="selector-arbol-titulo" data-arbol></div>
+          <p class="selector__nada" data-arbol-vacio hidden>Ningún nivel, grupo o materia coincide con la búsqueda.</p>
+          <footer class="selector__panel-pie">
+            <span class="selector__panel-nota" data-arbol-resumen aria-live="polite">Ningún grupo marcado</span>
+            <button type="button" class="selector__enlace" data-arbol-limpiar>Limpiar</button>
+          </footer>
+        </div>
+        <p class="selector__alcance">{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Puedes enviar a: <strong data-selector-alcance>{{ alcance.descripcion }}</strong></p>
+      </section>
+
+      <section class="selector__columna selector__columna--personas" id="selector-personas" role="tabpanel" aria-labelledby="selector-paso-personas" data-selector-parte="personas">
+        <div class="selector__pestanas" role="tablist" aria-label="Tipo de destinatario">
+          <button type="button" class="selector__pestana" role="tab" aria-selected="true" data-pestana="tutores" id="pestana-tutores">Tutores <span class="selector__pestana-cuenta" data-pestana-cuenta="tutores"></span></button>
+          <button type="button" class="selector__pestana" role="tab" aria-selected="false" data-pestana="estudiantes" id="pestana-estudiantes">Estudiantes <span class="selector__pestana-cuenta" data-pestana-cuenta="estudiantes"></span></button>
+          <button type="button" class="selector__pestana" role="tab" aria-selected="false" data-pestana="profesores" id="pestana-profesores">Profesores <span class="selector__pestana-cuenta" data-pestana-cuenta="profesores"></span></button>
+        </div>
+        <div class="selector__lista-cabecera">
+          <h3 class="selector__seccion-titulo" data-lista-titulo>Todos · Tutores</h3>
+          <span class="selector__lista-contador" data-lista-contador aria-live="polite">0 de 0 seleccionados</span>
+        </div>
+        <p class="selector__filtro" data-lista-filtro hidden>
+          <span data-lista-filtro-texto></span>
+          <button type="button" class="selector__enlace" data-lista-filtro-quitar>Ver todos</button>
+        </p>
+        <p class="selector__ayuda" data-lista-ayuda></p>
+        <div class="selector__herramientas">
+          <label class="selector__buscar selector__buscar--lista">
+            <span class="visually-hidden">Buscar por nombre</span>
+            {% include "partials/icon.html" with name="search" icon_class="icon--sm selector__buscar-icono" %}
+            <input class="selector__buscar-campo" type="search" placeholder="Buscar por nombre…" autocomplete="off" data-lista-buscar>
+          </label>
+          <div class="selector__acciones-lista">
+            <button type="button" class="selector__enlace" data-lista-marcar>Marcar todos</button>
+            <button type="button" class="selector__enlace" data-lista-desmarcar>Desmarcar todos</button>
+          </div>
+        </div>
+        <p class="selector__alcance-lista" data-lista-alcance aria-live="polite"></p>
+        <ul class="selector__lista" role="list" data-lista aria-label="Personas"></ul>
+        <p class="selector__nada" data-lista-vacia hidden></p>
+        <button type="button" class="btn btn--sm btn--ghost selector__mas" data-lista-mas hidden>Mostrar más</button>
+      </section>
+    </div>
+
+    <footer class="selector__pie">
+      <p class="selector__resumen" data-selector-resumen aria-live="polite">Nadie seleccionado todavía</p>
+      <div class="selector__botones">
+        <button type="button" class="btn" data-selector-cancelar>Cancelar</button>
+        <button type="button" class="btn btn--primary" data-selector-confirmar disabled>
+          {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Confirmar
+        </button>
+      </div>
+    </footer>
+  </div>
+</dialog>

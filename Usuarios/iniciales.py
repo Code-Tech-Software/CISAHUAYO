@@ -13,7 +13,7 @@ from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
 ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias',
-             'calificaciones', 'bitacoras', 'conducta', 'mensajes')
+             'calificaciones', 'bitacoras', 'conducta', 'mensajes', 'comunicados')
 
 
 def _direccion():
@@ -38,6 +38,7 @@ def _docente():
         | {'Calificaciones.capturar', 'Calificaciones.cerrar'}
         | {'Bitacoras.registrar'}
         | {'Mensajes.usar'}
+        | {'Comunicados.recibir'}
     )
 
 
@@ -47,6 +48,7 @@ def _coordinacion():
         permisos_de_modulos('alumnos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
         | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
         | {'Mensajes.usar'}
+        | {'Comunicados.recibir', 'Comunicados.enviar'}   # a los niveles que coordina
     )
 
 

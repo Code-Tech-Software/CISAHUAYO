@@ -5,7 +5,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
-  {% if alcance or direccion is not None %}<link rel="stylesheet" href="{% static 'css/prefectura.css' %}">{% endif %}
+  {% if alcance or direccion is not None or coordinacion is not None or comunicados is not None %}<link rel="stylesheet" href="{% static 'css/prefectura.css' %}">{% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -157,6 +157,19 @@
       <div class="card__body">
         <p class="alcance-prefectura__texto">{% for clave, nombre in coordinacion %}{{ nombre }}{% if not forloop.last %} · {% endif %}{% empty %}Todo el colegio{% endfor %}</p>
         <p class="text-muted">Consulta y registra en las bitácoras de todos los grupos de estos niveles (sin niveles elegidos, de todo el colegio). Lo de otros niveles no aparece en sus consultas ni reportes.</p>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if comunicados is not None %}
+    <section class="card alcance-prefectura" aria-labelledby="comunicados-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="megaphone" %}<h2 class="card__title" id="comunicados-titulo">Comunicados</h2>
+        {% if puede_editar %}<a class="btn btn--sm card__header-action" href="{% url 'usuarios:comunicados' usuario.pk %}" data-modal-form>Niveles para comunicados</a>{% endif %}
+      </header>
+      <div class="card__body">
+        <p class="alcance-prefectura__texto{% if not comunicados.niveles %} alcance-prefectura__texto--vacio{% endif %}">{% for nombre, origenes in comunicados.niveles %}{{ nombre }} <span class="text-muted">({{ origenes|join:", "|lower }})</span>{% if not forloop.last %} · {% endif %}{% empty %}Sin niveles: todavía no puede enviar comunicados{% endfor %}</p>
+        <p class="text-muted">Envía comunicados a los tutores, estudiantes y profesores de estos niveles: los que da como docente, dirige o coordina, su alcance de prefectura y los asignados aquí{% if comunicados.asignados %} ({% for clave, nombre in comunicados.asignados %}{{ nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}.</p>
       </div>
     </section>
   {% endif %}

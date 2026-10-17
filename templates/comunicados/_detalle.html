@@ -1,0 +1,169 @@
+{% load comunicados_extras usuarios_extras %}{% comment %}
+  El detalle de un comunicado: en la ventana del listado (?parcial=1) y en su propia página (comunicados/detalle.html).
+  - `gestion` (el autor o el administrador): las cuatro tarjetas de seguimiento y la lista de destinatarios con su
+    estado de lectura. Consultarlo no marca como leído a nadie.
+  - Si no (quien lo recibe): el contenido, el autor, los archivos y solo su propio estado de lectura.
+{% endcomment %}
+<article class="detalle-comunicado{% if comunicado.urgente %} detalle-comunicado--urgente{% endif %}" data-detalle-comunicado data-comunicado="{{ comunicado.pk }}"{% if not gestion %} data-pendientes="{{ pendientes }}"{% endif %} aria-labelledby="detalle-titulo-{{ comunicado.pk }}">
+  <header class="detalle-comunicado__cabecera">
+    <span class="detalle-comunicado__icono" aria-hidden="true">{% include "partials/icon.html" with name=comunicado.urgente|yesno:"bell,megaphone" %}</span>
+    <div class="detalle-comunicado__encabezado">
+      {% if comunicado.urgente %}<span class="etiqueta-urgente etiqueta-urgente--suave">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
+      <h2 class="detalle-comunicado__titulo" id="detalle-titulo-{{ comunicado.pk }}" tabindex="-1" data-detalle-titulo>{{ comunicado.titulo }}</h2>
+      <p class="detalle-comunicado__fecha">
+        {% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}
+        <time datetime="{{ comunicado.creado|date:'c' }}">{{ comunicado.creado|date:"j \d\e F \d\e Y"|lower }}</time>
+        <span aria-hidden="true">•</span> {{ comunicado.creado|date:"H:i" }}
+        <span aria-hidden="true">•</span> <strong>{{ comunicado.creado|tiempo_relativo }}</strong>
+      </p>
+    </div>
+  </header>
+
+  <div class="detalle-comunicado__descripcion">{{ comunicado.descripcion|linebreaks }}</div>
+
+  {% if adjuntos %}
+    <section class="detalle-comunicado__seccion" aria-labelledby="adjuntos-{{ comunicado.pk }}">
+      <h3 class="detalle-comunicado__subtitulo" id="adjuntos-{{ comunicado.pk }}">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} Archivos ({{ adjuntos|length }})</h3>
+      <ul class="adjuntos" role="list">
+        {% for adjunto in adjuntos %}
+          {% url url_adjunto adjunto.pk as url_archivo %}
+          <li class="adjunto{% if adjunto.es_imagen %} adjunto--imagen{% endif %}">
+            {% if adjunto.es_imagen %}
+              <a class="adjunto__vista" href="{{ url_archivo }}" target="_blank" rel="noopener" aria-label="Ver {{ adjunto.nombre_original }} en otra pestaña">
+                <img class="adjunto__imagen" src="{{ url_archivo }}" alt="" decoding="async">
+              </a>
+            {% else %}
+              <span class="adjunto__icono" aria-hidden="true">{% include "partials/icon.html" with name="file-text" %}</span>
+            {% endif %}
+            <div class="adjunto__texto">
+              <a class="adjunto__nombre" href="{{ url_archivo }}" target="_blank" rel="noopener">{{ adjunto.nombre_original }}</a>
+              <span class="adjunto__tamano">{{ adjunto.tamano|tamano_legible }}</span>
+            </div>
+            <a class="btn btn--ghost btn--icon btn--sm" href="{{ url_archivo }}?descargar=1" aria-label="Descargar {{ adjunto.nombre_original }}" data-tooltip="Descargar">
+              {% include "partials/icon.html" with name="download" icon_class="icon--sm" %}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {% if gestion %}
+    <div class="detalle-comunicado__datos">
+      <section class="dato-comunicado" aria-label="Creado por">
+        <span class="dato-comunicado__icono dato-comunicado__icono--azul" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
+        <div>
+          <p class="dato-comunicado__etiqueta">Creado por</p>
+          <p class="dato-comunicado__valor">{{ comunicado.autor|nombre_visible }}</p>
+          {% if comunicado.rol_autor %}<span class="tag tag--primary">{{ comunicado.rol_autor }}</span>{% endif %}
+        </div>
+      </section>
+      <section class="dato-comunicado" aria-label="Estado de lectura">
+        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="eye" %}</span>
+        <div class="dato-comunicado__amplio">
+          <p class="dato-comunicado__etiqueta">Estado de lectura</p>
+          <p class="dato-comunicado__valor dato-comunicado__valor--grande">{{ comunicado.leidos }}/{{ comunicado.total }} <span class="dato-comunicado__nota">({{ comunicado.porcentaje }}%)</span></p>
+          <progress class="meter" max="100" value="{{ comunicado.porcentaje }}" aria-label="{{ comunicado.porcentaje }} % de lectura">{{ comunicado.porcentaje }} %</progress>
+        </div>
+      </section>
+      <section class="dato-comunicado" aria-label="Destinatarios">
+        <span class="dato-comunicado__icono dato-comunicado__icono--violeta" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
+        <div>
+          <p class="dato-comunicado__etiqueta">Destinatarios</p>
+          <p class="dato-comunicado__valor dato-comunicado__valor--grande">{{ comunicado.total }}</p>
+          <p class="dato-comunicado__nota">{% for tipo, numero, texto in comunicado.desglose %}{{ texto }}{% if not forloop.last %} · {% endif %}{% empty %}Sin destinatarios{% endfor %}</p>
+        </div>
+      </section>
+      <section class="dato-comunicado" aria-label="Estado">
+        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="badge-check" %}</span>
+        <div>
+          <p class="dato-comunicado__etiqueta">Estado</p>
+          {% if comunicado.caducado %}<span class="tag">Caducado</span>{% else %}<span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Activo</span>{% endif %}
+          <p class="dato-comunicado__nota">{% if comunicado.expira %}{% if comunicado.caducado %}Caducó{% else %}Se muestra hasta{% endif %} el {{ comunicado.expira|date:"j b Y, H:i" }}{% else %}Sin fecha de expiración{% endif %}</p>
+        </div>
+      </section>
+    </div>
+
+    <details class="lista-destinatarios" data-lista-destinatarios{% if destinatarios|length <= 30 %} open{% endif %}>
+      <summary class="lista-destinatarios__resumen">
+        <span class="lista-destinatarios__icono" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
+        <span class="lista-destinatarios__textos">
+          <span class="lista-destinatarios__titulo">Lista de destinatarios</span>
+          <span class="lista-destinatarios__conteo">{{ comunicado.leidos }} leído{{ comunicado.leidos|pluralize }} • {{ comunicado.pendientes }} pendiente{{ comunicado.pendientes|pluralize }}</span>
+        </span>
+        {% include "partials/icon.html" with name="chevron-down" icon_class="lista-destinatarios__flecha" %}
+      </summary>
+      {% if destinatarios|length > 8 %}
+        <div class="lista-destinatarios__herramientas">
+          <label class="lista-destinatarios__buscar">
+            <span class="visually-hidden">Buscar destinatario</span>
+            {% include "partials/icon.html" with name="search" icon_class="icon--sm" %}
+            <input class="field__control" type="search" placeholder="Buscar por nombre…" data-destinatarios-buscar autocomplete="off">
+          </label>
+          <div class="segmentado segmentado--chico" role="group" aria-label="Filtrar por estado de lectura">
+            <button type="button" class="segmentado__opcion is-activo" data-destinatarios-estado="" aria-pressed="true">Todos</button>
+            <button type="button" class="segmentado__opcion" data-destinatarios-estado="leido" aria-pressed="false">Leídos</button>
+            <button type="button" class="segmentado__opcion" data-destinatarios-estado="pendiente" aria-pressed="false">Pendientes</button>
+          </div>
+        </div>
+      {% endif %}
+      <ul class="lista-destinatarios__filas" role="list" data-destinatarios-filas>
+        {% for destinatario in destinatarios %}
+          <li class="destinatario-fila" data-nombre="{{ destinatario.nombre|lower }}" data-estado="{{ destinatario.leido_en|yesno:'leido,pendiente' }}">
+            <span class="avatar avatar--sm avatar--tone-{{ destinatario.pk|tono_de }}" aria-hidden="true">{{ destinatario.nombre|iniciales_de }}</span>
+            <span class="destinatario-fila__texto">
+              <span class="destinatario-fila__nombre">{{ destinatario.nombre }}</span>
+              <span class="destinatario-fila__detalle">{% if destinatario.tipo == "TUTOR" and destinatario.detalle %}{{ destinatario.detalle }}{% else %}{{ destinatario.get_tipo_display }}{% if destinatario.detalle %} · {{ destinatario.detalle }}{% endif %}{% endif %}</span>
+            </span>
+            {% if destinatario.leido_en %}
+              <span class="destinatario-fila__estado">
+                <span class="tag tag--success">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Leído</span>
+                <time class="destinatario-fila__hora" datetime="{{ destinatario.leido_en|date:'c' }}">{{ destinatario.leido_en|date:"j b Y, H:i" }}</time>
+              </span>
+            {% else %}
+              <span class="destinatario-fila__estado"><span class="tag">Pendiente</span></span>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="lista-destinatarios__vacio" data-destinatarios-vacio hidden>Nadie coincide con la búsqueda.</p>
+    </details>
+
+    {% if puede_eliminar %}
+      <footer class="detalle-comunicado__acciones">
+        <a class="btn btn--danger-text btn--sm" href="{% url 'comunicados:eliminar' comunicado.pk %}" data-detalle-eliminar>
+          {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar comunicado
+        </a>
+        <form class="detalle-comunicado__confirmar" method="post" action="{% url 'comunicados:eliminar' comunicado.pk %}" data-detalle-confirmar role="alertdialog" aria-labelledby="eliminar-titulo-{{ comunicado.pk }}" hidden>
+          {% csrf_token %}
+          <p id="eliminar-titulo-{{ comunicado.pk }}"><strong>¿Eliminar este comunicado?</strong></p>
+          <p>Dejará de verse para sus {{ comunicado.total }} destinatario{{ comunicado.total|pluralize }}, también en los portales. No se borra: queda registrado en el historial para auditoría.</p>
+          <div class="detalle-comunicado__confirmar-acciones">
+            <button type="button" class="btn btn--sm" data-detalle-confirmar-no>Cancelar</button>
+            <button type="submit" class="btn btn--sm btn--danger" data-detalle-confirmar-si>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar</button>
+          </div>
+        </form>
+      </footer>
+    {% endif %}
+  {% else %}
+    <div class="detalle-comunicado__datos detalle-comunicado__datos--receptor">
+      <section class="dato-comunicado" aria-label="Enviado por">
+        <span class="avatar avatar--tone-{{ comunicado.autor_id|tono_de }}" aria-hidden="true">{{ comunicado.autor|iniciales }}</span>
+        <div>
+          <p class="dato-comunicado__etiqueta">Enviado por</p>
+          <p class="dato-comunicado__valor">{{ comunicado.autor|nombre_visible }}</p>
+          {% if comunicado.rol_autor %}<span class="tag tag--primary">{{ comunicado.rol_autor }}</span>{% endif %}
+        </div>
+      </section>
+      <section class="dato-comunicado" aria-label="Tu lectura">
+        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="check-check" %}</span>
+        <div>
+          <p class="dato-comunicado__etiqueta">Tu lectura</p>
+          <p class="dato-comunicado__valor">Leído</p>
+          <p class="dato-comunicado__nota">Lo abriste por primera vez el {{ destinatario.leido_en|date:"j b Y, H:i" }}</p>
+          {% if comunicado.expira %}<p class="dato-comunicado__nota">Disponible hasta el {{ comunicado.expira|date:"j b Y, H:i" }}</p>{% endif %}
+        </div>
+      </section>
+    </div>
+  {% endif %}
+</article>

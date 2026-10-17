@@ -1,0 +1,33 @@
+{% extends base %}
+{% load static %}
+{% comment %}
+  El detalle de un comunicado en su propia página (enlace directo, o sin JavaScript): el mismo contenido que la ventana
+  del listado (comunicados/_detalle.html).
+{% endcomment %}
+
+{% block title %}{{ comunicado.titulo }} · Comunicados | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Comunicados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ comunicado.titulo|truncatechars:40 }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <div class="comunicado-pagina">
+    <a class="btn btn--ghost btn--sm comunicado-pagina__volver" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a comunicados</a>
+    <div class="comunicado-pagina__panel">
+      {% include "comunicados/_detalle.html" %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/comunicados.js' %}" defer></script>
+{% endblock %}

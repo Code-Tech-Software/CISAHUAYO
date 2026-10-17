@@ -16,6 +16,16 @@
       {% if mensajeria.activa %}<a class="notificaciones__todo" href="{{ mensajeria.url_bandeja }}">Ver mensajes</a>{% endif %}
     </div>
     <div class="menu__separator"></div>
+    {% if avisos_comunicados.activa %}
+      {# Comunicados recibidos sin leer (Comunicados/context_processors.py); static/js/comunicados-avisos.js lo actualiza #}
+      <a class="aviso aviso--comunicados{% if avisos_comunicados.urgentes %} is-urgente{% endif %}" href="{{ avisos_comunicados.url }}" data-comunicados-campana data-pendientes="{{ avisos_comunicados.pendientes }}" data-urgentes="{{ avisos_comunicados.urgentes }}"{% if not avisos_comunicados.pendientes %} hidden{% endif %}>
+        <span class="avatar avatar--sm aviso__avatar aviso__avatar--comunicados" aria-hidden="true">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %}</span>
+        <span class="aviso__texto">
+          <span class="aviso__fila"><span class="aviso__nombre" data-comunicados-campana-texto>{{ avisos_comunicados.pendientes }} comunicado{{ avisos_comunicados.pendientes|pluralize }} sin leer</span></span>
+          <span class="aviso__vista" data-comunicados-campana-urgentes>{% if avisos_comunicados.urgentes %}{{ avisos_comunicados.urgentes }} urgente{{ avisos_comunicados.urgentes|pluralize }} · {% endif %}Ver comunicados</span>
+        </span>
+      </a>
+    {% endif %}
     <ul class="notificaciones__lista" data-notificaciones-lista aria-label="Mensajes sin leer"{% if not mensajeria.avisos %} hidden{% endif %}>
       {% for aviso in mensajeria.avisos %}
         <li data-aviso-conversacion="{{ aviso.conversacion }}">

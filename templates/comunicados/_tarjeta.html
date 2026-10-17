@@ -1,0 +1,42 @@
+{% load comunicados_extras usuarios_extras %}{% comment %}
+  Tarjeta de un comunicado en «Enviados» o en «Todos los comunicados» (con estadísticas: Comunicados/reglas.preparar).
+  En el modo de selección (papelera) aparece su casilla, solo si quien mira puede eliminarlo.
+{% endcomment %}
+<article class="tarjeta-comunicado{% if comunicado.urgente %} tarjeta-comunicado--urgente{% endif %}{% if comunicado.caducado %} tarjeta-comunicado--caducado{% endif %}" data-tarjeta="{{ comunicado.pk }}">
+  {% if comunicado.eliminable %}
+    <label class="tarjeta-comunicado__marca" data-seleccion-marca hidden>
+      <input class="tarjeta-comunicado__casilla" type="checkbox" name="comunicados" value="{{ comunicado.pk }}" form="form-eliminar-varios" data-seleccion-casilla>
+      <span class="visually-hidden">Seleccionar «{{ comunicado.titulo }}» para eliminarlo</span>
+    </label>
+  {% endif %}
+  <a class="tarjeta-comunicado__enlace" href="{% url 'comunicados:detalle' comunicado.pk %}" data-abrir-detalle="{% url 'comunicados:detalle' comunicado.pk %}?parcial=1">
+    <div class="tarjeta-comunicado__cuerpo">
+      <div class="tarjeta-comunicado__etiquetas">
+        {% if comunicado.urgente %}<span class="etiqueta-urgente">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
+        {% if comunicado.caducado %}<span class="tag">Caducado</span>{% else %}<span class="tag tag--success">Activo</span>{% endif %}
+      </div>
+      <h2 class="tarjeta-comunicado__titulo">{{ comunicado.titulo }}</h2>
+      <p class="tarjeta-comunicado__extracto">{{ comunicado.descripcion|truncatechars:180 }}</p>
+    </div>
+    <div class="tarjeta-comunicado__pie">
+      <div class="tarjeta-comunicado__fila">
+        <span class="tarjeta-comunicado__autor">
+          <span class="avatar avatar--sm avatar--tone-{{ comunicado.autor_id|tono_de }}" aria-hidden="true">{{ comunicado.autor|iniciales }}</span>
+          <span class="tarjeta-comunicado__autor-nombre">{{ comunicado.autor|nombre_visible }}</span>
+        </span>
+        <time class="tarjeta-comunicado__fecha" datetime="{{ comunicado.creado|date:'c' }}">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} {{ comunicado.creado|date:"j b Y" }}</time>
+      </div>
+      <div class="tarjeta-comunicado__lectura">
+        <div class="tarjeta-comunicado__fila tarjeta-comunicado__fila--suave">
+          <span>{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %} {{ comunicado.leidos }}/{{ comunicado.total }} leídos</span>
+          <span class="tarjeta-comunicado__porcentaje">{{ comunicado.porcentaje }}%</span>
+        </div>
+        <progress class="meter tarjeta-comunicado__barra" max="100" value="{{ comunicado.porcentaje }}" aria-label="{{ comunicado.leidos }} de {{ comunicado.total }} destinatarios lo han leído ({{ comunicado.porcentaje }} %)">{{ comunicado.porcentaje }} %</progress>
+      </div>
+      <div class="tarjeta-comunicado__fila tarjeta-comunicado__fila--suave tarjeta-comunicado__destinatarios">
+        <span class="tarjeta-comunicado__resumen" title="{{ comunicado.resumen_destinatarios }}">{% include "partials/icon.html" with name="users" icon_class="icon--sm" %} {{ comunicado.resumen_destinatarios }}</span>
+        {% if comunicado.n_adjuntos %}<span class="tarjeta-comunicado__adjuntos" aria-label="{{ comunicado.n_adjuntos }} archivo{{ comunicado.n_adjuntos|pluralize }}">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ comunicado.n_adjuntos }}</span>{% endif %}
+      </div>
+    </div>
+  </a>
+</article>

@@ -3915,6 +3915,45 @@ body {
   }
 }
 
+/* --- Comunicados en la campana y aviso flotante (static/js/comunicados-avisos.js) -------------------------------
+   La fila de comunicados sin leer va arriba de los mensajes; un comunicado urgente se marca en naranja. */
+.aviso--comunicados {
+  margin-bottom: var(--space-1);
+  border: var(--border-width) solid var(--color-primary-border);
+  background: var(--color-primary-soft);
+}
+
+.aviso--comunicados.is-urgente {
+  border-color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 12%, var(--color-surface));
+}
+
+.aviso__avatar--comunicados {
+  --avatar-tone: var(--color-primary-text);
+}
+
+.aviso--comunicados.is-urgente .aviso__avatar--comunicados {
+  --avatar-tint: #b45309;
+  --avatar-tone: var(--color-white);
+}
+
+.aviso-flotante--comunicado {
+  border-left-color: var(--color-primary);
+}
+
+.aviso-flotante--urgente {
+  border-left-color: #b45309;
+  background: color-mix(in srgb, #f59e0b 10%, var(--color-surface));
+}
+
+.aviso-flotante--urgente .aviso-flotante__titulo {
+  color: #b45309;
+}
+
+:root[data-theme="dark"] .aviso-flotante--urgente .aviso-flotante__titulo {
+  color: #fbbf6a;
+}
+
 /* --- Credenciales de acceso ---------------------------------------------------------------------------------
    Tarjeta que se muestra una sola vez al crear una cuenta (alumno o usuario) o restablecer su contraseña. */
 .credentials {

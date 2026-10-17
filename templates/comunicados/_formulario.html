@@ -1,0 +1,93 @@
+{% load static %}{% comment %}
+  El formulario de crear un comunicado (en la ventana del listado y en su propia página). Lo maneja
+  static/js/comunicados-form.js: guarda la selección del selector de destinatarios en el campo «destinatarios», muestra
+  los archivos elegidos, valida antes de enviar y envía con fetch para no perder nada si algo falla. El servidor valida
+  todo otra vez (Comunicados/forms.py y Comunicados/reglas.py). Parámetros: en_pagina (sin ventana).
+{% endcomment %}
+<form class="formulario-comunicado" id="formulario-comunicado" method="post" action="{{ url_crear }}" enctype="multipart/form-data" novalidate
+      data-formulario-comunicado data-destinatarios-url="{{ url_destinatarios }}" data-maximo-archivos="{{ maximo_archivos }}"
+      data-maximo-mb="{{ maximo_mb }}" data-acepta="{{ acepta }}" data-no-busy>
+  {% csrf_token %}
+  <input type="hidden" name="clave_envio" value="{{ clave_envio }}" data-clave-envio>
+  <input type="hidden" name="destinatarios" value="{{ form.data.destinatarios|default:'' }}" data-destinatarios-valor>
+
+  <div class="alert alert--error formulario-comunicado__alerta" role="alert" data-errores-generales{% if not errores_generales %} hidden{% endif %}>
+    {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+    <div class="alert__body" data-errores-texto>{% for error in errores_generales %}<p>{{ error }}</p>{% endfor %}</div>
+  </div>
+
+  <div class="field campo-contorno{% if errores.titulo %} is-invalid{% endif %}" data-campo="titulo">
+    <label class="campo-contorno__etiqueta" for="comunicado-titulo">Título <span class="campo-contorno__obligatorio" aria-hidden="true">*</span></label>
+    <input class="field__control campo-contorno__control" id="comunicado-titulo" name="titulo" type="text" maxlength="{{ maximo_titulo }}" required aria-required="true"
+           placeholder="Escribe un título para tu comunicado" value="{{ form.data.titulo|default:'' }}" autocomplete="off"{% if errores.titulo %} aria-invalid="true"{% endif %}>
+    {% for error in errores.titulo %}<p class="field__error">{{ error }}</p>{% endfor %}
+  </div>
+
+  <fieldset class="field formulario-comunicado__expira{% if errores.expira %} is-invalid{% endif %}" data-campo="expira" aria-describedby="comunicado-expira-ayuda">
+    <legend class="field__label">Fecha de expiración <span class="formulario-comunicado__opcional">(opcional)</span></legend>
+    <div class="formulario-comunicado__fecha-hora">
+      <input class="field__control" type="date" name="expira_fecha" id="comunicado-expira-fecha" aria-label="Fecha de expiración" min="{{ hoy|date:'Y-m-d' }}" value="{{ form.data.expira_fecha|default:'' }}">
+      <input class="field__control" type="time" name="expira_hora" id="comunicado-expira-hora" aria-label="Hora de expiración" step="300" value="{{ form.data.expira_hora|default:'' }}">
+    </div>
+    <p class="field__hint" id="comunicado-expira-ayuda">A partir de esta fecha dejará de mostrarse a los destinatarios. Sin hora, caduca al terminar ese día (23:59).</p>
+    {% for error in errores.expira %}<p class="field__error">{{ error }}</p>{% endfor %}
+  </fieldset>
+
+  <label class="tarjeta-urgente" for="comunicado-urgente">
+    <span class="tarjeta-urgente__icono" aria-hidden="true">{% include "partials/icon.html" with name="circle-alert" %}</span>
+    <span class="tarjeta-urgente__texto">
+      <span class="tarjeta-urgente__titulo">Marcar como urgente</span>
+      <span class="tarjeta-urgente__ayuda">Lo destaca en naranja y lo muestra primero a quien todavía no lo lee, con un aviso prioritario.</span>
+    </span>
+    <input class="switch" type="checkbox" role="switch" name="urgente" id="comunicado-urgente"{% if form.data.urgente %} checked{% endif %}>
+  </label>
+
+  <div class="field fila-destinatarios{% if errores.destinatarios %} is-invalid{% endif %}" data-campo="destinatarios">
+    <div class="fila-destinatarios__caja">
+      <span class="fila-destinatarios__icono" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
+      <span class="fila-destinatarios__texto">
+        <span class="fila-destinatarios__titulo" id="comunicado-destinatarios-titulo">Elegir destinatarios <span class="campo-contorno__obligatorio" aria-hidden="true">*</span></span>
+        <span class="fila-destinatarios__resumen" id="comunicado-destinatarios-resumen" data-destinatarios-resumen aria-live="polite">Nadie elegido todavía · {{ alcance.descripcion }}</span>
+      </span>
+      <button type="button" class="btn btn--ghost fila-destinatarios__abrir" data-selector-abrir aria-haspopup="dialog"
+              aria-describedby="comunicado-destinatarios-titulo comunicado-destinatarios-resumen">Abrir</button>
+    </div>
+    {% for error in errores.destinatarios %}<p class="field__error">{{ error }}</p>{% endfor %}
+    <noscript><p class="field__hint">Para elegir a los destinatarios hace falta JavaScript en tu navegador.</p></noscript>
+  </div>
+
+  <div class="field campo-contorno{% if errores.descripcion %} is-invalid{% endif %}" data-campo="descripcion">
+    <label class="campo-contorno__etiqueta" for="comunicado-descripcion">Descripción <span class="campo-contorno__obligatorio" aria-hidden="true">*</span></label>
+    <textarea class="field__control campo-contorno__control campo-contorno__control--area" id="comunicado-descripcion" name="descripcion" rows="5"
+              maxlength="{{ maximo_descripcion }}" required aria-required="true" aria-describedby="comunicado-descripcion-cuenta"
+              placeholder="Escribe aquí una descripción para tu comunicado"{% if errores.descripcion %} aria-invalid="true"{% endif %}>{{ form.data.descripcion|default:'' }}</textarea>
+    <p class="field__hint formulario-comunicado__cuenta" id="comunicado-descripcion-cuenta" data-descripcion-cuenta data-maximo="{{ maximo_descripcion }}">Hasta {{ maximo_descripcion }} caracteres</p>
+    {% for error in errores.descripcion %}<p class="field__error">{{ error }}</p>{% endfor %}
+  </div>
+
+  <div class="field formulario-comunicado__archivos{% if errores.archivos %} is-invalid{% endif %}" data-campo="archivos">
+    <p class="formulario-comunicado__archivos-titulo" id="comunicado-archivos-titulo">
+      {% include "partials/icon.html" with name="image" icon_class="icon--sm" %} Archivos (<span data-archivos-cuenta>0</span>/{{ maximo_archivos }})
+    </p>
+    <label class="zona-archivos" data-zona-archivos>
+      <input class="zona-archivos__entrada" type="file" name="archivos" multiple accept="{{ acepta }}" data-archivos-entrada
+             aria-labelledby="comunicado-archivos-titulo" aria-describedby="comunicado-archivos-ayuda">
+      <span class="zona-archivos__icono" aria-hidden="true">{% include "partials/icon.html" with name="image" icon_class="icon--lg" %}</span>
+      <span class="zona-archivos__texto">Haz clic para <strong>adjuntar un archivo</strong><span class="zona-archivos__arrastra"> o arrástralo aquí</span></span>
+      <span class="zona-archivos__ayuda" id="comunicado-archivos-ayuda">{{ ayuda_archivos }}</span>
+    </label>
+    <ul class="archivos-elegidos" role="list" data-archivos-lista aria-label="Archivos elegidos"></ul>
+    {% for error in errores.archivos %}<p class="field__error">{{ error }}</p>{% endfor %}
+  </div>
+
+  <footer class="formulario-comunicado__acciones">
+    {% if en_pagina %}
+      <a class="btn" href="{% url 'comunicados:inicio' %}">Cancelar</a>
+    {% else %}
+      <button type="button" class="btn" data-formulario-cancelar>Cancelar</button>
+    {% endif %}
+    <button type="submit" class="btn btn--primary" data-formulario-enviar>
+      {% include "partials/icon.html" with name="send" icon_class="icon--sm" %} <span data-formulario-enviar-texto>Enviar comunicado</span>
+    </button>
+  </footer>
+</form>

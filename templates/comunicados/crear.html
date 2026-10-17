@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  «Crear comunicado» en su propia página: el enlace directo, Ctrl+clic, el buscador de comandos o cuando el servidor
+  devuelve errores sin JavaScript. Es el mismo formulario de la ventana del listado (comunicados/_formulario.html).
+{% endcomment %}
+
+{% block title %}Crear comunicado | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'comunicados:inicio' %}">Comunicados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Crear comunicado</span></li>
+{% endblock %}
+
+{% block content %}
+  <div class="crear-comunicado crear-comunicado--pagina">
+    <header class="crear-comunicado__cabecera">
+      <div>
+        <h1 class="crear-comunicado__titulo">Crear comunicado</h1>
+        <p class="crear-comunicado__descripcion">Comparte avisos con tutores, estudiantes y profesores · Puedes enviar a: {{ alcance.descripcion }}</p>
+      </div>
+    </header>
+    <div class="crear-comunicado__cuerpo">
+      {% include "comunicados/_formulario.html" with en_pagina=True %}
+    </div>
+  </div>
+  {% include "comunicados/_selector.html" %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/comunicados-form.js' %}" defer></script>
+{% endblock %}

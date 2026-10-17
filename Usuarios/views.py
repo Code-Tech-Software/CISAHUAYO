@@ -211,6 +211,7 @@ def usuario_detalle(request, pk):
         'alcance': alcance_de_cuenta(usuario) if rol and rol.es_prefectura else None,
         'direccion': direccion_de_cuenta(usuario, permisos),
         'coordinacion': coordinacion_de_cuenta(usuario, permisos, rol),
+        'comunicados': comunicados_de_cuenta(usuario, permisos),
     })
 
 
@@ -298,6 +299,55 @@ def usuario_direccion(request, pk):
             messages.success(request, f'{nombre_de(usuario)} autoriza las suspensiones y medidas de: {nombres}.')
             return redirect('usuarios:detalle', usuario.pk)
     return render(request, 'usuarios/direccion.html', {
+        'usuario': usuario, 'niveles': [(clave, nombre, clave in elegidos) for clave, nombre in Grado.NIVEL_CHOICES],
+    })
+
+
+def comunicados_de_cuenta(usuario, permisos):
+    """A qué niveles envía comunicados (si su rol puede enviarlos y no es administrador): {'asignados': [(clave,
+    nombre)], 'niveles': [(nombre, [de dónde le viene])]} con todo lo que suma su alcance, o None si no aplica."""
+    if usuario.is_superuser or 'Comunicados.enviar' not in permisos:
+        return None
+    from Alumnos.models import Grado
+    from Comunicados.alcance import niveles_asignados
+    nombres = dict(Grado.NIVEL_CHOICES)
+    elegidos = set(PerfilUsuario.de(usuario).niveles_comunicados)
+    return {
+        'asignados': [(clave, nombre) for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos],
+        'niveles': [(nombres[clave], origenes) for clave, origenes in niveles_asignados(usuario).items()],
+    }
+
+
+@requiere_permisos('auth.change_user')
+def usuario_comunicados(request, pk):
+    """Los niveles a los que envía comunicados una cuenta con ese permiso, además de los que ya tiene por ser docente,
+    dirigir o coordinar un nivel, o por su alcance de prefectura."""
+    from django import forms as formularios
+
+    from Alumnos.models import Grado
+
+    usuario = _gestionable(request, get_object_or_404(_consulta(), pk=pk))
+    perfil = PerfilUsuario.de(usuario)
+    permisos = permisos_efectivos(usuario) if usuario.is_active else permisos_de_cuenta(usuario)
+    if comunicados_de_cuenta(usuario, permisos) is None:
+        messages.info(request, 'Solo las cuentas cuyo rol puede enviar comunicados tienen niveles para comunicados (el administrador '
+                               'envía a todo el colegio).')
+        return redirect('usuarios:detalle', usuario.pk)
+    campo = formularios.MultipleChoiceField(choices=Grado.NIVEL_CHOICES, required=False)
+    elegidos = perfil.niveles_comunicados
+    if request.method == 'POST':
+        try:
+            elegidos = campo.clean(request.POST.getlist('niveles'))
+        except ValidationError:
+            messages.error(request, 'Elige niveles de la lista.')
+        else:
+            perfil.niveles_comunicados = list(elegidos)
+            perfil.save(update_fields=['niveles_comunicados', 'modificado'])
+            nombres = ', '.join(nombre for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos) or 'ninguno'
+            registrar(request.user, usuario, ACCION_CAMBIO, f'Niveles para comunicados: {nombres}.')
+            messages.success(request, f'{nombre_de(usuario)} puede enviar comunicados a estos niveles asignados: {nombres}.')
+            return redirect('usuarios:detalle', usuario.pk)
+    return render(request, 'usuarios/comunicados.html', {
         'usuario': usuario, 'niveles': [(clave, nombre, clave in elegidos) for clave, nombre in Grado.NIVEL_CHOICES],
     })
 

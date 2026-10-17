@@ -89,6 +89,12 @@ class PerfilUsuario(models.Model):
         'niveles que coordina', default=list, blank=True,
         help_text='Limita las bitácoras de todos los grupos a estos niveles (vacío: todo el colegio).',
     )
+    # Comunicados (2026-10-16): niveles a los que puede enviar, además de los que ya tiene por ser docente, dirigir o
+    # coordinar un nivel, o por su alcance de prefectura (Comunicados/alcance.py). Sin ninguno, no envía.
+    niveles_comunicados = models.JSONField(
+        'niveles para comunicados', default=list, blank=True,
+        help_text='Puede enviar comunicados a los tutores, estudiantes y profesores de estos niveles (si su rol tiene el permiso).',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

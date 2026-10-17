@@ -207,6 +207,24 @@ MODULOS = (
                      'prefectura, solo los de su alcance).',
         }),
     )),
+    Modulo('comunicados', 'Comunicados', 'megaphone', 'Avisos informativos para tutores, estudiantes y profesores, con seguimiento de lectura.', (
+        Funcion('Comunicados recibidos', {'ver': 'Comunicados.recibir'}, etiquetas={'ver': 'Consultar'}, ayuda={
+            'ver': 'Un profesor consulta los comunicados que le envían. Los tutores y los estudiantes los ven en su portal, '
+                   'sin necesidad de permisos.',
+        }),
+        Funcion('Envío de comunicados', {'ver': 'Comunicados.seguimiento', 'crear': 'Comunicados.enviar', 'baja': 'Comunicados.eliminar'},
+                etiquetas={'ver': 'Seguimiento', 'crear': 'Enviar', 'baja': 'Eliminar'}, ayuda={
+            'ver': 'Consultar los comunicados que envió, su estado y quién los ha leído (nunca los de otros emisores).',
+            'crear': 'Enviar comunicados a tutores, estudiantes y profesores de los niveles que tiene asignados: los que da como '
+                     'docente, dirige o coordina, su alcance de prefectura y los «Niveles para comunicados» de su ficha.',
+            'baja': 'Eliminar sus propios comunicados: dejan de verse y se conservan en el historial para auditoría.',
+        }),
+        Funcion('Gestión de todos los comunicados', {'editar': 'Comunicados.gestionar'}, etiquetas={'editar': 'Gestionar'},
+                requiere=('Comunicados.seguimiento',), reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Enviar a todo el colegio y consultar, dar seguimiento y eliminar los comunicados de cualquier emisor. '
+                      'Exclusivo del administrador.',
+        }),
+    )),
     Modulo('bitacoras', 'Bitácoras por grupo', 'notebook-pen', 'Observaciones informativas de lo ocurrido en cada clase, por grupo y por estudiante (no afectan calificaciones ni conducta).', (
         Funcion('Bitácora de sus clases', {'crear': 'Bitacoras.registrar'}, etiquetas={'crear': 'Registrar'}, ayuda={
             'crear': 'Un docente registra y consulta las entradas de los grupos y materias que tiene asignados, y edita o anula las suyas.',

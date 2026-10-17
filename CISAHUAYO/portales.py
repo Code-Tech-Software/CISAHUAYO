@@ -167,12 +167,15 @@ def _elemento(etiqueta, icono, url, activo, **extra):
 
 def navegacion(request, tipo, cuenta):
     """El menú lateral del portal, con el mismo formato que el del sistema (CISAHUAYO.context_processors): Inicio,
-    Mensajes (con los no leídos) y, para un tutor, cada uno de sus estudiantes."""
+    Mensajes (con los no leídos), Comunicados (con los sin leer) y, para un tutor, cada uno de sus estudiantes."""
     inicio = reverse(INICIO[tipo])
-    mensajes = reverse(f'{INICIO[tipo].split(":")[0]}:mensajes:inicio')
+    espacio = INICIO[tipo].split(':')[0]
+    mensajes = reverse(f'{espacio}:mensajes:inicio')
+    comunicados = reverse(f'{espacio}:comunicados:inicio')
     secciones = [{'titulo': None, 'elementos': [
         _elemento('Inicio', 'layout-dashboard', inicio, request.path == inicio),
         _elemento('Mensajes', 'message-circle', mensajes, request.path.startswith(mensajes), contador='mensajes'),
+        _elemento('Comunicados', 'megaphone', comunicados, request.path.startswith(comunicados), contador='comunicados'),
     ]}]
     if tipo == TUTOR:
         from Alumnos.models import TutorAlumno

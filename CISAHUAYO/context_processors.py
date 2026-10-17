@@ -32,6 +32,11 @@ def _usa_mensajes(usuario):
     return usuario.has_perm('Mensajes.usar') or usuario.has_perm('Mensajes.contactar_familias')
 
 
+def _usa_comunicados(usuario):
+    """Quien recibe (un profesor), da seguimiento a lo que envía o gestiona los comunicados del colegio."""
+    return any(usuario.has_perm(p) for p in ('Comunicados.recibir', 'Comunicados.seguimiento', 'Comunicados.enviar', 'Comunicados.gestionar'))
+
+
 def _usa_prefectura(usuario):
     """Una cuenta de prefectura (su rol es de prefectura) que puede consultar: su menú es el de prefectura."""
     if not usuario.has_perm('Prefectura.consultar'):
@@ -71,6 +76,8 @@ NAVEGACION = (
             {'etiqueta': 'Panel de control', 'icono': 'layout-dashboard', 'ruta': 'inicio', 'exacto': True, 'destinos': ((_no_usa_prefectura, 'inicio'),)},
             # Mensajería interna (también en los portales), con los mensajes sin leer junto a la etiqueta
             {'etiqueta': 'Mensajes', 'icono': 'message-circle', 'ruta': 'mensajes:inicio', 'destinos': ((_usa_mensajes, 'mensajes:inicio'),), 'contador': 'mensajes'},
+            # Comunicados con seguimiento de lectura (también en los portales), con los recibidos sin leer junto a la etiqueta
+            {'etiqueta': 'Comunicados', 'icono': 'megaphone', 'ruta': 'comunicados:inicio', 'destinos': ((_usa_comunicados, 'comunicados:inicio'),), 'contador': 'comunicados'},
         ),
     },
     {
@@ -145,6 +152,7 @@ NAVEGACION = (
 # no piden permiso, a todos).
 ACCIONES_RAPIDAS = (
     {'etiqueta': 'Nuevo estudiante', 'icono': 'plus', 'ruta': 'alumnos:crear', 'permiso': 'Alumnos.add_alumno'},
+    {'etiqueta': 'Nuevo comunicado', 'icono': 'megaphone', 'ruta': 'comunicados:crear', 'permiso': 'Comunicados.enviar'},
     {'etiqueta': 'Nueva entrada de bitácora', 'icono': 'notebook-pen', 'ruta': 'bitacoras:crear', 'permiso': _registra_en_bitacoras},
     {'etiqueta': 'Nuevo tutor', 'icono': 'plus', 'ruta': 'tutores:crear', 'permiso': 'Alumnos.add_tutor'},
     {'etiqueta': 'Nueva inscripción', 'icono': 'plus', 'ruta': 'inscripciones:crear', 'permiso': 'Alumnos.add_inscripcion'},

@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 from CISAHUAYO import portales
+from Comunicados.urls import rutas_de_portal as rutas_de_comunicados
 from Mensajes.urls import rutas_de_portal
 
 from . import views
@@ -12,4 +13,5 @@ urlpatterns = [
     path('estudiantes/<int:pk>/', views.estudiante, name='estudiante'),
     path('salir/', views.salir, name='salir'),
     path('mensajes/', include((rutas_de_portal(portales.TUTOR), 'mensajes'))),
+    path('comunicados/', include((rutas_de_comunicados(portales.TUTOR), 'comunicados'))),
 ]

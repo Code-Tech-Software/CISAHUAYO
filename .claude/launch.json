@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "comunicados-demo",
+      "runtimeExecutable": "C:/Users/maggm/OneDrive/Desktop/CISAHUAYO/.venv/Scripts/python.exe",
+      "runtimeArgs": ["C:/Users/maggm/AppData/Local/Temp/claude/C--Users-maggm-OneDrive-Desktop-CISAHUAYO/b47449be-9b14-4644-9076-50c28f3d4304/scratchpad/runserver_dev.py"],
+      "port": 8765
+    }
+  ]
+}

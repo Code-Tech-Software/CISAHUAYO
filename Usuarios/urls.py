@@ -15,4 +15,5 @@ urlpatterns = [
     path('<int:pk>/alcance/', views.usuario_alcance, name='alcance'),
     path('<int:pk>/direccion/', views.usuario_direccion, name='direccion'),
     path('<int:pk>/coordinacion/', views.usuario_coordinacion, name='coordinacion'),
+    path('<int:pk>/comunicados/', views.usuario_comunicados, name='comunicados'),
 ]

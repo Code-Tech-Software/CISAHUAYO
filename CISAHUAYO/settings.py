@@ -73,6 +73,8 @@ INSTALLED_APPS = [
     'PortalTutores',
     # Mensajería interna en tiempo real (Django Channels + Redis): Mensajes/
     'Mensajes',
+    # Comunicados a tutores, estudiantes y profesores, con seguimiento de lectura: Comunicados/
+    'Comunicados',
 ]
 
 MIDDLEWARE = [
@@ -118,6 +120,7 @@ TEMPLATES = [
                 'CISAHUAYO.context_processors.navegacion',
                 'CISAHUAYO.context_processors.apariencia',
                 'Mensajes.context_processors.mensajeria',
+                'Comunicados.context_processors.comunicados',
             ],
         },
     },

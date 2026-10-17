@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Confirmación para eliminar un comunicado (la página se usa sin JavaScript; con él, la ventana del detalle confirma).
+{% endcomment %}
+
+{% block title %}Eliminar comunicado | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'comunicados:inicio' %}">Comunicados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Eliminar</span></li>
+{% endblock %}
+
+{% block content %}
+  {% with comunicado=comunicados.0 %}
+    <form class="form-page" method="post" action="{% url 'comunicados:eliminar' comunicado.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="vista" value="{{ vista }}">
+      <section class="card">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="trash" %}<h1 class="card__title">¿Eliminar «{{ comunicado.titulo }}»?</h1>
+        </header>
+        <div class="card__body">
+          <p class="card__lead">Dejará de verse para sus {{ comunicado.total }} destinatario{{ comunicado.total|pluralize }}, también en los portales. No se borra: queda registrado en el historial para auditoría.</p>
+        </div>
+      </section>
+      <div class="action-bar">
+        <a class="btn" href="{% url 'comunicados:detalle' comunicado.pk %}">Cancelar</a>
+        <button type="submit" class="btn btn--danger">Eliminar comunicado</button>
+      </div>
+    </form>
+  {% endwith %}
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends base %}
+{% load static comunicados_extras %}
+{% comment %}
+  Comunicados (Comunicados/views.py): la misma pantalla en el sistema y en los portales (`base` y `espacio` cambian).
+  Arriba, el título con su contador, el filtro por fecha de creación, el buscador y «Crear comunicado»; debajo, las
+  pestañas (Recibidos, Enviados, Todos los comunicados), el filtro por estado y la cuadrícula de tarjetas. Cada tarjeta
+  abre su detalle en una ventana (static/js/comunicados.js); sin JavaScript, en su propia página. La ventana de crear y
+  el selector de destinatarios: comunicados/_formulario.html y comunicados/_selector.html (static/js/comunicados-form.js).
+{% endcomment %}
+
+{% block title %}Comunicados{% if portal %} · {{ portal.nombre }}{% endif %} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Comunicados</span></li>
+{% endblock %}
+
+{% block content %}
+  <section class="comunicados" data-comunicados aria-labelledby="comunicados-titulo" data-vista="{{ vista }}">
+    <header class="comunicados__cabecera">
+      <div class="comunicados__titulos">
+        <h1 class="comunicados__titulo" id="comunicados-titulo">
+          Comunicados
+          <span class="comunicados__contador" aria-live="polite">{{ pagina.paginator.count }} comunicado{{ pagina.paginator.count|pluralize }}{% if filtrado %} encontrado{{ pagina.paginator.count|pluralize }}{% endif %}</span>
+        </h1>
+        <p class="comunicados__subtitulo">
+          {% if vista == "recibidos" %}Los avisos que te envía el colegio{% if pendientes %} · <strong>{{ pendientes }} sin leer</strong>{% endif %}
+          {% elif vista == "gestion" %}Todos los comunicados del colegio, de cualquier emisor, con su seguimiento de lectura
+          {% else %}Envía comunicados y mantén informada a tu comunidad escolar{% endif %}
+        </p>
+      </div>
+
+      <form class="comunicados__herramientas" method="get" role="search" data-comunicados-filtros>
+        {% if vistas %}<input type="hidden" name="vista" value="{{ vista }}">{% endif %}
+        {% if estado != "todos" %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
+        <input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}" data-fecha-filtro data-hoy="{{ hoy|date:'Y-m-d' }}">
+        <button type="button" class="comunicados__calendario{% if fecha %} is-activo{% endif %}" data-calendario-abrir
+                aria-haspopup="dialog" aria-expanded="false" aria-controls="calendario-comunicados"
+                aria-label="Filtrar por fecha de creación{% if fecha %}: {{ fecha|date:'j \d\e F \d\e Y'|lower }}{% endif %}" data-tooltip="Filtrar por fecha">
+          {% include "partials/icon.html" with name="calendar" %}
+          {% if fecha %}<span class="comunicados__calendario-marca" aria-hidden="true"></span>{% endif %}
+        </button>
+        <label class="comunicados__buscador">
+          <span class="visually-hidden">Buscar comunicados</span>
+          {% include "partials/icon.html" with name="search" icon_class="comunicados__buscador-icono" %}
+          <input class="comunicados__buscador-campo" type="search" name="q" value="{{ texto }}" placeholder="Buscar comunicados…" autocomplete="off" maxlength="80">
+        </label>
+        {% if puede_crear %}
+          {% if sin_niveles %}
+            <button type="button" class="btn btn--primary comunicados__crear" disabled aria-describedby="comunicados-sin-niveles">
+              {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Crear comunicado
+            </button>
+          {% else %}
+            <a class="btn btn--primary comunicados__crear" href="{% url 'comunicados:crear' %}" data-crear-comunicado>
+              {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Crear comunicado
+            </a>
+          {% endif %}
+        {% endif %}
+      </form>
+
+      {# El calendario del filtro (static/js/comunicados.js lo arma y lo coloca junto al botón) #}
+      <div class="calendario comunicados-calendario" id="calendario-comunicados" popover="manual" role="dialog" aria-labelledby="calendario-comunicados-titulo" data-calendario-filtro hidden>
+        <p class="comunicados-calendario__titulo" id="calendario-comunicados-titulo">Filtrar por fecha de creación</p>
+        <div class="calendario__cabecera">
+          <p class="calendario__mes" data-calendario-mes aria-live="polite"></p>
+          <div class="comunicados-calendario__navegacion">
+            <button type="button" class="calendario__nav" data-calendario-paso="-1" aria-label="Mes anterior">{% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}</button>
+            <button type="button" class="calendario__nav" data-calendario-paso="1" aria-label="Mes siguiente">{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</button>
+          </div>
+        </div>
+        <table class="calendario__tabla" role="grid" aria-labelledby="calendario-comunicados-titulo">
+          <thead><tr><th scope="col" abbr="lunes">lu</th><th scope="col" abbr="martes">ma</th><th scope="col" abbr="miércoles">mi</th><th scope="col" abbr="jueves">ju</th><th scope="col" abbr="viernes">vi</th><th scope="col" abbr="sábado">sá</th><th scope="col" abbr="domingo">do</th></tr></thead>
+          <tbody data-calendario-dias></tbody>
+        </table>
+        <div class="comunicados-calendario__atajos">
+          <button type="button" class="comunicados-calendario__atajo" data-calendario-atajo="0">Hoy</button>
+          <button type="button" class="comunicados-calendario__atajo" data-calendario-atajo="1">Ayer</button>
+          <button type="button" class="comunicados-calendario__atajo" data-calendario-atajo="7" title="Exactamente esa fecha, no un rango">Hace 7 días</button>
+          <button type="button" class="comunicados-calendario__atajo comunicados-calendario__atajo--limpiar" data-calendario-limpiar{% if not fecha %} hidden{% endif %}>Limpiar</button>
+        </div>
+      </div>
+    </header>
+
+    {% if sin_niveles %}
+      <div class="alert alert--warning comunicados__aviso" role="status" id="comunicados-sin-niveles">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <div class="alert__body"><p><strong>Todavía no puedes enviar comunicados.</strong></p><p>{{ mensaje_sin_niveles }}</p></div>
+      </div>
+    {% endif %}
+
+    {% if vistas|length > 1 %}
+      <nav class="comunicados__vistas" aria-label="Bandejas de comunicados">
+        {% for clave, nombre in vistas %}
+          <a class="comunicados__vista" href="?vista={{ clave }}"{% if clave == vista %} aria-current="page"{% endif %}>
+            {% if clave == "recibidos" %}{% include "partials/icon.html" with name="inbox" icon_class="icon--sm" %}{% elif clave == "enviados" %}{% include "partials/icon.html" with name="send" icon_class="icon--sm" %}{% else %}{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %}{% endif %}
+            {{ nombre }}
+            {% if clave == "recibidos" %}<span class="comunicados__vista-cuenta" data-comunicados-vista-cuenta{% if not pendientes %} hidden{% endif %}>{{ pendientes }}</span><span class="visually-hidden"> sin leer</span>{% endif %}
+          </a>
+        {% endfor %}
+      </nav>
+    {% endif %}
+
+    <div class="comunicados__barra">
+      <nav class="segmentado" aria-label="Filtrar por estado">
+        {% for clave, nombre in estados %}
+          <a class="segmentado__opcion{% if clave == estado %} is-activo{% endif %}" href="{% querystring estado=clave page=None %}"{% if clave == estado %} aria-current="true"{% endif %}>{{ nombre }}</a>
+        {% endfor %}
+      </nav>
+      {% if fecha or texto %}
+        <ul class="comunicados__filtros-activos" aria-label="Filtros aplicados">
+          {% if fecha %}<li><a class="comunicados__filtro-activo" href="{% querystring fecha=None page=None %}" aria-label="Quitar el filtro de fecha">Creados el {{ fecha|date:"j b Y" }} {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</a></li>{% endif %}
+          {% if texto %}<li><a class="comunicados__filtro-activo" href="{% querystring q=None page=None %}" aria-label="Quitar la búsqueda">«{{ texto|truncatechars:30 }}» {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</a></li>{% endif %}
+        </ul>
+      {% endif %}
+      {% if seleccionable %}
+        <button type="button" class="btn btn--icon comunicados__papelera" data-seleccion-alternar aria-pressed="false"
+                aria-label="Seleccionar comunicados para eliminarlos" data-tooltip="Seleccionar para eliminar">
+          {% include "partials/icon.html" with name="trash" %}
+        </button>
+      {% endif %}
+    </div>
+
+    {% if seleccionable %}
+      <form class="comunicados__seleccion" method="post" action="{% url 'comunicados:eliminar_varios' %}" id="form-eliminar-varios" data-seleccion-barra hidden>
+        {% csrf_token %}
+        <input type="hidden" name="vista" value="{{ vista }}">
+        <p class="comunicados__seleccion-texto" aria-live="polite"><span data-seleccion-cuenta>Ningún comunicado seleccionado</span>. Marca las tarjetas que quieras eliminar.</p>
+        <div class="comunicados__seleccion-acciones">
+          <button type="button" class="btn btn--sm" data-seleccion-alternar>Cancelar</button>
+          <button type="button" class="btn btn--sm btn--danger" data-seleccion-eliminar disabled>
+            {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar seleccionados
+          </button>
+        </div>
+      </form>
+    {% endif %}
+
+    {% if pagina.object_list %}
+      <ul class="comunicados__rejilla" role="list">
+        {% for elemento in pagina.object_list %}
+          <li class="comunicados__celda">
+            {% if vista == "recibidos" %}
+              {% include "comunicados/_tarjeta_recibida.html" with destinatario=elemento comunicado=elemento.comunicado %}
+            {% else %}
+              {% include "comunicados/_tarjeta.html" with comunicado=elemento %}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% include "partials/pagination.html" with etiqueta="comunicados" %}
+    {% else %}
+      <div class="comunicados__vacio">
+        {% include "partials/icon.html" with name="megaphone" icon_class="icon--lg comunicados__vacio-icono" %}
+        {% if filtrado %}
+          <p class="empty-state__title">No hay comunicados con esos filtros</p>
+          <p class="empty-state__text">Prueba con otra fecha, otro estado o quita la búsqueda.</p>
+          <div class="empty-state__actions"><a class="btn btn--sm" href="?{% if vistas %}vista={{ vista }}{% endif %}">Quitar filtros</a></div>
+        {% elif vista == "recibidos" %}
+          <p class="empty-state__title">No tienes comunicados</p>
+          <p class="empty-state__text">{% if lector %}Cuando el colegio te envíe un comunicado, aparecerá aquí.{% else %}Solo los profesores (con su ficha vinculada a su cuenta) reciben comunicados en el sistema.{% endif %}</p>
+        {% elif vista == "gestion" %}
+          <p class="empty-state__title">Todavía no hay comunicados en el colegio</p>
+          <p class="empty-state__text">Los comunicados que envíe cualquier persona aparecerán aquí, con su seguimiento de lectura.</p>
+        {% else %}
+          <p class="empty-state__title">Todavía no has enviado comunicados</p>
+          <p class="empty-state__text">{% if puede_crear and not sin_niveles %}Crea uno para avisar a tutores, estudiantes o profesores; aquí verás quién lo ha leído.{% else %}Aquí verás los comunicados que envíes y quién los ha leído.{% endif %}</p>
+          {% if puede_crear and not sin_niveles %}<div class="empty-state__actions"><a class="btn btn--primary btn--sm" href="{% url 'comunicados:crear' %}" data-crear-comunicado>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Crear comunicado</a></div>{% endif %}
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+  {# El detalle se abre aquí (static/js/comunicados.js lo pide con ?parcial=1) #}
+  <dialog class="modal modal--comunicado" data-detalle-modal aria-label="Detalle del comunicado">
+    <div class="modal__panel comunicado-ventana">
+      <button type="button" class="btn btn--ghost btn--icon comunicado-ventana__cerrar" data-detalle-cerrar aria-label="Cerrar" data-tooltip="Cerrar">
+        {% include "partials/icon.html" with name="x" %}
+      </button>
+      <div class="comunicado-ventana__cuerpo" data-detalle-contenido aria-live="polite"></div>
+    </div>
+  </dialog>
+
+  {% if seleccionable %}
+    <dialog class="modal" id="confirmar-eliminar-varios" data-modal data-seleccion-confirmar aria-labelledby="confirmar-varios-titulo">
+      <div class="modal__panel">
+        <header class="modal__header"><h2 class="modal__title" id="confirmar-varios-titulo">¿Eliminar <span data-seleccion-cuenta-confirmar>los comunicados</span>?</h2></header>
+        <div class="modal__body">
+          <p>Dejarán de verse para todos sus destinatarios, también en los portales. No se borran: quedan registrados en el historial para auditoría.</p>
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>Cancelar</button>
+          <button type="submit" class="btn btn--danger" form="form-eliminar-varios">Eliminar</button>
+        </footer>
+      </div>
+    </dialog>
+  {% endif %}
+
+  {% if puede_crear and not sin_niveles %}
+    {% include "comunicados/_ventana_crear.html" %}
+    {% include "comunicados/_selector.html" %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/comunicados.js' %}" defer></script>
+  {% if puede_crear and not sin_niveles %}<script src="{% static 'js/comunicados-form.js' %}" defer></script>{% endif %}
+{% endblock %}

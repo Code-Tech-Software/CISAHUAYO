@@ -2,24 +2,31 @@
 (/portal/estudiantes/mensajes/ y /portal/tutores/mensajes/): cambian la cuenta (`Cuenta`), la plantilla base y la
 protección (permisos del sistema o la sesión del portal). Ver Mensajes/urls.py.
 """
+import logging
 from dataclasses import dataclass, field
 from datetime import timedelta
 from functools import wraps
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
 from CISAHUAYO import portales
 from CISAHUAYO.permisos import requiere_alguno
 
 from . import reglas
-from .models import Conversacion, Mensaje, Participante
+from .models import Conversacion, ImagenMensaje, Mensaje, Participante
 from .tiempo_real import datos_de_mensaje
+
+registro = logging.getLogger(__name__)
+# Las imágenes del editor: fotos JPG, PNG o WEBP (el tipo real se revisa con su contenido: Conducta.forms.validar_archivo)
+ACEPTA_IMAGENES = '.jpg,.jpeg,.png,.webp'
 
 
 @dataclass
@@ -126,6 +133,8 @@ def conversacion(request, pk):
         mensaje.mio = mensaje.autor_id == participante.pk
         mensaje.leido = mensaje.mio and mensaje.pk <= leido_hasta
         mensaje.dia = _dia(timezone.localtime(mensaje.creado).date(), hoy)
+        # Con formato: el HTML limpio otra vez al mostrarlo (Mensajes/enriquecido.py), con las imágenes de su espacio
+        mensaje.html_visible = mark_safe(reglas.html_visible(mensaje, participante)) if mensaje.html else ''
     otro = reglas.el_otro(conversacion, participante)
     return _pantalla(
         request, cuenta, conversacion,
@@ -133,6 +142,8 @@ def conversacion(request, pk):
         primero=mensajes[0].pk if mensajes else None, leido_hasta=leido_hasta,
         puede_escribir=reglas.puede_escribir_en(conversacion, participante), maximo=Mensaje.MAXIMO,
         url_enviar=cuenta.url('enviar', conversacion.pk), url_leida=cuenta.url('leida', conversacion.pk),
+        url_imagenes=cuenta.url('imagen_subir', conversacion.pk), acepta_imagenes=ACEPTA_IMAGENES,
+        maximo_imagen_mb=ImagenMensaje.TAMANO_MAXIMO_MB,
     )
 
 
@@ -156,7 +167,7 @@ def enviar(request, pk):
     cuenta = request.mensajeria
     conversacion = _conversacion(cuenta, pk)
     try:
-        mensaje = reglas.enviar(conversacion, cuenta.participante, request.POST.get('texto', ''))
+        mensaje = reglas.enviar(conversacion, cuenta.participante, request.POST.get('texto', ''), request.POST.get('html', ''))
     except reglas.MensajeRechazado as rechazo:
         if _quiere_json(request):
             return JsonResponse({'error': str(rechazo)}, status=400)
@@ -165,6 +176,55 @@ def enviar(request, pk):
     if _quiere_json(request):
         return JsonResponse(datos_de_mensaje(mensaje, cuenta.participante))
     return redirect(f"{cuenta.url('conversacion', conversacion.pk)}#mensaje-{mensaje.pk}")
+
+
+@require_POST
+def imagen_subir(request, pk):
+    """Sube una imagen del editor a la conversación (aún sin mensaje: solo la ve quien la subió hasta que la envía).
+    Responde {id, url}; el editor la inserta como <img data-imagen="id">."""
+    from Conducta.forms import validar_archivo
+
+    cuenta = request.mensajeria
+    conversacion = _conversacion(cuenta, pk)
+    if not reglas.puede_escribir_en(conversacion, cuenta.participante):
+        return JsonResponse({'error': 'Ya no puedes escribir en esta conversación.'}, status=403)
+    archivo = request.FILES.get('imagen')
+    if archivo is None:
+        return JsonResponse({'error': 'Elige una imagen.'}, status=400)
+    try:
+        tipo = validar_archivo(archivo)
+        if not tipo.startswith('image/'):
+            raise ValidationError(f'«{archivo.name}»: solo se pueden insertar imágenes JPG, PNG o WEBP.')
+    except ValidationError as error:
+        return JsonResponse({'error': ' '.join(error.messages)}, status=400)
+    pendientes = ImagenMensaje.objects.filter(conversacion=conversacion, autor=cuenta.participante, mensaje__isnull=True)
+    # Las que se subieron hace más de un día y nunca se enviaron, se borran (archivo incluido)
+    for vieja in pendientes.filter(creada__lt=timezone.now() - timedelta(days=1)):
+        vieja.archivo.delete(save=False)
+        vieja.delete()
+    if pendientes.count() >= ImagenMensaje.PENDIENTES_MAXIMAS:
+        return JsonResponse({'error': 'Tienes demasiadas imágenes sin enviar en esta conversación. Envía o quita algunas.'}, status=400)
+    try:
+        imagen = ImagenMensaje.objects.create(conversacion=conversacion, autor=cuenta.participante, archivo=archivo,
+                                              nombre_original=(archivo.name or 'imagen')[:200], tipo=tipo, tamano=archivo.size)
+    except Exception:
+        registro.exception('No se pudo guardar la imagen del mensaje en la conversación %s', conversacion.pk)
+        return JsonResponse({'error': 'No se pudo guardar la imagen. Inténtalo de nuevo.'}, status=500)
+    return JsonResponse({'id': imagen.pk, 'url': cuenta.url('imagen', imagen.pk), 'nombre': imagen.nombre_original})
+
+
+@require_GET
+def imagen(request, pk):
+    """Entrega una imagen de mensaje a quien es miembro de su conversación (antes de enviarse, solo a quien la subió)."""
+    from Conducta.views import entregar_archivo
+
+    participante = request.mensajeria.participante
+    imagen = ImagenMensaje.objects.filter(pk=pk, conversacion__miembros__participante=participante).first()
+    if imagen is None or (imagen.mensaje_id is None and imagen.autor_id != participante.pk):
+        raise Http404('No existe esa imagen.')
+    respuesta = entregar_archivo(imagen.archivo, imagen.nombre_original, imagen.tipo, descargar=request.GET.get('descargar') == '1')
+    respuesta['Cache-Control'] = 'private, max-age=3600'
+    return respuesta
 
 
 @require_POST

@@ -1,6 +1,9 @@
 /* CISAHUAYO · pantalla de mensajes (templates/mensajes/bandeja.html)
 
    - Envía sin recargar (Intro envía, Mayús+Intro hace un salto de línea) y muestra el mensaje al momento.
+   - Con el editor con formato (static/js/editor-mensajes.js) se manda el HTML (el servidor lo limpia) y su texto; no se
+     envía un mensaje vacío (solo etiquetas de formato) ni mientras se sube una imagen. Los mensajes con formato se
+     muestran con el HTML que ya viene limpio del servidor.
    - Con los eventos en tiempo real (static/js/avisos.js → «mensajeria:evento»): agrega los mensajes que llegan a la
      conversación abierta y la marca como leída (si la pestaña está a la vista), pone «Leído» en los propios cuando la
      otra persona los lee y mantiene la lista de conversaciones (orden, vista previa, hora y no leídos).
@@ -25,6 +28,9 @@
   const personasLista = chat.querySelector('[data-chat-personas-lista]');
   const buscando = chat.querySelector('[data-chat-buscando]');
   const csrf = chat.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
+  const caja = chat.querySelector('[data-chat-caja]');
+  const campoHtml = chat.querySelector('[data-chat-html]');
+  const raizEditor = chat.querySelector('[data-editor]');
   const sprite = document.querySelector('svg use')?.getAttribute('href')?.split('#')[0] || '';
 
   const elemento = (etiqueta, clase, texto) => {
@@ -79,7 +85,14 @@
     const burbuja = elemento('div', `burbuja is-nueva${datos.mio ? ' burbuja--mia' : ''}`);
     burbuja.id = `mensaje-${datos.id}`;
     burbuja.dataset.mensaje = String(datos.id);
-    burbuja.append(elemento('p', 'burbuja__texto', datos.texto));
+    if (datos.html) {
+      /* Ya limpio en el servidor (Mensajes/enriquecido.py) */
+      const contenido = elemento('div', 'burbuja__texto burbuja__texto--rico');
+      contenido.innerHTML = datos.html;
+      burbuja.append(contenido);
+    } else {
+      burbuja.append(elemento('p', 'burbuja__texto', datos.texto));
+    }
     const pie = elemento('p', 'burbuja__pie');
     const hora = elemento('time', '', datos.hora);
     pie.append(hora);
@@ -178,6 +191,19 @@
   });
 
   /* ------------------------------------------------------------------ escribir */
+  let editor = null;
+  const enviarAhora = () => formulario?.requestSubmit();
+  if (raizEditor && window.EditorEnriquecido && campo) {
+    editor = new window.EditorEnriquecido(raizEditor, {
+      alEnviar: enviarAhora,
+      alCambiar: (instancia) => caja?.classList.toggle('is-vacia', instancia.vacio() || instancia.subiendo()),
+    });
+    campo.hidden = true;
+    campo.required = false;
+    caja?.classList.add('chat__caja--editor', 'is-vacia');
+    chat.querySelector('[data-chat-atajos-editor]')?.removeAttribute('hidden');
+  }
+
   const ajustarAltura = () => {
     if (!campo) return;
     campo.style.height = 'auto';
@@ -191,10 +217,27 @@
     }
   });
 
+  const mostrarError = (texto) => {
+    if (!error) return;
+    error.textContent = texto;
+    error.hidden = !texto;
+  };
+
   let enviando = false;
   formulario?.addEventListener('submit', async (evento) => {
     evento.preventDefault();
-    if (enviando || !campo.value.trim()) return;
+    if (enviando) return;
+    if (editor) {
+      if (editor.subiendo()) {
+        mostrarError('Espera a que termine de subirse la imagen.');
+        return;
+      }
+      if (editor.vacio()) return;   /* solo etiquetas de formato: nada que enviar */
+      campo.value = editor.texto();
+      campoHtml.value = editor.html();
+    } else if (!campo.value.trim()) {
+      return;
+    }
     enviando = true;
     const boton = formulario.querySelector('button[type="submit"]');
     boton.disabled = true;
@@ -207,6 +250,8 @@
       agregar(datos);
       actualizarItem(datos);
       campo.value = '';
+      if (campoHtml) campoHtml.value = '';
+      editor?.vaciar();
       ajustarAltura();
     } catch (problema) {
       if (error) {
@@ -217,10 +262,14 @@
       enviando = false;
       boton.disabled = false;
       boton.classList.remove('is-loading');
-      campo.focus();
+      if (editor) editor.enfocar();
+      else campo.focus();
     }
   });
-  if (campo && window.matchMedia('(min-width: 48rem)').matches) campo.focus({ preventScroll: true });
+  if (window.matchMedia('(min-width: 48rem)').matches) {
+    if (editor) editor.enfocar();
+    else campo?.focus({ preventScroll: true });
+  }
 
   /* ------------------------------------------------------------------ buscar */
   const normal = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();

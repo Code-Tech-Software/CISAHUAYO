@@ -12,6 +12,9 @@
 {% block extra_head %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/mensajes.css' %}">
+  <link rel="stylesheet" href="{% static 'css/editor-mensajes.css' %}">
+  {# Nunito, una de las fuentes del editor (los mensajes con formato pueden usarla) #}
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;1,400;1,700&display=swap">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -107,7 +110,12 @@
           {% for mensaje in mensajes %}
             {% ifchanged mensaje.dia %}<p class="chat__dia" data-chat-dia="{{ mensaje.creado|date:'Y-m-d' }}"><span>{{ mensaje.dia }}</span></p>{% endifchanged %}
             <div class="burbuja{% if mensaje.mio %} burbuja--mia{% endif %}" id="mensaje-{{ mensaje.pk }}" data-mensaje="{{ mensaje.pk }}">
-              <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
+              {% if mensaje.html_visible %}
+                {# Con formato: HTML limpio en el servidor (Mensajes/enriquecido.py) #}
+                <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
+              {% else %}
+                <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
+              {% endif %}
               <p class="burbuja__pie">
                 <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|time:"H:i" }}</time>
                 {% if mensaje.mio %}
@@ -127,14 +135,17 @@
           <form class="chat__escribir" method="post" action="{{ url_enviar }}" data-chat-formulario data-no-busy>
             {% csrf_token %}
             <label class="visually-hidden" for="texto-mensaje">Mensaje para {{ otro.nombre }}</label>
-            <div class="chat__caja">
+            <div class="chat__caja" data-chat-caja>
+              {# Sin JavaScript se escribe aquí; con él, en el editor con formato (mensajes/_editor.html) #}
               <textarea class="field__control chat__campo" id="texto-mensaje" name="texto" rows="1" maxlength="{{ maximo }}" required
                         placeholder="Escribe un mensaje…" aria-describedby="atajos-mensaje" data-chat-campo></textarea>
+              {% include "mensajes/_editor.html" %}
+              <input type="hidden" name="html" value="" data-chat-html>
               <button type="submit" class="btn btn--primary btn--icon chat__enviar" aria-label="Enviar" data-tooltip="Enviar (Intro)">
                 {% include "partials/icon.html" with name="send" %}
               </button>
             </div>
-            <p class="chat__atajos" id="atajos-mensaje"><kbd>Intro</kbd> para enviar · <kbd>Mayús</kbd> + <kbd>Intro</kbd> para un salto de línea</p>
+            <p class="chat__atajos" id="atajos-mensaje"><kbd>Intro</kbd> para enviar · <kbd>Mayús</kbd> + <kbd>Intro</kbd> para un salto de línea<span data-chat-atajos-editor hidden> · En listas y tablas, <kbd>Intro</kbd> agrega un renglón y <kbd>Ctrl</kbd> + <kbd>Intro</kbd> envía</span></p>
           </form>
         {% else %}
           <p class="chat__cerrada">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Ya no puedes escribir en esta conversación (la cuenta está inactiva o ya no tienen relación escolar). El historial se conserva.</p>
@@ -151,5 +162,9 @@
 {% endblock %}
 
 {% block extra_js %}
+  {% if conversacion and puede_escribir %}
+    <script src="{% static 'js/caracteres-especiales.js' %}" defer></script>
+    <script src="{% static 'js/editor-mensajes.js' %}" defer></script>
+  {% endif %}
   <script src="{% static 'js/mensajes.js' %}" defer></script>
 {% endblock %}

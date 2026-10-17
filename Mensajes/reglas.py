@@ -16,13 +16,15 @@ from dataclasses import dataclass
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, OuterRef, Q
+from django.urls import reverse
 from django.utils import timezone
 
 from Alumnos.academico import ciclo_actual
 from Alumnos.models import Alumno, Inscripcion, MateriaGrado, Tutor, TutorAlumno
 from CISAHUAYO import portales
 
-from .models import Conversacion, Mensaje, Miembro, Participante
+from . import enriquecido
+from .models import Conversacion, ImagenMensaje, Mensaje, Miembro, Participante
 
 USAR = 'Mensajes.usar'
 FAMILIAS = 'Mensajes.contactar_familias'
@@ -270,21 +272,56 @@ def puede_escribir_en(conversacion, participante):
     return otro is not None and pueden_conversar(participante, otro)
 
 
-def enviar(conversacion, autor, texto):
-    texto = (texto or '').strip()
-    if not texto:
-        raise MensajeRechazado('Escribe un mensaje.')
+def preparar_contenido(conversacion, autor, texto, html=''):
+    """(texto plano, html limpio, ids de imágenes) de lo que se quiere enviar. Con `html` (el editor con formato), el
+    texto sale de él y el HTML se limpia en el servidor: solo quedan las imágenes que esa persona subió a esta
+    conversación y todavía no envió. Sin formato real, se guarda solo el texto. MensajeRechazado si queda vacío (solo
+    etiquetas de formato) o si es demasiado largo."""
+    imagenes = []
+    if html and html.strip():
+        if len(html) > Mensaje.MAXIMO_HTML * 3:
+            raise MensajeRechazado('El mensaje es demasiado largo.')
+        validas = set(ImagenMensaje.objects.filter(conversacion=conversacion, autor=autor, mensaje__isnull=True)
+                      .values_list('pk', flat=True))
+        html, imagenes = enriquecido.limpiar(html, imagenes_validas=validas)
+        if not enriquecido.tiene_contenido(html):
+            raise MensajeRechazado('Escribe un mensaje.')
+        texto = enriquecido.texto_plano(html)
+        if enriquecido.es_texto_simple(html):
+            html = ''
+        if len(html) > Mensaje.MAXIMO_HTML:
+            raise MensajeRechazado('El mensaje tiene demasiado contenido o formato. Divídelo en varios mensajes.')
+    else:
+        html, texto = '', (texto or '').strip()
+        if not texto:
+            raise MensajeRechazado('Escribe un mensaje.')
     if len(texto) > Mensaje.MAXIMO:
         raise MensajeRechazado(f'El mensaje es muy largo (máximo {Mensaje.MAXIMO} caracteres).')
+    return texto, html, imagenes
+
+
+def enviar(conversacion, autor, texto, html=''):
+    texto, html, imagenes = preparar_contenido(conversacion, autor, texto, html)
     if not puede_escribir_en(conversacion, autor):
         raise MensajeRechazado('Ya no puedes escribir en esta conversación.')
     with transaction.atomic():
-        mensaje = Mensaje.objects.create(conversacion=conversacion, autor=autor, texto=texto)
+        mensaje = Mensaje.objects.create(conversacion=conversacion, autor=autor, texto=texto, html=html)
+        if imagenes:
+            ImagenMensaje.objects.filter(pk__in=imagenes, conversacion=conversacion, autor=autor, mensaje__isnull=True).update(mensaje=mensaje)
         Conversacion.objects.filter(pk=conversacion.pk).update(actualizada=mensaje.creado, ultimo_mensaje=mensaje)
         Miembro.objects.filter(conversacion=conversacion, participante=autor).update(ultimo_leido=mensaje.pk, leido_en=timezone.now())
         from . import tiempo_real
         transaction.on_commit(lambda: tiempo_real.avisar_mensaje(mensaje))
     return mensaje
+
+
+def html_visible(mensaje, participante):
+    """El HTML del mensaje listo para mostrarse a `participante` (con las direcciones de sus imágenes según su espacio:
+    el sistema o su portal); '' si el mensaje no tiene formato."""
+    if not mensaje.html:
+        return ''
+    espacio = ESPACIO[participante.tipo]
+    return enriquecido.presentar(mensaje.html, lambda pk: reverse(f'{espacio}:imagen', args=[pk]))
 
 
 def marcar_leida(conversacion, participante):

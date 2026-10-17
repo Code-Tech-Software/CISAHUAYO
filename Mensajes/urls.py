@@ -17,6 +17,8 @@ def rutas(envolver):
         path('<int:pk>/', envolver(views.conversacion), name='conversacion'),
         path('<int:pk>/enviar/', envolver(views.enviar), name='enviar'),
         path('<int:pk>/leida/', envolver(views.leida), name='leida'),
+        path('<int:pk>/imagenes/', envolver(views.imagen_subir), name='imagen_subir'),
+        path('imagenes/<int:pk>/', envolver(views.imagen), name='imagen'),
     ]
 
 

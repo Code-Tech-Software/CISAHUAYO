@@ -37,9 +37,9 @@ def url_de_conversacion(participante, conversacion_id):
 
 
 def datos_de_mensaje(mensaje, para):
-    """Lo que necesita la pantalla de `para` para mostrar el mensaje y su aviso (el texto va tal cual: el navegador lo
-    pone como texto, nunca como HTML)."""
-    from .reglas import no_leidos, vista_previa
+    """Lo que necesita la pantalla de `para` para mostrar el mensaje y su aviso. El texto va tal cual (el navegador lo
+    pone como texto, nunca como HTML); el formato, en `html`, ya limpio en el servidor (Mensajes/enriquecido.py)."""
+    from .reglas import html_visible, no_leidos, vista_previa
     creado = timezone.localtime(mensaje.creado)
     return {
         'conversacion': mensaje.conversacion_id,
@@ -48,6 +48,7 @@ def datos_de_mensaje(mensaje, para):
         'autor': mensaje.autor.nombre,
         'iniciales': mensaje.autor.iniciales,
         'texto': mensaje.texto,
+        'html': html_visible(mensaje, para),   # limpio en el servidor; '' si no tiene formato
         'vista_previa': mensaje.texto if len(mensaje.texto) <= 120 else vista_previa(mensaje.texto),
         'hora': creado.strftime('%H:%M'),
         'fecha': creado.date().isoformat(),

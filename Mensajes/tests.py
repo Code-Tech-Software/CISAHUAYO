@@ -1,11 +1,16 @@
 """Mensajería interna: quién con quién, conversaciones en el sistema y en los portales, no leídos y leídos, avisos de la
-campana, separación de las cuentas, eventos en tiempo real y el WebSocket de avisos."""
+campana, separación de las cuentas, eventos en tiempo real, el WebSocket de avisos y los mensajes con formato (limpieza
+del HTML en el servidor e imágenes)."""
+import io
+import shutil
+import tempfile
 from unittest.mock import patch
 
 from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
 from django.contrib.sessions.backends.db import SessionStore
-from django.test import Client, TransactionTestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, SimpleTestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from Alumnos.models import MateriaGrado
@@ -16,10 +21,20 @@ from CISAHUAYO.pruebas import (
 )
 from Usuarios.models import Rol
 
-from . import reglas, tiempo_real
-from .models import Conversacion, Mensaje
+from . import enriquecido, reglas, tiempo_real
+from .models import Conversacion, ImagenMensaje, Mensaje
 
 BANDEJA = reverse('mensajes:inicio')
+# Las imágenes de las pruebas van a una carpeta temporal (no a la del proyecto)
+CARPETA = tempfile.mkdtemp(prefix='cisahuayo-mensajes-')
+ARCHIVOS_TEMPORALES = override_settings(MEDIA_ROOT=CARPETA)
+
+
+def png(nombre='foto.png'):
+    from PIL import Image
+    contenido = io.BytesIO()
+    Image.new('RGB', (4, 4), (47, 115, 124)).save(contenido, 'PNG')
+    return SimpleUploadedFile(nombre, contenido.getvalue(), content_type='image/png')
 
 
 def entrar_al_portal(cliente, tipo, cuenta):
@@ -349,3 +364,183 @@ class WebSocketTests(Colegio, TransactionTestCase):
             conectado, _ = await comunicador.connect()
             self.assertFalse(conectado)
             await comunicador.disconnect()
+
+
+class LimpiezaDelFormatoTests(SimpleTestCase):
+    """El HTML del editor se rehace en el servidor con una lista de lo permitido: nada de scripts ni de eventos."""
+
+    def limpio(self, html, **opciones):
+        return enriquecido.limpiar(html, **opciones)[0]
+
+    def test_quita_scripts_eventos_y_enlaces_peligrosos(self):
+        casos = {
+            '<p>Hola <script>alert(1)</script><b>ok</b></p>': '<p>Hola <b>ok</b></p>',
+            '<p onclick="robar()">x<img src="x" onerror="alert(1)"></p>': '<p>x</p>',
+            '<svg><script>alert(1)</script><text>svg</text></svg><iframe src="https://x"></iframe><p>queda</p>': '<p>queda</p>',
+            '<p>&lt;script&gt; texto</p><!-- comentario --><style>p{color:red}</style>': '<p>&lt;script&gt; texto</p>',
+            '<p><a href="javascript:alert(1)">mala</a></p>': '<p><a>mala</a></p>',
+            '<table><tbody><tr><td colspan="2" onmouseover="x">c</td></tr></tbody></table>':
+                '<table><tbody><tr><td colspan="2">c</td></tr></tbody></table>',
+        }
+        for html, esperado in casos.items():
+            with self.subTest(html=html):
+                self.assertEqual(self.limpio(html), esperado)
+
+    def test_conserva_el_formato_permitido(self):
+        casos = {
+            '<p><a href="www.sep.gob.mx">SEP</a></p>':
+                '<p><a href="https://www.sep.gob.mx" target="_blank" rel="noopener noreferrer nofollow">SEP</a></p>',
+            '<p><span style="color: rgb(192, 57, 43); position: fixed; background: url(javascript:alert(1))">rojo</span></p>':
+                '<p><span style="color: rgb(192,57,43)">rojo</span></p>',
+            '<p style="text-align: center; margin-left: 40px; font-size: 900px">centro</p>':
+                '<p style="text-align: center; margin-left: 40px">centro</p>',
+            '<p><font color="#ff0000" face="Arial">viejo</font></p>': '<p><span style="color: #ff0000; font-family: Arial">viejo</span></p>',
+            '<ol style="list-style-type: lower-alpha" start="3"><li>a</li></ol>': '<ol start="3" style="list-style-type: lower-alpha"><li>a</li></ol>',
+        }
+        for html, esperado in casos.items():
+            with self.subTest(html=html):
+                self.assertEqual(self.limpio(html), esperado)
+
+    def test_solo_imagenes_permitidas_y_con_la_direccion_de_quien_mira(self):
+        html = '<p><img data-imagen="5" src="https://otro-sitio.example/x.png" alt="Foto"><img data-imagen="9" alt="ajena"></p>'
+        self.assertEqual(enriquecido.limpiar(html, imagenes_validas={5}), ('<p><img data-imagen="5" alt="Foto"></p>', [5]))
+        self.assertEqual(enriquecido.presentar('<p><img data-imagen="5" alt="Foto"></p>', lambda pk: f'/portal/imagenes/{pk}/'),
+                         '<p><img data-imagen="5" src="/portal/imagenes/5/" loading="lazy" alt="Foto"></p>')
+
+    def test_texto_sin_formato_y_mensajes_vacios(self):
+        self.assertEqual(enriquecido.texto_plano('<p><b>Aviso</b><br>Junta</p><ul><li>uno</li><li>dos</li></ul><p><img data-imagen="1" alt=""></p>'),
+                         'Aviso\nJunta\n• uno\n• dos\n📷 Imagen')
+        self.assertFalse(enriquecido.tiene_contenido('<p><b></b><br></p><ul><li><br></li></ul>'))
+        self.assertTrue(enriquecido.tiene_contenido('<p><img data-imagen="1" alt=""></p>'))
+        self.assertTrue(enriquecido.es_texto_simple('<p>Hola<br>Ana</p>'))
+        self.assertFalse(enriquecido.es_texto_simple('<p><b>Hola</b></p>'))
+
+
+@PRUEBAS
+@ARCHIVOS_TEMPORALES
+class MensajesConFormatoTests(Colegio, BaseTestCase):
+    """El editor con formato: lo que se guarda, cómo lo ve quien lo recibe y quién puede ver sus imágenes."""
+
+    def setUp(self):
+        super().setUp()
+        self.armar()
+        self.conversacion = reglas.conversacion_con(self.p(self.marta), self.p(self.ana))
+        self.client.force_login(self.marta)
+        self.ana_cliente = Client()
+        entrar_al_portal(self.ana_cliente, portales.ESTUDIANTE, self.ana)
+
+    def enviar(self, html, texto=''):
+        return self.client.post(reverse('mensajes:enviar', args=[self.conversacion.pk]), {'texto': texto, 'html': html},
+                                HTTP_ACCEPT='application/json')
+
+    def subir(self, archivo, cliente=None, espacio='mensajes', conversacion=None):
+        url = reverse(f'{espacio}:imagen_subir', args=[(conversacion or self.conversacion).pk])
+        return (cliente or self.client).post(url, {'imagen': archivo} if archivo else {})
+
+    def test_el_formato_se_guarda_limpio_y_se_ve_al_recargar(self):
+        respuesta = self.enviar('<p><b>Examen</b> el <u>lunes</u><script>alert(1)</script></p><ul><li>Tema 1</li></ul>'
+                                '<p><a href="https://cisahuayo.edu.mx/temario" onclick="robar()">Temario</a></p>', texto='se ignora')
+        self.assertEqual(respuesta.status_code, 200)
+        mensaje = Mensaje.objects.get()
+        self.assertEqual(mensaje.html, '<p><b>Examen</b> el <u>lunes</u></p><ul><li>Tema 1</li></ul><p><a href="https://cisahuayo.edu.mx/temario" '
+                                       'target="_blank" rel="noopener noreferrer nofollow">Temario</a></p>')
+        self.assertEqual(mensaje.texto, 'Examen el lunes\n• Tema 1\nTemario')
+        self.assertEqual(respuesta.json()['html'], mensaje.html)
+        # la campana de Ana muestra el texto sin formato; la conversación, con formato
+        self.assertTrue(self.ana_cliente.get(reverse('portal_estudiantes:mensajes:resumen')).json()['avisos'][0]['vista_previa'].startswith('Examen el lunes'))
+        pantalla = self.ana_cliente.get(reverse('portal_estudiantes:mensajes:conversacion', args=[self.conversacion.pk]))
+        self.assertContains(pantalla, f'<div class="burbuja__texto burbuja__texto--rico">{mensaje.html}</div>')
+        self.assertNotContains(pantalla, 'alert(1)')
+        self.assertNotContains(pantalla, 'robar()')
+
+    def test_sin_formato_se_guarda_como_texto_y_los_mensajes_de_antes_se_ven_igual(self):
+        self.enviar('<p>Hola<br>Ana</p>')
+        mensaje = Mensaje.objects.get()
+        self.assertEqual((mensaje.texto, mensaje.html), ('Hola\nAna', ''))
+        Mensaje.objects.create(conversacion=self.conversacion, autor=self.p(self.marta), texto='Mensaje de antes <b>sin</b> formato')
+        pantalla = self.client.get(reverse('mensajes:conversacion', args=[self.conversacion.pk]))
+        self.assertContains(pantalla, '<p class="burbuja__texto">Hola<br>Ana</p>', html=True)
+        self.assertContains(pantalla, 'Mensaje de antes &lt;b&gt;sin&lt;/b&gt; formato')
+        self.assertNotContains(pantalla, 'burbuja__texto--rico')
+
+    def test_solo_formato_no_es_un_mensaje(self):
+        for html in ('<p><b></b><br></p><ul><li><br></li></ul>', '<script>alert(1)</script>', '<p><img data-imagen="999" alt=""></p>'):
+            with self.subTest(html=html):
+                respuesta = self.enviar(html)
+                self.assertEqual(respuesta.status_code, 400)
+                self.assertEqual(respuesta.json()['error'], 'Escribe un mensaje.')
+        self.assertFalse(Mensaje.objects.exists())
+
+    def test_las_imagenes_solo_las_ven_quienes_conversan(self):
+        subida = self.subir(png('grupo.png'))
+        self.assertEqual(subida.status_code, 200)
+        imagen = ImagenMensaje.objects.get()
+        self.assertEqual(subida.json()['url'], reverse('mensajes:imagen', args=[imagen.pk]))
+        url_de_ana = reverse('portal_estudiantes:mensajes:imagen', args=[imagen.pk])
+        self.assertEqual(self.client.get(subida.json()['url']).status_code, 200)   # quien la subió
+        self.assertEqual(self.ana_cliente.get(url_de_ana).status_code, 404)        # aún no se envía
+
+        self.enviar(f'<p>Foto del grupo</p><p><img data-imagen="{imagen.pk}" alt="Grupo" style="width: 50%"></p>')
+        mensaje = Mensaje.objects.get()
+        imagen.refresh_from_db()
+        self.assertEqual(imagen.mensaje, mensaje)
+        self.assertEqual(mensaje.texto, 'Foto del grupo\n📷 Imagen')
+        respuesta = self.ana_cliente.get(url_de_ana)
+        self.assertEqual((respuesta.status_code, respuesta['Content-Type']), (200, 'image/png'))
+        pantalla = self.ana_cliente.get(reverse('portal_estudiantes:mensajes:conversacion', args=[self.conversacion.pk]))
+        self.assertContains(pantalla, f'<img data-imagen="{imagen.pk}" src="{url_de_ana}" loading="lazy" alt="Grupo" style="width: 50%">')
+
+        # quien no es de la conversación no la ve, aunque use la mensajería (ni la tutora de Ana)
+        self.client.force_login(self.control)
+        self.assertEqual(self.client.get(reverse('mensajes:imagen', args=[imagen.pk])).status_code, 404)
+        rosa = Client()
+        entrar_al_portal(rosa, portales.TUTOR, self.rosa)
+        self.assertEqual(rosa.get(reverse('portal_tutores:mensajes:imagen', args=[imagen.pk])).status_code, 404)
+
+    def test_solo_se_insertan_imagenes_propias_de_la_conversacion(self):
+        otra = reglas.conversacion_con(self.p(self.marta), self.p(self.beto))
+        de_otra = self.subir(png(), conversacion=otra).json()['id']
+        de_ana = self.subir(png(), self.ana_cliente, 'portal_estudiantes:mensajes').json()['id']
+        self.enviar(f'<p>Mira</p><p><img data-imagen="{de_otra}" alt=""><img data-imagen="{de_ana}" alt=""></p>')
+        mensaje = Mensaje.objects.get()
+        self.assertEqual((mensaje.texto, mensaje.html), ('Mira', ''))
+        self.assertFalse(ImagenMensaje.objects.filter(mensaje__isnull=False).exists())
+
+    def test_validaciones_de_la_subida(self):
+        casos = [
+            (SimpleUploadedFile('falsa.png', b'no soy una imagen', content_type='image/png'), 'no es una imagen válida'),
+            (SimpleUploadedFile('circular.pdf', b'%PDF-1.4 contenido', content_type='application/pdf'), 'solo se pueden insertar imágenes'),
+            (SimpleUploadedFile('programa.exe', b'MZ', content_type='application/octet-stream'), 'solo se aceptan'),
+            (SimpleUploadedFile('enorme.png', b'0' * (ImagenMensaje.TAMANO_MAXIMO_MB * 1024 * 1024 + 1), content_type='image/png'), 'pesa más de'),
+            (None, 'Elige una imagen'),
+        ]
+        for archivo, error in casos:
+            with self.subTest(archivo=getattr(archivo, 'name', None)):
+                respuesta = self.subir(archivo)
+                self.assertEqual(respuesta.status_code, 400)
+                self.assertIn(error, respuesta.json()['error'])
+        self.assertFalse(ImagenMensaje.objects.exists())
+        # en una conversación ajena no se sube nada; en la propia, también el estudiante desde su portal
+        ajena = reglas.conversacion_con(self.p(self.control), self.p(self.zoe))
+        self.assertEqual(self.subir(png(), conversacion=ajena).status_code, 404)
+        self.assertEqual(self.subir(png(), self.ana_cliente, 'portal_estudiantes:mensajes').status_code, 200)
+
+    def test_si_ya_no_se_puede_escribir_no_se_suben_imagenes(self):
+        MateriaGrado.objects.filter(pk=self.asignacion.pk).update(activa=False)
+        self.assertEqual(self.subir(png()).status_code, 403)
+        self.assertFalse(ImagenMensaje.objects.exists())
+
+    def test_el_aviso_en_tiempo_real_lleva_el_formato_con_la_direccion_de_cada_quien(self):
+        imagen = self.subir(png()).json()['id']
+        enviados = []
+        with patch.object(tiempo_real, '_enviar', side_effect=lambda pk, evento: enviados.append((pk, evento))):
+            with self.captureOnCommitCallbacks(execute=True):
+                self.enviar(f'<p><i>Hola</i></p><p><img data-imagen="{imagen}" alt="x"></p>')
+        datos = {pk: evento['datos'] for pk, evento in enviados}
+        self.assertIn(f'src="{reverse("portal_estudiantes:mensajes:imagen", args=[imagen])}"', datos[self.p(self.ana).pk]['html'])
+        self.assertIn(f'src="{reverse("mensajes:imagen", args=[imagen])}"', datos[self.p(self.marta).pk]['html'])
+        self.assertTrue(datos[self.p(self.ana).pk]['html'].startswith('<p><i>Hola</i></p>'))
+
+
+def tearDownModule():
+    shutil.rmtree(CARPETA, ignore_errors=True)

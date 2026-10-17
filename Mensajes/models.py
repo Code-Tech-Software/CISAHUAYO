@@ -5,10 +5,18 @@ Las tres clases de cuenta siguen separadas: un `Participante` envuelve exactamen
 `Alumno` o un `Tutor`) y es lo único que la mensajería conoce. Las conversaciones y los mensajes se guardan aquí, en
 la base de datos del proyecto (sobreviven a cualquier reinicio); Redis solo reparte los avisos en tiempo real
 (Mensajes/tiempo_real.py). Quién puede escribirle a quién: Mensajes/reglas.py.
+
+Desde el 2026-10-17 un mensaje puede llevar formato (negritas, listas, tablas, enlaces, imágenes…): `html` guarda la
+versión limpia (Mensajes/enriquecido.py) y `texto`, la de texto plano (vista previa, avisos, búsqueda). Los mensajes
+anteriores, sin `html`, se siguen mostrando como texto.
 """
+import uuid
+from pathlib import Path
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from Alumnos.models import Alumno, Tutor
 
@@ -109,11 +117,14 @@ class Miembro(models.Model):
 
 
 class Mensaje(models.Model):
-    MAXIMO = 2000
+    MAXIMO = 2000            # caracteres de texto
+    MAXIMO_HTML = 40000      # el HTML limpio, con su formato (tablas, listas, estilos)
 
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name='mensajes')
     autor = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name='mensajes_enviados')
     texto = models.TextField(max_length=MAXIMO)
+    # Vacío en los mensajes sin formato (y en todos los anteriores al editor): se muestran como texto
+    html = models.TextField(blank=True, default='')
     creado = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -125,3 +136,35 @@ class Mensaje(models.Model):
 
     def __str__(self):
         return f'{self.autor}: {self.texto[:40]}'
+
+
+def ruta_de_imagen(instancia, nombre):
+    """Nombre al azar: la dirección del archivo no se adivina ni se muestra; se entrega solo por Mensajes/views.imagen."""
+    extension = Path(nombre).suffix.lower()[:10]
+    return f'mensajes/{timezone.localdate():%Y/%m}/{uuid.uuid4().hex}{extension}'
+
+
+class ImagenMensaje(models.Model):
+    """Una imagen subida desde el editor a una conversación. Mientras no se envía el mensaje (`mensaje` vacío) solo la ve
+    quien la subió; después, los miembros de la conversación."""
+
+    TAMANO_MAXIMO_MB = 5
+    PENDIENTES_MAXIMAS = 20   # subidas sin enviar por persona y conversación
+
+    conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name='imagenes')
+    autor = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name='imagenes_subidas')
+    mensaje = models.ForeignKey(Mensaje, on_delete=models.CASCADE, null=True, blank=True, related_name='imagenes')
+    archivo = models.FileField(upload_to=ruta_de_imagen, max_length=200)
+    nombre_original = models.CharField(max_length=200)
+    tipo = models.CharField(max_length=80)
+    tamano = models.PositiveIntegerField(default=0)
+    creada = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Imagen de un mensaje'
+        verbose_name_plural = 'Imágenes de mensajes'
+        default_permissions = ()
+        indexes = [models.Index(fields=['conversacion', 'autor', 'mensaje'], name='imagen_mensaje_pendiente')]
+
+    def __str__(self):
+        return self.nombre_original

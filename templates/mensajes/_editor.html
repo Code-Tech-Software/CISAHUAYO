@@ -1,0 +1,221 @@
+{% comment %}
+  Editor de mensajes con formato (static/js/editor-mensajes.js; estilos: static/css/editor-mensajes.css). Sin JavaScript
+  queda oculto y se usa el campo de texto de siempre. La barra sigue la referencia del pedido del 2026-10-17: arriba,
+  deshacer y rehacer · negrita, cursiva, subrayado y tachado · fuente, tamaño y estilo de párrafo · alineación · imagen y
+  enlace · «Más herramientas»; abajo (lo que despliega «Más herramientas»), sangría y tabla · listas · color, resaltado y
+  limpiar formato · emojis y caracteres especiales (Σ). Cuando no hay espacio, los grupos de arriba que no caben pasan a
+  la fila de abajo. El catálogo de caracteres especiales está en static/js/caracteres-especiales.js.
+  Parámetros: otro (destinatario), url_imagenes, acepta_imagenes, maximo_imagen_mb.
+{% endcomment %}
+<div class="editor" data-editor hidden
+     data-imagenes-url="{{ url_imagenes }}" data-acepta="{{ acepta_imagenes }}" data-maximo-mb="{{ maximo_imagen_mb }}">
+  <div class="editor__barra" role="toolbar" aria-label="Formato del mensaje" aria-controls="editor-area" data-editor-barra>
+    <div class="editor__fila" data-editor-fila="principal">
+      <div class="editor__grupo" data-editor-grupo="historial">
+        <button type="button" class="editor__boton" data-comando="deshacer" aria-label="Deshacer" data-tooltip="Deshacer (Ctrl+Z)">{% include "partials/icon.html" with name="undo" %}</button>
+        <button type="button" class="editor__boton" data-comando="rehacer" aria-label="Rehacer" data-tooltip="Rehacer (Ctrl+Y)">{% include "partials/icon.html" with name="redo" %}</button>
+      </div>
+      <div class="editor__grupo" data-editor-grupo="estilo">
+        <button type="button" class="editor__boton" data-comando="negrita" aria-pressed="false" aria-label="Negrita" data-tooltip="Negrita (Ctrl+B)">{% include "partials/icon.html" with name="bold" %}</button>
+        <button type="button" class="editor__boton" data-comando="cursiva" aria-pressed="false" aria-label="Cursiva" data-tooltip="Cursiva (Ctrl+I)">{% include "partials/icon.html" with name="italic" %}</button>
+        <button type="button" class="editor__boton" data-comando="subrayado" aria-pressed="false" aria-label="Subrayado" data-tooltip="Subrayado (Ctrl+U)">{% include "partials/icon.html" with name="underline" %}</button>
+        <button type="button" class="editor__boton" data-comando="tachado" aria-pressed="false" aria-label="Tachado" data-tooltip="Tachado (Ctrl+Mayús+X)">{% include "partials/icon.html" with name="strikethrough" %}</button>
+      </div>
+      <div class="editor__grupo editor__grupo--selects" data-editor-grupo="tipografia">
+        <select class="field__control--select editor__select editor__select--fuente" data-editor-fuente aria-label="Fuente" data-tooltip="Fuente">
+          <option value="">Predeterminada</option>
+          <option value="Nunito">Nunito</option>
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Trebuchet MS">Trebuchet MS</option>
+        </select>
+        <select class="field__control--select editor__select editor__select--tamano" data-editor-tamano aria-label="Tamaño de letra" data-tooltip="Tamaño de letra">
+          <option value="8pt">8pt</option><option value="9pt">9pt</option><option value="10pt">10pt</option><option value="11pt">11pt</option>
+          <option value="12pt">12pt</option><option value="14pt">14pt</option><option value="16pt">16pt</option><option value="18pt">18pt</option>
+          <option value="20pt">20pt</option><option value="24pt">24pt</option><option value="28pt">28pt</option><option value="32pt">32pt</option>
+          <option value="36pt">36pt</option>
+        </select>
+        <select class="field__control--select editor__select editor__select--parrafo" data-editor-parrafo aria-label="Estilo de párrafo" data-tooltip="Estilo de párrafo">
+          <option value="p">Párrafo</option>
+          <option value="h1">Encabezado 1</option>
+          <option value="h2">Encabezado 2</option>
+          <option value="h3">Encabezado 3</option>
+        </select>
+      </div>
+      <div class="editor__grupo" data-editor-grupo="alineacion">
+        <button type="button" class="editor__boton" data-comando="izquierda" aria-pressed="false" aria-label="Alinear a la izquierda" data-tooltip="Alinear a la izquierda">{% include "partials/icon.html" with name="align-left" %}</button>
+        <button type="button" class="editor__boton" data-comando="centro" aria-pressed="false" aria-label="Centrar" data-tooltip="Centrar">{% include "partials/icon.html" with name="align-center" %}</button>
+        <button type="button" class="editor__boton" data-comando="derecha" aria-pressed="false" aria-label="Alinear a la derecha" data-tooltip="Alinear a la derecha">{% include "partials/icon.html" with name="align-right" %}</button>
+        <button type="button" class="editor__boton" data-comando="justificar" aria-pressed="false" aria-label="Justificar" data-tooltip="Justificar">{% include "partials/icon.html" with name="align-justify" %}</button>
+      </div>
+      <div class="editor__grupo" data-editor-grupo="insertar">
+        <button type="button" class="editor__boton" data-comando="imagen" aria-label="Insertar imagen" data-tooltip="Insertar imagen">{% include "partials/icon.html" with name="image-plus" %}</button>
+        <button type="button" class="editor__boton" data-comando="enlace" aria-haspopup="dialog" aria-expanded="false" aria-label="Insertar enlace" data-tooltip="Insertar enlace (Ctrl+K)" data-panel="enlace">{% include "partials/icon.html" with name="link" %}</button>
+      </div>
+    </div>
+    <button type="button" class="editor__boton editor__mas" data-editor-mas aria-expanded="false" aria-controls="editor-fila-extra" aria-label="Más herramientas" data-tooltip="Más herramientas">{% include "partials/icon.html" with name="more-horizontal" %}</button>
+    <div class="editor__fila editor__fila--extra" id="editor-fila-extra" data-editor-fila="extra" hidden>
+      <div class="editor__grupo" data-editor-grupo="sangria">
+        <button type="button" class="editor__boton" data-comando="menos-sangria" aria-label="Disminuir sangría" data-tooltip="Disminuir sangría (Mayús+Tab en listas)">{% include "partials/icon.html" with name="indent-decrease" %}</button>
+        <button type="button" class="editor__boton" data-comando="mas-sangria" aria-label="Aumentar sangría" data-tooltip="Aumentar sangría (Tab en listas)">{% include "partials/icon.html" with name="indent-increase" %}</button>
+        <button type="button" class="editor__boton editor__boton--menu" data-panel="tabla" aria-haspopup="dialog" aria-expanded="false" aria-label="Tabla" data-tooltip="Tabla">
+          {% include "partials/icon.html" with name="table" %}{% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm editor__flecha" %}
+        </button>
+      </div>
+      <div class="editor__grupo" data-editor-grupo="listas">
+        <span class="editor__dividido">
+          <button type="button" class="editor__boton" data-comando="numerada" aria-pressed="false" aria-label="Lista numerada" data-tooltip="Lista numerada (Ctrl+Mayús+7)">{% include "partials/icon.html" with name="list-ordered" %}</button>
+          <button type="button" class="editor__boton editor__boton--flecha" data-panel="numerada" aria-haspopup="menu" aria-expanded="false" aria-label="Tipos de numeración" data-tooltip="Tipos de numeración">{% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm" %}</button>
+        </span>
+        <span class="editor__dividido">
+          <button type="button" class="editor__boton" data-comando="vinetas" aria-pressed="false" aria-label="Lista con viñetas" data-tooltip="Lista con viñetas (Ctrl+Mayús+8)">{% include "partials/icon.html" with name="list" %}</button>
+          <button type="button" class="editor__boton editor__boton--flecha" data-panel="vinetas" aria-haspopup="menu" aria-expanded="false" aria-label="Tipos de viñeta" data-tooltip="Tipos de viñeta">{% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm" %}</button>
+        </span>
+      </div>
+      <div class="editor__grupo" data-editor-grupo="color">
+        <span class="editor__dividido">
+          <button type="button" class="editor__boton editor__boton--color" data-comando="color" aria-label="Color de texto" data-tooltip="Color de texto">
+            {% include "partials/icon.html" with name="letra" %}<span class="editor__muestra" data-muestra="color"></span>
+          </button>
+          <button type="button" class="editor__boton editor__boton--flecha" data-panel="color" aria-haspopup="dialog" aria-expanded="false" aria-label="Elegir color de texto" data-tooltip="Elegir color de texto">{% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm" %}</button>
+        </span>
+        <span class="editor__dividido">
+          <button type="button" class="editor__boton editor__boton--color" data-comando="resaltado" aria-label="Resaltar" data-tooltip="Resaltar">
+            {% include "partials/icon.html" with name="highlighter" %}<span class="editor__muestra" data-muestra="resaltado"></span>
+          </button>
+          <button type="button" class="editor__boton editor__boton--flecha" data-panel="resaltado" aria-haspopup="dialog" aria-expanded="false" aria-label="Elegir color de resaltado" data-tooltip="Elegir color de resaltado">{% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm" %}</button>
+        </span>
+        <button type="button" class="editor__boton" data-comando="limpiar" aria-label="Limpiar formato" data-tooltip="Limpiar formato (Ctrl+\)">{% include "partials/icon.html" with name="remove-formatting" %}</button>
+      </div>
+      <div class="editor__grupo" data-editor-grupo="extras">
+        <button type="button" class="editor__boton" data-panel="emojis" aria-haspopup="dialog" aria-expanded="false" aria-label="Emojis" data-tooltip="Emojis">{% include "partials/icon.html" with name="smile" %}</button>
+        <button type="button" class="editor__boton" data-comando="caracteres" aria-haspopup="dialog" aria-label="Carácter especial" data-tooltip="Carácter especial">{% include "partials/icon.html" with name="sigma" %}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor__area" id="editor-area" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="true"
+       aria-label="Mensaje para {{ otro.nombre }}" aria-describedby="atajos-mensaje" data-placeholder="Escribe un mensaje…" data-editor-area></div>
+  <input type="file" accept="{{ acepta_imagenes }}" hidden data-editor-archivo>
+  <p class="editor__estado" role="status" aria-live="polite" data-editor-estado hidden></p>
+
+  {# --- Paneles (static/js/editor-mensajes.js los pone en la capa superior, junto a su botón) ------------------------ #}
+  <div class="editor-panel editor-panel--tabla" popover="manual" role="dialog" aria-label="Tabla" data-editor-panel="tabla" hidden>
+    <div data-tabla-nueva>
+      <p class="editor-panel__titulo">Insertar tabla <span class="editor-panel__nota" data-tabla-medida>Elige filas y columnas</span></p>
+      <div class="editor-cuadricula" role="grid" aria-label="Filas y columnas de la tabla" data-tabla-cuadricula></div>
+    </div>
+    <div class="editor-panel__acciones" data-tabla-acciones>
+      <p class="editor-panel__titulo">Tabla actual</p>
+      <button type="button" class="editor-panel__opcion" data-tabla="fila-arriba">Insertar fila arriba</button>
+      <button type="button" class="editor-panel__opcion" data-tabla="fila-abajo">Insertar fila abajo</button>
+      <button type="button" class="editor-panel__opcion" data-tabla="columna-izquierda">Insertar columna a la izquierda</button>
+      <button type="button" class="editor-panel__opcion" data-tabla="columna-derecha">Insertar columna a la derecha</button>
+      <button type="button" class="editor-panel__opcion editor-panel__opcion--peligro" data-tabla="quitar-fila">Eliminar fila</button>
+      <button type="button" class="editor-panel__opcion editor-panel__opcion--peligro" data-tabla="quitar-columna">Eliminar columna</button>
+      <button type="button" class="editor-panel__opcion editor-panel__opcion--peligro" data-tabla="quitar-tabla">Eliminar tabla</button>
+    </div>
+  </div>
+
+  <div class="editor-panel" popover="manual" role="menu" aria-label="Tipos de numeración" data-editor-panel="numerada" hidden>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="decimal"><span class="editor-panel__muestra">1. 2. 3.</span> Números</button>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="lower-alpha"><span class="editor-panel__muestra">a. b. c.</span> Letras minúsculas</button>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="upper-alpha"><span class="editor-panel__muestra">A. B. C.</span> Letras mayúsculas</button>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="lower-roman"><span class="editor-panel__muestra">i. ii. iii.</span> Romanos en minúsculas</button>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="upper-roman"><span class="editor-panel__muestra">I. II. III.</span> Romanos en mayúsculas</button>
+  </div>
+
+  <div class="editor-panel" popover="manual" role="menu" aria-label="Tipos de viñeta" data-editor-panel="vinetas" hidden>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="disc"><span class="editor-panel__muestra">●</span> Círculo relleno</button>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="circle"><span class="editor-panel__muestra">○</span> Círculo vacío</button>
+    <button type="button" class="editor-panel__opcion" role="menuitemradio" aria-checked="false" data-lista="square"><span class="editor-panel__muestra">■</span> Cuadrado</button>
+  </div>
+
+  <div class="editor-panel editor-panel--colores" popover="manual" role="dialog" aria-label="Color de texto" data-editor-panel="color" hidden>
+    <button type="button" class="editor-panel__opcion" data-color="">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Automático (predeterminado)</button>
+    <div class="editor-paleta" data-paleta="color"></div>
+  </div>
+
+  <div class="editor-panel editor-panel--colores" popover="manual" role="dialog" aria-label="Color de resaltado" data-editor-panel="resaltado" hidden>
+    <button type="button" class="editor-panel__opcion" data-color="">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %} Sin resaltado</button>
+    <div class="editor-paleta" data-paleta="resaltado"></div>
+  </div>
+
+  <div class="editor-panel editor-panel--emojis" popover="manual" role="dialog" aria-label="Emojis" data-editor-panel="emojis" hidden>
+    <div class="editor-emojis__pestanas" role="tablist" aria-label="Categorías de emojis" data-emojis-pestanas></div>
+    <div class="editor-emojis" role="group" data-emojis-lista></div>
+  </div>
+
+  {# No es un <form>: está dentro del formulario del mensaje (Intro en sus campos guarda el enlace) #}
+  <div class="editor-panel editor-panel--enlace" popover="manual" role="dialog" aria-labelledby="editor-enlace-titulo" data-editor-panel="enlace" hidden>
+    <p class="editor-panel__titulo" id="editor-enlace-titulo" data-enlace-titulo>Insertar enlace</p>
+    <label class="field">
+      <span class="field__label">Texto visible</span>
+      <input class="field__control" type="text" maxlength="200" data-enlace-texto placeholder="Lo que se leerá en el mensaje">
+    </label>
+    <label class="field">
+      <span class="field__label">Dirección</span>
+      <input class="field__control" type="url" inputmode="url" maxlength="2000" data-enlace-url placeholder="https://…" required>
+    </label>
+    <p class="field__error" data-enlace-error hidden></p>
+    <div class="editor-panel__botones">
+      <button type="button" class="btn btn--sm btn--danger-text" data-enlace-quitar hidden>{% include "partials/icon.html" with name="unlink" icon_class="icon--sm" %} Quitar enlace</button>
+      <span class="editor-panel__espacio"></span>
+      <button type="button" class="btn btn--sm" data-enlace-cancelar>Cancelar</button>
+      <button type="button" class="btn btn--sm btn--primary" data-enlace-guardar>Guardar</button>
+    </div>
+  </div>
+
+  <div class="editor-panel editor-panel--imagen" popover="manual" role="dialog" aria-label="Imagen seleccionada" data-editor-panel="imagen" hidden>
+    <p class="editor-panel__titulo">Imagen</p>
+    <div class="editor-panel__fila" role="group" aria-label="Tamaño de la imagen">
+      <button type="button" class="editor-panel__chip" data-imagen-ancho="25%" aria-pressed="false">25 %</button>
+      <button type="button" class="editor-panel__chip" data-imagen-ancho="50%" aria-pressed="false">50 %</button>
+      <button type="button" class="editor-panel__chip" data-imagen-ancho="75%" aria-pressed="false">75 %</button>
+      <button type="button" class="editor-panel__chip" data-imagen-ancho="100%" aria-pressed="false">100 %</button>
+    </div>
+    <label class="field">
+      <span class="field__label">Texto alternativo</span>
+      <input class="field__control" type="text" maxlength="250" data-imagen-alt placeholder="Describe la imagen para quien no la ve">
+    </label>
+    <div class="editor-panel__botones">
+      <button type="button" class="btn btn--sm btn--danger-text" data-imagen-quitar>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar imagen</button>
+      <span class="editor-panel__espacio"></span>
+      <button type="button" class="btn btn--sm btn--primary" data-imagen-listo>Listo</button>
+    </div>
+  </div>
+
+  {% comment %}
+    Carácter especial: ventana modal del sistema (el script la pasa al final de la página, fuera del formulario). Los
+    caracteres se insertan donde estaba el cursor y la ventana sigue abierta para insertar varios seguidos.
+  {% endcomment %}
+  <dialog class="modal modal--caracteres" data-modal aria-labelledby="caracteres-titulo" data-editor-caracteres>
+    <div class="modal__panel caracteres">
+      <header class="modal__header">
+        <h2 class="modal__title" id="caracteres-titulo">Carácter especial</h2>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar" data-tooltip="Cerrar">
+          {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+        </button>
+      </header>
+      <div class="caracteres__cuerpo">
+        <div class="caracteres__categorias" role="tablist" aria-label="Categorías" aria-orientation="vertical" data-caracteres-categorias></div>
+        <div class="caracteres__principal">
+          <label class="field caracteres__buscar">
+            <span class="field__label">Buscar</span>
+            <input class="field__control" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"
+                   placeholder="Nombre o carácter" aria-controls="caracteres-cuadricula" data-caracteres-buscar>
+          </label>
+          <div class="caracteres__cuadricula" id="caracteres-cuadricula" role="tabpanel" data-caracteres-cuadricula></div>
+          <p class="caracteres__vacio" role="status" data-caracteres-vacio hidden>No se encontraron caracteres</p>
+          <p class="visually-hidden" role="status" aria-live="polite" data-caracteres-aviso></p>
+        </div>
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--primary" data-modal-close>Cerrar</button>
+      </footer>
+    </div>
+  </dialog>
+</div>

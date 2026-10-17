@@ -828,6 +828,9 @@
         hide();
         return;
       }
+      /* Dentro de una ventana modal abierta (capa superior) el globo va dentro de ella: en <body> quedaría detrás */
+      const layer = element.closest('dialog[open]') || document.body;
+      if (tooltip.parentElement !== layer) layer.append(tooltip);
       tooltip.textContent = element.dataset.tooltip;
       const anchor = element.getBoundingClientRect();
       const { width, height } = tooltip.getBoundingClientRect();

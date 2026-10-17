@@ -1,7 +1,9 @@
 {% comment %}
   Días sin clases (en Ciclos escolares desde el 2026-10-14; antes en Ajustes › Asistencia): asuetos, consejos técnicos,
   vacaciones… de los niveles elegidos. Agregar y quitar piden sus permisos; la lista la ve quien ve los ciclos.
-  Parámetros: dias_sin_clases (Alumnos.asistencias.dias_sin_clases_registrados), dia_form y hoy.
+  Sin un ciclo actual no se pueden agregar (el formulario se cambia por un aviso y el servidor también lo rechaza:
+  Asistencias.forms.DiaNoLectivoForm); los ya registrados se pueden seguir quitando.
+  Parámetros: dias_sin_clases (Alumnos.asistencias.dias_sin_clases_registrados), dia_form, hay_ciclo_actual y hoy.
 {% endcomment %}
 <section class="card dias-sin-clases" id="dias-sin-clases" aria-labelledby="titulo-dias">
   <header class="card__header card__header--icon">
@@ -9,7 +11,12 @@
   </header>
   <div class="card__body">
     <p class="text-muted">En estos días los estudiantes de los niveles elegidos no registran entrada y no se les generan faltas: asuetos, consejos técnicos, vacaciones, suspensiones. Los demás niveles tienen clases normalmente.</p>
-    {% if perms.Alumnos.add_dianolectivo %}
+    {% if perms.Alumnos.add_dianolectivo and not hay_ciclo_actual %}
+      <div class="alert alert--warning" role="status">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <div class="alert__body"><p><strong>No se pueden agregar días sin clases.</strong> Primero marca un ciclo escolar como actual: los días sin clases son del calendario del ciclo en curso.</p></div>
+      </div>
+    {% elif perms.Alumnos.add_dianolectivo %}
       <form class="dias-sin-clases__form" method="post" action="{% url 'asistencias:dia_sin_clases_crear' %}" novalidate>
         {% csrf_token %}
         {% include "partials/field.html" with campo=dia_form.desde %}

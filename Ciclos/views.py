@@ -57,6 +57,7 @@ def ciclo_lista(request):
         # Días sin clases (antes en Ajustes › Asistencia)
         'dias_sin_clases': dias_sin_clases_registrados(),
         'dia_form': DiaNoLectivoForm() if request.user.has_perm('Alumnos.add_dianolectivo') else None,
+        'hay_ciclo_actual': conteos['actual'] > 0,   # sin ciclo actual no se agregan días sin clases
         'hoy': hoy,
     })
 

@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 
+from Alumnos.academico import ciclo_actual
 from Alumnos.asistencias import NIVELES, ciclo_de_fecha, dias_de_clases
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import (
@@ -29,6 +30,8 @@ TAMANO_MAXIMO_MB = 5
 DIAS_MAXIMOS_JUSTIFICACION = 60
 DIAS_MAXIMOS_SIN_CLASES = 120
 TODOS_LOS_NIVELES = 'TODOS'
+# Los días sin clases son del calendario del ciclo en curso: sin un ciclo actual no se agregan (pedido del 2026-10-16)
+SIN_CICLO_ACTUAL = 'No hay un ciclo escolar actual: marca uno como actual en Ciclos escolares antes de agregar días sin clases.'
 
 
 def _activos(formulario):
@@ -493,6 +496,8 @@ class DiaNoLectivoForm(EstiloCamposMixin, forms.Form):
 
     def clean(self):
         datos = super().clean()
+        if ciclo_actual() is None:
+            raise ValidationError(SIN_CICLO_ACTUAL, code='sin_ciclo_actual')
         desde, hasta = datos.get('desde'), datos.get('hasta')
         if not desde:
             return datos

@@ -9,7 +9,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from Alumnos import asistencias as reglas
-from Alumnos.models import AsistenciaGeneral, CierreDia, ConfiguracionAsistencia, DiaNoLectivo
+from Alumnos.models import AsistenciaGeneral, CicloEscolar, CierreDia, ConfiguracionAsistencia, DiaNoLectivo
 from Asistencias.tests import entrar, url
 from CISAHUAYO.pruebas import (
     PRUEBAS,
@@ -196,6 +196,21 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
         ajustes = self.client.get(url('ajustes'))
         self.assertNotContains(ajustes, 'Días sin clases</h2>')
         self.assertNotContains(ajustes, url('dia_sin_clases_crear'))
+
+    def test_sin_ciclo_actual_no_se_agregan_dias_sin_clases(self):
+        DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=14), motivo='Puente')
+        CicloEscolar.objects.update(activo=False)
+        respuesta = self.crear()
+        self.assertContains(respuesta, 'No se registró: No hay un ciclo escolar actual')
+        self.assertEqual(list(DiaNoLectivo.objects.values_list('motivo', flat=True).distinct()), ['Puente'])
+        # La tarjeta avisa en lugar de mostrar el formulario; lo ya registrado se puede seguir quitando
+        ciclos = self.client.get(CICLOS)
+        self.assertContains(ciclos, 'No se pueden agregar días sin clases')
+        self.assertNotContains(ciclos, url('dia_sin_clases_crear'))
+        self.assertContains(ciclos, 'Quitar el día sin clases')
+        # Con un ciclo actual otra vez, se agregan como siempre
+        CicloEscolar.objects.update(activo=True)
+        self.assertContains(self.crear(), 'Se registró 1 día sin clases')
 
     def test_sin_permiso_para_agregar_o_quitar_no_hay_controles(self):
         DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=7), motivo='Puente')

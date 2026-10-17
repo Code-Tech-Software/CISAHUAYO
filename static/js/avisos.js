@@ -2,17 +2,22 @@
 
    - Se conecta al WebSocket de avisos (Mensajes/consumers.py) y se reconecta solo si se corta (con espera creciente);
      al reconectarse pide el resumen para ponerse al día con lo que llegó mientras tanto.
-   - Mantiene al día la campana de notificaciones (total, lista de quién escribió y vista previa), el contador de
-     «Mensajes» del menú lateral y el título de la pestaña.
+   - Mantiene al día la campana de notificaciones (lista de quién escribió y vista previa), el contador de «Mensajes»
+     del menú lateral y el título de la pestaña. El número de la campana suma los mensajes y los comunicados sin leer:
+     static/js/comunicados-avisos.js pone los suyos en data-comunicados-sin-leer y avisa con «avisos:repintar».
+   - Una cuenta que solo recibe comunicados (sin mensajería) también se conecta: aquí solo se le pinta la campana.
    - Mensaje nuevo: si la página está a la vista, un aviso en pantalla (al tocarlo se abre la conversación); si no,
      un aviso del navegador (si se permitió desde la campana).
-   - Reenvía cada evento a la página como «mensajeria:evento» (la pantalla de mensajes lo usa: static/js/mensajes.js).
+   - Reenvía cada evento a la página como «mensajeria:evento» (la pantalla de mensajes lo usa: static/js/mensajes.js;
+     los comunicados, static/js/comunicados-avisos.js) y, al reconectarse, avisa con «avisos:reconectado».
 */
 (() => {
   'use strict';
 
   const raiz = document.querySelector('[data-notificaciones]');
   if (!raiz || !('WebSocket' in window)) return;
+  const conMensajes = Boolean(raiz.dataset.resumenUrl);
+  let mensajes = Number(raiz.dataset.mensajesSinLeer) || 0;
 
   const boton = raiz.querySelector('[data-notificaciones-boton]');
   const total = raiz.querySelector('[data-notificaciones-total]');
@@ -44,27 +49,44 @@
   };
 
   /* ------------------------------------------------------------------ contadores */
-  const ponerTotal = (n) => {
-    n = Number(n) || 0;
+  /* El número de la campana: mensajes y comunicados sin leer */
+  const pintarCampana = () => {
+    const comunicados = Number(raiz.dataset.comunicadosSinLeer) || 0;
+    const n = mensajes + comunicados;
     if (total) {
       total.textContent = String(n);
       total.hidden = !n;
     }
-    boton?.setAttribute('aria-label', n ? `Notificaciones, ${n} mensaje${n === 1 ? '' : 's'} sin leer` : 'Notificaciones');
-    document.querySelectorAll('[data-mensajes-no-leidos]').forEach((insignia) => {
-      insignia.textContent = String(n);
-      insignia.hidden = !n;
-      insignia.setAttribute('aria-label', `${n} sin leer`);
-    });
+    const partes = [];
+    if (mensajes) partes.push(`${mensajes} mensaje${mensajes === 1 ? '' : 's'} sin leer`);
+    if (comunicados) partes.push(`${comunicados} comunicado${comunicados === 1 ? '' : 's'} sin leer`);
+    boton?.setAttribute('aria-label', ['Notificaciones', ...partes].join(', '));
     document.title = n ? `(${n}) ${tituloBase}` : tituloBase;
+  };
+
+  const ponerTotal = (n) => {
+    mensajes = Number(n) || 0;
+    document.querySelectorAll('[data-mensajes-no-leidos]').forEach((insignia) => {
+      insignia.textContent = String(mensajes);
+      insignia.hidden = !mensajes;
+      insignia.setAttribute('aria-label', `${mensajes} sin leer`);
+    });
+    pintarCampana();
   };
 
   /* ------------------------------------------------------------------ lista de la campana */
   const sincronizarLista = () => {
     if (!lista || !vacio) return;
     lista.hidden = !lista.children.length;
-    vacio.hidden = Boolean(lista.children.length);
+    const deComunicados = raiz.querySelector('[data-comunicados-lista]');
+    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length);
   };
+
+  /* Los comunicados cambiaron (static/js/comunicados-avisos.js): se vuelve a pintar el número y el estado vacío */
+  document.addEventListener('avisos:repintar', () => {
+    pintarCampana();
+    sincronizarLista();
+  });
 
   const itemDe = (aviso) => {
     const fila = elemento('li');
@@ -178,6 +200,8 @@
   };
 
   const ponerseAlDia = async () => {
+    document.dispatchEvent(new CustomEvent('avisos:reconectado'));
+    if (!conMensajes) return;
     try {
       const respuesta = await fetch(raiz.dataset.resumenUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
       if (!respuesta.ok) return;

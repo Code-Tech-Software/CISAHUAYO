@@ -4,10 +4,11 @@ Solo envía (del servidor a la pestaña): mensajes nuevos, lecturas y el total s
 por peticiones normales (Mensajes/views.py), que guardan en la base de datos y luego avisan aquí.
 
 La cuenta se toma de la sesión, igual que en las páginas: un usuario del sistema con la mensajería o la sesión de un
-portal (CISAHUAYO/portales.py). Sin una de las dos, la conexión se rechaza.
+portal (CISAHUAYO/portales.py).
 
 Por el mismo canal llegan los avisos de comunicados nuevos (Comunicados/tiempo_real.py): la pestaña se une también al
-grupo de comunicados de su persona, si recibe comunicados.
+grupo de comunicados de su persona, si recibe comunicados. Un profesor que recibe comunicados pero no usa la mensajería
+se conecta solo a ese grupo. Sin mensajería ni comunicados, la conexión se rechaza.
 """
 import logging
 
@@ -24,15 +25,15 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
 
     async def connect(self):
         participante_id, de_comunicados = await self._participante()
-        if participante_id is None:
+        if participante_id is None and not de_comunicados:
             await self.close(code=4403)
             return
-        grupos = [grupo(participante_id)] + ([de_comunicados] if de_comunicados else [])
+        grupos = ([grupo(participante_id)] if participante_id is not None else []) + ([de_comunicados] if de_comunicados else [])
         try:
             for nombre in grupos:
                 await self.channel_layer.group_add(nombre, self.channel_name)
         except Exception:   # Redis caído o inalcanzable (REDIS_URL): se rechaza y la pestaña reintenta sola
-            registro.exception('No se pudo unir al participante %s a sus avisos (¿Redis disponible?)', participante_id)
+            registro.exception('No se pudo unir a sus avisos a %s (¿Redis disponible?)', participante_id or de_comunicados)
             await self.close(code=1011)
             return
         self.grupos = grupos
@@ -71,9 +72,8 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
         from . import reglas
         usuario, sesion = self.scope.get('user'), self.scope.get('session')
         if usuario is not None and usuario.is_authenticated:
-            if not reglas.usa_mensajeria(usuario):
-                return None, None
-            return reglas.de_usuario(usuario).pk, self._de_comunicados(usuario=usuario)
+            participante = reglas.de_usuario(usuario).pk if reglas.usa_mensajeria(usuario) else None
+            return participante, self._de_comunicados(usuario=usuario)
         if sesion is None:
             return None, None
         tipo, cuenta = portales.sesion_de(sesion)

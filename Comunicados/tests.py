@@ -481,6 +481,48 @@ class PantallasTests(Colegio, BaseTestCase):
 
 
 @PRUEBAS
+class CampanaTests(Colegio, BaseTestCase):
+    """La campana de la barra superior suma los comunicados sin leer a los mensajes y los lista, urgentes primero."""
+
+    def setUp(self):
+        super().setUp()
+        self.armar()
+        self.normal = self.enviar(titulo='Reunión de familias', seleccion={Destinatario.TUTOR: {self.ana.pk}})
+        self.urgente = self.enviar(titulo='Suspensión de clases', urgente=True, seleccion={Destinatario.TUTOR: {self.ana.pk}})
+        self.client.logout()
+        entrar_al_portal(self.client, portales.TUTOR, self.ana)
+
+    def campana(self, html):
+        inicio = html.index('data-notificaciones ')
+        return html[inicio:html.index('data-notificaciones-vacio', inicio)]
+
+    def test_suma_y_lista_los_comunicados_sin_leer(self):
+        campana = self.campana(self.client.get(reverse('portal_tutores:inicio')).content.decode())
+        self.assertIn('data-comunicados-sin-leer="2"', campana)
+        self.assertIn('data-notificaciones-total>2</span>', campana)
+        self.assertIn('2 comunicados sin leer', campana)   # en el nombre accesible del botón
+        self.assertLess(campana.index('Suspensión de clases'), campana.index('Reunión de familias'))   # el urgente primero
+        self.assertIn(reverse('portal_tutores:comunicados:recibido', args=[self.urgente.pk]), campana)
+        # Al leer uno, la campana baja
+        self.client.get(reverse('portal_tutores:comunicados:recibido', args=[self.urgente.pk]))
+        campana = self.campana(self.client.get(reverse('portal_tutores:inicio')).content.decode())
+        self.assertIn('data-notificaciones-total>1</span>', campana)
+        self.assertNotIn('Suspensión de clases', campana)
+
+    def test_el_resumen_para_actualizarla_sin_recargar(self):
+        datos = self.client.get(reverse('portal_tutores:comunicados:resumen')).json()
+        self.assertEqual((datos['pendientes'], datos['urgentes']), (2, 1))
+        self.assertEqual([a['titulo'] for a in datos['avisos']], ['Suspensión de clases', 'Reunión de familias'])
+        self.assertTrue(datos['avisos'][0]['url'].startswith('/portal/tutores/comunicados/'))
+        # Un profesor, en el sistema
+        self.enviar(self.direccion_sec, seleccion={Destinatario.PROFESOR: {self.prof_carmen.pk}}, titulo='Junta de academia')
+        self.client.force_login(self.carmen)
+        datos = self.client.get(reverse('comunicados:resumen')).json()
+        self.assertEqual((datos['pendientes'], datos['avisos'][0]['titulo']), (1, 'Junta de academia'))
+        self.assertContains(self.client.get(reverse('inicio')), 'data-comunicados-sin-leer="1"')
+
+
+@PRUEBAS
 class AvisoEnTiempoRealTests(Colegio, TransactionTestCase):
     """El aviso llega por el canal de la mensajería (capa en memoria de las pruebas)."""
 
@@ -510,6 +552,29 @@ class AvisoEnTiempoRealTests(Colegio, TransactionTestCase):
         self.assertEqual((evento['evento'], evento['titulo'], evento['urgente']), ('comunicado', 'Suspensión de clases', True))
         self.assertTrue(evento['url'].startswith('/portal/tutores/comunicados/'))
         await ana.disconnect()
+
+    async def test_un_profesor_sin_mensajeria_tambien_recibe_el_aviso(self):
+        from channels.db import database_sync_to_async
+        from django.test import Client
+
+        from CISAHUAYO.asgi import application
+
+        def preparar():
+            cuenta = crear_usuario('ines', crear_rol('Solo recibe comunicados', {'Comunicados.recibir'}))
+            profesor = crear_profesor(niveles=('SECUNDARIA',), usuario=cuenta, nombre='Inés', telefono='3530005555')
+            cliente = Client()
+            cliente.force_login(cuenta)
+            return profesor, cliente.cookies['sessionid'].value
+
+        profesor, cookie = await database_sync_to_async(preparar)()
+        cabeceras = [(b'host', b'testserver'), (b'origin', b'http://testserver'), (b'cookie', f'sessionid={cookie}'.encode())]
+        ines = WebsocketCommunicator(application, '/ws/mensajes/', headers=cabeceras)
+        self.assertTrue((await ines.connect())[0])
+        await database_sync_to_async(self.enviar)(self.direccion_sec, seleccion={Destinatario.PROFESOR: {profesor.pk}}, titulo='Junta de academia')
+        evento = await ines.receive_json_from(timeout=3)
+        self.assertEqual((evento['evento'], evento['titulo']), ('comunicado', 'Junta de academia'))
+        self.assertTrue(evento['url'].startswith('/comunicados/recibidos/'))
+        await ines.disconnect()
 
 
 def tearDownModule():

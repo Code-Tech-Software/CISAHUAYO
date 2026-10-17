@@ -1,30 +1,44 @@
 {% comment %}
-  La campana de notificaciones de la barra superior (en el sistema y en los portales). Muestra los avisos de la
-  mensajería: quién escribió, una vista previa y cuántos mensajes sin leer; cada aviso abre la conversación.
-  static/js/avisos.js la mantiene al día en tiempo real (WebSocket en mensajeria.ws), reproduce el aviso en pantalla y,
-  si se permitió, envía el aviso del navegador. Datos: procesador de contexto «mensajeria» (Mensajes/context_processors.py).
+  La campana de notificaciones de la barra superior (en el sistema y en los portales). Su número suma los mensajes sin
+  leer y los comunicados sin leer, y el panel lista los dos:
+  - Comunicados (Comunicados/context_processors.py): cada uno sin leer, los urgentes primero; cada aviso abre el
+    comunicado. Los mantiene al día static/js/comunicados-avisos.js.
+  - Mensajes (Mensajes/context_processors.py): quién escribió, una vista previa y cuántos mensajes sin leer; cada aviso
+    abre la conversación. Los mantiene al día static/js/avisos.js, que también pinta el número de la campana.
+  Los dos llegan en tiempo real por el mismo WebSocket (data-ws) y, si se permitió, con avisos del navegador.
 {% endcomment %}
-<div class="menu menu--wide notificaciones" data-menu{% if mensajeria.activa %} data-notificaciones data-ws="{{ mensajeria.ws }}" data-resumen-url="{{ mensajeria.url_resumen }}" data-bandeja-url="{{ mensajeria.url_bandeja }}"{% endif %}>
+{% with mensajes=mensajeria.no_leidos|default:0 comunicados=avisos_comunicados.pendientes|default:0 %}
+<div class="menu menu--wide notificaciones" data-menu{% if mensajeria.activa or avisos_comunicados.activa %} data-notificaciones data-ws="{% if mensajeria.activa %}{{ mensajeria.ws }}{% else %}{{ avisos_comunicados.ws }}{% endif %}" data-mensajes-sin-leer="{{ mensajes }}"{% endif %}{% if mensajeria.activa %} data-resumen-url="{{ mensajeria.url_resumen }}" data-bandeja-url="{{ mensajeria.url_bandeja }}"{% endif %}{% if avisos_comunicados.activa %} data-comunicados-sin-leer="{{ comunicados }}" data-comunicados-resumen-url="{{ avisos_comunicados.url_resumen }}"{% endif %}>
   <button type="button" class="btn btn--ghost btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-notificaciones" data-tooltip="Notificaciones"
-          aria-label="Notificaciones{% if mensajeria.no_leidos %}, {{ mensajeria.no_leidos }} mensaje{{ mensajeria.no_leidos|pluralize }} sin leer{% endif %}" data-notificaciones-boton>
+          aria-label="Notificaciones{% if mensajes %}, {{ mensajes }} mensaje{{ mensajes|pluralize }} sin leer{% endif %}{% if comunicados %}, {{ comunicados }} comunicado{{ comunicados|pluralize }} sin leer{% endif %}" data-notificaciones-boton>
     {% include "partials/icon.html" with name="bell" %}
-    <span class="badge topbar__badge" aria-hidden="true" data-notificaciones-total{% if not mensajeria.no_leidos %} hidden{% endif %}>{{ mensajeria.no_leidos }}</span>
+    <span class="badge topbar__badge" aria-hidden="true" data-notificaciones-total{% if not mensajes and not comunicados %} hidden{% endif %}>{{ mensajes|add:comunicados }}</span>
   </button>
   <div class="menu__panel notificaciones__panel" id="menu-notificaciones" data-menu-panel hidden>
     <div class="menu__header notificaciones__encabezado">
       <p class="menu__title">Notificaciones</p>
-      {% if mensajeria.activa %}<a class="notificaciones__todo" href="{{ mensajeria.url_bandeja }}">Ver mensajes</a>{% endif %}
+      <span class="notificaciones__enlaces">
+        {% if avisos_comunicados.activa %}<a class="notificaciones__todo" href="{{ avisos_comunicados.url }}">Ver comunicados</a>{% endif %}
+        {% if mensajeria.activa %}<a class="notificaciones__todo" href="{{ mensajeria.url_bandeja }}">Ver mensajes</a>{% endif %}
+      </span>
     </div>
     <div class="menu__separator"></div>
     {% if avisos_comunicados.activa %}
-      {# Comunicados recibidos sin leer (Comunicados/context_processors.py); static/js/comunicados-avisos.js lo actualiza #}
-      <a class="aviso aviso--comunicados{% if avisos_comunicados.urgentes %} is-urgente{% endif %}" href="{{ avisos_comunicados.url }}" data-comunicados-campana data-pendientes="{{ avisos_comunicados.pendientes }}" data-urgentes="{{ avisos_comunicados.urgentes }}"{% if not avisos_comunicados.pendientes %} hidden{% endif %}>
-        <span class="avatar avatar--sm aviso__avatar aviso__avatar--comunicados" aria-hidden="true">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %}</span>
-        <span class="aviso__texto">
-          <span class="aviso__fila"><span class="aviso__nombre" data-comunicados-campana-texto>{{ avisos_comunicados.pendientes }} comunicado{{ avisos_comunicados.pendientes|pluralize }} sin leer</span></span>
-          <span class="aviso__vista" data-comunicados-campana-urgentes>{% if avisos_comunicados.urgentes %}{{ avisos_comunicados.urgentes }} urgente{{ avisos_comunicados.urgentes|pluralize }} · {% endif %}Ver comunicados</span>
-        </span>
-      </a>
+      <ul class="notificaciones__lista notificaciones__lista--comunicados" data-comunicados-lista aria-label="Comunicados sin leer"{% if not avisos_comunicados.avisos %} hidden{% endif %}>
+        {% for aviso in avisos_comunicados.avisos %}
+          <li data-aviso-comunicado="{{ aviso.id }}">
+            <a class="aviso aviso--comunicado{% if aviso.urgente %} is-urgente{% endif %}" href="{{ aviso.url }}">
+              <span class="avatar avatar--sm aviso__avatar aviso__avatar--comunicado" aria-hidden="true">{% include "partials/icon.html" with name=aviso.urgente|yesno:"triangle-alert,megaphone" icon_class="icon--sm" %}</span>
+              <span class="aviso__texto">
+                <span class="aviso__fila"><span class="aviso__nombre">{{ aviso.titulo }}</span><span class="aviso__hora">{{ aviso.hora }}</span></span>
+                <span class="aviso__vista">{% if aviso.urgente %}Urgente · {% endif %}Comunicado de {{ aviso.autor }}</span>
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+      {# Si hay más de los que caben en la lista #}
+      <a class="notificaciones__mas" href="{{ avisos_comunicados.url }}" data-comunicados-mas{% if avisos_comunicados.pendientes <= avisos_comunicados.avisos|length %} hidden{% endif %}>Ver los {{ avisos_comunicados.pendientes }} comunicados sin leer</a>
     {% endif %}
     <ul class="notificaciones__lista" data-notificaciones-lista aria-label="Mensajes sin leer"{% if not mensajeria.avisos %} hidden{% endif %}>
       {% for aviso in mensajeria.avisos %}
@@ -40,15 +54,15 @@
         </li>
       {% endfor %}
     </ul>
-    <div class="empty-state notificaciones__vacio" data-notificaciones-vacio{% if mensajeria.avisos %} hidden{% endif %}>
+    <div class="empty-state notificaciones__vacio" data-notificaciones-vacio{% if mensajeria.avisos or avisos_comunicados.avisos %} hidden{% endif %}>
       {% include "partials/icon.html" with name="inbox" icon_class="icon--lg empty-state__icon" %}
       <p class="empty-state__title">Estás al día</p>
-      <p class="empty-state__text">No tienes mensajes nuevos.</p>
+      <p class="empty-state__text">{% if mensajeria.activa and avisos_comunicados.activa %}No tienes mensajes ni comunicados nuevos.{% elif avisos_comunicados.activa %}No tienes comunicados nuevos.{% else %}No tienes mensajes nuevos.{% endif %}</p>
     </div>
-    {% if mensajeria.activa %}
+    {% if mensajeria.activa or avisos_comunicados.activa %}
       {# Solo aparece si el navegador permite avisos y todavía no se ha decidido (static/js/avisos.js) #}
       <div class="notificaciones__permiso" data-notificaciones-permiso hidden>
-        <p>Recibe un aviso del navegador cuando te llegue un mensaje, aunque estés en otra pestaña.</p>
+        <p>Recibe un aviso del navegador cuando te llegue un {% if mensajeria.activa %}mensaje o un {% endif %}comunicado, aunque estés en otra pestaña.</p>
         <button type="button" class="btn btn--sm btn--primary" data-notificaciones-activar>
           {% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Activar avisos del navegador
         </button>
@@ -56,3 +70,4 @@
     {% endif %}
   </div>
 </div>
+{% endwith %}

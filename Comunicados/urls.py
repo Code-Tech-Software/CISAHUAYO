@@ -13,6 +13,7 @@ def rutas_de_portal(tipo):
     envolver = views.para_portal(tipo)
     return [
         path('', envolver(views.portal_inicio), name='inicio'),
+        path('resumen/', envolver(views.portal_resumen), name='resumen'),
         path('<int:pk>/', envolver(views.portal_recibido), name='recibido'),
         path('archivos/<int:pk>/', envolver(views.portal_adjunto), name='adjunto'),
     ]
@@ -25,6 +26,7 @@ urlpatterns = [
     path('destinatarios/', views.destinatarios, name='destinatarios'),
     path('eliminar/', views.eliminar_varios, name='eliminar_varios'),
     path('recibidos/<int:pk>/', views.recibido, name='recibido'),
+    path('resumen/', views.resumen, name='resumen'),
     path('archivos/<int:pk>/', views.adjunto, name='adjunto'),
     path('<int:pk>/', views.detalle, name='detalle'),
     path('<int:pk>/eliminar/', views.eliminar, name='eliminar'),

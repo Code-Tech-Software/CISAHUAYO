@@ -175,6 +175,12 @@ def lector_de_portal(tipo, cuenta):
     return Lector(Destinatario.ESTUDIANTE if tipo == portales.ESTUDIANTE else Destinatario.TUTOR, cuenta)
 
 
+def avisos(lector, limite=5):
+    """Los comunicados que aún no lee (los de la campana): primero los urgentes, luego del más reciente al más antiguo."""
+    return list(lector.destinatarios().filter(leido_en__isnull=True).select_related('comunicado__autor')
+                .order_by('-comunicado__urgente', '-comunicado__creado', '-comunicado__pk')[:limite])
+
+
 def marcar_leido(destinatario, ahora=None):
     """Guarda la primera lectura (si ya la tenía, no la cambia). Devuelve True si fue la primera."""
     if destinatario.leido_en is not None:

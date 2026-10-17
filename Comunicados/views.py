@@ -264,6 +264,22 @@ def recibido(request, pk):
     return _recibido(request, _bandeja_del_sistema(request), pk)
 
 
+def _resumen(lector, espacio):
+    """Lo de la campana en JSON: cuántos no ha leído y los más recientes (static/js/comunicados-avisos.js lo pide al
+    llegar un aviso, al leer uno y al reconectarse)."""
+    from .context_processors import datos_de_avisos
+    datos = datos_de_avisos(lector, espacio) if lector is not None else {'pendientes': 0, 'urgentes': 0, 'avisos': []}
+    respuesta = JsonResponse(datos)
+    respuesta['Cache-Control'] = 'private, no-store'
+    return respuesta
+
+
+@require_GET
+@requiere_permisos(RECIBIR)
+def resumen(request):
+    return _resumen(reglas.lector_de_usuario(request.user), 'comunicados')
+
+
 def _entregar(adjunto, request):
     from Conducta.views import entregar_archivo
     return entregar_archivo(adjunto.archivo, adjunto.nombre_original, adjunto.tipo, descargar=request.GET.get('descargar') == '1')
@@ -362,6 +378,11 @@ def portal_inicio(request):
 @require_GET
 def portal_recibido(request, pk):
     return _recibido(request, request.bandeja, pk)
+
+
+@require_GET
+def portal_resumen(request):
+    return _resumen(request.bandeja.lector, request.bandeja.espacio)
 
 
 @require_GET

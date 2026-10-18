@@ -8,7 +8,8 @@ portal (CISAHUAYO/portales.py).
 
 Por el mismo canal llegan los avisos de comunicados nuevos (Comunicados/tiempo_real.py): la pestaña se une también al
 grupo de comunicados de su persona, si recibe comunicados. Un profesor que recibe comunicados pero no usa la mensajería
-se conecta solo a ese grupo. Sin mensajería ni comunicados, la conexión se rechaza.
+se conecta solo a ese grupo. Igual con las notificaciones de retiros anticipados (Retiros/tiempo_real.py): el personal
+que los atiende y los tutores en su portal. Sin mensajería, comunicados ni retiros, la conexión se rechaza.
 """
 import logging
 
@@ -24,11 +25,11 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
     grupos = ()
 
     async def connect(self):
-        participante_id, de_comunicados = await self._participante()
-        if participante_id is None and not de_comunicados:
+        participante_id, de_comunicados, de_retiros = await self._participante()
+        if participante_id is None and not de_comunicados and not de_retiros:
             await self.close(code=4403)
             return
-        grupos = ([grupo(participante_id)] if participante_id is not None else []) + ([de_comunicados] if de_comunicados else [])
+        grupos = ([grupo(participante_id)] if participante_id is not None else []) + [g for g in (de_comunicados, de_retiros) if g]
         try:
             for nombre in grupos:
                 await self.channel_layer.group_add(nombre, self.channel_name)
@@ -64,22 +65,36 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
     async def comunicado_nuevo(self, evento):
         await self.send_json({'evento': 'comunicado', **evento['datos']})
 
+    async def retiro_aviso(self, evento):
+        await self.send_json({'evento': 'retiro', **evento['datos']})
+
     @database_sync_to_async
     def _participante(self):
-        """(id del participante o None, grupo de comunicados de la persona o None)."""
+        """(id del participante o None, grupo de comunicados de la persona o None, grupo de retiros o None)."""
         from CISAHUAYO import portales
 
         from . import reglas
         usuario, sesion = self.scope.get('user'), self.scope.get('session')
         if usuario is not None and usuario.is_authenticated:
             participante = reglas.de_usuario(usuario).pk if reglas.usa_mensajeria(usuario) else None
-            return participante, self._de_comunicados(usuario=usuario)
+            return participante, self._de_comunicados(usuario=usuario), self._de_retiros(usuario=usuario)
         if sesion is None:
-            return None, None
+            return None, None, None
         tipo, cuenta = portales.sesion_de(sesion)
         if cuenta is None:
-            return None, None
-        return reglas.de_portal(tipo, cuenta).pk, self._de_comunicados(tipo=tipo, cuenta=cuenta)
+            return None, None, None
+        de_retiros = self._de_retiros(tutor=cuenta) if tipo == portales.TUTOR else None
+        return reglas.de_portal(tipo, cuenta).pk, self._de_comunicados(tipo=tipo, cuenta=cuenta), de_retiros
+
+    @staticmethod
+    def _de_retiros(usuario=None, tutor=None):
+        """Si falla (p. ej. sin la migración de Retiros), lo demás sigue igual: solo no llegan esos avisos."""
+        try:
+            from Retiros import tiempo_real
+            return tiempo_real.grupo_de_usuario(usuario) if usuario is not None else tiempo_real.grupo_de_tutor(tutor)
+        except Exception:
+            registro.exception('No se pudo preparar el aviso de retiros')
+            return None
 
     @staticmethod
     def _de_comunicados(usuario=None, tipo=None, cuenta=None):

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Gestión de retiros anticipados (Retiros/views.lista). Vista «Hoy» (la principal): lo pendiente por confirmar, por hora,
+  y lo ya atendido; vista «Todos»: el historial paginado. Una fila por estudiante (cada uno sale por separado). La
+  búsqueda y los filtros se limitan al alcance de la cuenta.
+{% endcomment %}
+
+{% block title %}Retiros anticipados | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/retiros.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Retiros anticipados</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Retiros anticipados</h1>
+      <p class="page-header__description">Los avisos de los tutores que recogerán a sus hijos antes de la salida. Antes de confirmar cada salida, verifica que quien recoge sea la persona autorizada. El retiro no cambia la asistencia, la conducta ni las calificaciones.</p>
+    </div>
+  </header>
+
+  <nav class="pills pills--section" aria-label="Vistas de retiros">
+    <a class="pill{% if vista == 'hoy' %} is-active{% endif %}" href="{% url 'retiros:lista' %}"{% if vista == 'hoy' %} aria-current="page"{% endif %}>Hoy, {{ hoy|date:"j \d\e F" }}</a>
+    <a class="pill{% if vista == 'todos' %} is-active{% endif %}" href="{% url 'retiros:lista' %}?vista=todos"{% if vista == 'todos' %} aria-current="page"{% endif %}>Todos</a>
+  </nav>
+
+  {% if sin_niveles %}
+    <div class="alert alert--warning" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>{{ sin_niveles }}</p></div>
+    </div>
+  {% endif %}
+
+  <form class="filters retiros-filtros" method="get" role="search" aria-label="Buscar y filtrar retiros">
+    {% if vista == 'todos' %}<input type="hidden" name="vista" value="todos">{% endif %}
+    <div class="filters__field retiros-filtros__busqueda"><label class="field__label" for="{{ filtro.q.id_for_label }}">Buscar</label>{{ filtro.q }}</div>
+    {% if vista == 'todos' %}
+      <div class="filters__field"><label class="field__label" for="{{ filtro.desde.id_for_label }}">Desde</label>{{ filtro.desde }}</div>
+      <div class="filters__field"><label class="field__label" for="{{ filtro.hasta.id_for_label }}">Hasta</label>{{ filtro.hasta }}</div>
+    {% endif %}
+    <div class="filters__field"><label class="field__label" for="{{ filtro.nivel.id_for_label }}">Nivel</label>{{ filtro.nivel }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.grado.id_for_label }}">Grado</label>{{ filtro.grado }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.grupo.id_for_label }}">Grupo</label>{{ filtro.grupo }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.motivo.id_for_label }}">Motivo</label>{{ filtro.motivo }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ filtro.estado.id_for_label }}">Estado</label>{{ filtro.estado }}</div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar</button>
+      <a class="btn btn--ghost btn--sm" href="{% url 'retiros:lista' %}{% if vista == 'todos' %}?vista=todos{% endif %}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if vista == 'hoy' %}
+    <ul class="retiros-totales" aria-label="Resumen de hoy">
+      {% for clave, nombre, total in totales %}
+        <li class="retiros-totales__item retiros-totales__item--{{ clave|lower }}"><span class="retiros-totales__numero">{{ total }}</span> {{ nombre }}{{ total|pluralize:"s" }}</li>
+      {% endfor %}
+    </ul>
+
+    <h2 class="retiros-subtitulo">Por confirmar</h2>
+    {% if pendientes %}
+      {% include "retiros/_tabla.html" with filas=pendientes etiqueta="Retiros por confirmar hoy" %}
+    {% else %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="circle-check" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">Nada pendiente por ahora</p>
+          <p class="empty-state__text">Aquí aparecen los estudiantes que sus tutores recogerán hoy antes de la salida.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if atendidos %}
+      <h2 class="retiros-subtitulo">Atendidos y cancelados</h2>
+      {% include "retiros/_tabla.html" with filas=atendidos etiqueta="Retiros atendidos o cancelados hoy" %}
+    {% endif %}
+  {% else %}
+    {% if pagina.paginator.count %}
+      {% include "retiros/_tabla.html" with filas=pagina con_fecha=True etiqueta="Todos los retiros" %}
+      {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="retiros" por_pagina=por_pagina opciones=opciones_por_pagina %}
+    {% else %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="log-out" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">Sin retiros con esos filtros</p>
+          <p class="empty-state__text">Prueba con otras fechas o quita algún filtro.</p>
+        </div>
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}

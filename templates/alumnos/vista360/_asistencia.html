@@ -1,0 +1,97 @@
+{% comment %}
+  Vista 360 · Asistencia: la de entrada (general) y, aparte, la de cada materia. Solo los días con registro hasta hoy;
+  los días de una suspensión autorizada no cuentan (Alumnos/asistencias.py).
+{% endcomment %}
+{% with d=seccion.detalle t=seccion.detalle.totales %}
+  <h3 class="v360-subtitulo">Asistencia de entrada</h3>
+  {% if not t.registros %}
+    <div class="empty-state empty-state--inline">
+      <p class="empty-state__title">Sin registros</p>
+      <p class="empty-state__text">No hay asistencia de entrada registrada del {{ filtros.desde|date:"j M Y" }} al {{ d.hasta|date:"j M Y" }}. Los días sin captura no cuentan como faltas.</p>
+    </div>
+  {% else %}
+    <dl class="v360-cifras">
+      <div class="v360-cifra v360-cifra--fuerte"><dt>Asistencia</dt><dd>{{ t.porcentaje }} %</dd></div>
+      <div class="v360-cifra"><dt>Días con registro</dt><dd>{{ t.registros }}</dd></div>
+      <div class="v360-cifra"><dt>Presente</dt><dd>{{ t.presentes }}</dd></div>
+      <div class="v360-cifra"><dt>Retardos</dt><dd>{{ t.retardos }}</dd></div>
+      <div class="v360-cifra{% if t.sin_justificar %} v360-cifra--aviso{% endif %}"><dt>Faltas</dt><dd>{{ t.faltas }}</dd></div>
+      <div class="v360-cifra"><dt>Justificadas</dt><dd>{{ t.justificadas }}</dd></div>
+    </dl>
+    <p class="v360-nota">Contado hasta el {{ d.hasta|date:"j M Y" }}. Asistencia = días presentes y con retardo entre los días con registro.{% if t.suspension %} No se cuentan {{ t.suspension }} día{{ t.suspension|pluralize }} de suspensión autorizada.{% endif %}</p>
+  {% endif %}
+
+  <h3 class="v360-subtitulo">Asistencia por materia</h3>
+  {% if d.por_materia %}
+    <div class="v360-tabla" role="region" aria-label="Asistencia por materia" tabindex="0">
+      <table>
+        <caption class="visually-hidden">Asistencia por materia del periodo</caption>
+        <thead>
+          <tr>
+            <th scope="col">Materia</th>
+            <th scope="col" class="v360-num">Registros</th>
+            <th scope="col" class="v360-num">Asistencia</th>
+            <th scope="col" class="v360-num">Faltas</th>
+            <th scope="col" class="v360-num">Justificadas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in d.por_materia %}
+            <tr>
+              <th scope="row">{{ fila.materia_grado__materia__nombre }}</th>
+              <td class="v360-num">{{ fila.registros }}</td>
+              <td class="v360-num v360-num--fuerte">{{ fila.porcentaje }} %</td>
+              <td class="v360-num">{{ fila.faltas }}</td>
+              <td class="v360-num">{{ fila.justificadas }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="v360-vacio">Sin registros de asistencia por materia en este periodo.</p>
+  {% endif %}
+
+  {% if d.recientes %}
+    <h3 class="v360-subtitulo">Últimos días registrados</h3>
+    <ul class="v360-lista">
+      {% for registro in d.recientes %}
+        <li class="v360-lista__item">
+          <div class="v360-lista__fila">
+            <span class="v360-lista__fecha">{{ registro.fecha|date:"D j M" }}</span>
+            <span class="tag {% if registro.estado == 'FALTA' %}{% if registro.justificada %}tag--info{% else %}tag--danger{% endif %}{% elif registro.estado == 'RETARDO' %}tag--warning{% else %}tag--success{% endif %}">
+              {{ registro.get_estado_display }}{% if registro.estado == 'FALTA' and registro.justificada %} justificada{% endif %}
+            </span>
+            {% if registro.hora_entrada %}<span class="text-muted">Entrada {{ registro.hora_entrada|time:"H:i" }}</span>{% endif %}
+          </div>
+          {% if registro.materias %}
+            <ul class="v360-chips" aria-label="Asistencia por materia ese día">
+              {% for materia in registro.materias %}
+                <li class="v360-chip v360-chip--{{ materia.estado|lower }}{% if materia.justificada %} is-justificada{% endif %}">{{ materia.materia_grado.materia.nombre }}: {{ materia.get_estado_display|lower }}{% if materia.estado == 'FALTA' and materia.justificada %} (justificada){% endif %}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if d.justificaciones %}
+    <h3 class="v360-subtitulo">Justificaciones</h3>
+    <ul class="v360-lista">
+      {% for justificacion in d.justificaciones %}
+        <li class="v360-lista__item">
+          <div class="v360-lista__fila">
+            <span class="v360-lista__fecha">{{ justificacion.fecha|date:"j M Y" }}</span>
+            {% if not justificacion.activa %}<span class="tag">Revocada</span>{% endif %}
+            <span class="text-muted">{% if justificacion.justifica_general %}Entrada{% if justificacion.todas_materias %} y todas las materias{% endif %}{% elif justificacion.todas_materias %}Todas las materias{% else %}Algunas materias{% endif %}</span>
+            {% if d.ve_comprobantes and justificacion.documento %}
+              <a class="link-subtle" href="{% url 'asistencias:comprobante' justificacion.pk %}">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} Comprobante</a>
+            {% endif %}
+          </div>
+          <p class="v360-lista__texto">{{ justificacion.motivo }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}

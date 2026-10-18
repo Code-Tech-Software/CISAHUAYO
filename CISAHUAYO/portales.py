@@ -178,6 +178,10 @@ def navegacion(request, tipo, cuenta):
         _elemento('Comunicados', 'megaphone', comunicados, request.path.startswith(comunicados), contador='comunicados'),
     ]}]
     if tipo == TUTOR:
+        # Retiros anticipados (2026-10-17): avisar que recogerá a sus hijos antes de la salida, con sus notificaciones
+        retiros = reverse('portal_tutores:retiros:lista')
+        secciones[0]['elementos'].append(
+            _elemento('Retiros anticipados', 'log-out', retiros, request.path.startswith(retiros), contador='retiros'))
         from Alumnos.models import TutorAlumno
         estudiantes = []
         for vinculo in TutorAlumno.objects.filter(tutor=cuenta, activo=True).select_related('alumno').order_by('alumno__nombre'):

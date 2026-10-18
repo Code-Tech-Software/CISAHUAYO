@@ -43,6 +43,9 @@
                 {% elif elemento.contador == "comunicados" and avisos_comunicados.activa %}
                   {# Comunicados recibidos sin leer: lo actualiza static/js/comunicados-avisos.js #}
                   <span class="nav__badge" data-comunicados-pendientes aria-label="{{ avisos_comunicados.pendientes }} sin leer"{% if not avisos_comunicados.pendientes %} hidden{% endif %}>{{ avisos_comunicados.pendientes }}</span>
+                {% elif elemento.contador == "retiros" and avisos_retiros.activa %}
+                  {# Notificaciones de retiros sin leer: lo actualiza static/js/retiros-avisos.js #}
+                  <span class="nav__badge" data-retiros-pendientes aria-label="{{ avisos_retiros.pendientes }} sin leer"{% if not avisos_retiros.pendientes %} hidden{% endif %}>{{ avisos_retiros.pendientes }}</span>
                 {% endif %}
               </a>
             </li>

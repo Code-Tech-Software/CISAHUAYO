@@ -1,0 +1,17 @@
+{# Un aviso de retiro en la lista del tutor: fecha, hora, motivo y el estado de cada hijo. Parámetro: aviso (con .retiros y .estado_general). #}
+<a class="card retiros-aviso" href="{% url 'portal_tutores:retiros:detalle' aviso.pk %}">
+  <div class="retiros-aviso__fecha" aria-hidden="true">
+    <span class="retiros-aviso__dia">{{ aviso.fecha|date:"j" }}</span>
+    <span class="retiros-aviso__mes">{{ aviso.fecha|date:"M" }}</span>
+  </div>
+  <div class="retiros-aviso__texto">
+    <p class="retiros-aviso__titulo">{{ aviso.fecha|date:"l j \d\e F" }} · {{ aviso.hora|time:"H:i" }}</p>
+    <p class="text-muted">{{ aviso.motivo }} · Folio {{ aviso.folio }}</p>
+    <ul class="retiros-aviso__hijos">
+      {% for retiro in aviso.retiros %}
+        <li>{{ retiro.alumno.nombre }} {% include "retiros/_estado.html" with estado=retiro.estado nombre=retiro.get_estado_display %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm retiros-aviso__flecha" %}
+</a>

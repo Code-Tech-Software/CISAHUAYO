@@ -16,4 +16,5 @@ urlpatterns = [
     path('<int:pk>/direccion/', views.usuario_direccion, name='direccion'),
     path('<int:pk>/coordinacion/', views.usuario_coordinacion, name='coordinacion'),
     path('<int:pk>/comunicados/', views.usuario_comunicados, name='comunicados'),
+    path('<int:pk>/retiros/', views.usuario_retiros, name='retiros'),
 ]

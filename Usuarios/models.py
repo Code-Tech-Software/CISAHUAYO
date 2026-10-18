@@ -95,6 +95,12 @@ class PerfilUsuario(models.Model):
         'niveles para comunicados', default=list, blank=True,
         help_text='Puede enviar comunicados a los tutores, estudiantes y profesores de estos niveles (si su rol tiene el permiso).',
     )
+    # Retiros anticipados (2026-10-17): de qué niveles consulta y confirma retiros quien no es administrador. Una cuenta
+    # de prefectura suma su alcance (Retiros/alcance.py). Sin ninguno, no ve retiros.
+    niveles_retiros = models.JSONField(
+        'niveles para retiros', default=list, blank=True,
+        help_text='Consulta y atiende los retiros anticipados de los estudiantes de estos niveles (si su rol tiene el permiso).',
+    )
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

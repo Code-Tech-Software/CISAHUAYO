@@ -429,3 +429,13 @@
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
   }
 }
+
+/* Enlace a la Vista 360 dentro de la barra de pestañas del expediente (no es una pestaña: abre su propia página) */
+.tabs__tab--enlace {
+  color: var(--color-primary-text);
+  text-decoration: none;
+}
+
+.tabs__tab--enlace:hover {
+  color: var(--color-link-hover);
+}

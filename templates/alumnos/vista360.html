@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Vista 360 · {{ alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
+  <link rel="stylesheet" href="{% static 'css/conducta.css' %}">
+  <link rel="stylesheet" href="{% static 'css/vista360.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Estudiantes</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ alumno.get_absolute_url }}">{{ alumno }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Vista 360</span></li>
+{% endblock %}
+
+{% block content %}
+{% with inscripcion=filtros.inscripcion %}
+  <div class="v360" data-vista360>
+
+    {# --- Tarjeta del estudiante (la misma información del expediente) ------------------------------ #}
+    <aside class="v360__lateral" aria-label="Datos del estudiante">
+      {% with tono=alumno.estatus|tono_estatus %}
+        <section class="card v360-ficha">
+          <div class="v360-ficha__cabeza">
+            {% include "partials/avatar.html" with persona=alumno tamano="xl" extra="avatar--square avatar--soft" %}
+            <div class="v360-ficha__texto">
+              <h2 class="v360-ficha__nombre">{{ alumno }}</h2>
+              <p class="v360-ficha__linea">
+                <span class="tag tag--{{ tono }}">{{ alumno.get_estatus_display }}</span>
+              </p>
+            </div>
+          </div>
+
+          <dl class="v360-ficha__datos">
+            <div><dt>Nivel, grado y grupo</dt><dd>{% if inscripcion %}{{ inscripcion.grupo|default:inscripcion.grado }}{% else %}<span class="text-muted">Sin inscripción</span>{% endif %}</dd></div>
+            <div><dt>CURP</dt><dd class="v360-mono">{{ alumno.curp|default:"—" }}</dd></div>
+            <div><dt>Fecha de nacimiento</dt><dd>{{ alumno.fecha_nacimiento|date:"j \d\e F \d\e Y"|lower }}</dd></div>
+            <div><dt>Edad</dt><dd>{{ edad }}</dd></div>
+            <div><dt>Número de control</dt><dd class="v360-mono">{{ alumno.referencia }}</dd></div>
+            {% if inscripcion %}<div><dt>Inscripción</dt><dd>Ciclo {{ inscripcion.ciclo }}{% if not inscripcion.activa %} <span class="text-muted">(inactiva)</span>{% endif %}</dd></div>{% endif %}
+          </dl>
+
+          {% if perms.Alumnos.change_alumno %}
+            <div class="v360-ficha__acciones">
+              <a class="btn btn--sm" href="{% url 'alumnos:editar' alumno.pk %}" data-modal-form>
+                {% include "partials/icon.html" with name="camera" icon_class="icon--sm" %} Editar datos y foto
+              </a>
+              {% if not esta_de_baja %}
+                <div class="menu" data-menu>
+                  <button type="button" class="btn btn--sm menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-estatus-360">
+                    Cambiar estatus {% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm" %}
+                  </button>
+                  <div class="menu__panel" id="menu-estatus-360" data-menu-panel hidden>
+                    <ul class="menu__list">
+                      {% for valor, etiqueta in estatus_opciones %}
+                        <li>
+                          <form method="post" action="{% url 'alumnos:estatus' alumno.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="estatus" value="{{ valor }}">
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button type="submit" class="menu__item"{% if alumno.estatus == valor %} disabled aria-current="true"{% endif %}>
+                              <span class="dot dot--{{ valor|tono_estatus }}" aria-hidden="true"></span>
+                              {{ etiqueta }}
+                              {% if alumno.estatus == valor %}<span class="menu__check">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>{% endif %}
+                            </button>
+                          </form>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </section>
+      {% endwith %}
+
+      <nav class="card v360-menu" aria-label="Expediente del estudiante">
+        <ul class="v360-menu__lista">
+          <li><a class="v360-menu__enlace" href="{{ alumno.get_absolute_url }}#resumen">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Resumen del estudiante</a></li>
+          <li><a class="v360-menu__enlace is-actual" href="{{ request.path }}" aria-current="page">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Vista 360</a></li>
+          <li><a class="v360-menu__enlace" href="{{ alumno.get_absolute_url }}#tutores">{% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Tutores</a></li>
+          <li><a class="v360-menu__enlace" href="{{ alumno.get_absolute_url }}#academico">{% include "partials/icon.html" with name="graduation-cap" icon_class="icon--sm" %} Académico</a></li>
+          {% if tiene_conducta %}<li><a class="v360-menu__enlace" href="{{ alumno.get_absolute_url }}#conducta">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %} Conducta</a></li>{% endif %}
+        </ul>
+      </nav>
+    </aside>
+
+    {# --- Vista 360 ------------------------------------------------------------------------------- #}
+    <section class="card v360__principal" aria-labelledby="v360-titulo" data-v360-principal>
+      <header class="v360__cabeza">
+        <div>
+          <h1 class="v360__titulo" id="v360-titulo">Vista 360</h1>
+          <p class="v360__subtitulo">
+            {% if filtros.ciclo %}
+              {{ filtros.nombre_del_rango }} · del {{ filtros.desde|date:"j M Y" }} al {{ filtros.hasta|date:"j M Y" }}
+            {% else %}
+              El estudiante no tiene inscripciones.
+            {% endif %}
+          </p>
+        </div>
+
+        {% if filtros.ciclos %}
+          <form class="v360-filtros" method="get" data-v360-filtros>
+            <div class="field v360-filtros__campo">
+              <label class="field__label" for="v360-ciclo">Ciclo escolar</label>
+              <select class="field__control field__control--select" id="v360-ciclo" name="ciclo">
+                {% for ciclo in filtros.ciclos %}
+                  <option value="{{ ciclo.pk }}"{% if ciclo == filtros.ciclo %} selected{% endif %}>{{ ciclo }}{% if ciclo.activo %} (actual){% endif %}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field v360-filtros__campo">
+              <label class="field__label" for="v360-periodo">Periodo</label>
+              <select class="field__control field__control--select" id="v360-periodo" name="periodo">
+                <option value="ciclo"{% if not filtros.periodo %} selected{% endif %}>Todo el ciclo</option>
+                {% for periodo in filtros.periodos %}
+                  <option value="{{ periodo.pk }}"{% if periodo == filtros.periodo %} selected{% endif %}>{{ periodo.nombre }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% if seccion_abierta %}<input type="hidden" name="seccion" value="{{ seccion_abierta }}" data-v360-seccion-campo>{% endif %}
+            <button type="submit" class="btn btn--sm v360-filtros__aplicar" data-v360-aplicar>Aplicar</button>
+          </form>
+        {% endif %}
+      </header>
+
+      <p class="v360-cargando" data-v360-cargando hidden role="status">
+        <span class="v360-cargando__giro" aria-hidden="true"></span> Cargando la información…
+      </p>
+
+      <div class="v360__cuerpo" data-v360-cuerpo>
+        <div class="v360-marco">
+        <div class="v360-circulo" data-v360-circulo>
+          <svg class="v360-circulo__anillo" viewBox="-100 -100 200 200" aria-hidden="true" focusable="false">
+            {% for seccion in secciones %}
+              <path class="v360-seg v360-seg--{{ seccion.clave }}{% if seccion.clave == seccion_abierta %} is-abierta{% endif %}" d="{{ seccion.trazo }}" data-v360-trazo="{{ seccion.clave }}"></path>
+            {% endfor %}
+          </svg>
+
+          <div class="v360-centro" data-v360-ajustable>
+            {% include "partials/avatar.html" with persona=alumno tamano="lg" extra="v360-centro__avatar" %}
+            <p class="v360-centro__nombre">{{ alumno }}</p>
+            <p class="v360-centro__dato">{{ edad }}</p>
+            {% if inscripcion %}<p class="v360-centro__dato">{{ inscripcion.grupo|default:inscripcion.grado }}</p>{% endif %}
+            <p class="v360-centro__dato">Nació el {{ alumno.fecha_nacimiento|date:"d/m/Y" }}</p>
+          </div>
+
+          <ul class="v360-botones" aria-label="Indicadores del estudiante">
+            {% for seccion in secciones %}
+              <li class="v360-botones__item v360-botones__item--{{ seccion.clave }}" style="--izquierda: {{ seccion.izquierda|stringformat:'s' }}%; --arriba: {{ seccion.arriba|stringformat:'s' }}%; --ancho: {{ seccion.ancho|stringformat:'s' }}%; --alto: {{ seccion.alto|stringformat:'s' }}%">
+                <a class="v360-boton v360-boton--{{ seccion.clave }} v360-boton--{{ seccion.estado }}"
+                   href="?{% if filtros.ciclo %}ciclo={{ filtros.ciclo.pk }}&amp;periodo={% if filtros.periodo %}{{ filtros.periodo.pk }}{% else %}ciclo{% endif %}&amp;{% endif %}seccion={{ seccion.clave }}#panel-{{ seccion.clave }}"
+                   id="boton-{{ seccion.clave }}" data-v360-boton="{{ seccion.clave }}" aria-controls="panel-{{ seccion.clave }}"
+                   aria-expanded="{% if seccion.clave == seccion_abierta %}true{% else %}false{% endif %}" data-v360-ajustable>
+                  <span class="v360-boton__titulo">{% include "partials/icon.html" with name=seccion.icono icon_class="icon--sm" %} {{ seccion.titulo }}</span>
+                  {% if seccion.estado == 'sin_permiso' %}
+                    <span class="v360-boton__valor v360-boton__valor--texto">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %}</span>
+                    <span class="v360-boton__desc">Sin permiso</span>
+                  {% elif seccion.estado == 'error' %}
+                    <span class="v360-boton__valor v360-boton__valor--texto">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %}</span>
+                    <span class="v360-boton__desc">No se pudo consultar</span>
+                  {% elif seccion.estado == 'no_aplica' %}
+                    <span class="v360-boton__valor">—</span>
+                    <span class="v360-boton__desc">{{ seccion.mensaje }}</span>
+                  {% else %}
+                    <span class="v360-boton__valor">{{ seccion.valor }}</span>
+                    {% for linea in seccion.lineas %}<span class="v360-boton__desc">{{ linea }}</span>{% endfor %}
+                  {% endif %}
+                  {% if seccion.alcance == 'actual' and seccion.estado == 'ok' or seccion.alcance == 'actual' and seccion.estado == 'vacio' %}<span class="v360-boton__nota">Estado actual</span>{% endif %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+        </div>
+
+        <p class="v360-ayuda text-muted">Elige un indicador para ver su detalle. Las cifras son las de cada módulo: aquí no se modifica nada.</p>
+
+        {# --- Paneles de detalle ----------------------------------------------------------------- #}
+        {% for seccion in secciones %}
+          <section class="v360-panel v360-panel--{{ seccion.clave }}" id="panel-{{ seccion.clave }}" aria-labelledby="titulo-{{ seccion.clave }}"
+                   data-v360-panel="{{ seccion.clave }}" tabindex="-1"{% if seccion.clave != seccion_abierta %} hidden{% endif %}>
+            <header class="v360-panel__cabeza">
+              <h2 class="v360-panel__titulo" id="titulo-{{ seccion.clave }}">
+                <span class="v360-panel__marca" aria-hidden="true">{% include "partials/icon.html" with name=seccion.icono icon_class="icon--sm" %}</span>
+                {{ seccion.titulo }}
+                {% if seccion.alcance == 'actual' %}<span class="tag">Estado actual</span>{% else %}<span class="tag">{{ filtros.nombre_del_rango }}</span>{% endif %}
+              </h2>
+              <button type="button" class="btn btn--icon btn--sm" data-v360-cerrar aria-label="Cerrar el detalle de {{ seccion.titulo|lower }}">
+                {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+              </button>
+            </header>
+
+            {% if seccion.estado == 'sin_permiso' %}
+              <div class="empty-state empty-state--inline">
+                {% include "partials/icon.html" with name="lock" icon_class="icon--lg empty-state__icon" %}
+                <p class="empty-state__title">Sin permiso</p>
+                <p class="empty-state__text">{% if seccion.mensaje and seccion.mensaje != 'Sin permiso' %}{{ seccion.mensaje }}. {% endif %}Tu cuenta no puede consultar esta información.</p>
+              </div>
+            {% elif seccion.estado == 'error' %}
+              <div class="alert alert--error" role="alert">
+                {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+                <div class="alert__body">
+                  <p><strong>No se pudo consultar esta información.</strong> Las demás secciones no se ven afectadas.</p>
+                  <p><a href="{{ request.get_full_path }}">Volver a intentar</a></p>
+                </div>
+              </div>
+            {% elif seccion.estado == 'no_aplica' %}
+              <div class="empty-state empty-state--inline">
+                {% include "partials/icon.html" with name="info" icon_class="icon--lg empty-state__icon" %}
+                <p class="empty-state__title">No aplica</p>
+                <p class="empty-state__text">{{ seccion.mensaje }}.</p>
+              </div>
+            {% else %}
+              {% include "alumnos/vista360/_"|add:seccion.clave|add:".html" %}
+            {% endif %}
+
+            {% if seccion.enlace and seccion.estado == 'ok' or seccion.enlace and seccion.estado == 'vacio' %}
+              <footer class="v360-panel__pie">
+                <a class="btn btn--sm" href="{{ seccion.enlace }}">
+                  Ver detalle completo {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+                </a>
+                <span class="text-muted v360-panel__destino">{{ seccion.etiqueta_enlace }}</span>
+              </footer>
+            {% endif %}
+          </section>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/vista360.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "portales/base.html" %}
+{% load static retiros_extras %}
+{% comment %}
+  Resumen de un aviso para el tutor (Retiros/views_portal.detalle): folio, estudiantes, fecha, hora, motivo, quién
+  recoge y el estado de cada hijo (con la hora real de salida y quién lo recogió). Mientras un hijo siga «Avisado» se
+  puede cancelar; una salida confirmada ya no se cambia desde aquí. Las observaciones internas del colegio no se muestran.
+{% endcomment %}
+
+{% block title %}Retiro {{ aviso.folio }} · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/retiros.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'portal_tutores:retiros:lista' %}">Retiros anticipados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ aviso.folio }}</span></li>
+{% endblock %}
+
+{% block content %}
+  {% if nuevo %}
+    <div class="retiros-enviado" role="status">
+      {% include "partials/icon.html" with name="circle-check" icon_class="icon--lg" %}
+      <div>
+        <p class="retiros-enviado__titulo">Aviso enviado</p>
+        <p>El colegio ya lo recibió. Guarda tu folio: <strong>{{ aviso.folio }}</strong>.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <section class="card retiros-resumen-tutor" aria-labelledby="resumen-titulo">
+    <header class="retiros-resumen-tutor__cabeza">
+      <div>
+        <p class="retiros-folio">Folio {{ aviso.folio }}</p>
+        <h1 class="retiros-resumen-tutor__titulo" id="resumen-titulo">{{ aviso.fecha|date:"l j \d\e F" }}</h1>
+      </div>
+      {% include "retiros/_estado.html" with estado=aviso.estado_general.0 nombre=aviso.estado_general.1 %}
+    </header>
+    <dl class="retiros-datos">
+      <div><dt>Hora estimada</dt><dd>{{ aviso.hora|time:"H:i" }}</dd></div>
+      <div><dt>Motivo</dt><dd>{{ aviso.motivo }}</dd></div>
+      <div><dt>Recoge</dt><dd>{% if aviso.recoge_id == aviso.tutor_id %}Tú ({{ aviso.recoge|nombre_corto }}){% else %}{{ aviso.recoge|nombre_completo }}{% endif %}</dd></div>
+      <div><dt>Avisado el</dt><dd>{{ aviso.creado|date:"d/m/Y H:i" }}</dd></div>
+      {% if aviso.detalles %}<div class="retiros-datos__ancho"><dt>Detalles</dt><dd>{{ aviso.detalles|linebreaksbr }}</dd></div>{% endif %}
+    </dl>
+
+    <h2 class="retiros-subtitulo">Estudiantes</h2>
+    <ul class="retiros-alumnos retiros-alumnos--tutor">
+      {% for retiro in aviso.retiros %}
+        <li class="retiros-alumno">
+          <div class="retiros-alumno__cabeza">
+            {% include "partials/avatar.html" with persona=retiro.alumno %}
+            <div class="retiros-alumno__texto">
+              <p class="retiros-alumno__nombre">{{ retiro.alumno.nombre_completo }}</p>
+              <p class="text-muted">{{ retiro.inscripcion.grupo }}</p>
+            </div>
+            {% include "retiros/_estado.html" with estado=retiro.estado nombre=retiro.get_estado_display %}
+          </div>
+          {% if retiro.estado == 'RETIRADO' %}
+            <p class="retiros-alumno__dato">Salió a las <strong>{{ retiro.salida_en|time:"H:i" }}</strong> con {{ retiro.recogio|nombre_completo }}.</p>
+          {% elif retiro.estado == 'CANCELADO' %}
+            <p class="retiros-alumno__dato">Cancelado el {{ retiro.cancelado_en|date:"d/m/Y H:i" }}{% if retiro.cancelado_por_usuario_id %} por el colegio{% endif %}.{% if retiro.motivo_cancelacion %} Motivo: {{ retiro.motivo_cancelacion }}{% endif %}</p>
+          {% else %}
+            <p class="retiros-alumno__dato text-muted">El colegio confirmará su salida al verificar a la persona que recoge.</p>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    <footer class="retiros-resumen-tutor__pie">
+      <a class="btn" href="{% url 'portal_tutores:retiros:lista' %}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Mis retiros</a>
+      {% if cancelables %}
+        <a class="btn btn--danger-text" href="{% url 'portal_tutores:retiros:cancelar' aviso.pk %}">{% include "partials/icon.html" with name="circle-x" icon_class="icon--sm" %} Cancelar{% if cancelables|length > 1 %} (todo o una parte){% endif %}</a>
+      {% endif %}
+    </footer>
+  </section>
+{% endblock %}

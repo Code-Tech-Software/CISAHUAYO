@@ -1216,26 +1216,38 @@
         if (anterior && anterior !== boton) anterior.tabIndex = -1;
         boton.tabIndex = 0;
       });
-      /* Escape siempre cierra (en la búsqueda no solo la vacía); la X, «Cerrar» y el clic fuera los atiende app.js */
+      /* Al cerrar, el foco vuelve al mensaje con el cursor tras lo último insertado. Se hace en el momento del cierre
+         (X, «Cerrar», Escape —que siempre cierra, también desde la búsqueda—) y no al llegar el evento «close», un
+         instante después: lo que se escribiera en ese instante se perdería. El evento cubre el clic fuera de la ventana
+         (app.js), y la X y «Cerrar» se atienden aquí antes que en app.js, que ya la encuentra cerrada. */
+      const cerrar = () => {
+        if (dialogo.open) dialogo.close();
+        this.volverDeCaracteres();
+      };
       dialogo.addEventListener('keydown', (evento) => {
         if (evento.key !== 'Escape') return;
         evento.preventDefault();
-        dialogo.close();
+        cerrar();
       });
-      /* Al cerrar, el foco vuelve al mensaje con el cursor tras lo último insertado. Se usa el punto que guarda la
-         ventana: al enfocar la búsqueda, el navegador saca la selección del área y al volver la pondría al principio */
-      dialogo.addEventListener('close', () => {
-        this.area.focus({ preventScroll: true });
-        const rango = c.rango;
-        if (rango?.startContainer.isConnected && this.dentro(rango.startContainer)) {
-          const seleccion = window.getSelection();
-          seleccion.removeAllRanges();
-          seleccion.addRange(rango);
-          this.rango = rango.cloneRange();
-        }
-        this.actualizarBarra();
+      dialogo.addEventListener('click', (evento) => {
+        if (evento.target.closest('[data-modal-close]')) cerrar();
       });
+      dialogo.addEventListener('close', () => this.volverDeCaracteres());
       return c;
+    }
+
+    /* Se usa el punto que guarda la ventana: al enfocar la búsqueda, el navegador saca la selección del área y al
+       volver la pondría al principio */
+    volverDeCaracteres() {
+      this.area.focus({ preventScroll: true });
+      const rango = this.caracteres.rango;
+      if (rango?.startContainer.isConnected && this.dentro(rango.startContainer)) {
+        const seleccion = window.getSelection();
+        seleccion.removeAllRanges();
+        seleccion.addRange(rango);
+        this.rango = rango.cloneRange();
+      }
+      this.actualizarBarra();
     }
 
     abrirCaracteres() {
@@ -1280,6 +1292,9 @@
         entradas = entradas.filter((entrada) => (caracter
           ? entrada.caracter === consulta || entrada.caracter.toLowerCase() === consulta.toLowerCase()
           : entrada.caracter === consulta || palabras.every((palabra) => entrada.clave.includes(palabra))));
+        /* Primero los que tienen palabras que empiezan así («raya» antes que «semirraya»), cada grupo en su orden */
+        const alInicio = (entrada) => palabras.every((palabra) => entrada.clave.split(/[^a-z0-9ñ]+/).some((parte) => parte.startsWith(palabra)));
+        entradas = [...entradas.filter(alInicio), ...entradas.filter((entrada) => !alInicio(entrada))];
       }
       c.cuadricula.replaceChildren(...entradas.map((entrada, indice) => {
         const boton = document.createElement('button');

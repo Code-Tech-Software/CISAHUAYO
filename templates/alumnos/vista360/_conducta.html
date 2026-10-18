@@ -1,0 +1,53 @@
+{% comment %}
+  Vista 360 · Conducta: los registros formales vigentes del periodo (como en los reportes de conducta) y, aparte, las
+  observaciones de bitácora en que aparece el estudiante (informativas: no son registros de conducta).
+{% endcomment %}
+{% with d=seccion.detalle %}
+  <dl class="v360-cifras">
+    <div class="v360-cifra{% if d.incidencias %} v360-cifra--aviso{% endif %}"><dt>Incidencias</dt><dd>{{ d.incidencias }}</dd></div>
+    <div class="v360-cifra"><dt>Conductas positivas</dt><dd>{{ d.positivas }}</dd></div>
+    {% if d.bitacora_permitida %}<div class="v360-cifra"><dt>Observaciones de bitácora</dt><dd>{{ d.bitacora|length }}</dd></div>{% endif %}
+  </dl>
+
+  <h3 class="v360-subtitulo">Registros de conducta</h3>
+  {% if d.registros %}
+    <ol class="conducta-linea">
+      {% for registro in d.registros %}
+        <li class="conducta-linea__item conducta-linea__item--{{ registro.tipo|lower }}">
+          <p class="conducta-linea__titulo">
+            <a class="link-subtle" href="{% url 'conducta:detalle' registro.pk %}"><strong>{{ registro.fecha|date:"d/m/Y" }}</strong> · {{ registro.motivo_nombre }}</a>
+            {% include "conducta/_marca.html" with que='tipo' %} {% include "conducta/_marca.html" with que='gravedad' %}
+          </p>
+          <p class="text-muted">{{ registro.categoria_nombre }}{% if registro.registrado_por %} · Registró {{ registro.registrado_por.get_full_name|default:registro.registrado_por.username }}{% endif %}</p>
+          {% if registro.medidas_aplicadas.all %}<p><span class="text-muted">Medidas:</span> {% for medida in registro.medidas_aplicadas.all %}{{ medida.nombre }}{% if medida.pendiente %} (por aprobar){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+          {% if registro.suspension and registro.suspension.aprobacion != 'CANCELADA' %}<p><span class="text-muted">Suspensión:</span> del {{ registro.suspension.fecha_inicio|date:"d/m/Y" }} al {{ registro.suspension.fecha_fin|date:"d/m/Y" }}{% if registro.suspension.aprobada %} · {{ registro.suspension.estado_display|lower }}{% else %} ({{ registro.suspension.get_aprobacion_display|lower }}){% endif %}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <div class="empty-state empty-state--inline">
+      <p class="empty-state__title">0</p>
+      <p class="empty-state__text">Sin anotaciones en este periodo.</p>
+    </div>
+  {% endif %}
+
+  {% if d.bitacora_permitida %}
+    <h3 class="v360-subtitulo">Observaciones de bitácora <span class="v360-subtitulo__nota">informativas, no son registros de conducta</span></h3>
+    {% if d.bitacora %}
+      <ul class="v360-lista">
+        {% for entrada in d.bitacora %}
+          <li class="v360-lista__item">
+            <div class="v360-lista__fila">
+              <span class="v360-lista__fecha">{{ entrada.fecha|date:"j M Y" }}</span>
+              <a class="link-subtle" href="{% url 'bitacoras:detalle' entrada.pk %}">{{ entrada.titulo }}</a>
+            </div>
+            <p class="v360-lista__texto text-muted">{{ entrada.materia_nombre }} · {{ entrada.grupo_texto }} · {{ entrada.autor_nombre }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if d.url_bitacora %}<p><a class="link-subtle" href="{{ d.url_bitacora }}">Ver todas sus observaciones de bitácora</a></p>{% endif %}
+    {% else %}
+      <p class="v360-vacio">Sin observaciones de bitácora en este periodo.</p>
+    {% endif %}
+  {% endif %}
+{% endwith %}

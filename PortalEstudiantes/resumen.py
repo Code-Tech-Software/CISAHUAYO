@@ -99,6 +99,7 @@ class FilaDeCalificaciones:
     profesor: str
     valores: list            # una calificación (Decimal) o None por periodo, en el orden de las columnas
     promedio: Decimal = None
+    asignacion: object = None   # la materia del grupo (la Vista 360 del expediente revisa con ella quién puede verla)
 
 
 @dataclass
@@ -131,13 +132,23 @@ def _calificaciones(inscripcion):
     for asignacion in asignaciones:
         valores = [finales.get((asignacion.pk, periodo.pk)) for periodo in periodos]
         profesor = asignacion.profesor.nombre_completo if asignacion.profesor_id else ''
-        filas.append(FilaDeCalificaciones(asignacion.materia.nombre, profesor, valores, _promedio(valores)))
+        filas.append(FilaDeCalificaciones(asignacion.materia.nombre, profesor, valores, _promedio(valores), asignacion))
     por_periodo = [_promedio([fila.valores[indice] for fila in filas]) for indice in range(len(periodos))]
     return Calificaciones(
         periodos=periodos, filas=filas, promedios_por_periodo=por_periodo,
         promedio_general=_promedio([fila.promedio for fila in filas]),
         cerrados=sum(1 for valor in por_periodo if valor is not None),
     )
+
+
+def calificaciones_de(inscripcion):
+    """Las calificaciones de las actas cerradas de la inscripción (también las usa la Vista 360 del expediente)."""
+    return _calificaciones(inscripcion)
+
+
+def promedio(valores):
+    """El promedio que usa el sistema para juntar calificaciones (sin las pendientes), a dos decimales."""
+    return _promedio(valores)
 
 
 # ---------------------------------------------------------------------------

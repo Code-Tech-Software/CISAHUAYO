@@ -75,6 +75,8 @@ INSTALLED_APPS = [
     'Mensajes',
     # Comunicados a tutores, estudiantes y profesores, con seguimiento de lectura: Comunicados/
     'Comunicados',
+    # Retiros anticipados: avisos de los tutores y salida confirmada por el personal: Retiros/
+    'Retiros',
 ]
 
 MIDDLEWARE = [
@@ -121,6 +123,7 @@ TEMPLATES = [
                 'CISAHUAYO.context_processors.apariencia',
                 'Mensajes.context_processors.mensajeria',
                 'Comunicados.context_processors.comunicados',
+                'Retiros.context_processors.retiros',
             ],
         },
     },

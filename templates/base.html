@@ -115,6 +115,7 @@
   <script src="{% static 'js/modal-form.js' %}" defer></script>
   <script src="{% static 'js/avisos.js' %}" defer></script>
   {% if avisos_comunicados.activa %}<script src="{% static 'js/comunicados-avisos.js' %}" defer></script>{% endif %}
+  {% if avisos_retiros.activa %}<script src="{% static 'js/retiros-avisos.js' %}" defer></script>{% endif %}
   {% block extra_js %}{% endblock %}
 </body>
 </html>

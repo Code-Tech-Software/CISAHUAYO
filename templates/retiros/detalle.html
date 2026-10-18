@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load static retiros_extras %}
+{% comment %}
+  Detalle de un aviso de retiro para el personal (Retiros/views.detalle): lo que avisó el tutor, quién recoge (y si
+  sigue autorizado), cada estudiante con su estado y sus acciones, las observaciones internas (el tutor no las ve) y la
+  bitácora. Solo se muestran los estudiantes del alcance de la cuenta.
+{% endcomment %}
+
+{% block title %}Retiro {{ aviso.folio }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/retiros.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'retiros:lista' %}">Retiros anticipados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ aviso.folio }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="retiros-folio">Folio {{ aviso.folio }}</p>
+      <h1 class="page-header__title">Retiro del {{ aviso.fecha|date:"l j \d\e F" }} a las {{ aviso.hora|time:"H:i" }}</h1>
+      <p class="page-header__description">{% include "retiros/_estado.html" with estado=estado.0 nombre=estado.1 %} · Avisó {{ aviso.tutor|nombre_completo }} el {{ aviso.creado|date:"d/m/Y \a \l\a\s H:i" }}</p>
+    </div>
+    {% if puede.corregir and cancelables %}
+      <div class="page-header__actions">
+        <a class="btn btn--danger-text btn--sm" href="{% url 'retiros:cancelar' aviso.pk %}" data-modal-form>{% include "partials/icon.html" with name="circle-x" icon_class="icon--sm" %} Cancelar aviso</a>
+      </div>
+    {% endif %}
+  </header>
+
+  <div class="retiros-detalle">
+    <div class="retiros-detalle__principal">
+      <section class="card" aria-labelledby="estudiantes-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="estudiantes-titulo">Estudiantes</h2>
+        </header>
+        <ul class="retiros-alumnos">
+          {% for retiro in retiros %}
+            <li class="retiros-alumno">
+              <div class="retiros-alumno__cabeza">
+                {% include "partials/avatar.html" with persona=retiro.alumno %}
+                <div class="retiros-alumno__texto">
+                  <p class="retiros-alumno__nombre">{{ retiro.alumno }}</p>
+                  <p class="text-muted">{{ retiro.inscripcion.grupo }} · {{ retiro.alumno.referencia }}</p>
+                </div>
+                {% include "retiros/_estado.html" with estado=retiro.estado nombre=retiro.get_estado_display %}
+              </div>
+              {% if retiro.estado == 'RETIRADO' %}
+                <p class="retiros-alumno__dato">Salió a las <strong>{{ retiro.salida_en|time:"H:i" }}</strong> con <strong>{{ retiro.recogio|nombre_completo }}</strong>. Confirmó {% firstof retiro.confirmado_por.get_full_name retiro.confirmado_por.username "—" %}{% if retiro.confirmado_en %} ({{ retiro.confirmado_en|date:"d/m H:i" }}){% endif %}.</p>
+                {% if retiro.observaciones_salida %}<p class="retiros-alumno__dato text-muted">{{ retiro.observaciones_salida }}</p>{% endif %}
+              {% elif retiro.estado == 'CANCELADO' %}
+                <p class="retiros-alumno__dato">Cancelado el {{ retiro.cancelado_en|date:"d/m/Y H:i" }} por {% if retiro.cancelado_por_tutor %}el tutor{% else %}{% firstof retiro.cancelado_por_usuario.get_full_name retiro.cancelado_por_usuario.username "el colegio" %}{% endif %}.{% if retiro.motivo_cancelacion %} Motivo: {{ retiro.motivo_cancelacion }}{% endif %}</p>
+              {% elif not retiro.recoge_autorizado %}
+                <div class="alert alert--warning retiros-alumno__alerta" role="status">
+                  {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+                  <div class="alert__body"><p>{{ aviso.recoge|nombre_completo }} ya no tiene autorización para recoger a {{ retiro.alumno.nombre }}. Solo puede salir con otra persona autorizada.</p></div>
+                </div>
+              {% endif %}
+              <div class="retiros-alumno__acciones">
+                {% if retiro.estado == 'AVISADO' and puede.confirmar %}
+                  {% if es_hoy %}
+                    <a class="btn btn--primary btn--sm" href="{% url 'retiros:confirmar' retiro.pk %}" data-modal-form>{% include "partials/icon.html" with name="log-out" icon_class="icon--sm" %} Confirmar salida</a>
+                  {% else %}
+                    <span class="text-muted">La salida se confirma el día del retiro.</span>
+                  {% endif %}
+                {% endif %}
+                {% if retiro.estado == 'RETIRADO' and puede.corregir %}
+                  <a class="btn btn--ghost btn--sm" href="{% url 'retiros:corregir' retiro.pk %}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Corregir salida</a>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if ocultos %}<p class="card__body text-muted">Este aviso incluye {{ ocultos }} estudiante{{ ocultos|pluralize }} de otros niveles, fuera de tu alcance.</p>{% endif %}
+      </section>
+
+      <section class="card" id="notas" aria-labelledby="notas-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="lock" %}<h2 class="card__title" id="notas-titulo">Observaciones internas</h2>
+          <span class="card__header-action text-muted">El tutor no las ve</span>
+        </header>
+        <div class="card__body">
+          {% if notas %}
+            <ul class="retiros-notas">
+              {% for nota in notas %}
+                <li class="retiros-nota">
+                  <p class="retiros-nota__texto">{{ nota.texto|linebreaksbr }}</p>
+                  <p class="text-muted retiros-sub">{% firstof nota.autor.get_full_name nota.autor.username "—" %} · {{ nota.creada|date:"d/m/Y H:i" }}</p>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <form method="post" action="{% url 'retiros:nota' aviso.pk %}" class="retiros-nota-form">
+            {% csrf_token %}
+            {% include "partials/field.html" with campo=nota_form.texto %}
+            <button type="submit" class="btn btn--sm">Guardar observación</button>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <aside class="retiros-detalle__lateral">
+      <section class="card" aria-labelledby="aviso-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="file-text" %}<h2 class="card__title" id="aviso-titulo">El aviso</h2>
+        </header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item"><dt class="details__label">Fecha y hora estimada</dt><dd class="details__value">{{ aviso.fecha|date:"d/m/Y" }} · {{ aviso.hora|time:"H:i" }}</dd></div>
+            <div class="details__item"><dt class="details__label">Motivo</dt><dd class="details__value">{{ aviso.motivo }}</dd></div>
+            <div class="details__item details__item--wide"><dt class="details__label">Detalles del tutor</dt><dd class="details__value{% if not aviso.detalles %} details__value--empty{% endif %}">{% if aviso.detalles %}{{ aviso.detalles|linebreaksbr }}{% else %}Sin detalles{% endif %}</dd></div>
+            <div class="details__item details__item--wide"><dt class="details__label">Avisó</dt><dd class="details__value">{{ aviso.tutor|nombre_completo }}{% if aviso.tutor.telefono %}<span class="text-muted retiros-sub">Tel. {{ aviso.tutor.telefono }}</span>{% endif %}</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="card retiros-recoge" aria-labelledby="recoge-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="badge-check" %}<h2 class="card__title" id="recoge-titulo">Quién recoge</h2>
+        </header>
+        <div class="card__body">
+          <div class="retiros-recoge__persona">
+            {% include "partials/avatar.html" with persona=aviso.recoge tamano="lg" %}
+            <div>
+              <p class="retiros-recoge__nombre">{{ aviso.recoge|nombre_completo }}</p>
+              <p class="text-muted">{% if aviso.recoge_id == aviso.tutor_id %}El mismo tutor que avisó{% else %}Otra persona autorizada{% endif %}{% if aviso.recoge.telefono %} · Tel. {{ aviso.recoge.telefono }}{% endif %}</p>
+            </div>
+          </div>
+          <ul class="retiros-autorizaciones">
+            {% for retiro in retiros %}
+              <li>{% if retiro.recoge_autorizado %}{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm retiros-ok" %} {{ retiro.vinculo_recoge.get_parentesco_display }} de {{ retiro.alumno.nombre }} · con autorización vigente para recoger{% else %}{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm retiros-alerta" %} Ya no tiene autorización para recoger a {{ retiro.alumno.nombre }}{% endif %}</li>
+            {% endfor %}
+          </ul>
+          <p class="text-muted retiros-sub">Pide una identificación oficial y compárala con este nombre antes de confirmar la salida.</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="bitacora-titulo">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="bitacora-titulo">Bitácora</h2>
+        </header>
+        <div class="card__body">
+          <ol class="retiros-bitacora">
+            {% for evento in eventos %}
+              <li class="retiros-bitacora__item retiros-bitacora__item--{{ evento.tipo|lower }}">
+                <p class="retiros-bitacora__tipo">{{ evento.get_tipo_display }} <span class="text-muted">· {{ evento.creado|date:"d/m/Y H:i" }}</span></p>
+                <p>{{ evento.descripcion }}</p>
+                {% if evento.datos.antes %}
+                  <p class="text-muted retiros-sub">Antes: {{ evento.datos.antes.estado }}{% if evento.datos.antes.hora %}, {{ evento.datos.antes.hora }}{% endif %}{% if evento.datos.antes.recogio %}, con {{ evento.datos.antes.recogio }}{% endif %}. Ahora: {{ evento.datos.despues.estado }}{% if evento.datos.despues.hora %}, {{ evento.datos.despues.hora }}{% endif %}{% if evento.datos.despues.recogio %}, con {{ evento.datos.despues.recogio }}{% endif %}.</p>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

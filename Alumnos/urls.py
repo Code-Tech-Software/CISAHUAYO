@@ -14,6 +14,7 @@ urlpatterns = [
     path('buscar/', views.alumno_buscar, name='buscar'),
     path('tutores/buscar/', views.tutor_buscar, name='tutor_buscar'),
     path('<int:pk>/', views.alumno_detalle, name='detalle'),
+    path('<int:pk>/vista-360/', views.alumno_vista360, name='vista360'),
     path('<int:pk>/editar/', views.alumno_editar, name='editar'),
     path('<int:pk>/estatus/', views.alumno_estatus, name='estatus'),
     path('<int:pk>/baja/', views.alumno_baja, name='baja'),

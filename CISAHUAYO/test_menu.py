@@ -30,7 +30,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Mensajes', 'Comunicados', 'Estudiantes', 'Tutores', 'Profesores',
             'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
-            'Horarios', 'Calificaciones', 'Bitácoras por grupo', 'Asistencias', 'Registro de conducta', 'Reportes de conducta',
+            'Horarios', 'Calificaciones', 'Bitácoras por grupo', 'Asistencias', 'Retiros anticipados', 'Registro de conducta', 'Reportes de conducta',
             'Usuarios', 'Roles y permisos', 'Ajustes',
         ])
 
@@ -74,11 +74,11 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertEqual(secciones, [
             (None, ['Panel de control', 'Mensajes', 'Comunicados']),
             # La de las cuentas de prefectura (solo la ven ellas)
-            ('Prefectura', ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Seguimiento', 'Reportes']),
+            ('Prefectura', ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Retiros anticipados', 'Seguimiento', 'Reportes']),
             ('Comunidad escolar', ['Estudiantes', 'Tutores', 'Profesores']),
             ('Gestión académica', ['Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias',
                                    'Asignaciones de materias', 'Horarios', 'Calificaciones', 'Bitácoras por grupo']),
             # La general, debajo de Gestión académica (pedido del 2026-10-14)
-            ('Prefectura', ['Asistencias', 'Registro de conducta', 'Reportes de conducta']),
+            ('Prefectura', ['Asistencias', 'Retiros anticipados', 'Registro de conducta', 'Reportes de conducta']),
             ('Sistema', ['Usuarios', 'Roles y permisos', 'Ajustes']),
         ])

@@ -1,0 +1,45 @@
+{% extends "portales/base.html" %}
+{% load static %}
+
+{% block title %}Cancelar retiro {{ aviso.folio }} · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/retiros.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'portal_tutores:retiros:lista' %}">Retiros anticipados</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">{{ aviso.folio }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Cancelar</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Cancelar el retiro</h1>
+      <p class="page-header__description">Elige a quién ya no recogerás (a todos o solo a algunos). El colegio recibirá el aviso. Las salidas ya confirmadas no se pueden cancelar.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body retiros-campos">
+        {% include "partials/casillas.html" with campo=form.retiros %}
+        {% include "partials/field.html" with campo=form.motivo %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Volver</a>
+      <button type="submit" class="btn btn--danger">Cancelar el retiro</button>
+    </div>
+  </form>
+{% endblock %}

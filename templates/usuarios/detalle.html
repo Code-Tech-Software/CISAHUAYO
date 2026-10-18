@@ -5,7 +5,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
-  {% if alcance or direccion is not None or coordinacion is not None or comunicados is not None %}<link rel="stylesheet" href="{% static 'css/prefectura.css' %}">{% endif %}
+  {% if alcance or direccion is not None or coordinacion is not None or comunicados is not None or retiros is not None %}<link rel="stylesheet" href="{% static 'css/prefectura.css' %}">{% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -170,6 +170,19 @@
       <div class="card__body">
         <p class="alcance-prefectura__texto{% if not comunicados.niveles %} alcance-prefectura__texto--vacio{% endif %}">{% for nombre, origenes in comunicados.niveles %}{{ nombre }} <span class="text-muted">({{ origenes|join:", "|lower }})</span>{% if not forloop.last %} · {% endif %}{% empty %}Sin niveles: todavía no puede enviar comunicados{% endfor %}</p>
         <p class="text-muted">Envía comunicados a los tutores, estudiantes y profesores de estos niveles: los que da como docente, dirige o coordina, su alcance de prefectura y los asignados aquí{% if comunicados.asignados %} ({% for clave, nombre in comunicados.asignados %}{{ nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}.</p>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if retiros is not None %}
+    <section class="card alcance-prefectura" aria-labelledby="retiros-titulo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="log-out" %}<h2 class="card__title" id="retiros-titulo">Retiros anticipados</h2>
+        {% if puede_editar %}<a class="btn btn--sm card__header-action" href="{% url 'usuarios:retiros' usuario.pk %}" data-modal-form>Niveles para retiros</a>{% endif %}
+      </header>
+      <div class="card__body">
+        <p class="alcance-prefectura__texto{% if not retiros.asignados and not retiros.prefectura %} alcance-prefectura__texto--vacio{% endif %}">{% if retiros.asignados %}{{ retiros.asignados|join:" · " }}{% elif not retiros.prefectura %}Sin niveles: todavía no ve retiros{% else %}Solo su alcance de prefectura{% endif %}</p>
+        <p class="text-muted">Consulta y atiende los retiros anticipados de los estudiantes de estos niveles{% if retiros.prefectura %}, además de los de su alcance de prefectura{% endif %}.</p>
       </div>
     </section>
   {% endif %}

@@ -5,24 +5,43 @@
     comunicado. Los mantiene al día static/js/comunicados-avisos.js.
   - Mensajes (Mensajes/context_processors.py): quién escribió, una vista previa y cuántos mensajes sin leer; cada aviso
     abre la conversación. Los mantiene al día static/js/avisos.js, que también pinta el número de la campana.
-  Los dos llegan en tiempo real por el mismo WebSocket (data-ws) y, si se permitió, con avisos del navegador.
+  - Retiros anticipados (Retiros/context_processors.py): avisos nuevos y cancelaciones para el personal que los atiende;
+    salidas confirmadas, cancelaciones y correcciones para el tutor. Los mantiene al día static/js/retiros-avisos.js.
+  Todos llegan en tiempo real por el mismo WebSocket (data-ws) y, si se permitió, con avisos del navegador.
 {% endcomment %}
-{% with mensajes=mensajeria.no_leidos|default:0 comunicados=avisos_comunicados.pendientes|default:0 %}
-<div class="menu menu--wide notificaciones" data-menu{% if mensajeria.activa or avisos_comunicados.activa %} data-notificaciones data-ws="{% if mensajeria.activa %}{{ mensajeria.ws }}{% else %}{{ avisos_comunicados.ws }}{% endif %}" data-mensajes-sin-leer="{{ mensajes }}"{% endif %}{% if mensajeria.activa %} data-resumen-url="{{ mensajeria.url_resumen }}" data-bandeja-url="{{ mensajeria.url_bandeja }}"{% endif %}{% if avisos_comunicados.activa %} data-comunicados-sin-leer="{{ comunicados }}" data-comunicados-resumen-url="{{ avisos_comunicados.url_resumen }}"{% endif %}>
+{% with mensajes=mensajeria.no_leidos|default:0 comunicados=avisos_comunicados.pendientes|default:0 retiros=avisos_retiros.pendientes|default:0 %}
+<div class="menu menu--wide notificaciones" data-menu{% if mensajeria.activa or avisos_comunicados.activa or avisos_retiros.activa %} data-notificaciones data-ws="{% if mensajeria.activa %}{{ mensajeria.ws }}{% elif avisos_comunicados.activa %}{{ avisos_comunicados.ws }}{% else %}{{ avisos_retiros.ws }}{% endif %}" data-mensajes-sin-leer="{{ mensajes }}"{% endif %}{% if mensajeria.activa %} data-resumen-url="{{ mensajeria.url_resumen }}" data-bandeja-url="{{ mensajeria.url_bandeja }}"{% endif %}{% if avisos_comunicados.activa %} data-comunicados-sin-leer="{{ comunicados }}" data-comunicados-resumen-url="{{ avisos_comunicados.url_resumen }}"{% endif %}{% if avisos_retiros.activa %} data-retiros-sin-leer="{{ retiros }}" data-retiros-resumen-url="{{ avisos_retiros.url_resumen }}"{% endif %}>
   <button type="button" class="btn btn--ghost btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-notificaciones" data-tooltip="Notificaciones"
-          aria-label="Notificaciones{% if mensajes %}, {{ mensajes }} mensaje{{ mensajes|pluralize }} sin leer{% endif %}{% if comunicados %}, {{ comunicados }} comunicado{{ comunicados|pluralize }} sin leer{% endif %}" data-notificaciones-boton>
+          aria-label="Notificaciones{% if mensajes %}, {{ mensajes }} mensaje{{ mensajes|pluralize }} sin leer{% endif %}{% if comunicados %}, {{ comunicados }} comunicado{{ comunicados|pluralize }} sin leer{% endif %}{% if retiros %}, {{ retiros }} aviso{{ retiros|pluralize }} de retiro sin leer{% endif %}" data-notificaciones-boton>
     {% include "partials/icon.html" with name="bell" %}
-    <span class="badge topbar__badge" aria-hidden="true" data-notificaciones-total{% if not mensajes and not comunicados %} hidden{% endif %}>{{ mensajes|add:comunicados }}</span>
+    <span class="badge topbar__badge" aria-hidden="true" data-notificaciones-total{% if not mensajes and not comunicados and not retiros %} hidden{% endif %}>{{ mensajes|add:comunicados|add:retiros }}</span>
   </button>
   <div class="menu__panel notificaciones__panel" id="menu-notificaciones" data-menu-panel hidden>
     <div class="menu__header notificaciones__encabezado">
       <p class="menu__title">Notificaciones</p>
       <span class="notificaciones__enlaces">
+        {% if avisos_retiros.activa %}<a class="notificaciones__todo" href="{{ avisos_retiros.url }}">Ver retiros</a>{% endif %}
         {% if avisos_comunicados.activa %}<a class="notificaciones__todo" href="{{ avisos_comunicados.url }}">Ver comunicados</a>{% endif %}
         {% if mensajeria.activa %}<a class="notificaciones__todo" href="{{ mensajeria.url_bandeja }}">Ver mensajes</a>{% endif %}
       </span>
     </div>
     <div class="menu__separator"></div>
+    {% if avisos_retiros.activa %}
+      <ul class="notificaciones__lista notificaciones__lista--retiros" data-retiros-lista aria-label="Avisos de retiros sin leer"{% if not avisos_retiros.avisos %} hidden{% endif %}>
+        {% for aviso in avisos_retiros.avisos %}
+          <li data-aviso-retiro="{{ aviso.id }}">
+            <a class="aviso aviso--retiro" href="{{ aviso.url }}">
+              <span class="avatar avatar--sm aviso__avatar aviso__avatar--retiro" aria-hidden="true">{% include "partials/icon.html" with name="log-out" icon_class="icon--sm" %}</span>
+              <span class="aviso__texto">
+                <span class="aviso__fila"><span class="aviso__nombre">{{ aviso.titulo }}</span><span class="aviso__hora">{{ aviso.hora }}</span></span>
+                <span class="aviso__vista">{{ aviso.texto }}</span>
+              </span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+      <a class="notificaciones__mas" href="{{ avisos_retiros.url }}" data-retiros-mas{% if avisos_retiros.pendientes <= avisos_retiros.avisos|length %} hidden{% endif %}>Ver los retiros ({{ avisos_retiros.pendientes }} avisos sin leer)</a>
+    {% endif %}
     {% if avisos_comunicados.activa %}
       <ul class="notificaciones__lista notificaciones__lista--comunicados" data-comunicados-lista aria-label="Comunicados sin leer"{% if not avisos_comunicados.avisos %} hidden{% endif %}>
         {% for aviso in avisos_comunicados.avisos %}
@@ -54,12 +73,12 @@
         </li>
       {% endfor %}
     </ul>
-    <div class="empty-state notificaciones__vacio" data-notificaciones-vacio{% if mensajeria.avisos or avisos_comunicados.avisos %} hidden{% endif %}>
+    <div class="empty-state notificaciones__vacio" data-notificaciones-vacio{% if mensajeria.avisos or avisos_comunicados.avisos or avisos_retiros.avisos %} hidden{% endif %}>
       {% include "partials/icon.html" with name="inbox" icon_class="icon--lg empty-state__icon" %}
       <p class="empty-state__title">Estás al día</p>
-      <p class="empty-state__text">{% if mensajeria.activa and avisos_comunicados.activa %}No tienes mensajes ni comunicados nuevos.{% elif avisos_comunicados.activa %}No tienes comunicados nuevos.{% else %}No tienes mensajes nuevos.{% endif %}</p>
+      <p class="empty-state__text">{% if mensajeria.activa and avisos_comunicados.activa %}No tienes mensajes ni comunicados nuevos.{% elif avisos_comunicados.activa %}No tienes comunicados nuevos.{% elif mensajeria.activa %}No tienes mensajes nuevos.{% else %}No tienes avisos nuevos.{% endif %}</p>
     </div>
-    {% if mensajeria.activa or avisos_comunicados.activa %}
+    {% if mensajeria.activa or avisos_comunicados.activa or avisos_retiros.activa %}
       {# Solo aparece si el navegador permite avisos y todavía no se ha decidido (static/js/avisos.js) #}
       <div class="notificaciones__permiso" data-notificaciones-permiso hidden>
         <p>Recibe un aviso del navegador cuando te llegue un {% if mensajeria.activa %}mensaje o un {% endif %}comunicado, aunque estés en otra pestaña.</p>

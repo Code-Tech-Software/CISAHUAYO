@@ -1,0 +1,11 @@
+{% extends "retiros/_accion_base.html" %}
+{% block title %}Cancelar el aviso {{ aviso.folio }} | CISAHUAYO{% endblock %}
+{% block migaja %}Cancelar aviso{% endblock %}
+{% block encabezado %}Cancelar el aviso {{ aviso.folio }}{% endblock %}
+{% block descripcion %}Cancela a uno o a todos los estudiantes que siguen avisados. El tutor recibe el aviso con el motivo, y queda en la bitácora. Las salidas ya confirmadas no se cancelan: se corrigen.{% endblock %}
+{% block campos %}
+  {% include "partials/casillas.html" with campo=form.retiros %}
+  {% include "partials/field.html" with campo=form.motivo %}
+{% endblock %}
+{% block clase_boton %}btn--danger{% endblock %}
+{% block boton %}Cancelar el retiro{% endblock %}

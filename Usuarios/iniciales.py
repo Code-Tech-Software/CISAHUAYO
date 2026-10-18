@@ -13,7 +13,7 @@ from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
 ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias',
-             'calificaciones', 'bitacoras', 'conducta', 'mensajes', 'comunicados')
+             'calificaciones', 'bitacoras', 'conducta', 'mensajes', 'comunicados', 'retiros')
 
 
 def _direccion():
@@ -62,7 +62,8 @@ def _recepcion():
 def _prefectura():
     # Corregir lo de otros y los casos cerrados (Prefectura.corregir_otros) lo concede el administrador si quiere
     return ((permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
-            | {'Mensajes.usar', 'Mensajes.contactar_familias'})
+            | {'Mensajes.usar', 'Mensajes.contactar_familias'}
+            | {'Retiros.consultar', 'Retiros.confirmar'})   # retiros de su alcance
 
 
 # nombre, descripción, color, permisos

@@ -1,0 +1,46 @@
+{% extends "retiros/_accion_base.html" %}
+{% load retiros_extras %}
+{% block title %}Confirmar la salida de {{ retiro.alumno }} | CISAHUAYO{% endblock %}
+{% block migaja %}Confirmar salida{% endblock %}
+{% block encabezado %}Confirmar la salida{% endblock %}
+{% block descripcion %}Verifica la identidad de quien recoge a {{ retiro.alumno.nombre }} y que esté autorizado. Al confirmar, el tutor recibe el aviso; cada estudiante se confirma por separado y una sola vez.{% endblock %}
+
+{% block resumen %}
+  <section class="card retiros-resumen">
+    <div class="card__body">
+      <div class="retiros-resumen__persona">
+        {% include "partials/avatar.html" with persona=retiro.alumno tamano="lg" %}
+        <div>
+          <p class="retiros-resumen__nombre">{{ retiro.alumno }}</p>
+          <p class="text-muted">{{ retiro.inscripcion.grupo }} · {{ retiro.aviso.folio }}</p>
+          <p class="text-muted">Aviso: {{ retiro.aviso.fecha|date:"d/m/Y" }} a las {{ retiro.aviso.hora|time:"H:i" }} · {{ retiro.aviso.motivo }}</p>
+        </div>
+      </div>
+      <p class="retiros-resumen__recoge">Recogerá: <strong>{{ retiro.aviso.recoge|nombre_completo }}</strong>{% if not recoge_autorizado %} <span class="tag tag--warning">Sin autorización vigente</span>{% endif %}</p>
+    </div>
+  </section>
+{% endblock %}
+
+{% block campos %}
+  {% if sin_autorizados %}
+    <div class="alert alert--warning" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p>{{ retiro.alumno.nombre }} no tiene a nadie autorizado en el sistema para recogerlo. No se puede confirmar su salida: pide a control escolar que revise sus tutores.</p></div>
+    </div>
+  {% else %}
+    {% include "partials/field.html" with campo=form.recogio %}
+    <div class="form-grid">
+      {% include "partials/field.html" with campo=form.hora %}
+    </div>
+    <div class="field{% if form.verificado.errors %} is-invalid{% endif %}">
+      <label class="choice choice--check retiros-verificacion" for="{{ form.verificado.id_for_label }}">
+        <input class="choice__input" type="checkbox" name="{{ form.verificado.html_name }}" id="{{ form.verificado.id_for_label }}"{% if form.verificado.value %} checked{% endif %}>
+        <span class="choice__box">{{ form.verificado.label }}</span>
+      </label>
+      {% for error in form.verificado.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+    </div>
+    {% include "partials/field.html" with campo=form.observaciones %}
+  {% endif %}
+{% endblock %}
+
+{% block botones %}{% if not sin_autorizados %}<button type="submit" class="btn btn--primary">Confirmar salida</button>{% endif %}{% endblock %}

@@ -61,6 +61,19 @@ def _prefectura_con(permiso):
     return lambda usuario: _usa_prefectura(usuario) and usuario.has_perm(permiso)
 
 
+def _usa_retiros(usuario):
+    from Retiros.alcance import usa_retiros
+    return usa_retiros(usuario)
+
+
+def _retiros_en_prefectura(usuario):
+    return _usa_prefectura(usuario) and _usa_retiros(usuario)
+
+
+def _retiros_fuera_de_prefectura(usuario):
+    return _no_usa_prefectura(usuario) and _usa_retiros(usuario)
+
+
 # Navegación lateral. `ruta` es el nombre de la URL (con namespace si lo tiene).
 # Mientras una ruta no exista, el enlace del menú apunta a "#" y se activará
 # solo en cuanto se registre la URL con ese nombre.
@@ -92,6 +105,7 @@ NAVEGACION = (
                 'activo_en': ('prefectura:accesos', 'prefectura:justificaciones'),
             },
             {'etiqueta': 'Conducta', 'icono': 'flag', 'ruta': 'conducta:lista', 'destinos': ((_usa_prefectura, 'conducta:lista'),)},
+            {'etiqueta': 'Retiros anticipados', 'icono': 'log-out', 'ruta': 'retiros:lista', 'destinos': ((_retiros_en_prefectura, 'retiros:lista'),), 'contador': 'retiros'},
             {'etiqueta': 'Seguimiento', 'icono': 'clipboard-check', 'ruta': 'prefectura:seguimiento', 'destinos': ((_usa_prefectura, 'prefectura:seguimiento'),)},
             {'etiqueta': 'Reportes', 'icono': 'bar-chart', 'ruta': 'prefectura:reportes', 'destinos': ((_usa_prefectura, 'prefectura:reportes'),)},
         ),
@@ -133,6 +147,7 @@ NAVEGACION = (
                     ('Alumnos.add_asistenciageneral', 'asistencias:kiosco'),
                 ),
             },
+            {'etiqueta': 'Retiros anticipados', 'icono': 'log-out', 'ruta': 'retiros:lista', 'destinos': ((_retiros_fuera_de_prefectura, 'retiros:lista'),), 'contador': 'retiros'},
             {'etiqueta': 'Registro de conducta', 'icono': 'flag', 'ruta': 'conducta:lista', 'destinos': ((_permiso_fuera_de_prefectura('Conducta.view_registroconducta'), 'conducta:lista'),)},
             {'etiqueta': 'Reportes de conducta', 'icono': 'bar-chart', 'ruta': 'conducta:reportes', 'destinos': ((_permiso_fuera_de_prefectura('Conducta.view_registroconducta'), 'conducta:reportes'),)},
         ),

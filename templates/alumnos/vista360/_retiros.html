@@ -1,0 +1,45 @@
+{% comment %}
+  Vista 360 · Retiros: los avisos de retiro anticipado de este estudiante (no los de sus hermanos del mismo aviso).
+  «Avisado» es el aviso del tutor; «Retirado», la salida confirmada por el personal tras verificar a quien recoge.
+{% endcomment %}
+{% load retiros_extras %}
+{% with d=seccion.detalle %}
+  <dl class="v360-cifras">
+    <div class="v360-cifra"><dt>Salidas confirmadas</dt><dd>{{ d.salidas }}</dd></div>
+    <div class="v360-cifra{% if d.pendientes %} v360-cifra--aviso{% endif %}"><dt>Avisos pendientes</dt><dd>{{ d.pendientes }}</dd></div>
+    <div class="v360-cifra"><dt>Cancelados</dt><dd>{{ d.cancelados }}</dd></div>
+  </dl>
+
+  {% if d.retiros %}
+    <ul class="v360-lista">
+      {% for retiro in d.retiros %}
+        <li class="v360-lista__item{% if retiro.estado == 'CANCELADO' %} is-apagado{% endif %}">
+          <div class="v360-lista__fila">
+            <span class="v360-lista__fecha">{{ retiro.fecha|date:"j M Y" }} · {{ retiro.aviso.hora|time:"H:i" }}</span>
+            <a class="link-subtle" href="{% url 'retiros:detalle' retiro.aviso_id %}">{{ retiro.aviso.folio }}</a>
+            <span class="tag {% if retiro.estado == 'RETIRADO' %}tag--success{% elif retiro.estado == 'AVISADO' %}tag--info{% endif %}">{% if retiro.estado == 'RETIRADO' %}Salida confirmada{% elif retiro.estado == 'AVISADO' %}Avisado, sin salida{% else %}Cancelado{% endif %}</span>
+          </div>
+          <dl class="v360-datos">
+            <div><dt>Motivo</dt><dd>{{ retiro.aviso.motivo }}</dd></div>
+            <div><dt>Avisó</dt><dd>{{ retiro.aviso.tutor|nombre_completo }}</dd></div>
+            <div><dt>Recogería</dt><dd>{{ retiro.aviso.recoge|nombre_completo }}</dd></div>
+            {% if retiro.estado == 'RETIRADO' %}
+              <div><dt>Salió</dt><dd>{{ retiro.salida_en|date:"j M Y, H:i" }}</dd></div>
+              <div><dt>Recogió</dt><dd>{{ retiro.recogio|nombre_completo }}</dd></div>
+              <div><dt>Confirmó</dt><dd>{% if retiro.confirmado_por %}{{ retiro.confirmado_por.get_full_name|default:retiro.confirmado_por.username }}{% else %}—{% endif %}</dd></div>
+            {% elif retiro.estado == 'CANCELADO' %}
+              <div><dt>Canceló</dt><dd>{% if retiro.cancelado_por_tutor %}{{ retiro.cancelado_por_tutor|nombre_completo }}{% elif retiro.cancelado_por_usuario %}{{ retiro.cancelado_por_usuario.get_full_name|default:retiro.cancelado_por_usuario.username }}{% else %}—{% endif %}</dd></div>
+            {% endif %}
+          </dl>
+          {% if retiro.observaciones_salida %}<p class="v360-lista__texto"><span class="text-muted">Observaciones:</span> {{ retiro.observaciones_salida }}</p>{% endif %}
+          {% if retiro.motivo_cancelacion %}<p class="v360-lista__texto"><span class="text-muted">Motivo de la cancelación:</span> {{ retiro.motivo_cancelacion }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty-state empty-state--inline">
+      <p class="empty-state__title">Sin avisos de retiro</p>
+      <p class="empty-state__text">No hay retiros anticipados de este estudiante en {{ filtros.nombre_del_rango|lower }}.</p>
+    </div>
+  {% endif %}
+{% endwith %}

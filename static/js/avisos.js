@@ -3,8 +3,9 @@
    - Se conecta al WebSocket de avisos (Mensajes/consumers.py) y se reconecta solo si se corta (con espera creciente);
      al reconectarse pide el resumen para ponerse al día con lo que llegó mientras tanto.
    - Mantiene al día la campana de notificaciones (lista de quién escribió y vista previa), el contador de «Mensajes»
-     del menú lateral y el título de la pestaña. El número de la campana suma los mensajes y los comunicados sin leer:
-     static/js/comunicados-avisos.js pone los suyos en data-comunicados-sin-leer y avisa con «avisos:repintar».
+     del menú lateral y el título de la pestaña. El número de la campana suma los mensajes, los comunicados y los avisos
+     de retiros sin leer: static/js/comunicados-avisos.js y static/js/retiros-avisos.js ponen los suyos en
+     data-comunicados-sin-leer y data-retiros-sin-leer, y avisan con «avisos:repintar».
    - Una cuenta que solo recibe comunicados (sin mensajería) también se conecta: aquí solo se le pinta la campana.
    - Mensaje nuevo: si la página está a la vista, un aviso en pantalla (al tocarlo se abre la conversación); si no,
      un aviso del navegador (si se permitió desde la campana).
@@ -49,10 +50,11 @@
   };
 
   /* ------------------------------------------------------------------ contadores */
-  /* El número de la campana: mensajes y comunicados sin leer */
+  /* El número de la campana: mensajes, comunicados y avisos de retiros sin leer */
   const pintarCampana = () => {
     const comunicados = Number(raiz.dataset.comunicadosSinLeer) || 0;
-    const n = mensajes + comunicados;
+    const retiros = Number(raiz.dataset.retirosSinLeer) || 0;
+    const n = mensajes + comunicados + retiros;
     if (total) {
       total.textContent = String(n);
       total.hidden = !n;
@@ -60,6 +62,7 @@
     const partes = [];
     if (mensajes) partes.push(`${mensajes} mensaje${mensajes === 1 ? '' : 's'} sin leer`);
     if (comunicados) partes.push(`${comunicados} comunicado${comunicados === 1 ? '' : 's'} sin leer`);
+    if (retiros) partes.push(`${retiros} aviso${retiros === 1 ? '' : 's'} de retiro sin leer`);
     boton?.setAttribute('aria-label', ['Notificaciones', ...partes].join(', '));
     document.title = n ? `(${n}) ${tituloBase}` : tituloBase;
   };
@@ -79,7 +82,8 @@
     if (!lista || !vacio) return;
     lista.hidden = !lista.children.length;
     const deComunicados = raiz.querySelector('[data-comunicados-lista]');
-    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length);
+    const deRetiros = raiz.querySelector('[data-retiros-lista]');
+    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length || deRetiros?.children.length);
   };
 
   /* Los comunicados cambiaron (static/js/comunicados-avisos.js): se vuelve a pintar el número y el estado vacío */

@@ -1,0 +1,64 @@
+{% comment %}
+  Vista 360 · Calificaciones: las finales de las actas cerradas, por materia y periodo (PortalEstudiantes/resumen.py).
+  Una materia sin acta cerrada muestra «—»; un 0 solo aparece si es la calificación registrada.
+{% endcomment %}
+{% with d=seccion.detalle %}
+  {% if d.sin_materias %}
+    <div class="empty-state empty-state--inline">
+      <p class="empty-state__title">Sin calificaciones registradas</p>
+      <p class="empty-state__text">El grupo no tiene materias asignadas en este ciclo.</p>
+    </div>
+  {% else %}
+    <dl class="v360-cifras">
+      <div class="v360-cifra"><dt>Promedio general</dt><dd>{% if d.general is not None %}{{ d.general }}{% else %}—{% endif %}</dd></div>
+      <div class="v360-cifra"><dt>Materias</dt><dd>{{ d.filas|length }}</dd></div>
+      <div class="v360-cifra{% if d.en_captura %} v360-cifra--aviso{% endif %}"><dt>Actas en captura</dt><dd>{{ d.en_captura }}</dd></div>
+    </dl>
+    {% if seccion.estado == 'vacio' %}
+      <p class="v360-nota">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} Sin calificaciones registradas: las calificaciones aparecen cuando se cierra el acta de cada materia.</p>
+    {% elif d.en_captura %}
+      <p class="v360-nota">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} Actas en captura: {{ d.en_captura }}. Sus calificaciones se incluyen cuando se cierra el acta.</p>
+    {% endif %}
+    {% if d.solo_suyas %}
+      <p class="v360-nota">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Solo se muestran las materias que impartes.</p>
+    {% endif %}
+
+    <div class="v360-tabla" role="region" aria-label="Calificaciones por materia" tabindex="0">
+      <table>
+        <caption class="visually-hidden">Calificaciones finales por materia y periodo</caption>
+        <thead>
+          <tr>
+            <th scope="col">Materia</th>
+            {% for periodo in d.periodos %}
+              <th scope="col" class="v360-num{% if forloop.counter0 == d.indice %} is-elegido{% endif %}">{{ periodo.nombre }}</th>
+            {% endfor %}
+            <th scope="col" class="v360-num">Promedio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in d.filas %}
+            <tr>
+              <th scope="row">
+                <a class="link-subtle" href="{{ fila.url }}">{{ fila.materia }}</a>
+                {% if fila.profesor %}<span class="v360-sub">{{ fila.profesor }}</span>{% endif %}
+              </th>
+              {% for valor in fila.valores %}
+                <td class="v360-num{% if forloop.counter0 == d.indice %} is-elegido{% endif %}">{% if valor is not None %}{{ valor }}{% else %}<span class="text-muted" aria-label="Sin calificación">—</span>{% endif %}</td>
+              {% endfor %}
+              <td class="v360-num v360-num--fuerte">{% if fila.promedio is not None %}{{ fila.promedio }}{% else %}<span class="text-muted" aria-label="Sin calificación">—</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Promedio</th>
+            {% for valor in d.por_periodo %}
+              <td class="v360-num{% if forloop.counter0 == d.indice %} is-elegido{% endif %}">{% if valor is not None %}{{ valor }}{% else %}—{% endif %}</td>
+            {% endfor %}
+            <td class="v360-num v360-num--fuerte">{% if d.del_ciclo is not None %}{{ d.del_ciclo }}{% else %}—{% endif %}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {% endif %}
+{% endwith %}

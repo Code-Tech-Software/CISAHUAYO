@@ -1,9 +1,12 @@
 """Mensajería interna: quién con quién, conversaciones en el sistema y en los portales, no leídos y leídos, avisos de la
 campana, separación de las cuentas, eventos en tiempo real, el WebSocket de avisos y los mensajes con formato (limpieza
-del HTML en el servidor e imágenes)."""
+del HTML en el servidor, imágenes y caracteres especiales)."""
 import io
+import json
+import re
 import shutil
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from channels.db import database_sync_to_async
@@ -195,10 +198,10 @@ class ConversacionTests(Colegio, BaseTestCase):
         self.assertRedirects(respuesta, reverse('portal_tutores:mensajes:conversacion', args=[conversacion.pk]), fetch_redirect_response=False)
         tutor.post(reverse('portal_tutores:mensajes:enviar', args=[conversacion.pk]), {'texto': '¿Cómo va Ana?'})
         self.assertEqual(self.client.get(BANDEJA).context['bandeja'][0].otro.tutor, self.rosa)
-        # su menú lateral: Inicio, Mensajes, Comunicados y sus estudiantes
+        # su menú lateral: Inicio, Mensajes, Comunicados, Retiros anticipados y sus estudiantes
         inicio = tutor.get(reverse('portal_tutores:inicio'))
         secciones = [(s['titulo'], [e['etiqueta'] for e in s['elementos']]) for s in inicio.context['navegacion']]
-        self.assertEqual(secciones, [(None, ['Inicio', 'Mensajes', 'Comunicados']), ('Mis estudiantes', [self.ana.nombre_completo])])
+        self.assertEqual(secciones, [(None, ['Inicio', 'Mensajes', 'Comunicados', 'Retiros anticipados']), ('Mis estudiantes', [self.ana.nombre_completo])])
         self.assertContains(inicio, 'class="sidebar"')
         self.assertContains(inicio, 'class="topbar"')
 
@@ -540,6 +543,63 @@ class MensajesConFormatoTests(Colegio, BaseTestCase):
         self.assertIn(f'src="{reverse("portal_estudiantes:mensajes:imagen", args=[imagen])}"', datos[self.p(self.ana).pk]['html'])
         self.assertIn(f'src="{reverse("mensajes:imagen", args=[imagen])}"', datos[self.p(self.marta).pk]['html'])
         self.assertTrue(datos[self.p(self.ana).pk]['html'].startswith('<p><i>Hola</i></p>'))
+
+    def test_los_caracteres_especiales_se_guardan_y_se_ven_igual(self):
+        especiales = '€ — ✓ ∑ ½ «» → Ω ñ'
+        respuesta = self.enviar(f'<p>Cuota: <b>350 €</b> — pago ✓</p><p>{especiales}</p>')
+        self.assertEqual(respuesta.status_code, 200)
+        mensaje = Mensaje.objects.get()
+        self.assertEqual(mensaje.html, f'<p>Cuota: <b>350 €</b> — pago ✓</p><p>{especiales}</p>')
+        self.assertEqual(mensaje.texto, f'Cuota: 350 € — pago ✓\n{especiales}')
+        self.assertIn('<b>350 €</b>', respuesta.json()['html'])
+        for pantalla in (self.client.get(reverse('mensajes:conversacion', args=[self.conversacion.pk])),
+                         self.ana_cliente.get(reverse('portal_estudiantes:mensajes:conversacion', args=[self.conversacion.pk]))):
+            self.assertContains(pantalla, f'<p>Cuota: <b>350 €</b> — pago ✓</p><p>{especiales}</p>')
+        # sin formato, como texto
+        self.enviar('<p>Grados: 25 °C</p>')
+        self.assertEqual(Mensaje.objects.latest('pk').texto, 'Grados: 25 °C')
+
+    def test_la_conversacion_trae_la_ventana_de_caracteres_especiales(self):
+        pantalla = self.client.get(reverse('mensajes:conversacion', args=[self.conversacion.pk]))
+        self.assertContains(pantalla, 'data-comando="caracteres"')
+        self.assertContains(pantalla, 'data-editor-caracteres')
+        self.assertContains(pantalla, 'js/caracteres-especiales.js')
+        self.assertNotContains(pantalla, '{#')   # ningún comentario de plantilla mal cerrado a la vista
+        # quien ya no puede escribir no recibe el editor
+        MateriaGrado.objects.filter(pk=self.asignacion.pk).update(activa=False)
+        sin_escribir = self.client.get(reverse('mensajes:conversacion', args=[self.conversacion.pk]))
+        self.assertNotContains(sin_escribir, 'js/caracteres-especiales.js')
+
+
+class CatalogoDeCaracteresTests(SimpleTestCase):
+    """static/js/caracteres-especiales.js: las categorías del pedido, en su orden, con caracteres de verdad y nombres."""
+    ARCHIVO = Path(__file__).resolve().parent.parent / 'static' / 'js' / 'caracteres-especiales.js'
+    CADENA = r'"((?:[^"\\]|\\.)*)"'
+
+    def categorias(self):
+        contenido = self.ARCHIVO.read_text(encoding='utf-8')
+        partes = re.split(r'\{ nombre: ' + self.CADENA + r', caracteres: \[', contenido)[1:]
+        resultado = {}
+        for nombre, cuerpo in zip(partes[0::2], partes[1::2]):
+            pares = re.findall(r'\[' + self.CADENA + ', ' + self.CADENA + r'\]', cuerpo)
+            resultado[json.loads(f'"{nombre}"')] = [(json.loads(f'"{c}"'), json.loads(f'"{n}"')) for c, n in pares]
+        return resultado
+
+    def test_categorias_y_caracteres(self):
+        categorias = self.categorias()
+        self.assertEqual(list(categorias), ['Divisa', 'Texto', 'Comillas', 'Matemáticos', 'Latín extendido', 'Símbolos', 'Flechas'])
+        todos = set()
+        for categoria, caracteres in categorias.items():
+            with self.subTest(categoria=categoria):
+                self.assertGreater(len(caracteres), 15)
+                self.assertEqual(len({c for c, _ in caracteres}), len(caracteres))   # sin repetidos en la categoría
+                for caracter, nombre in caracteres:
+                    self.assertEqual(len(caracter), 1, caracter)
+                    self.assertTrue(nombre.strip(), caracter)
+                todos |= {c for c, _ in caracteres}
+        self.assertGreater(len(todos), 600)
+        for caracter in '$€£¥©®™§¶±×÷≠≤≥∞√∑πΩ←→⇒«»“”ñÑáé✓★':
+            self.assertIn(caracter, todos)
 
 
 def tearDownModule():

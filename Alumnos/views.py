@@ -12,6 +12,7 @@ from django.views.decorators.http import require_GET, require_POST
 from CISAHUAYO import portales
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
+from CISAHUAYO.redireccion import destino_seguro
 
 from . import importacion
 from .academico import prefetch_inscripciones_actuales, sincronizar_inscripciones
@@ -232,6 +233,23 @@ def alumno_detalle(request, pk):
     })
 
 
+@requiere_permisos('Alumnos.view_alumno')
+def alumno_vista360(request, pk):
+    """Vista 360 del estudiante: lo de calificaciones, asistencia, conducta, seguimiento y retiros de un ciclo y un
+    periodo, en un círculo (Alumnos/vista360.py). Cada sección revisa los permisos de su módulo."""
+    from . import vista360
+    alumno = get_object_or_404(Alumno, pk=pk)
+    contexto = vista360.contexto(
+        request.user, alumno, request.GET.get('ciclo', ''), request.GET.get('periodo', ''), request.GET.get('seccion', ''),
+    )
+    contexto.update({
+        'tiene_conducta': request.user.has_perm('Conducta.view_registroconducta'),
+        'estatus_opciones': [(v, e) for v, e in Alumno.ESTATUS_CHOICES if v != 'BAJA'],
+        'esta_de_baja': alumno.estatus == 'BAJA',
+    })
+    return render(request, 'alumnos/vista360.html', contexto)
+
+
 def _conducta_de(request, alumno):
     """Su historial de conducta (pestaña «Conducta» del expediente), solo para quien puede consultarlo."""
     if not request.user.has_perm('Conducta.view_registroconducta'):
@@ -272,7 +290,7 @@ def alumno_estatus(request, pk):
             suspendidas, restauradas = sincronizar_inscripciones(alumno, anterior)
         messages.success(request, f'{alumno} ahora está en estatus «{alumno.get_estatus_display()}».'
                                   f'{_texto_de_inscripciones(suspendidas, restauradas)}')
-    return redirect(alumno)
+    return redirect(destino_seguro(request, alumno.get_absolute_url()))   # la Vista 360 pide volver a ella
 
 
 @require_POST

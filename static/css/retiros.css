@@ -1,0 +1,605 @@
+/* CISAHUAYO · Retiros anticipados: gestión del personal (templates/retiros/) y portal de tutores
+   (templates/portales/tutores/retiros/). Usa los componentes del sistema (card, table, tag, alert, details…); aquí solo
+   lo propio del módulo. Pensado primero para el celular: en el portal todo se apila y los controles son grandes. */
+
+.retiros-sub {
+  display: block;
+  font-size: var(--text-xs);
+}
+
+.retiros-folio {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.retiros-subtitulo {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+
+.retiro-estado {
+  white-space: nowrap;
+}
+
+.retiro-estado .icon {
+  margin-right: 0.15rem;
+}
+
+.retiros-en-linea {
+  display: inline;
+}
+
+/* Los campos de los formularios del módulo, con el mismo aire que los de .form-grid */
+.retiros-campos {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* --- Lista (personal) ------------------------------------------------------------------------------------------- */
+.retiros-filtros {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr));
+  align-items: end;
+}
+
+.retiros-filtros__busqueda {
+  grid-column: span 2;
+}
+
+.retiros-filtros .filters__actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: var(--space-2);
+}
+
+.retiros-totales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.retiros-totales__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.retiros-totales__numero {
+  color: var(--color-text);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-totales__item--avisado .retiros-totales__numero {
+  color: var(--color-info);
+}
+
+.retiros-totales__item--retirado .retiros-totales__numero {
+  color: var(--color-success);
+}
+
+.retiros-tabla-marco {
+  overflow-x: auto;
+}
+
+/* --- Detalle (personal) ----------------------------------------------------------------------------------------- */
+.retiros-detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.retiros-detalle__principal,
+.retiros-detalle__lateral {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .retiros-detalle {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  }
+}
+
+.retiros-alumnos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.retiros-alumno {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--border);
+}
+
+.retiros-alumno:first-child {
+  border-top: 0;
+}
+
+.retiros-alumno__cabeza {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.retiros-alumno__texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.retiros-alumno__texto p {
+  margin: 0;
+}
+
+.retiros-alumno__nombre {
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-alumno__dato {
+  margin: 0;
+}
+
+.retiros-alumno__alerta {
+  margin: 0;
+}
+
+.retiros-alumno__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.retiros-alumno__acciones:empty {
+  display: none;
+}
+
+.retiros-recoge__persona {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.retiros-recoge__persona p {
+  margin: 0;
+}
+
+.retiros-recoge__nombre {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-autorizaciones {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.retiros-ok {
+  color: var(--color-success);
+}
+
+.retiros-alerta {
+  color: var(--color-warning);
+}
+
+.retiros-notas {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.retiros-nota {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.retiros-nota__texto {
+  margin: 0 0 var(--space-1);
+}
+
+.retiros-nota-form {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.retiros-nota-form .field {
+  width: 100%;
+}
+
+.retiros-bitacora {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--color-border);
+  list-style: none;
+}
+
+.retiros-bitacora__item {
+  position: relative;
+  font-size: var(--text-sm);
+}
+
+.retiros-bitacora__item::before {
+  content: "";
+  position: absolute;
+  top: 0.35rem;
+  left: calc(-1 * var(--space-4) - 0.35rem);
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+}
+
+.retiros-bitacora__item--confirmado::before {
+  background: var(--color-success);
+}
+
+.retiros-bitacora__item--cancelado::before {
+  background: var(--color-danger);
+}
+
+.retiros-bitacora__item--corregido::before {
+  background: var(--color-warning);
+}
+
+.retiros-bitacora__item p {
+  margin: 0;
+}
+
+.retiros-bitacora__tipo {
+  font-weight: var(--weight-semibold);
+}
+
+/* --- Acciones (confirmar, cancelar, corregir) ------------------------------------------------------------------- */
+.retiros-resumen .card__body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.retiros-resumen__persona {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.retiros-resumen__persona p,
+.retiros-resumen__recoge,
+.retiros-resumen p {
+  margin: 0;
+}
+
+.retiros-resumen__nombre {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-verificacion .choice__box {
+  white-space: normal;
+}
+
+/* --- Portal de tutores ------------------------------------------------------------------------------------------ */
+.retiros-avisos {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.retiros-aviso {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  color: inherit;
+  text-decoration: none;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.retiros-aviso:hover,
+.retiros-aviso:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.retiros-aviso__fecha {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3.5rem;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  line-height: 1.1;
+}
+
+.retiros-aviso__dia {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-aviso__mes {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+}
+
+.retiros-aviso__texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.retiros-aviso__texto p {
+  margin: 0;
+}
+
+.retiros-aviso__titulo {
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-aviso__titulo::first-letter {
+  text-transform: uppercase;
+}
+
+.retiros-aviso__hijos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.retiros-aviso__flecha {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+/* Formulario «Avisar retiro»: tarjetas grandes para tocar */
+.retiros-hijos,
+.retiros-personas {
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (min-width: 40rem) {
+  .retiros-hijos {
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  }
+}
+
+.retiros-hijo,
+.retiros-persona {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3.5rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.retiros-hijo:hover,
+.retiros-persona:hover {
+  border-color: var(--color-primary);
+}
+
+.retiros-hijo__input,
+.retiros-persona__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.retiros-hijo:has(:checked),
+.retiros-persona:has(:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.retiros-hijo:has(:focus-visible),
+.retiros-persona:has(:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.retiros-hijo.is-disabled,
+.retiros-persona.is-disabled {
+  border-style: dashed;
+  background: var(--color-surface-2);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.retiros-hijo__texto,
+.retiros-persona__texto {
+  display: grid;
+  flex: 1;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.retiros-hijo__nombre,
+.retiros-persona__nombre {
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-hijo__grupo,
+.retiros-persona__detalle {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.retiros-hijo__motivo,
+.retiros-persona__aviso {
+  color: var(--color-warning);
+  font-size: var(--text-xs);
+}
+
+.retiros-hijo__marca {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: transparent;
+}
+
+.retiros-hijo:has(:checked) .retiros-hijo__marca {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-white, #fff);
+}
+
+.retiros-persona::before {
+  content: "";
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+
+.retiros-persona:has(:checked)::before {
+  border: 0.4rem solid var(--color-primary);
+}
+
+/* Resumen del aviso (tutor) */
+.retiros-enviado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-lg);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.retiros-enviado p {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.retiros-enviado .retiros-enviado__titulo {
+  color: var(--color-success);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-resumen-tutor {
+  overflow: hidden;
+}
+
+.retiros-resumen-tutor__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-bottom: var(--border);
+}
+
+.retiros-resumen-tutor__titulo {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.retiros-resumen-tutor__titulo::first-letter {
+  text-transform: uppercase;
+}
+
+.retiros-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-5);
+}
+
+.retiros-datos dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.retiros-datos dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.retiros-datos__ancho {
+  grid-column: 1 / -1;
+}
+
+.retiros-datos__ancho dd {
+  font-weight: normal;
+}
+
+.retiros-resumen-tutor .retiros-subtitulo {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-2);
+  font-size: var(--text-base, 1rem);
+}
+
+.retiros-resumen-tutor__pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--border);
+  background: var(--color-surface-2);
+}
+
+@media (max-width: 40rem) {
+  .retiros-filtros__busqueda {
+    grid-column: 1 / -1;
+  }
+
+  .retiros-alumno {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .retiros-resumen-tutor__cabeza,
+  .retiros-datos {
+    padding: var(--space-4);
+  }
+
+  .retiros-resumen-tutor__pie .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

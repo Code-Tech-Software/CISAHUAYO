@@ -1,0 +1,27 @@
+{% extends "retiros/_accion_base.html" %}
+{% load retiros_extras %}
+{% block title %}Corregir la salida de {{ retiro.alumno }} | CISAHUAYO{% endblock %}
+{% block migaja %}Corregir salida{% endblock %}
+{% block encabezado %}Corregir la salida de {{ retiro.alumno.nombre }}{% endblock %}
+{% block descripcion %}Corrige la hora, quién recogió al estudiante o las observaciones, o deshaz la confirmación si se registró por error. Escribe el motivo: queda en la bitácora con lo que había y lo que quedó, y se avisa al tutor.{% endblock %}
+
+{% block resumen %}
+  <section class="card retiros-resumen">
+    <div class="card__body">
+      <p>Registrado: salió a las <strong>{{ retiro.salida_en|time:"H:i" }}</strong> con <strong>{{ retiro.recogio|nombre_completo }}</strong> · {{ retiro.aviso.folio }}</p>
+    </div>
+  </section>
+{% endblock %}
+
+{% block campos %}
+  {% include "partials/choices.html" with campo=form.accion %}
+  <div class="retiros-correccion" data-retiros-correccion>
+    {% include "partials/field.html" with campo=form.recogio %}
+    <div class="form-grid">
+      {% include "partials/field.html" with campo=form.hora %}
+    </div>
+    {% include "partials/field.html" with campo=form.observaciones %}
+  </div>
+  {% include "partials/field.html" with campo=form.motivo %}
+{% endblock %}
+{% block boton %}Guardar la corrección{% endblock %}

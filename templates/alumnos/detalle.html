@@ -122,6 +122,10 @@
   <div class="tabs" data-tabs>
     <div class="tabs__list" role="tablist" aria-label="Secciones del perfil">
       <button type="button" class="tabs__tab" role="tab" id="tab-resumen" aria-controls="resumen" aria-selected="true">Resumen</button>
+      {# No es una pestaña: abre la Vista 360 del estudiante (su propia página, con filtros de ciclo y periodo) #}
+      <a class="tabs__tab tabs__tab--enlace" href="{% url 'alumnos:vista360' alumno.pk %}">
+        {% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Vista 360
+      </a>
       <button type="button" class="tabs__tab" role="tab" id="tab-tutores" aria-controls="tutores" aria-selected="false">
         Tutores <span class="tabs__count">{{ vinculos|length }}</span>
       </button>

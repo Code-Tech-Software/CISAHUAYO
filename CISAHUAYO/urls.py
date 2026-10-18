@@ -41,6 +41,8 @@ urlpatterns = [
     path('mensajes/', include('Mensajes.urls')),
     # Comunicados con seguimiento de lectura (también en los portales: PortalEstudiantes/urls.py, PortalTutores/urls.py)
     path('comunicados/', include('Comunicados.urls')),
+    # Retiros anticipados: gestión (retiros/…) y motivos en Ajustes (ajustes/retiros/…); el aviso del tutor está en su portal
+    path('', include('Retiros.urls')),
     # Portales (cada uno con su propia sesión: CISAHUAYO/portales.py)
     path('portal/estudiantes/', include('PortalEstudiantes.urls')),
     path('portal/tutores/', include('PortalTutores.urls')),

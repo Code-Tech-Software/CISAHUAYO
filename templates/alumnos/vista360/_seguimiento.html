@@ -1,0 +1,47 @@
+{% comment %}
+  Vista 360 · Seguimiento: los casos de conducta (incidencias) abiertos hoy y los que se cerraron en el periodo, con su
+  responsable, su próxima atención (revisión, cita o compromiso pendiente) y sus acuerdos.
+{% endcomment %}
+{% with d=seccion.detalle %}
+  <p class="v360-nota">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} El seguimiento que registra el sistema es el de los casos de conducta: responsable, citas con la familia, compromisos y cierre.</p>
+
+  <h3 class="v360-subtitulo">Casos abiertos</h3>
+  {% if d.abiertos %}
+    <ul class="v360-lista">
+      {% for caso in d.abiertos %}
+        <li class="v360-lista__item">
+          <div class="v360-lista__fila">
+            <a class="link-subtle" href="{{ caso.url }}"><strong>{{ caso.motivo_nombre }}</strong></a>
+            <span class="tag {% if caso.estado == 'EN_SEGUIMIENTO' %}tag--info{% else %}tag--warning{% endif %}">{{ caso.get_estado_display }}</span>
+            {% if caso.atrasada %}<span class="tag tag--danger">Atrasado</span>{% endif %}
+          </div>
+          <dl class="v360-datos">
+            <div><dt>Apertura</dt><dd>{{ caso.fecha|date:"j M Y" }}</dd></div>
+            <div><dt>Responsable</dt><dd>{% if caso.responsable %}{{ caso.responsable.get_full_name|default:caso.responsable.username }}{% else %}<span class="text-muted">Sin asignar</span>{% endif %}</dd></div>
+            <div><dt>Próxima atención</dt><dd>{% if caso.proxima %}{{ caso.proxima|date:"j M Y" }}{% else %}<span class="text-muted">Sin fecha</span>{% endif %}</dd></div>
+            <div><dt>Citas · compromisos · contactos</dt><dd>{{ caso.citas.all|length }} · {{ caso.compromisos.all|length }} · {{ caso.contactos.all|length }}</dd></div>
+          </dl>
+          {% if caso.acuerdos %}<p class="v360-lista__texto"><span class="text-muted">Acuerdos:</span> {{ caso.acuerdos|truncatechars:200 }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="v360-vacio">Sin casos abiertos.</p>
+  {% endif %}
+
+  {% if d.cerrados %}
+    <h3 class="v360-subtitulo">Cerrados en {{ filtros.nombre_del_rango|lower }}</h3>
+    <ul class="v360-lista">
+      {% for caso in d.cerrados %}
+        <li class="v360-lista__item">
+          <div class="v360-lista__fila">
+            <a class="link-subtle" href="{{ caso.url }}">{{ caso.motivo_nombre }}</a>
+            <span class="tag tag--success">Cerrado</span>
+            <span class="text-muted">el {{ caso.cerrado_en|date:"j M Y" }}{% if caso.cerrado_por %} por {{ caso.cerrado_por.get_full_name|default:caso.cerrado_por.username }}{% endif %}</span>
+          </div>
+          {% if caso.observaciones_cierre %}<p class="v360-lista__texto">{{ caso.observaciones_cierre|truncatechars:200 }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}

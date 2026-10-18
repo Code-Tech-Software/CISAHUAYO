@@ -1,9 +1,10 @@
 {% comment %}
   Secciones de Ajustes (la configuración del sistema, menú Sistema). Parámetros: ajustes_seccion («apariencia»,
-  «asistencia», «calificaciones» o «conducta») y puede_configurar_conducta (si ve algún catálogo de conducta). La
-  asistencia y las calificaciones se ven con el permiso de consultar sus ajustes; la apariencia, todos.
+  «asistencia», «calificaciones», «conducta» o «retiros») y puede_configurar_conducta (si ve algún catálogo de conducta).
+  La asistencia y las calificaciones se ven con el permiso de consultar sus ajustes; los motivos de retiro, con el de
+  configurarlos (Retiros.configurar); la apariencia, todos.
 {% endcomment %}
-{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion %}
+{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Retiros.configurar %}
   <nav class="pills pills--section" aria-label="Secciones de ajustes">
     <a class="pill{% if ajustes_seccion == 'apariencia' %} is-active{% endif %}" href="{% url 'ajustes:inicio' %}"{% if ajustes_seccion == 'apariencia' %} aria-current="page"{% endif %}>Apariencia</a>
     {% if perms.Alumnos.view_configuracionasistencia %}
@@ -14,6 +15,9 @@
     {% endif %}
     {% if puede_configurar_conducta %}
       <a class="pill{% if ajustes_seccion == 'conducta' %} is-active{% endif %}" href="{% url 'conducta:configuracion' %}"{% if ajustes_seccion == 'conducta' %} aria-current="page"{% endif %}>Conducta</a>
+    {% endif %}
+    {% if perms.Retiros.configurar %}
+      <a class="pill{% if ajustes_seccion == 'retiros' %} is-active{% endif %}" href="{% url 'retiros:motivos' %}"{% if ajustes_seccion == 'retiros' %} aria-current="page"{% endif %}>Retiros</a>
     {% endif %}
   </nav>
 {% endif %}

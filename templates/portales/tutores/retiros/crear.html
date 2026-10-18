@@ -1,0 +1,117 @@
+{% extends "portales/base.html" %}
+{% load static %}
+{% comment %}
+  «Avisar retiro» del tutor (Retiros/views_portal.crear). Elige a uno o varios de sus hijos (los que no puede elegir se
+  ven con el motivo), la fecha y la hora estimada, el motivo del catálogo, los detalles y quién los recogerá: él mismo u
+  otra persona ya autorizada por el colegio (no se puede autorizar a alguien nuevo desde aquí). static/js/retiros-form.js
+  deja elegir solo a quien está autorizado para todos los hijos marcados y marca los detalles como obligatorios cuando
+  el motivo lo pide; el servidor lo vuelve a revisar todo.
+{% endcomment %}
+
+{% block title %}Avisar retiro · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/retiros.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'portal_tutores:retiros:lista' %}">Retiros anticipados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Avisar retiro</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Avisar retiro</h1>
+      <p class="page-header__description">Avisa al colegio que recogerás a tus hijos antes de su hora de salida. La hora debe estar dentro de su horario de clases de ese día.</p>
+    </div>
+  </header>
+
+  {% if not hay_disponibles %}
+    <div class="alert alert--warning" role="status">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <div class="alert__body"><p>No tienes estudiantes para los que puedas avisar un retiro. Revisa los motivos debajo de cada uno o acude a control escolar.</p></div>
+    </div>
+  {% endif %}
+
+  <form class="form-page retiros-form" method="post" novalidate data-retiros-form data-requieren-explicacion="{{ requieren_explicacion|join:',' }}">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card">
+      <div class="card__body retiros-campos">
+        <fieldset class="field{% if form.alumnos.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">¿A quién recogerás?</legend>
+          <div class="retiros-hijos">
+            {% for hijo in hijos %}
+              <label class="retiros-hijo{% if not hijo.disponible %} is-disabled{% endif %}" for="hijo-{{ hijo.alumno.pk }}">
+                <input class="retiros-hijo__input" type="checkbox" name="alumnos" value="{{ hijo.alumno.pk }}" id="hijo-{{ hijo.alumno.pk }}"{% if hijo.alumno.pk in elegidos %} checked{% endif %}{% if not hijo.disponible %} disabled{% endif %} data-retiros-hijo>
+                {% include "partials/avatar.html" with persona=hijo.alumno %}
+                <span class="retiros-hijo__texto">
+                  <span class="retiros-hijo__nombre">{{ hijo.alumno.nombre_completo }}</span>
+                  {% if hijo.inscripcion %}<span class="retiros-hijo__grupo">{{ hijo.inscripcion.grado.get_nivel_display }} · {{ hijo.inscripcion.grado.numero }}° grado · Grupo {{ hijo.inscripcion.grupo.nombre }}</span>{% endif %}
+                  {% if not hijo.disponible %}<span class="retiros-hijo__motivo">{{ hijo.motivo }}</span>{% endif %}
+                </span>
+                <span class="retiros-hijo__marca" aria-hidden="true">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>
+              </label>
+            {% empty %}
+              <p class="text-muted">No tienes estudiantes vinculados.</p>
+            {% endfor %}
+          </div>
+          {% for error in form.alumnos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
+
+        <div class="form-grid">
+          {% include "partials/field.html" with campo=form.fecha %}
+          {% include "partials/field.html" with campo=form.hora %}
+        </div>
+        {% include "partials/field.html" with campo=form.motivo %}
+        <div class="field{% if form.detalles.errors %} is-invalid{% endif %}">
+          <label class="field__label" for="{{ form.detalles.id_for_label }}" data-retiros-detalles-etiqueta>{{ form.detalles.label }}</label>
+          {{ form.detalles }}
+          <p class="field__hint" data-retiros-detalles-ayuda hidden>Este motivo pide que expliques los detalles.</p>
+          {% for error in form.detalles.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <fieldset class="field{% if form.recoge.errors %} is-invalid{% endif %}">
+          <legend class="field__label field__label--required">{{ form.recoge.label }}</legend>
+          {% if personas %}
+            <div class="retiros-personas">
+              {% for persona in personas %}
+                <label class="retiros-persona" for="recoge-{{ persona.tutor.pk }}" data-retiros-persona data-alumnos="{{ persona.ids }}">
+                  <input class="retiros-persona__input" type="radio" name="recoge" value="{{ persona.tutor.pk }}" id="recoge-{{ persona.tutor.pk }}"{% if form.recoge.value|stringformat:"s" == persona.tutor.pk|stringformat:"s" %} checked{% endif %}>
+                  <span class="retiros-persona__texto">
+                    <span class="retiros-persona__nombre">{{ persona.nombre }}</span>
+                    <span class="retiros-persona__detalle">{{ persona.detalle }}</span>
+                    <span class="retiros-persona__aviso" data-retiros-persona-aviso hidden>No tiene autorización para recoger a todos los estudiantes que elegiste.</span>
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted">Ninguna persona está autorizada todavía para recoger a tus estudiantes.</p>
+          {% endif %}
+          <p class="field__hint">Solo aparecen las personas que el colegio ya autorizó para recoger a tus hijos. Para autorizar a alguien más, acude a control escolar con su identificación.</p>
+          {% for error in form.recoge.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
+      </div>
+    </section>
+
+    <div class="action-bar">
+      <a class="btn" href="{% url 'portal_tutores:retiros:lista' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary"{% if not hay_disponibles %} disabled{% endif %}>{% include "partials/icon.html" with name="send" icon_class="icon--sm" %} Enviar aviso</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  {{ block.super }}
+  <script src="{% static 'js/retiros-form.js' %}" defer></script>
+{% endblock %}

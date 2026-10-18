@@ -1,0 +1,61 @@
+{% extends "portales/base.html" %}
+{% load static %}
+{% comment %}
+  Retiros anticipados del tutor (Retiros/views_portal.lista): «Avisar retiro», los avisos próximos y el historial, con el
+  estado de cada hijo. Cada tarjeta abre el resumen del aviso.
+{% endcomment %}
+
+{% block title %}Retiros anticipados · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/retiros.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Retiros anticipados</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header retiros-portal-cabeza">
+    <div>
+      <h1 class="page-header__title">Retiros anticipados</h1>
+      <p class="page-header__description">Avisa al colegio cuando vayas a recoger a tus hijos antes de la hora de salida. El personal confirmará cada salida al verificar a quien los recoge.</p>
+    </div>
+    {% if puede_avisar %}
+      <div class="page-header__actions">
+        <a class="btn btn--primary" href="{% url 'portal_tutores:retiros:crear' %}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Avisar retiro</a>
+      </div>
+    {% endif %}
+  </header>
+
+  {% if not puede_avisar %}
+    <div class="alert alert--warning" role="status">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <div class="alert__body"><p>Por ahora no puedes avisar retiros: necesitas estar registrado como tutor principal o autorizado para recoger a tus hijos, y que estén inscritos en el ciclo actual. Si crees que es un error, acude a control escolar.</p></div>
+    </div>
+  {% endif %}
+
+  <h2 class="portal-heading">Próximos</h2>
+  {% if proximos %}
+    <div class="retiros-avisos">
+      {% for aviso in proximos %}{% include "portales/tutores/retiros/_tarjeta.html" %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <span class="empty-state__icon">{% include "partials/icon.html" with name="log-out" icon_class="icon--lg" %}</span>
+        <p class="empty-state__title">No tienes retiros próximos</p>
+        <p class="empty-state__text">Cuando avises un retiro, aquí verás su estado hasta que el colegio confirme la salida.</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if historial %}
+    <h2 class="portal-heading">Historial</h2>
+    <div class="retiros-avisos">
+      {% for aviso in historial %}{% include "portales/tutores/retiros/_tarjeta.html" %}{% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

@@ -225,6 +225,24 @@ MODULOS = (
                       'Exclusivo del administrador.',
         }),
     )),
+    Modulo('retiros', 'Retiros anticipados', 'log-out', 'Los avisos de los tutores que recogerán a sus hijos antes de la salida y la confirmación de cada salida.', (
+        Funcion('Retiros anticipados', {'ver': 'Retiros.consultar', 'crear': 'Retiros.confirmar', 'editar': 'Retiros.corregir'},
+                etiquetas={'ver': 'Consultar', 'crear': 'Confirmar salidas', 'editar': 'Cancelar y corregir'}, ayuda={
+            'ver': 'Consultar los avisos de retiro de los estudiantes de sus niveles (los «Niveles para retiros» de su ficha y, en '
+                   'una cuenta de prefectura, su alcance), con quién los recogerá, y anotar observaciones internas.',
+            'crear': 'Confirmar la salida de cada estudiante después de verificar que quien lo recoge está autorizado.',
+            'editar': 'Cancelar avisos (con motivo, se avisa al tutor) y corregir o deshacer salidas ya confirmadas (queda en la bitácora).',
+        }),
+        Funcion('Retiros de todo el colegio', {'editar': 'Retiros.gestionar'}, etiquetas={'editar': 'Gestionar'},
+                requiere=('Retiros.consultar',), reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Consultar y atender los retiros de todos los niveles. Exclusivo del administrador.',
+        }),
+        Funcion('Motivos de retiro', {'editar': 'Retiros.configurar'}, etiquetas={'editar': 'Configurar'},
+                reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Crear, editar, ordenar, activar y desactivar los motivos que eligen los tutores (Ajustes › Retiros). '
+                      'Exclusivo del administrador.',
+        }),
+    )),
     Modulo('bitacoras', 'Bitácoras por grupo', 'notebook-pen', 'Observaciones informativas de lo ocurrido en cada clase, por grupo y por estudiante (no afectan calificaciones ni conducta).', (
         Funcion('Bitácora de sus clases', {'crear': 'Bitacoras.registrar'}, etiquetas={'crear': 'Registrar'}, ayuda={
             'crear': 'Un docente registra y consulta las entradas de los grupos y materias que tiene asignados, y edita o anula las suyas.',

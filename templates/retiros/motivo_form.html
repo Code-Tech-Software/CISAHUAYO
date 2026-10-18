@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if motivo %}Editar motivo{% else %}Nuevo motivo{% endif %} · Retiros | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'retiros:motivos' %}">Motivos de retiro</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if motivo %}Editar{% else %}Nuevo{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if motivo %}Editar «{{ motivo.nombre }}»{% else %}Nuevo motivo de retiro{% endif %}</h1>
+      <p class="page-header__description">{% if usado %}Este motivo ya se usó en avisos: si cambias su nombre, el historial mostrará el nuevo. Para dejar de ofrecerlo, desactívalo.{% else %}Los tutores lo eligen al avisar un retiro anticipado. Los de número de orden menor aparecen primero.{% endif %}</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <section class="card">
+      <div class="card__body form-grid">
+        <div class="form-grid">
+          {% include "partials/field.html" with campo=form.nombre %}
+          {% include "partials/field.html" with campo=form.orden %}
+        </div>
+        {% for campo in form %}{% if campo.name == 'requiere_explicacion' or campo.name == 'activo' %}
+          <div class="field">
+            <label class="choice choice--check" for="{{ campo.id_for_label }}">
+              {{ campo }}
+              <span class="choice__box">{{ campo.label|capfirst }}</span>
+            </label>
+            {% if campo.help_text %}<p class="field__hint">{{ campo.help_text }}</p>{% endif %}
+          </div>
+        {% endif %}{% endfor %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{% url 'retiros:motivos' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </div>
+  </form>
+{% endblock %}

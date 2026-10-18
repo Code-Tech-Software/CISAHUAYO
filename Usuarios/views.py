@@ -212,6 +212,7 @@ def usuario_detalle(request, pk):
         'direccion': direccion_de_cuenta(usuario, permisos),
         'coordinacion': coordinacion_de_cuenta(usuario, permisos, rol),
         'comunicados': comunicados_de_cuenta(usuario, permisos),
+        'retiros': retiros_de_cuenta(usuario, permisos, rol),
     })
 
 
@@ -348,6 +349,56 @@ def usuario_comunicados(request, pk):
             messages.success(request, f'{nombre_de(usuario)} puede enviar comunicados a estos niveles asignados: {nombres}.')
             return redirect('usuarios:detalle', usuario.pk)
     return render(request, 'usuarios/comunicados.html', {
+        'usuario': usuario, 'niveles': [(clave, nombre, clave in elegidos) for clave, nombre in Grado.NIVEL_CHOICES],
+    })
+
+
+RETIROS_DEL_PERSONAL = ('Retiros.consultar', 'Retiros.confirmar', 'Retiros.corregir')
+
+
+def retiros_de_cuenta(usuario, permisos, rol=None):
+    """De qué niveles atiende retiros anticipados (si su rol tiene algún permiso de retiros y no es administrador):
+    {'asignados': [nombres], 'prefectura': si además suma su alcance de prefectura}, o None si no aplica."""
+    if usuario.is_superuser or not any(p in permisos for p in RETIROS_DEL_PERSONAL):
+        return None
+    from Alumnos.models import Grado
+    elegidos = set(PerfilUsuario.de(usuario).niveles_retiros)
+    return {
+        'asignados': [nombre for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos],
+        'prefectura': bool(rol and rol.es_prefectura),
+    }
+
+
+@requiere_permisos('auth.change_user')
+def usuario_retiros(request, pk):
+    """Los niveles de los que una cuenta consulta y atiende retiros anticipados (una cuenta de prefectura suma su
+    alcance; el administrador ve todo el colegio)."""
+    from django import forms as formularios
+
+    from Alumnos.models import Grado
+
+    usuario = _gestionable(request, get_object_or_404(_consulta(), pk=pk))
+    perfil = PerfilUsuario.de(usuario)
+    permisos = permisos_efectivos(usuario) if usuario.is_active else permisos_de_cuenta(usuario)
+    if retiros_de_cuenta(usuario, permisos) is None:
+        messages.info(request, 'Solo las cuentas cuyo rol atiende retiros anticipados tienen niveles para retiros (el administrador '
+                               've todo el colegio).')
+        return redirect('usuarios:detalle', usuario.pk)
+    campo = formularios.MultipleChoiceField(choices=Grado.NIVEL_CHOICES, required=False)
+    elegidos = perfil.niveles_retiros
+    if request.method == 'POST':
+        try:
+            elegidos = campo.clean(request.POST.getlist('niveles'))
+        except ValidationError:
+            messages.error(request, 'Elige niveles de la lista.')
+        else:
+            perfil.niveles_retiros = list(elegidos)
+            perfil.save(update_fields=['niveles_retiros', 'modificado'])
+            nombres = ', '.join(nombre for clave, nombre in Grado.NIVEL_CHOICES if clave in elegidos) or 'ninguno'
+            registrar(request.user, usuario, ACCION_CAMBIO, f'Niveles para retiros: {nombres}.')
+            messages.success(request, f'{nombre_de(usuario)} atiende los retiros anticipados de: {nombres}.')
+            return redirect('usuarios:detalle', usuario.pk)
+    return render(request, 'usuarios/retiros.html', {
         'usuario': usuario, 'niveles': [(clave, nombre, clave in elegidos) for clave, nombre in Grado.NIVEL_CHOICES],
     })
 

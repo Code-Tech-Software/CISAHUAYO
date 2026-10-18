@@ -1,0 +1,596 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Panel de control del administrador (Panel/views.py · inicio). Orden por prioridad: indicadores principales, centro de
+  atención y estudiantes que requieren atención; después asistencia y desempeño académico; al final conducta, retiros,
+  comunicación, actividad reciente y accesos. Cada bloque dice qué periodo muestra y solo aparece con el permiso de su
+  módulo. «—» es sin datos; «0» es cero; «No aplica» y «Pendiente de captura» se dicen con palabras.
+{% endcomment %}
+
+{% block title %}Panel de control | CISAHUAYO{% endblock %}
+{% block clase_pagina %} page--ancha{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/panel.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Panel de control</span></li>
+{% endblock %}
+
+{% block content %}
+{% with consulta=filtros.consulta %}
+  <div class="panel" data-panel>
+    {# --- Encabezado y filtros -------------------------------------------------------------------------- #}
+    <header class="panel-cabeza">
+      <div class="panel-cabeza__texto">
+        <h1 class="panel-cabeza__titulo">Panel de control</h1>
+        <p class="panel-cabeza__fecha">{{ filtros.hoy|date:"l j \d\e F \d\e Y"|capfirst }}</p>
+      </div>
+      <p class="panel-cabeza__actualizado">
+        Actualizado a las {{ generado|time:"H:i" }}
+        <a class="btn btn--sm btn--ghost" href="{{ request.get_full_path }}" data-panel-actualizar>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Actualizar</a>
+      </p>
+    </header>
+
+    {% if filtros.ciclo %}
+      {% url 'inicio' as accion %}
+      {% include "panel/_filtros.html" with accion=accion %}
+      <p class="panel-alcance" role="status">
+        {% include "partials/icon.html" with name="filter" icon_class="icon--sm" %}
+        <strong>{{ filtros.texto_del_alcance }}</strong> · Ciclo {{ filtros.ciclo }}{% if not filtros.es_actual %} (no es el actual: lo de «hoy» no aplica){% endif %}
+      </p>
+    {% else %}
+      <div class="empty-state"><p class="empty-state__title">No hay ciclos escolares registrados</p><p class="empty-state__text">Registra un ciclo escolar para ver los indicadores.</p></div>
+    {% endif %}
+
+    {% if filtros.ciclo %}
+    <div class="panel-cuerpo" data-panel-cuerpo>
+      <p class="panel-cargando" data-panel-cargando hidden role="status"><span class="panel-cargando__giro" aria-hidden="true"></span> Actualizando la información…</p>
+
+      {# --- 1. Indicadores principales ------------------------------------------------------------------ #}
+      <section class="panel-kpis" aria-label="Indicadores principales">
+        {% if p.estudiantes %}
+          {% with d=estudiantes %}
+            <article class="panel-kpi">
+              <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="graduation-cap" icon_class="icon--sm" %} Estudiantes activos</h2>
+              {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>{% else %}
+                <p class="panel-kpi__valor">{{ d.total }}</p>
+                <p class="panel-kpi__periodo">Inscritos en el ciclo {{ filtros.ciclo }}</p>
+                {% if d.por_nivel|length > 1 %}
+                  <details class="panel-kpi__detalle"><summary>Por nivel</summary>
+                    <dl>{% for nombre, n in d.por_nivel %}<div><dt>{{ nombre }}</dt><dd>{{ n }}</dd></div>{% endfor %}</dl>
+                  </details>
+                {% endif %}
+                <a class="panel-kpi__enlace" href="{{ d.url }}">Ver estudiantes</a>
+              {% endif %}
+            </article>
+          {% endwith %}
+        {% endif %}
+
+        {% if p.asistencia %}
+          {% with d=entrada_hoy %}
+            <article class="panel-kpi">
+              <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="user-check" icon_class="icon--sm" %} Asistencia de hoy
+                <span class="panel-ayuda" tabindex="0" data-tooltip="Asistencia de entrada al colegio: presentes y retardos entre los estudiantes con registro de hoy. Quien no tiene registro todavía no cuenta como falta; los suspendidos no se cuentan.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+              </h2>
+              {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>
+              {% elif not d.aplica %}<p class="panel-kpi__valor panel-kpi__valor--texto">No aplica</p><p class="panel-kpi__periodo">{{ d.motivo }}</p>
+              {% elif not d.registros %}<p class="panel-kpi__valor">—</p><p class="panel-kpi__periodo">Pendiente de captura · {{ d.esperados }} esperados</p>
+              {% else %}
+                <p class="panel-kpi__valor">{{ d.porcentaje }} %</p>
+                <p class="panel-kpi__periodo">Hoy · {{ d.presentes }} presentes · {{ d.faltas }} faltas · {{ d.retardos }} retardos</p>
+                <p class="panel-kpi__nota">{% if d.sin_registro %}{{ d.sin_registro }} sin registro todavía{% else %}Todos con registro{% endif %}{% if dia_anterior and not dia_anterior.error %} · Día anterior: {{ dia_anterior.porcentaje }} %{% endif %}</p>
+              {% endif %}
+              <a class="panel-kpi__enlace" href="{% url 'asistencias:dia' %}{% if filtros.grado %}?grado={{ filtros.grado.pk }}{% endif %}">Ver asistencia del día</a>
+            </article>
+          {% endwith %}
+        {% endif %}
+
+        {% if p.calificaciones %}
+          {% with d=academico %}
+            <article class="panel-kpi">
+              <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="award" icon_class="icon--sm" %} Rendimiento académico
+                <span class="panel-ayuda" tabindex="0" data-tooltip="Promedio de las calificaciones finales de las actas cerradas (cada calificación de materia cuenta una vez). Las actas en captura y las calificaciones pendientes no se incluyen.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+              </h2>
+              {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>
+              {% elif d.vacio %}<p class="panel-kpi__valor">—</p><p class="panel-kpi__periodo">Sin calificaciones cerradas</p>
+              {% else %}
+                <p class="panel-kpi__valor">{{ d.promedio }}</p>
+                <p class="panel-kpi__periodo">{{ d.texto_periodo }} · {{ d.calificaciones }} calificaciones</p>
+                {% if d.previo is not None %}<p class="panel-kpi__nota">Periodo anterior: {{ d.previo }}</p>{% endif %}
+              {% endif %}
+              <a class="panel-kpi__enlace" href="#academico">Ver desempeño</a>
+            </article>
+            <article class="panel-kpi">
+              <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Con materias reprobadas
+                <span class="panel-ayuda" tabindex="0" data-tooltip="Estudiantes distintos con al menos una calificación final menor que la aprobatoria de su nivel, entre quienes tienen calificaciones cerradas en el periodo.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+              </h2>
+              {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>
+              {% elif d.vacio %}<p class="panel-kpi__valor">—</p><p class="panel-kpi__periodo">Sin calificaciones cerradas</p>
+              {% else %}
+                <p class="panel-kpi__valor">{{ d.reprobados }}</p>
+                <p class="panel-kpi__periodo">{{ d.porcentaje_reprobados }} % de {{ d.estudiantes }} estudiantes evaluados</p>
+              {% endif %}
+              <a class="panel-kpi__enlace" href="{% url 'panel:seguimiento' %}?{{ consulta }}{% if consulta %}&amp;{% endif %}motivo=rendimiento">Ver estudiantes</a>
+            </article>
+          {% endwith %}
+        {% endif %}
+
+        {# Finanzas no está implementado: en su lugar, incidencias de hoy y retiros de hoy #}
+        {% if p.conducta %}
+          {% with d=conducta %}
+            <article class="panel-kpi">
+              <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %} Incidencias de hoy</h2>
+              {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>
+              {% elif not filtros.hoy_en_ciclo %}<p class="panel-kpi__valor panel-kpi__valor--texto">No aplica</p><p class="panel-kpi__periodo">El ciclo elegido no es el actual</p>
+              {% else %}
+                <p class="panel-kpi__valor">{{ d.hoy }}</p>
+                <p class="panel-kpi__periodo">Hoy · {{ d.estudiantes_hoy }} estudiante{{ d.estudiantes_hoy|pluralize }}</p>
+              {% endif %}
+              <a class="panel-kpi__enlace" href="{% url 'conducta:lista' %}?tipo=INCIDENCIA&amp;desde={{ filtros.hoy|date:'Y-m-d' }}&amp;hasta={{ filtros.hoy|date:'Y-m-d' }}">Ver registros</a>
+            </article>
+          {% endwith %}
+        {% endif %}
+        {% if p.retiros %}
+          {% with d=retiros %}
+            <article class="panel-kpi">
+              <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="log-out" icon_class="icon--sm" %} Retiros de hoy</h2>
+              {% if not filtros.hoy_en_ciclo %}<p class="panel-kpi__valor panel-kpi__valor--texto">No aplica</p><p class="panel-kpi__periodo">El ciclo elegido no es el actual</p>
+              {% elif d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>
+              {% else %}
+                <p class="panel-kpi__valor">{{ d.pendientes }}</p>
+                <p class="panel-kpi__periodo">Por confirmar · {{ d.realizados }} salida{{ d.realizados|pluralize }} confirmada{{ d.realizados|pluralize }}</p>
+                <p class="panel-kpi__nota">{{ d.solicitudes }} aviso{{ d.solicitudes|pluralize }} de {{ d.estudiantes }} estudiante{{ d.estudiantes|pluralize }}</p>
+              {% endif %}
+              <a class="panel-kpi__enlace" href="{% url 'retiros:lista' %}">Ver retiros</a>
+            </article>
+          {% endwith %}
+        {% endif %}
+      </section>
+
+      {# --- 2. Centro de atención y estudiantes que requieren atención -------------------------------- #}
+      <div class="panel-fila panel-fila--atencion">
+        <section class="card panel-bloque" aria-labelledby="titulo-atencion">
+          <header class="panel-bloque__cabeza">
+            <h2 class="panel-bloque__titulo" id="titulo-atencion">Requiere atención</h2>
+            <span class="tag">Al día de hoy</span>
+          </header>
+          {% if atencion %}
+            <ul class="panel-atencion">
+              {% for item in atencion %}
+                <li>
+                  <a class="panel-atencion__item" href="{{ item.url }}"{% if item.detalle %} data-tooltip="{{ item.detalle }}"{% endif %}>
+                    <span class="panel-atencion__icono panel-atencion__icono--{{ item.prioridad }}" aria-hidden="true">{% include "partials/icon.html" with name=item.icono icon_class="icon--sm" %}</span>
+                    <span class="panel-atencion__motivo">{{ item.motivo }}</span>
+                    <span class="panel-atencion__cantidad">{{ item.cantidad }}</span>
+                    <span class="tag panel-prioridad panel-prioridad--{{ item.prioridad }}">{{ item.prioridad|capfirst }}</span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="panel-vacio">{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Nada pendiente en lo que puedes consultar.</p>
+          {% endif %}
+          <p class="panel-nota">Finanzas no está implementado en el sistema: no hay adeudos que revisar.</p>
+        </section>
+
+        {% if p.estudiantes and p.asistencia or p.estudiantes and p.calificaciones %}
+          <section class="card panel-bloque panel-bloque--ancho" id="seguimiento" aria-labelledby="titulo-seguimiento">
+            <header class="panel-bloque__cabeza">
+              <h2 class="panel-bloque__titulo" id="titulo-seguimiento">Estudiantes que requieren atención</h2>
+              <span class="tag">Periodo de evaluación</span>
+              <span class="panel-ayuda" tabindex="0" data-tooltip="Alertas preventivas para dar seguimiento, con los criterios de cada nivel (Ajustes › Seguimiento). No predicen deserción ni generan sanciones. Prioridad alta: inasistencia y bajo rendimiento a la vez, faltas seguidas o muchas materias reprobadas; baja: solo un descenso de promedio; media: lo demás.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+            </header>
+            {% if alertas_error %}
+              <div class="alert alert--error" role="alert">{% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}<p class="alert__body">No se pudieron calcular las alertas.</p></div>
+            {% else %}
+              <dl class="panel-cifras">
+                <div class="panel-cifra"><dt>Por inasistencia</dt><dd>{{ resumen_alertas.inasistencia }}</dd></div>
+                <div class="panel-cifra"><dt>Por bajo rendimiento</dt><dd>{{ resumen_alertas.rendimiento }}</dd></div>
+                <div class="panel-cifra"><dt>Por ambos motivos</dt><dd>{{ resumen_alertas.ambos }}</dd></div>
+                <div class="panel-cifra panel-cifra--total"><dt>Total en seguimiento</dt><dd>{{ resumen_alertas.total }}</dd></div>
+              </dl>
+              <p class="panel-nota">
+                {% for nombre, ev in periodos_de_seguimiento %}{% if not forloop.first %} · {% endif %}{{ nombre }}: asistencia de {{ ev.base.nombre|default:"todo el ciclo" }}{% if p.calificaciones %}, calificaciones de {{ ev.evaluado.nombre|default:"— (sin actas cerradas)" }}{% endif %}{% endfor %}
+              </p>
+              <form class="panel-chips" method="get" action="{% url 'inicio' %}#seguimiento" aria-label="Filtrar alertas">
+                {% for clave, valor in filtros.valores.items %}<input type="hidden" name="{{ clave }}" value="{{ valor }}">{% endfor %}
+                <label class="visually-hidden" for="filtro-motivo">Motivo</label>
+                <select class="field__control field__control--select" id="filtro-motivo" name="motivo" data-panel-auto>
+                  <option value="">Todos los motivos</option>
+                  {% for clave, nombre in motivos %}<option value="{{ clave }}"{% if clave == motivo %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+                </select>
+                <label class="visually-hidden" for="filtro-prioridad">Prioridad</label>
+                <select class="field__control field__control--select" id="filtro-prioridad" name="prioridad" data-panel-auto>
+                  <option value="">Todas las prioridades</option>
+                  {% for clave, nombre in prioridades %}<option value="{{ clave }}"{% if clave == prioridad %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+                </select>
+                <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
+              </form>
+              {% if alertas %}
+                {% include "panel/_alertas_tabla.html" with alertas=alertas %}
+                <p class="panel-pie">
+                  {% if alertas_filtradas > alertas|length %}Se muestran {{ alertas|length }} de {{ alertas_filtradas }}, de mayor a menor prioridad. {% endif %}
+                  <a class="btn btn--sm" href="{% url 'panel:seguimiento' %}?{{ consulta }}{% if motivo %}&amp;motivo={{ motivo }}{% endif %}{% if prioridad %}&amp;prioridad={{ prioridad }}{% endif %}">Ver la lista completa</a>
+                </p>
+              {% else %}
+                <p class="panel-vacio">{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Ningún estudiante cumple los criterios{% if motivo or prioridad %} con estos filtros{% endif %}.</p>
+              {% endif %}
+            {% endif %}
+          </section>
+        {% endif %}
+      </div>
+
+      {# --- 3. Asistencia y desempeño académico --------------------------------------------------------- #}
+      <div class="panel-fila">
+        {% if p.asistencia %}
+          {% with d=asistencia %}
+            <section class="card panel-bloque" id="asistencia" aria-labelledby="titulo-asistencia">
+              <header class="panel-bloque__cabeza">
+                <h2 class="panel-bloque__titulo" id="titulo-asistencia">Asistencia</h2>
+                <span class="tag">{{ filtros.texto_del_rango }}</span>
+                <span class="panel-ayuda" tabindex="0" data-tooltip="Asistencia de entrada al colegio: presentes y retardos entre los días con registro. No incluye días sin clases ni días de suspensión; los días o estudiantes sin captura no son faltas.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+                <a class="panel-bloque__enlace" href="{% url 'asistencias:reporte' %}?ciclo={{ filtros.ciclo.pk }}{% if filtros.grado %}&amp;grado={{ filtros.grado.pk }}{% endif %}&amp;desde={{ filtros.desde|date:'Y-m-d' }}&amp;hasta={{ filtros.hasta|date:'Y-m-d' }}">Ver reporte</a>
+              </header>
+              {% if d.error %}
+                <div class="alert alert--error" role="alert">{% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}<p class="alert__body">No se pudo consultar la asistencia.</p></div>
+              {% elif d.vacio %}
+                <p class="panel-vacio">Sin registros de asistencia en el rango{% if d.motivo %} ({{ d.motivo }}){% endif %}.</p>
+              {% else %}
+                <ul class="panel-estados" aria-label="Resumen del rango">
+                  <li class="panel-estado panel-estado--presente"><span class="panel-estado__n">{{ d.totales.presentes }}</span> Presentes</li>
+                  <li class="panel-estado panel-estado--falta"><span class="panel-estado__n">{{ d.totales.sin_justificar }}</span> Faltas sin justificar</li>
+                  <li class="panel-estado panel-estado--retardo"><span class="panel-estado__n">{{ d.totales.retardos }}</span> Retardos</li>
+                  <li class="panel-estado panel-estado--justificada"><span class="panel-estado__n">{{ d.totales.justificadas }}</span> Faltas justificadas</li>
+                  <li class="panel-estado panel-estado--suspension"><span class="panel-estado__n">{{ d.totales.dias_suspendidos }}</span> Días de suspensión</li>
+                </ul>
+                <p class="panel-nota">Asistencia del rango: <strong>{{ d.totales.porcentaje }} %</strong> de {{ d.totales.registros }} registros de entrada · {{ d.dias_con_registro }} de {{ d.dias_de_clases }} días de clases con captura{% if d.totales.suspendidos %} · {{ d.totales.suspendidos }} estudiante{{ d.totales.suspendidos|pluralize }} con suspensión{% endif %}.</p>
+
+                {% if d.grafica %}
+                  {% with g=d.grafica %}
+                    <figure class="panel-linea">
+                      <figcaption class="panel-subtitulo">Asistencia por día</figcaption>
+                      <div class="panel-linea__marco">
+                        <div class="panel-linea__eje" aria-hidden="true"><span>100 %</span><span>{{ g.medio }} %</span><span>{{ g.piso }} %</span></div>
+                        <div class="panel-linea__lienzo">
+                          <svg viewBox="0 0 100 {{ g.alto }}" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                            <line class="panel-linea__rejilla" x1="0" x2="100" y1="0.5" y2="0.5"></line>
+                            <line class="panel-linea__rejilla" x1="0" x2="100" y1="{{ g.y_medio|stringformat:'s' }}" y2="{{ g.y_medio|stringformat:'s' }}"></line>
+                            <line class="panel-linea__rejilla" x1="0" x2="100" y1="{{ g.y_fondo|stringformat:'s' }}" y2="{{ g.y_fondo|stringformat:'s' }}"></line>
+                            {% for trazo in g.trazos %}<path class="panel-linea__trazo" d="{{ trazo }}"></path>{% endfor %}
+                          </svg>
+                          {% for punto in g.puntos %}
+                            <span class="panel-linea__columna" style="--x: {{ punto.x|stringformat:'s' }}%; --w: {{ g.ancho_columna|stringformat:'s' }}%" tabindex="0"
+                                  data-tooltip="{{ punto.fecha|date:'D j M' }}: {% if punto.valor is not None %}{{ punto.valor }} % ({{ punto.asistieron }} de {{ punto.registros }} con registro){% else %}sin registro{% endif %}"
+                                  aria-label="{{ punto.fecha|date:'j \d\e F' }}: {% if punto.valor is not None %}{{ punto.valor }} %{% else %}sin registro{% endif %}">
+                              {% if punto.y is not None %}<span class="panel-linea__punto{% if punto == g.ultimo %} is-ultimo{% endif %}" style="--y: {{ punto.y_pct|stringformat:'s' }}%"></span>{% endif %}
+                            </span>
+                          {% endfor %}
+                          {% if g.ultimo %}<span class="panel-linea__etiqueta" style="--x: {{ g.ultimo.x|stringformat:'s' }}%; --y: {{ g.ultimo.y_pct|stringformat:'s' }}%">{{ g.ultimo.valor }} %</span>{% endif %}
+                        </div>
+                      </div>
+                      <div class="panel-linea__fechas" aria-hidden="true"><span>{{ d.desde|date:"j M" }}</span><span>{{ d.hasta|date:"j M" }}</span></div>
+                      <details class="panel-tabla-datos">
+                        <summary>Ver como tabla</summary>
+                        <table><thead><tr><th scope="col">Día</th><th scope="col">Asistencia</th><th scope="col">Asistieron</th><th scope="col">Con registro</th></tr></thead>
+                          <tbody>{% for punto in g.puntos %}<tr><td>{{ punto.fecha|date:"D j M" }}</td><td>{% if punto.valor is not None %}{{ punto.valor }} %{% else %}Sin registro{% endif %}</td><td>{{ punto.asistieron }}</td><td>{{ punto.registros }}</td></tr>{% endfor %}</tbody>
+                        </table>
+                      </details>
+                    </figure>
+                  {% endwith %}
+                {% endif %}
+
+                {% if d.comparacion|length > 1 %}
+                  <h3 class="panel-subtitulo">Por {{ d.unidad }}</h3>
+                  {% include "panel/_barras.html" with filas=d.comparacion sufijo=" %" base_texto="registros" titulo="Asistencia por "|add:d.unidad %}
+                {% endif %}
+
+                <p class="panel-nota panel-nota--aparte">
+                  {% include "partials/icon.html" with name="book-open" icon_class="icon--sm" %}
+                  <span>Por clase (pase de lista, aparte de la entrada):
+                    {% if d.materias.registros %}<strong>{{ d.materias.porcentaje }} %</strong> de {{ d.materias.registros }} registros de clase{% else %}sin registros{% endif %}.
+                    <span class="panel-ayuda" tabindex="0" data-tooltip="Cada registro es un estudiante en una clase: un estudiante con seis clases tiene seis registros. Por eso no se suma con la asistencia de entrada.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+                  </span>
+                </p>
+
+                {% if d.mas_faltas %}
+                  <h3 class="panel-subtitulo">Más faltas en el rango</h3>
+                  <ul class="panel-lista">
+                    {% for fila in d.mas_faltas %}
+                      <li class="panel-lista__item">
+                        <a class="link-subtle" href="{{ fila.url }}">{{ fila.inscripcion.alumno }}</a>
+                        <span class="panel-sub">{{ fila.inscripcion.grupo.corto }}</span>
+                        <span class="panel-lista__valor">{{ fila.sin_justificar }} sin justificar{% if fila.faltas != fila.sin_justificar %} · {{ fila.faltas }} en total{% endif %}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+              {% endif %}
+            </section>
+          {% endwith %}
+        {% endif %}
+
+        {% if p.calificaciones %}
+          {% with d=academico c=captura %}
+            <section class="card panel-bloque" id="academico" aria-labelledby="titulo-academico">
+              <header class="panel-bloque__cabeza">
+                <h2 class="panel-bloque__titulo" id="titulo-academico">Desempeño académico</h2>
+                <span class="tag">{% if d.texto_periodo %}{{ d.texto_periodo }}{% else %}Periodo{% endif %}</span>
+                <span class="panel-ayuda" tabindex="0" data-tooltip="Calificaciones finales de las actas cerradas, en la escala de 10 del sistema. Reprobada: menor que la calificación aprobatoria de cada nivel ({% for nombre, valor, propuesto in d.aprobatorias %}{{ nombre }} {{ valor }}{% if propuesto %} propuesta{% endif %}{% if not forloop.last %}; {% endif %}{% endfor %}).">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
+                <a class="panel-bloque__enlace" href="{% url 'calificaciones:inicio' %}?ciclo={{ filtros.ciclo.pk }}{% if filtros.grupo %}&amp;grupo={{ filtros.grupo.pk }}{% endif %}">Ver calificaciones</a>
+              </header>
+              {% if d.error %}
+                <div class="alert alert--error" role="alert">{% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}<p class="alert__body">No se pudieron consultar las calificaciones.</p></div>
+              {% else %}
+                {% for nombre, ev in d.periodos %}{% if ev.nota %}<p class="panel-nota">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} {{ nombre }}: {{ ev.nota }}.</p>{% endif %}{% endfor %}
+                {% if d.vacio %}
+                  <p class="panel-vacio">Sin calificaciones registradas: aparecen cuando se cierra el acta de cada materia.</p>
+                {% else %}
+                  {% if d.comparacion|length > 1 %}
+                    <h3 class="panel-subtitulo">Promedio por {{ d.unidad }}</h3>
+                    {% include "panel/_barras.html" with filas=d.comparacion sufijo="" base_texto="calificaciones" titulo="Promedio por "|add:d.unidad %}
+                  {% endif %}
+                  <h3 class="panel-subtitulo">Estudiantes por rango de promedio</h3>
+                  <ol class="panel-columnas" aria-label="Estudiantes por rango de promedio">
+                    {% for fila in d.distribucion %}
+                      <li class="panel-columnas__item" tabindex="0" data-tooltip="Promedio {{ fila.nombre }}: {{ fila.valor }} estudiante{{ fila.valor|pluralize }}">
+                        <span class="panel-columnas__valor">{{ fila.valor }}</span>
+                        <span class="panel-columnas__barra" style="--alto: {{ fila.alto|stringformat:'s' }}" aria-hidden="true"></span>
+                        <span class="panel-columnas__nombre">{{ fila.nombre }}</span>
+                      </li>
+                    {% endfor %}
+                  </ol>
+                  {% if d.reprobacion %}
+                    <h3 class="panel-subtitulo">Materias con más reprobación</h3>
+                    <ul class="panel-barras" aria-label="Materias con más reprobación">
+                      {% for fila in d.reprobacion %}
+                        <li class="panel-barras__fila" tabindex="0" data-tooltip="{{ fila.nombre }}: {{ fila.reprobados }} de {{ fila.evaluados }} calificaciones reprobadas">
+                          <span class="panel-barras__nombre">{{ fila.nombre }}</span>
+                          <span class="panel-barras__pista" aria-hidden="true"><span class="panel-barras__barra" style="--ancho: {{ fila.ancho|stringformat:'s' }}%"></span></span>
+                          <span class="panel-barras__valor">{{ fila.valor }} %</span>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                  {% if d.omitidas %}<p class="panel-nota">{{ d.omitidas }} calificaciones con otra escala no se incluyen (no se mezclan escalas).</p>{% endif %}
+                {% endif %}
+
+                {% if c and not c.error and c.total %}
+                  <h3 class="panel-subtitulo">Avance de captura del periodo actual</h3>
+                  <div class="panel-pila" role="img" aria-label="{{ c.cerradas }} actas cerradas, {{ c.en_captura }} en captura y {{ c.sin_acta }} sin abrir, de {{ c.total }} materias">
+                    {% if c.cerradas %}<span class="panel-pila__parte panel-pila__parte--cerradas" style="flex-grow: {{ c.cerradas }}" data-tooltip="Cerradas: {{ c.cerradas }}"></span>{% endif %}
+                    {% if c.en_captura %}<span class="panel-pila__parte panel-pila__parte--captura" style="flex-grow: {{ c.en_captura }}" data-tooltip="En captura: {{ c.en_captura }}"></span>{% endif %}
+                    {% if c.sin_acta %}<span class="panel-pila__parte panel-pila__parte--sin" style="flex-grow: {{ c.sin_acta }}" data-tooltip="Sin abrir: {{ c.sin_acta }}"></span>{% endif %}
+                  </div>
+                  <ul class="panel-leyenda">
+                    <li><span class="panel-leyenda__marca panel-pila__parte--cerradas" aria-hidden="true"></span> Cerradas <strong>{{ c.cerradas }}</strong></li>
+                    <li><span class="panel-leyenda__marca panel-pila__parte--captura" aria-hidden="true"></span> En captura (provisionales) <strong>{{ c.en_captura }}</strong></li>
+                    <li><span class="panel-leyenda__marca panel-pila__parte--sin" aria-hidden="true"></span> Sin abrir <strong>{{ c.sin_acta }}</strong></li>
+                  </ul>
+                {% endif %}
+              {% endif %}
+            </section>
+          {% endwith %}
+        {% endif %}
+      </div>
+
+      {# --- 4. Conducta, retiros, comunicación y actividad ----------------------------------------------- #}
+      <div class="panel-fila panel-fila--tres">
+        {% if p.conducta or p.bitacoras %}
+          <section class="card panel-bloque" aria-labelledby="titulo-conducta">
+            <header class="panel-bloque__cabeza">
+              <h2 class="panel-bloque__titulo" id="titulo-conducta">Conducta y bitácoras</h2>
+              <span class="tag">{{ filtros.texto_del_rango }}</span>
+              {% if p.conducta %}<a class="panel-bloque__enlace" href="{% url 'conducta:lista' %}?ciclo={{ filtros.ciclo.pk }}&amp;desde={{ filtros.desde|date:'Y-m-d' }}&amp;hasta={{ filtros.hasta|date:'Y-m-d' }}{% if filtros.nivel %}&amp;nivel={{ filtros.nivel }}{% endif %}{% if filtros.grado %}&amp;grado={{ filtros.grado.pk }}{% endif %}{% if filtros.grupo %}&amp;grupo={{ filtros.grupo.pk }}{% endif %}">Ver registro</a>{% endif %}
+            </header>
+            {% if p.conducta %}
+              {% with d=conducta %}
+                {% if d.error %}<p class="panel-vacio">No se pudo consultar la conducta.</p>{% else %}
+                  <dl class="panel-cifras panel-cifras--compactas">
+                    <div class="panel-cifra"><dt>Incidencias</dt><dd>{{ d.incidencias }}</dd></div>
+                    <div class="panel-cifra"><dt>Estudiantes</dt><dd>{{ d.estudiantes }}</dd></div>
+                    <div class="panel-cifra"><dt>Casos abiertos</dt><dd>{{ d.abiertos }}</dd></div>
+                    <div class="panel-cifra"><dt>Suspendidos hoy</dt><dd>{{ d.suspendidos_hoy }}</dd></div>
+                  </dl>
+                  {% if d.incidencias %}
+                    <h3 class="panel-subtitulo">Incidencias por semana</h3>
+                    <ol class="panel-columnas panel-columnas--finas" aria-label="Incidencias por semana">
+                      {% for t in d.tendencia %}
+                        <li class="panel-columnas__item" tabindex="0" data-tooltip="Semana del {{ t.semana|date:'j M' }}: {{ t.n }} incidencia{{ t.n|pluralize }}">
+                          <span class="panel-columnas__valor">{% if t == d.tendencia|last or t.alto == 100 %}{{ t.n }}{% endif %}</span>
+                          <span class="panel-columnas__barra" style="--alto: {{ t.alto|stringformat:'s' }}" aria-hidden="true"></span>
+                          <span class="panel-columnas__nombre">{{ t.semana|date:"j M" }}</span>
+                        </li>
+                      {% endfor %}
+                    </ol>
+                    {% with primera=d.tendencia|first ultima=d.tendencia|last %}<p class="panel-columnas__pie" aria-hidden="true"><span>{{ primera.semana|date:"j M" }}</span><span>{{ ultima.semana|date:"j M" }}</span></p>{% endwith %}
+                    <h3 class="panel-subtitulo">Por categoría</h3>
+                    <ul class="panel-barras" aria-label="Incidencias por categoría">
+                      {% for c in d.categorias %}
+                        <li class="panel-barras__fila" tabindex="0" data-tooltip="{{ c.categoria_nombre }}: {{ c.n }}">
+                          <span class="panel-barras__nombre">{{ c.categoria_nombre }}</span>
+                          <span class="panel-barras__pista" aria-hidden="true"><span class="panel-barras__barra" style="--ancho: {{ c.ancho|stringformat:'s' }}%"></span></span>
+                          <span class="panel-barras__valor">{{ c.n }}</span>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                    {% if d.por_nivel|length > 1 %}
+                      <h3 class="panel-subtitulo">Por nivel</h3>
+                      <ul class="panel-barras" aria-label="Incidencias por nivel">
+                        {% for x in d.por_nivel %}
+                          <li class="panel-barras__fila" tabindex="0" data-tooltip="{{ x.nombre }}: {{ x.n }}">
+                            <span class="panel-barras__nombre">{{ x.nombre }}</span>
+                            <span class="panel-barras__pista" aria-hidden="true"><span class="panel-barras__barra" style="--ancho: {{ x.ancho|stringformat:'s' }}%"></span></span>
+                            <span class="panel-barras__valor">{{ x.n }}</span>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  {% else %}
+                    <p class="panel-vacio">0 incidencias en el rango.</p>
+                  {% endif %}
+                  <p class="panel-nota">{{ d.positivas }} conducta{{ d.positivas|pluralize }} positiva{{ d.positivas|pluralize }} en el rango.</p>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+            {% if p.bitacoras %}
+              {% with d=bitacoras %}
+                <h3 class="panel-subtitulo">Observaciones de bitácora <span class="panel-subtitulo__nota">informativas: no son incidencias</span></h3>
+                {% if d.error %}<p class="panel-vacio">No se pudieron consultar.</p>
+                {% elif d.recientes %}
+                  <ul class="panel-lista">
+                    {% for b in d.recientes %}
+                      <li class="panel-lista__item"><a class="link-subtle" href="{% url 'bitacoras:detalle' b.pk %}">{{ b.grupo_texto }} · {{ b.materia_nombre }}</a><span class="panel-sub">{{ b.fecha|date:"j M" }} · {{ b.autor_nombre }}</span></li>
+                    {% endfor %}
+                  </ul>
+                  <p class="panel-nota">{{ d.total }} en el rango.</p>
+                {% else %}
+                  <p class="panel-vacio">Sin observaciones en el rango.</p>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+          </section>
+        {% endif %}
+
+        {% if p.retiros %}
+          {% with d=retiros %}
+            <section class="card panel-bloque" aria-labelledby="titulo-retiros">
+              <header class="panel-bloque__cabeza">
+                <h2 class="panel-bloque__titulo" id="titulo-retiros">Retiros anticipados</h2>
+                <span class="tag">Hoy</span>
+                <a class="panel-bloque__enlace" href="{% url 'retiros:lista' %}">Ver retiros</a>
+              </header>
+              {% if not filtros.hoy_en_ciclo %}<p class="panel-vacio">No aplica: el ciclo elegido no es el actual.</p>
+              {% elif d.error %}<p class="panel-vacio">No se pudieron consultar.</p>
+              {% else %}
+                <dl class="panel-cifras panel-cifras--compactas">
+                  <div class="panel-cifra"><dt>Avisos</dt><dd>{{ d.solicitudes }}</dd></div>
+                  <div class="panel-cifra"><dt>Estudiantes</dt><dd>{{ d.estudiantes }}</dd></div>
+                  <div class="panel-cifra"><dt>Por confirmar</dt><dd>{{ d.pendientes }}</dd></div>
+                  <div class="panel-cifra"><dt>Salidas</dt><dd>{{ d.realizados }}</dd></div>
+                </dl>
+                {% if d.proximos %}
+                  <h3 class="panel-subtitulo">Próximos</h3>
+                  <ul class="panel-lista">
+                    {% for r in d.proximos %}
+                      <li class="panel-lista__item">
+                        <a class="link-subtle" href="{% url 'retiros:detalle' r.aviso_id %}"><strong>{{ r.aviso.hora|time:"H:i" }}</strong> · {{ r.alumno }}</a>
+                        <span class="panel-sub">{{ r.inscripcion.grupo.corto }} · Avisó {{ r.aviso.tutor.nombre }} {{ r.aviso.tutor.apellido_paterno }}</span>
+                        <span class="tag {% if r.atrasado %}tag--warning{% else %}tag--info{% endif %}">{% if r.atrasado %}Hora pasada{% else %}Avisado{% endif %}</span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  <p class="panel-vacio">Sin retiros por confirmar hoy.</p>
+                {% endif %}
+                {% if d.cancelados %}<p class="panel-nota">{{ d.cancelados }} cancelado{{ d.cancelados|pluralize }} hoy.</p>{% endif %}
+              {% endif %}
+            </section>
+          {% endwith %}
+        {% endif %}
+
+        <section class="card panel-bloque" aria-labelledby="titulo-comunicacion">
+          <header class="panel-bloque__cabeza">
+            <h2 class="panel-bloque__titulo" id="titulo-comunicacion">Comunicación</h2>
+            <span class="tag">{{ filtros.texto_del_rango }}</span>
+          </header>
+          {% if p.comunicados %}
+            {% with d=comunicados %}
+              {% if d.error %}<p class="panel-vacio">No se pudieron consultar los comunicados.</p>{% elif d %}
+                <dl class="panel-cifras panel-cifras--compactas">
+                  <div class="panel-cifra"><dt>Comunicados</dt><dd>{{ d.publicados }}</dd></div>
+                  <div class="panel-cifra"><dt>Lectura</dt><dd>{% if d.porcentaje is not None %}{{ d.porcentaje }} %{% else %}—{% endif %}</dd></div>
+                </dl>
+                <p class="panel-nota">{{ d.de_quien }} · todo el colegio (los destinatarios no se eligen por nivel){% if d.destinatarios %} · {{ d.leidos }} de {{ d.destinatarios }} destinatarios ya leyeron{% endif %}.</p>
+                {% if d.recientes %}
+                  <ul class="panel-lista">
+                    {% for c in d.recientes %}<li class="panel-lista__item"><a class="link-subtle" href="{% url 'comunicados:detalle' c.pk %}">{{ c.titulo }}</a><span class="panel-lista__valor">{% if c.porcentaje is not None %}{{ c.porcentaje }} % leído{% else %}—{% endif %}</span></li>{% endfor %}
+                  </ul>
+                {% endif %}
+              {% endif %}
+            {% endwith %}
+          {% endif %}
+          {% if mensajeria.activa %}
+            <p class="panel-mensajes">
+              {% include "partials/icon.html" with name="message-circle" icon_class="icon--sm" %}
+              <span>Tus mensajes sin leer: <strong data-mensajes-no-leidos-texto>{{ mensajeria.no_leidos }}</strong></span>
+              <a class="btn btn--sm" href="{% url 'mensajes:inicio' %}">Abrir mensajes</a>
+            </p>
+          {% endif %}
+          <div class="panel-accesos">
+            {% if p.comunicados %}<a class="btn btn--sm" href="{% url 'comunicados:inicio' %}">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %} Comunicados</a>{% endif %}
+            {% if comunicados.puede_crear %}<a class="btn btn--sm btn--primary" href="{% url 'comunicados:crear' %}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Crear comunicado</a>{% endif %}
+          </div>
+        </section>
+      </div>
+
+      {# --- 5. Accesos rápidos y actividad reciente ------------------------------------------------------- #}
+      <div class="panel-fila">
+        <section class="card panel-bloque" aria-labelledby="titulo-accesos">
+          <header class="panel-bloque__cabeza"><h2 class="panel-bloque__titulo" id="titulo-accesos">Accesos rápidos</h2></header>
+          {% if p.estudiantes %}
+            <div class="panel-buscar" data-panel-buscar data-url="{% url 'alumnos:buscar' %}" data-vista360="{% url 'alumnos:vista360' 0 %}">
+              <label class="field__label" for="panel-buscar-alumno">Buscar estudiante y abrir su Vista 360</label>
+              <input class="field__control" type="search" id="panel-buscar-alumno" placeholder="Nombre, referencia o CURP…" autocomplete="off"
+                     role="combobox" aria-expanded="false" aria-controls="panel-buscar-resultados" aria-autocomplete="list" data-panel-buscar-campo>
+              <ul class="panel-buscar__resultados" id="panel-buscar-resultados" role="listbox" hidden data-panel-buscar-resultados></ul>
+            </div>
+          {% endif %}
+          <div class="panel-accesos">
+            {% if p.asistencia %}<a class="btn btn--sm" href="{% url 'asistencias:inicio' %}">{% include "partials/icon.html" with name="user-check" icon_class="icon--sm" %} Asistencias</a>{% endif %}
+            {% if p.registrar_conducta %}<a class="btn btn--sm" href="{% url 'conducta:crear' %}" data-modal-form data-modal-tam="lg">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %} Registrar conducta</a>{% endif %}
+            {% if p.retiros %}<a class="btn btn--sm" href="{% url 'retiros:lista' %}">{% include "partials/icon.html" with name="log-out" icon_class="icon--sm" %} Retiros</a>{% endif %}
+            {% if comunicados.puede_crear %}<a class="btn btn--sm" href="{% url 'comunicados:crear' %}">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %} Crear comunicado</a>{% endif %}
+            {% if p.criterios %}<a class="btn btn--sm btn--ghost" href="{% url 'panel:criterios' %}">{% include "partials/icon.html" with name="settings" icon_class="icon--sm" %} Criterios de seguimiento</a>{% endif %}
+          </div>
+          <p class="panel-nota">Finanzas no está disponible: el sistema todavía no tiene ese módulo.</p>
+        </section>
+
+        <section class="card panel-bloque" aria-labelledby="titulo-actividad">
+          <header class="panel-bloque__cabeza"><h2 class="panel-bloque__titulo" id="titulo-actividad">Actividad reciente</h2><span class="tag">Ciclo {{ filtros.ciclo }}</span></header>
+          {% if actividad.error %}<p class="panel-vacio">No se pudo consultar.</p>
+          {% elif actividad %}
+            <ul class="panel-actividad">
+              {% for a in actividad %}
+                <li class="panel-actividad__item">
+                  <span class="panel-actividad__icono" aria-hidden="true">{% include "partials/icon.html" with name=a.icono icon_class="icon--sm" %}</span>
+                  <span class="panel-actividad__texto"><a class="link-subtle" href="{{ a.url }}">{{ a.accion }}</a>{% if a.detalle %} · {{ a.detalle }}{% endif %}
+                    <span class="panel-sub">{{ a.quien }} · <time datetime="{{ a.cuando|date:'c' }}">{{ a.cuando|date:"j M, H:i" }}</time></span></span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="panel-vacio">Sin actividad registrada en lo que puedes consultar.</p>
+          {% endif %}
+        </section>
+      </div>
+    </div>
+    {% endif %}
+
+    {# --- Ir a una sección: los mismos accesos del panel anterior, según lo que permite el rol (compactos) ------------ #}
+    <section class="panel-secciones" aria-labelledby="titulo-secciones">
+      <h2 class="panel-bloque__titulo" id="titulo-secciones">Ir a una sección</h2>
+      <div class="tile-grid">
+        {% for seccion in navegacion %}
+          {% if seccion.titulo %}
+            {% for elemento in seccion.elementos %}
+              <a class="tile{% if forloop.parentloop.counter == 3 %} tile--tone-2{% endif %}" href="{{ elemento.url }}">
+                <span class="tile__chip">{% include "partials/icon.html" with name=elemento.icono icon_class="icon--sm" %}</span>
+                <div class="tile__body">
+                  <p class="tile__title">{{ elemento.etiqueta }}</p>
+                  <p class="tile__text">{{ seccion.titulo }}</p>
+                </div>
+              </a>
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/panel.js' %}" defer></script>
+{% endblock %}

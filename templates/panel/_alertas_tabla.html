@@ -1,0 +1,50 @@
+{% comment %}
+  Tabla de estudiantes que requieren atención (Panel/seguimiento.py). Parámetros: alertas (lista de Alerta) y filtros.
+  Cada fila dice el motivo concreto, sus cifras y el periodo analizado, con acceso a la Vista 360 y a lo que la origina.
+{% endcomment %}
+<div class="table-card table-card--flush">
+  <table class="table panel-tabla">
+    <caption class="visually-hidden">Estudiantes que requieren atención, de mayor a menor prioridad</caption>
+    <thead class="table__head">
+      <tr>
+        <th class="table__th" scope="col">Estudiante</th>
+        <th class="table__th" scope="col">Motivo</th>
+        <th class="table__th panel-num" scope="col">Faltas</th>
+        <th class="table__th panel-num" scope="col">Promedio</th>
+        <th class="table__th" scope="col">Prioridad</th>
+        <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Accesos</span></th>
+      </tr>
+    </thead>
+    <tbody class="table__body">
+      {% for alerta in alertas %}
+        <tr class="table__row">
+          <td class="table__cell table__cell--main">
+            <a class="link-subtle panel-tabla__nombre" href="{% url 'alumnos:vista360' alerta.alumno.pk %}?ciclo={{ filtros.ciclo.pk }}">{{ alerta.alumno }}</a>
+            <span class="panel-sub">{{ alerta.inscripcion.grupo|default:alerta.inscripcion.grado }}</span>
+          </td>
+          <td class="table__cell" data-label="Motivo">
+            <ul class="panel-motivos">{% for tipo, texto in alerta.motivos %}<li class="panel-motivos__item panel-motivos__item--{{ tipo }}">{{ texto }}</li>{% endfor %}</ul>
+            <span class="panel-sub">{% if alerta.periodo_asistencia %}Asistencia: {{ alerta.periodo_asistencia }}{% endif %}{% if alerta.periodo_asistencia and alerta.periodo_calificaciones %} · {% endif %}{% if alerta.periodo_calificaciones %}Calificaciones: {{ alerta.periodo_calificaciones }}{% endif %}</span>
+          </td>
+          <td class="table__cell panel-num" data-label="Faltas">
+            {% if alerta.registros %}{{ alerta.faltas_sin_justificar }} <span class="panel-sub">{{ alerta.inasistencia }} % de {{ alerta.registros }} días</span>{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="table__cell panel-num" data-label="Promedio">
+            {% if alerta.promedio is not None %}{{ alerta.promedio }}{% if alerta.reprobadas %} <span class="panel-sub">{{ alerta.reprobadas }} reprobada{{ alerta.reprobadas|pluralize }}</span>{% endif %}{% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td class="table__cell" data-label="Prioridad">
+            <span class="tag panel-prioridad panel-prioridad--{{ alerta.prioridad }}">{{ alerta.texto_de_prioridad }}</span>
+          </td>
+          <td class="table__cell table__cell--actions">
+            <a class="btn btn--icon btn--sm btn--ghost" href="{% url 'alumnos:vista360' alerta.alumno.pk %}?ciclo={{ filtros.ciclo.pk }}&amp;seccion={% if 'rendimiento' in alerta.tipos %}calificaciones{% else %}asistencia{% endif %}"
+               aria-label="Vista 360 de {{ alerta.alumno }}" data-tooltip="Vista 360">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %}</a>
+            {% if 'inasistencia' in alerta.tipos and p.asistencia %}
+              <a class="btn btn--icon btn--sm btn--ghost" href="{% url 'asistencias:alumno' alerta.alumno.pk %}?ciclo={{ filtros.ciclo.pk }}"
+                 aria-label="Historial de asistencia de {{ alerta.alumno }}" data-tooltip="Historial de asistencia">{% include "partials/icon.html" with name="user-check" icon_class="icon--sm" %}</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

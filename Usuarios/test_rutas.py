@@ -21,6 +21,7 @@ SOLO_CON_SESION = {
     'cuenta:perfil': 'cada persona edita sus propios datos',
     'cuenta:contrasena': 'cada persona cambia su propia contraseña',
     'ajustes:inicio': 'cada persona elige cómo ve el sistema (tema de color y menú lateral)',
+    'agenda:calendario': 'la agenda (y el detalle de un evento, ?evento=): cada quien ve solo los eventos de sus niveles y los de todo el colegio',
 }
 SIN_SESION = {
     'login': 'iniciar sesión',

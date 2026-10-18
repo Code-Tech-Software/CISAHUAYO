@@ -1,0 +1,15 @@
+{% comment %}
+  Barras horizontales de una sola serie (un solo color: el del sistema). Parámetros: filas (nombre, valor, ancho y,
+  opcional, base), sufijo (« %» o vacío), base_texto (cómo se dice la base: «registros», «calificaciones»…) y titulo
+  (nombre accesible de la lista). El valor va al final de cada barra; el detalle, al pasar el cursor o enfocar la fila.
+{% endcomment %}
+<ul class="panel-barras" aria-label="{{ titulo }}">
+  {% for fila in filas %}
+    <li class="panel-barras__fila" tabindex="0"
+        data-tooltip="{{ fila.nombre }}: {% if fila.valor is not None %}{{ fila.valor }}{{ sufijo }}{% else %}sin datos{% endif %}{% if fila.base %} · {{ fila.base }} {{ base_texto }}{% endif %}">
+      <span class="panel-barras__nombre">{{ fila.nombre }}</span>
+      <span class="panel-barras__pista" aria-hidden="true"><span class="panel-barras__barra" style="--ancho: {{ fila.ancho|stringformat:'s' }}%"></span></span>
+      <span class="panel-barras__valor">{% if fila.valor is not None %}{{ fila.valor }}{{ sufijo }}{% else %}—{% endif %}</span>
+    </li>
+  {% endfor %}
+</ul>

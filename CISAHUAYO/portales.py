@@ -172,10 +172,12 @@ def navegacion(request, tipo, cuenta):
     espacio = INICIO[tipo].split(':')[0]
     mensajes = reverse(f'{espacio}:mensajes:inicio')
     comunicados = reverse(f'{espacio}:comunicados:inicio')
+    agenda = reverse(f'{espacio}:agenda:calendario')
     secciones = [{'titulo': None, 'elementos': [
         _elemento('Inicio', 'layout-dashboard', inicio, request.path == inicio),
         _elemento('Mensajes', 'message-circle', mensajes, request.path.startswith(mensajes), contador='mensajes'),
         _elemento('Comunicados', 'megaphone', comunicados, request.path.startswith(comunicados), contador='comunicados'),
+        _elemento('Agenda', 'calendar', agenda, request.path.startswith(agenda)),
     ]}]
     if tipo == TUTOR:
         # Retiros anticipados (2026-10-17): avisar que recogerá a sus hijos antes de la salida, con sus notificaciones

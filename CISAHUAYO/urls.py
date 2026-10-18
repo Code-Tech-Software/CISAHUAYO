@@ -3,7 +3,7 @@ from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 
-from Alumnos.views import inicio
+from Panel.views import inicio
 from CISAHUAYO.acceso import acceso, salir
 
 urlpatterns = [
@@ -43,6 +43,10 @@ urlpatterns = [
     path('comunicados/', include('Comunicados.urls')),
     # Retiros anticipados: gestión (retiros/…) y motivos en Ajustes (ajustes/retiros/…); el aviso del tutor está en su portal
     path('', include('Retiros.urls')),
+    # Panel de control: la lista completa de estudiantes en seguimiento (panel/…) y sus criterios en Ajustes (ajustes/seguimiento/)
+    path('', include('Panel.urls')),
+    # Agenda / Calendario (agenda/…; en los portales: PortalEstudiantes/urls.py, PortalTutores/urls.py)
+    path('agenda/', include('Agenda.urls')),
     # Portales (cada uno con su propia sesión: CISAHUAYO/portales.py)
     path('portal/estudiantes/', include('PortalEstudiantes.urls')),
     path('portal/tutores/', include('PortalTutores.urls')),

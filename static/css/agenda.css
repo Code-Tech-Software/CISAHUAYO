@@ -1,0 +1,593 @@
+/* ==========================================================================
+   CISAHUAYO · Agenda / Calendario (templates/agenda/)
+   El mes ocupa casi toda la pantalla: cada semana es una rejilla de 7 columnas (de lunes a domingo) donde los días
+   son el fondo y los eventos, barras que ocupan sus columnas en carriles. En el teléfono, la agenda del mes por fecha.
+   Cada evento lleva el color de su alcance (--color) con un texto legible encima (--texto), y siempre el nombre del
+   nivel en la leyenda, la agenda y el detalle (la identificación no depende solo del color).
+   ========================================================================== */
+
+.agenda {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* --- Encabezado ---------------------------------------------------------------------------------------- */
+.agenda-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.agenda-cabeza__mes,
+.agenda-cabeza__acciones,
+.agenda-nav,
+.agenda-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.agenda-cabeza__titulo {
+  min-width: 10.5rem;
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.agenda-nav {
+  gap: var(--space-1);
+}
+
+.agenda-nav .is-actual {
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.agenda-filtro .field__control {
+  width: auto;
+  min-height: var(--control-height-sm);
+  padding-block: 0.3rem;
+  font-size: var(--text-sm);
+}
+
+.agenda-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+}
+
+.agenda-leyenda__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.agenda-leyenda__marca {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  background: var(--color);
+}
+
+.agenda-aviso,
+.agenda-vacio,
+.agenda-cargando {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.agenda-cargando[hidden] {
+  display: none;
+}
+
+.agenda-aviso--error {
+  color: var(--color-danger);
+}
+
+.agenda-aviso--error a {
+  color: inherit;
+  font-weight: var(--weight-semibold);
+}
+
+.agenda-cargando__giro {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: agenda-giro 0.8s linear infinite;
+}
+
+@keyframes agenda-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.agenda-cuerpo {
+  display: grid;
+  gap: var(--space-2);
+  transition: opacity var(--transition-base);
+}
+
+/* Al cambiar de mes o de nivel se conserva lo anterior, atenuado */
+.agenda-cuerpo.is-cargando {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --- El mes ------------------------------------------------------------------------------------------- */
+.agenda-mes {
+  display: none;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.agenda-mes__encabezado {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-bottom: var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.agenda-mes__encabezado span {
+  padding: 0.35rem var(--space-2);
+}
+
+.agenda-semana {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 1.75rem repeat(var(--carriles), 1.4rem) minmax(1.45rem, auto);
+  row-gap: 2px;
+  min-height: 6.25rem;
+}
+
+.agenda-semana + .agenda-semana {
+  border-top: var(--border);
+}
+
+/* Sin overflow en el mes (el «+N» se sale de su día): las esquinas de abajo se redondean aquí */
+.agenda-semana:last-child .agenda-dia:first-child {
+  border-bottom-left-radius: var(--radius-lg);
+}
+
+.agenda-semana:last-child .agenda-dia:nth-child(7) {
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.agenda-dia {
+  position: relative;
+  display: flex;
+  grid-row: 1 / -1;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0.2rem 0.3rem 0.25rem;
+}
+
+.agenda-dia + .agenda-dia {
+  border-left: var(--border);
+}
+
+.agenda-dia.is-fin {
+  background: color-mix(in srgb, var(--color-surface-2) 60%, var(--color-surface));
+}
+
+.agenda-dia.is-fuera {
+  background: color-mix(in srgb, var(--color-surface-2) 85%, var(--color-surface));
+}
+
+.agenda-dia.is-hoy {
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+/* Todo el día es un enlace para registrar ahí (solo quien gestiona); los eventos van encima */
+.agenda-dia__nuevo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  cursor: copy;
+}
+
+.agenda-dia__nuevo:hover {
+  background: var(--color-hover-tint);
+}
+
+.agenda-dia__numero {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  align-self: flex-start;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-full);
+  color: var(--color-text-strong);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+a.agenda-dia__numero:hover {
+  background: var(--color-surface-hover);
+}
+
+.agenda-dia.is-fuera .agenda-dia__numero {
+  color: var(--color-text-subtle);
+}
+
+.agenda-dia.is-hoy .agenda-dia__numero {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* --- Los eventos --------------------------------------------------------------------------------------- */
+.agenda-evento {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  height: 1.4rem;
+  margin: 0 0.25rem;
+  padding: 0 0.4rem;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color);
+  color: var(--texto);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.agenda-evento:hover {
+  color: var(--texto);
+  filter: brightness(0.94) saturate(1.1);
+}
+
+.agenda-evento:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* Viene de antes o sigue después de esta semana: sin esquina redonda de ese lado y una flecha */
+.agenda-evento.is-antes {
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.agenda-evento.is-despues {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.agenda-evento__sigue {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.agenda-evento__sigue--fin {
+  margin-left: auto;
+}
+
+.agenda-evento__hora {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.agenda-evento__titulo {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+}
+
+/* «+N eventos»: abre la lista completa del día */
+.agenda-mas {
+  position: relative;
+  z-index: 3;
+  align-self: flex-start;
+}
+
+.agenda-mas__boton {
+  padding: 0 0.3rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  list-style: none;
+  cursor: pointer;
+}
+
+.agenda-mas__boton::-webkit-details-marker {
+  display: none;
+}
+
+.agenda-mas__boton:hover {
+  background: var(--color-surface-hover);
+}
+
+.agenda-mas__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: var(--z-dropdown);
+  width: 15rem;
+  padding: var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.agenda-dia.is-fin .agenda-mas__panel {
+  right: 0;
+  left: auto;
+}
+
+/* Si no cabe abajo, se abre hacia arriba (static/js/agenda.js) */
+.agenda-mas.is-arriba .agenda-mas__panel {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.agenda-mas__titulo {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text-strong);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+
+.agenda-mas__lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  max-height: 12rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.agenda-evento--lista {
+  margin: 0;
+}
+
+/* --- La agenda del mes (teléfono) ------------------------------------------------------------------------- */
+.agenda-lista {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.agenda-lista__dia {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.agenda-lista__fecha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.agenda-lista__numero {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-strong);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+}
+
+.agenda-lista__dia.is-hoy .agenda-lista__numero {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.agenda-lista__eventos {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 0 2.5rem;
+  list-style: none;
+}
+
+.agenda-tarjeta {
+  display: grid;
+  gap: 0.2rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border);
+  border-left: 4px solid var(--color);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.agenda-tarjeta:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.agenda-tarjeta__titulo {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.agenda-tarjeta__datos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* El nombre del nivel con su color (siempre junto: nunca solo el color) */
+.agenda-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color);
+  color: var(--texto);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+/* --- Detalle ------------------------------------------------------------------------------------------------ */
+.agenda-detalle .modal__panel {
+  width: min(100%, 30rem);
+  border-top: 5px solid var(--color, var(--color-primary));
+}
+
+.agenda-detalle__cabeza {
+  align-items: flex-start;
+}
+
+.agenda-detalle__cabeza .modal__title {
+  margin-top: var(--space-2);
+}
+
+.agenda-detalle__datos {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.agenda-detalle__datos div {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.agenda-detalle__datos div[hidden] {
+  display: none;
+}
+
+.agenda-detalle__datos dt {
+  color: var(--color-text-muted);
+}
+
+.agenda-detalle__datos dd {
+  margin: 0;
+  color: var(--color-text-strong);
+}
+
+.agenda-detalle__descripcion {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.agenda-detalle__descripcion:empty {
+  display: none;
+}
+
+.agenda-ficha {
+  max-width: 40rem;
+  border-top: 5px solid var(--color);
+}
+
+.agenda-ficha__cabeza {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+.agenda-ficha__titulo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+}
+
+.agenda-ficha__pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.agenda-ficha__resumen {
+  margin: var(--space-2) 0 0;
+}
+
+/* Formulario: las horas, lado a lado */
+.agenda-horas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-4);
+}
+
+.agenda-horas[hidden] {
+  display: none;
+}
+
+/* --- Computadora y tableta: el mes; teléfono: la agenda ---------------------------------------------------- */
+@media (min-width: 48rem) {
+  .agenda-mes {
+    display: block;
+  }
+
+  .agenda-lista {
+    display: none;
+  }
+}
+
+@media (max-width: 47.99rem) {
+  .agenda-cabeza__acciones {
+    width: 100%;
+  }
+
+  .agenda-filtro {
+    flex: 1;
+  }
+
+  .agenda-filtro .field__control {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agenda-cuerpo,
+  .agenda-cargando__giro {
+    transition: none;
+    animation-duration: 2.4s;
+  }
+}

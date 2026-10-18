@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}La confirmación antes de eliminar un evento (en una ventana sobre el calendario o como página).{% endcomment %}
+
+{% block title %}Eliminar evento · Agenda | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/agenda.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Agenda</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Eliminar evento</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">¿Eliminar «{{ evento.titulo }}»?</h1>
+      <p class="page-header__description">Se quitará de la agenda de todos los que lo ven. Esta acción no se puede deshacer.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    <section class="card agenda-ficha" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+      <div class="card__body">
+        <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
+        <p class="agenda-ficha__resumen"><strong>{{ evento.titulo }}</strong><br>{{ evento.texto_de_fechas }} · {{ evento.texto_de_horario }}</p>
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn btn--danger">Eliminar evento</button>
+    </div>
+  </form>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Registrar o editar un evento (Agenda/forms.py). Se abre en una ventana sobre el calendario (data-modal-form) o como
+  página. Sin «Todo el día» se piden las horas (static/js/agenda-formulario.js las muestra u oculta).
+{% endcomment %}
+
+{% block title %}{% if evento %}Editar evento{% else %}Nuevo evento{% endif %} · Agenda | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/agenda.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Agenda</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if evento %}Editar evento{% else %}Nuevo evento{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if evento %}Editar «{{ evento.titulo }}»{% else %}Nuevo evento{% endif %}</h1>
+      <p class="page-header__description">El color sale del alcance. Los eventos de todo el colegio se ven en todos los niveles. La agenda es informativa: no cambia asistencias, calificaciones ni días sin clases.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate data-agenda-formulario>
+    {% csrf_token %}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.titulo clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.alcance %}
+        {% include "partials/field.html" with campo=form.lugar %}
+        {% include "partials/field.html" with campo=form.fecha_inicio %}
+        {% include "partials/field.html" with campo=form.fecha_fin %}
+        <div class="field form-grid__full">
+          <label class="choice choice--check" for="{{ form.todo_el_dia.id_for_label }}">
+            {{ form.todo_el_dia }}<span class="choice__box">Todo el día</span>
+          </label>
+        </div>
+        <div class="agenda-horas form-grid__full" data-agenda-horas{% if form.todo_el_dia.value %} hidden{% endif %}>
+          {% include "partials/field.html" with campo=form.hora_inicio %}
+          {% include "partials/field.html" with campo=form.hora_fin %}
+        </div>
+        {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">{% if evento %}Guardar cambios{% else %}Registrar evento{% endif %}</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/agenda-formulario.js' %}" defer></script>
+{% endblock %}

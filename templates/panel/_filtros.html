@@ -1,0 +1,58 @@
+{% comment %}
+  Los filtros globales del panel (Panel/filtros.py), en una fila sobre todo lo que afectan. El alcance (todo el colegio o
+  un nivel) va primero y destacado. Grado, grupo y periodo dependen del nivel (static/js/panel.js filtra sus opciones; el
+  servidor descarta lo que no corresponda). Se aplican al cambiarlos; sin JavaScript, con «Aplicar».
+  Parámetro: accion (a dónde envía el formulario).
+{% endcomment %}
+<form class="panel-filtros" method="get" action="{{ accion }}" data-panel-filtros>
+  <div class="field panel-filtros__campo panel-filtros__campo--alcance">
+    <label class="field__label" for="panel-nivel">Alcance</label>
+    <select class="field__control field__control--select" id="panel-nivel" name="nivel" data-panel-nivel>
+      <option value="">Todo el colegio</option>
+      {% for clave, nombre in filtros.niveles %}<option value="{{ clave }}"{% if clave == filtros.nivel %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field panel-filtros__campo panel-filtros__campo--ciclo">
+    <label class="field__label" for="panel-ciclo">Ciclo escolar</label>
+    <select class="field__control field__control--select" id="panel-ciclo" name="ciclo">
+      {% for ciclo in filtros.ciclos %}<option value="{{ ciclo.pk }}"{% if ciclo == filtros.ciclo %} selected{% endif %}>{{ ciclo }}{% if ciclo.activo %} (actual){% endif %}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field panel-filtros__campo">
+    <label class="field__label" for="panel-grado">Grado</label>
+    <select class="field__control field__control--select" id="panel-grado" name="grado" data-panel-grado{% if not filtros.nivel %} disabled{% endif %}>
+      <option value="">{% if filtros.nivel %}Todos los grados{% else %}Elige un nivel{% endif %}</option>
+      {% for grado in filtros.grados %}<option value="{{ grado.pk }}" data-nivel="{{ grado.nivel }}"{% if grado == filtros.grado %} selected{% endif %}>{{ grado }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field panel-filtros__campo">
+    <label class="field__label" for="panel-grupo">Grupo</label>
+    <select class="field__control field__control--select" id="panel-grupo" name="grupo" data-panel-grupo{% if not filtros.grado %} disabled{% endif %}>
+      <option value="">{% if filtros.grado %}Todos los grupos{% else %}Elige un grado{% endif %}</option>
+      {% for grupo in filtros.grupos %}<option value="{{ grupo.pk }}" data-grado="{{ grupo.grado_id }}"{% if grupo == filtros.grupo %} selected{% endif %}>{{ grupo.corto }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field panel-filtros__campo">
+    <label class="field__label" for="panel-periodo">Periodo</label>
+    <select class="field__control field__control--select" id="panel-periodo" name="periodo" data-panel-periodo{% if not filtros.nivel %} disabled{% endif %}>
+      <option value="">{% if filtros.nivel %}Periodo actual{% else %}Actual por nivel{% endif %}</option>
+      {% for periodo in filtros.periodos %}<option value="{{ periodo.pk }}" data-nivel="{{ periodo.nivel }}"{% if periodo == filtros.periodo %} selected{% endif %}>{{ periodo.nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field panel-filtros__campo panel-filtros__campo--fecha">
+    <label class="field__label" for="panel-desde">Desde</label>
+    <input class="field__control" type="date" id="panel-desde" name="desde" value="{{ filtros.desde|date:'Y-m-d' }}"
+           min="{{ filtros.ciclo.fecha_inicio|date:'Y-m-d' }}" max="{{ filtros.ciclo.fecha_fin|date:'Y-m-d' }}">
+  </div>
+  <div class="field panel-filtros__campo panel-filtros__campo--fecha">
+    <label class="field__label" for="panel-hasta">Hasta</label>
+    <input class="field__control" type="date" id="panel-hasta" name="hasta" value="{{ filtros.hasta|date:'Y-m-d' }}"
+           min="{{ filtros.ciclo.fecha_inicio|date:'Y-m-d' }}" max="{{ filtros.ciclo.fecha_fin|date:'Y-m-d' }}">
+  </div>
+  <div class="panel-filtros__acciones">
+    <button type="submit" class="btn btn--sm" data-panel-aplicar>Aplicar</button>
+    <a class="btn btn--sm btn--ghost" href="{% url 'inicio' %}?restablecer=1"{% if not filtros.filtrado %} aria-disabled="true"{% endif %}>
+      {% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Restablecer
+    </a>
+  </div>
+</form>

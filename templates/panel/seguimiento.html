@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  La lista completa de estudiantes que requieren atención (Panel/views.py · estudiantes_en_seguimiento), con los mismos
+  filtros del panel y los de motivo y prioridad.
+{% endcomment %}
+
+{% block title %}Estudiantes que requieren atención | CISAHUAYO{% endblock %}
+{% block clase_pagina %} page--ancha{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/panel.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Estudiantes que requieren atención</span></li>
+{% endblock %}
+
+{% block content %}
+  <div class="panel" data-panel>
+    <header class="panel-cabeza">
+      <div class="panel-cabeza__texto">
+        <h1 class="panel-cabeza__titulo">Estudiantes que requieren atención</h1>
+        <p class="panel-cabeza__fecha">Alertas preventivas para dar seguimiento: no predicen deserción ni generan sanciones.</p>
+      </div>
+      {% if p.criterios %}<a class="btn btn--sm btn--ghost" href="{% url 'panel:criterios' %}">{% include "partials/icon.html" with name="settings" icon_class="icon--sm" %} Criterios por nivel</a>{% endif %}
+    </header>
+
+    {% if filtros.ciclo %}
+      {% url 'panel:seguimiento' as accion %}
+      {% include "panel/_filtros.html" with accion=accion %}
+      <p class="panel-alcance" role="status">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} <strong>{{ filtros.texto_del_alcance }}</strong> · Ciclo {{ filtros.ciclo }}</p>
+    {% endif %}
+
+    <div class="panel-cuerpo" data-panel-cuerpo>
+      <section class="card panel-bloque">
+        <dl class="panel-cifras">
+          <div class="panel-cifra"><dt>Por inasistencia</dt><dd>{{ resumen.inasistencia }}</dd></div>
+          <div class="panel-cifra"><dt>Por bajo rendimiento</dt><dd>{{ resumen.rendimiento }}</dd></div>
+          <div class="panel-cifra"><dt>Por ambos motivos</dt><dd>{{ resumen.ambos }}</dd></div>
+          <div class="panel-cifra panel-cifra--total"><dt>Total en seguimiento</dt><dd>{{ resumen.total }}</dd></div>
+        </dl>
+        <p class="panel-nota">
+          {% for nombre, ev in periodos_de_seguimiento %}{% if not forloop.first %} · {% endif %}{{ nombre }}: asistencia de {{ ev.base.nombre|default:"todo el ciclo" }}{% if p.calificaciones %}, calificaciones de {{ ev.evaluado.nombre|default:"— (sin actas cerradas)" }}{% endif %}{% endfor %}
+        </p>
+        <p class="panel-nota">Prioridad alta: inasistencia y bajo rendimiento a la vez, faltas seguidas o tantas materias reprobadas como el umbral de prioridad alta del nivel. Baja: solo un descenso de promedio. Media: las demás alertas.</p>
+
+        <form class="panel-chips" method="get" aria-label="Filtrar alertas">
+          {% for clave, valor in filtros.valores.items %}<input type="hidden" name="{{ clave }}" value="{{ valor }}">{% endfor %}
+          <label class="visually-hidden" for="filtro-motivo">Motivo</label>
+          <select class="field__control field__control--select" id="filtro-motivo" name="motivo" data-panel-auto>
+            <option value="">Todos los motivos</option>
+            {% for clave, nombre in motivos %}<option value="{{ clave }}"{% if clave == motivo %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+          </select>
+          <label class="visually-hidden" for="filtro-prioridad">Prioridad</label>
+          <select class="field__control field__control--select" id="filtro-prioridad" name="prioridad" data-panel-auto>
+            <option value="">Todas las prioridades</option>
+            {% for clave, nombre in prioridades %}<option value="{{ clave }}"{% if clave == prioridad %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+          </select>
+          <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
+          <span class="panel-sub">{{ total_filtradas }} estudiante{{ total_filtradas|pluralize }}</span>
+        </form>
+
+        {% if pagina.object_list %}
+          {% include "panel/_alertas_tabla.html" with alertas=pagina.object_list %}
+          {% include "partials/pagination.html" with pagina=pagina rango=rango etiqueta="estudiantes" por_pagina=por_pagina opciones=opciones_por_pagina %}
+        {% else %}
+          <p class="panel-vacio">{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Ningún estudiante cumple los criterios{% if motivo or prioridad %} con estos filtros{% endif %}.</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/panel.js' %}" defer></script>
+{% endblock %}

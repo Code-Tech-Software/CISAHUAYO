@@ -1,0 +1,44 @@
+{% extends base %}
+{% load static %}
+{% comment %}
+  El detalle de un evento como página (sin JavaScript o desde un enlace directo; con él se abre en una ventana sobre el
+  calendario). En el sistema y en los portales; editar y eliminar solo para quien gestiona la agenda.
+{% endcomment %}
+
+{% block title %}{{ evento.titulo }} · Agenda | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/agenda.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Agenda</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ evento.titulo }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <article class="card agenda-ficha" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+    <header class="card__header agenda-ficha__cabeza">
+      <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
+      <h1 class="agenda-ficha__titulo">{{ evento.titulo }}</h1>
+    </header>
+    <div class="card__body">
+      <dl class="agenda-detalle__datos">
+        <div><dt>{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}<span class="visually-hidden">Fechas</span></dt><dd>{{ evento.texto_de_fechas }}</dd></div>
+        <div><dt>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}<span class="visually-hidden">Horario</span></dt><dd>{{ evento.texto_de_horario }}</dd></div>
+        {% if evento.lugar %}<div><dt>{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %}<span class="visually-hidden">Lugar</span></dt><dd>{{ evento.lugar }}</dd></div>{% endif %}
+      </dl>
+      {% if evento.descripcion %}<p class="agenda-detalle__descripcion">{{ evento.descripcion|linebreaksbr }}</p>{% endif %}
+    </div>
+    <footer class="card__footer agenda-ficha__pie">
+      <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la agenda</a>
+      {% if gestiona %}
+        <a class="btn btn--danger-text" href="{% url 'agenda:eliminar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar</a>
+        <a class="btn btn--primary" href="{% url 'agenda:editar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
+      {% endif %}
+    </footer>
+  </article>
+{% endblock %}

@@ -243,6 +243,18 @@ MODULOS = (
                       'Exclusivo del administrador.',
         }),
     )),
+    Modulo('agenda', 'Agenda', 'calendar', 'El calendario de eventos del colegio por nivel educativo. Todos consultan los de sus niveles y los de todo el colegio.', (
+        Funcion('Eventos de la agenda', {'editar': 'Agenda.gestionar'}, etiquetas={'editar': 'Gestionar'},
+                reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Crear, editar y eliminar los eventos de cualquier nivel o de todo el colegio. Exclusivo del administrador.',
+        }),
+    )),
+    Modulo('panel', 'Panel de control', 'layout-dashboard', 'Los indicadores del colegio y las alertas de los estudiantes que requieren atención.', (
+        Funcion('Criterios de seguimiento', {'ver': 'Panel.view_criterioseguimiento', 'editar': 'Panel.change_criterioseguimiento'}, ayuda={
+            'ver': 'Consultar los criterios con que el panel señala a los estudiantes que requieren atención (Ajustes › Seguimiento).',
+            'editar': 'Cambiar esos criterios por nivel: faltas, inasistencia, calificación aprobatoria, promedio mínimo, descenso y prioridad.',
+        }),
+    )),
     Modulo('bitacoras', 'Bitácoras por grupo', 'notebook-pen', 'Observaciones informativas de lo ocurrido en cada clase, por grupo y por estudiante (no afectan calificaciones ni conducta).', (
         Funcion('Bitácora de sus clases', {'crear': 'Bitacoras.registrar'}, etiquetas={'crear': 'Registrar'}, ayuda={
             'crear': 'Un docente registra y consulta las entradas de los grupos y materias que tiene asignados, y edita o anula las suyas.',

@@ -1,7 +1,6 @@
 import csv
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
@@ -55,16 +54,6 @@ PASOS_FORMULARIO = (
     {'clave': 'tutores', 'titulo': 'Tutores', 'icono': 'users'},
     {'clave': 'revision', 'titulo': 'Revisión', 'icono': 'clipboard-check'},
 )
-
-
-@login_required
-def inicio(request):
-    """Panel de control: cualquier cuenta con sesión; cada quien ve solo los accesos a lo que su rol permite. Una cuenta
-    de prefectura tiene su propio panel (con lo de su alcance)."""
-    from CISAHUAYO.context_processors import _usa_prefectura
-    if _usa_prefectura(request.user):
-        return redirect('prefectura:inicio')
-    return render(request, 'index.html')
 
 
 # ---------------------------------------------------------------------------

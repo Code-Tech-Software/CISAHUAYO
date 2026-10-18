@@ -87,10 +87,18 @@ NAVEGACION = (
         'titulo': None,
         'elementos': (
             {'etiqueta': 'Panel de control', 'icono': 'layout-dashboard', 'ruta': 'inicio', 'exacto': True, 'destinos': ((_no_usa_prefectura, 'inicio'),)},
+        ),
+    },
+    {
+        # Mensajes y comunicados en su propia categoría (pedido del 2026-10-18)
+        'titulo': 'Comunicación',
+        'elementos': (
             # Mensajería interna (también en los portales), con los mensajes sin leer junto a la etiqueta
             {'etiqueta': 'Mensajes', 'icono': 'message-circle', 'ruta': 'mensajes:inicio', 'destinos': ((_usa_mensajes, 'mensajes:inicio'),), 'contador': 'mensajes'},
             # Comunicados con seguimiento de lectura (también en los portales), con los recibidos sin leer junto a la etiqueta
             {'etiqueta': 'Comunicados', 'icono': 'megaphone', 'ruta': 'comunicados:inicio', 'destinos': ((_usa_comunicados, 'comunicados:inicio'),), 'contador': 'comunicados'},
+            # Agenda / Calendario: todos la consultan (cada quien, los eventos de sus niveles y de todo el colegio)
+            {'etiqueta': 'Agenda', 'icono': 'calendar', 'ruta': 'agenda:calendario'},
         ),
     },
     {

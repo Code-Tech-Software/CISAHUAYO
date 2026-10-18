@@ -77,6 +77,10 @@ INSTALLED_APPS = [
     'Comunicados',
     # Retiros anticipados: avisos de los tutores y salida confirmada por el personal: Retiros/
     'Retiros',
+    # Panel de control del administrador: indicadores, alertas de seguimiento y sus criterios por nivel: Panel/
+    'Panel',
+    # Agenda / Calendario: eventos del colegio por nivel educativo (también en los portales): Agenda/
+    'Agenda',
 ]
 
 MIDDLEWARE = [

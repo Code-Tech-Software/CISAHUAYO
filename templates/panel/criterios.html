@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Ajustes › Seguimiento: los criterios con que el panel señala a los estudiantes que requieren atención, por nivel
+  (Panel/models.py · CriterioSeguimiento). Un nivel que todavía no se guarda usa los valores iniciales propuestos.
+{% endcomment %}
+
+{% block title %}Criterios de seguimiento · Ajustes | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/panel.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Seguimiento</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes</h1>
+      <p class="page-header__description">Criterios de las alertas de «Estudiantes que requieren atención» del panel de control.</p>
+    </div>
+  </header>
+  {% include "ajustes/_pestanas.html" %}
+
+  <div class="alert alert--warning alert--spaced" role="note">
+    {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+    <div class="alert__body">
+      <p><strong>Configuración nueva.</strong> El sistema no tenía umbrales para estas alertas ni una calificación aprobatoria configurada.
+        Los valores iniciales son una propuesta para empezar, no reglas institucionales: revísalos con la dirección de cada nivel.</p>
+      <p>Valores propuestos: {{ propuestos.faltas_acumuladas }} faltas sin justificar en el periodo; {{ propuestos.faltas_consecutivas }} faltas seguidas;
+        inasistencia mayor que {{ propuestos.inasistencia_maxima }} % con al menos {{ propuestos.dias_minimos }} días con registro;
+        calificación aprobatoria {{ propuestos.calificacion_aprobatoria }} (la que el portal ya marca como reprobatoria); {{ propuestos.materias_reprobadas }} materia reprobada;
+        promedio menor que {{ propuestos.promedio_minimo }}; descenso de {{ propuestos.descenso_minimo }} punto entre dos periodos; prioridad alta con {{ propuestos.reprobadas_prioridad_alta }} materias reprobadas.</p>
+      <p>Las alertas son preventivas: no generan sanciones ni cambian calificaciones, y se recalculan con los registros de cada momento.</p>
+    </div>
+  </div>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <div class="panel-criterios">
+      {% for clave, nombre, form in formularios %}
+        <section class="card panel-criterio" aria-labelledby="criterio-{{ clave|lower }}">
+          <header class="card__header">
+            <h2 class="card__title" id="criterio-{{ clave|lower }}">{{ nombre }}</h2>
+            {% if form.instance.es_propuesto %}<span class="tag tag--warning">Valores propuestos sin guardar</span>{% else %}<span class="tag tag--success">Guardados</span>{% endif %}
+          </header>
+          <div class="card__body">
+            {% if form.non_field_errors %}<p class="field__error">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+            {% for titulo, campos in form.grupos %}
+              <fieldset class="panel-criterio__grupo"{% if not puede_cambiar %} disabled{% endif %}>
+                <legend class="panel-criterio__titulo">{{ titulo }}</legend>
+                {% for campo in campos %}
+                  {% if campo.field.widget.input_type == 'checkbox' %}
+                    <div class="field">
+                      <label class="choice choice--check" for="{{ campo.id_for_label }}">{{ campo }}<span class="choice__box">{{ campo.label|capfirst }}</span></label>
+                    </div>
+                  {% else %}
+                    {% include "partials/field.html" with campo=campo %}
+                  {% endif %}
+                {% endfor %}
+              </fieldset>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+    {% if puede_cambiar %}
+      <div class="action-bar">
+        <a class="btn" href="{% url 'inicio' %}">Volver al panel</a>
+        <button type="submit" class="btn btn--primary">Guardar criterios</button>
+      </div>
+    {% endif %}
+  </form>
+{% endblock %}

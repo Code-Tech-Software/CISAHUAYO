@@ -815,8 +815,8 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
             'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias', 'Calificaciones',
-                        'Bitácoras por grupo', 'Mensajes', 'Comunicados'},
-            'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes'},
+                        'Bitácoras por grupo', 'Mensajes', 'Comunicados', 'Agenda'},
+            'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes', 'Agenda'},
         }
         for nombre_rol, esperados in casos.items():
             with self.subTest(rol=nombre_rol):
@@ -824,10 +824,11 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
                 etiquetas = set(self.enlaces_del_menu(self.html_de(usuario))) - {'Panel de control', 'Ajustes'}
                 self.assertEqual(etiquetas, esperados)
 
-    def test_sin_permisos_solo_quedan_el_panel_de_control_y_los_ajustes(self):
-        # Los ajustes (tema de color, menú lateral) son de cada persona: no piden permiso
+    def test_sin_permisos_solo_quedan_el_panel_de_control_la_agenda_y_los_ajustes(self):
+        # Los ajustes (tema de color, menú lateral) son de cada persona: no piden permiso. La agenda tampoco: cada quien
+        # ve los eventos de sus niveles y los de todo el colegio
         etiquetas = self.enlaces_del_menu(self.html_de(self.sin_permisos))
-        self.assertEqual(etiquetas, ['Panel de control', 'Ajustes'])
+        self.assertEqual(etiquetas, ['Panel de control', 'Agenda', 'Ajustes'])
 
     def test_las_secciones_vacias_no_se_dibujan(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
@@ -838,7 +839,7 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         import re
         titulos = [t.strip() for t in re.findall(r'nav__title[^>]*>([^<]+)<', html)]
         self.assertNotIn('Gestión académica', titulos)
-        self.assertEqual(titulos, ['Comunidad escolar', 'Sistema'])   # «Sistema» solo con «Ajustes»
+        self.assertEqual(titulos, ['Comunicación', 'Comunidad escolar', 'Sistema'])   # «Comunicación» solo con «Agenda»; «Sistema», con «Ajustes»
 
     def test_el_tablero_ofrece_solo_accesos_permitidos(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))

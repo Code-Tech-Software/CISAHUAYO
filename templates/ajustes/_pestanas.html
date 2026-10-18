@@ -4,7 +4,7 @@
   La asistencia y las calificaciones se ven con el permiso de consultar sus ajustes; los motivos de retiro, con el de
   configurarlos (Retiros.configurar); la apariencia, todos.
 {% endcomment %}
-{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Retiros.configurar %}
+{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Retiros.configurar or perms.Panel.view_criterioseguimiento %}
   <nav class="pills pills--section" aria-label="Secciones de ajustes">
     <a class="pill{% if ajustes_seccion == 'apariencia' %} is-active{% endif %}" href="{% url 'ajustes:inicio' %}"{% if ajustes_seccion == 'apariencia' %} aria-current="page"{% endif %}>Apariencia</a>
     {% if perms.Alumnos.view_configuracionasistencia %}
@@ -18,6 +18,9 @@
     {% endif %}
     {% if perms.Retiros.configurar %}
       <a class="pill{% if ajustes_seccion == 'retiros' %} is-active{% endif %}" href="{% url 'retiros:motivos' %}"{% if ajustes_seccion == 'retiros' %} aria-current="page"{% endif %}>Retiros</a>
+    {% endif %}
+    {% if perms.Panel.view_criterioseguimiento %}
+      <a class="pill{% if ajustes_seccion == 'seguimiento' %} is-active{% endif %}" href="{% url 'panel:criterios' %}"{% if ajustes_seccion == 'seguimiento' %} aria-current="page"{% endif %}>Seguimiento</a>
     {% endif %}
   </nav>
 {% endif %}

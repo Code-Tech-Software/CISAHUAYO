@@ -1,0 +1,1154 @@
+/* ==========================================================================
+   CISAHUAYO · Panel de control (templates/panel/inicio.html, seguimiento.html y criterios.html)
+   Compacto: tarjetas pequeñas, gráficas de una sola serie en el color del sistema (marcas finas, extremos
+   redondeados de 4 px, rejilla de 1 px) con su tabla equivalente, y los colores establecidos de la asistencia.
+   Sin degradados. Colores de rol de static/css/app.css (siguen el tema y el modo oscuro).
+   ========================================================================== */
+
+.panel {
+  display: grid;
+  gap: var(--space-3);
+  container: panel / inline-size;   /* los filtros se acomodan al ancho del contenido, no al de la ventana */
+}
+
+/* --- Encabezado y filtros ------------------------------------------------------------------------------ */
+.panel-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.panel-cabeza__titulo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+}
+
+.panel-cabeza__fecha,
+.panel-cabeza__actualizado {
+  margin: 0.15rem 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.panel-cabeza__actualizado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panel-filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  align-items: end;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.panel-filtros__campo {
+  min-width: 0;
+  margin: 0;
+}
+
+.panel-filtros__campo .field__control {
+  min-height: var(--control-height-sm);
+  padding-block: 0.3rem;
+  font-size: var(--text-sm);
+}
+
+/* Si cabe, todo en una fila: el alcance y las fechas un poco más anchos, «Restablecer» a su medida */
+@container panel (min-width: 78rem) {
+  .panel-filtros {
+    grid-template-columns: minmax(0, 1.25fr) repeat(4, minmax(0, 1fr)) repeat(2, minmax(0, 1.2fr)) auto;
+  }
+}
+
+/* El alcance (todo el colegio o un nivel) va primero y resalta */
+.panel-filtros__campo--alcance {
+  grid-column: span 1;
+}
+
+.panel-filtros__campo--alcance .field__label {
+  color: var(--color-primary-text);
+  font-weight: var(--weight-bold);
+}
+
+.panel-filtros__campo--alcance .field__control {
+  border-color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-filtros__acciones {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.panel-filtros__acciones [aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.panel-alcance {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.panel-cargando {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.panel-cargando[hidden] {
+  display: none;
+}
+
+.panel-cargando__giro {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: panel-giro 0.8s linear infinite;
+}
+
+@keyframes panel-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.panel-cuerpo {
+  display: grid;
+  gap: var(--space-3);
+  transition: opacity var(--transition-base);
+}
+
+/* Al recargar se conserva lo anterior, atenuado (sin saltos) */
+.panel-cuerpo.is-cargando {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --- Indicadores principales -------------------------------------------------------------------------- */
+.panel-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--space-3);
+}
+
+/* En anchos medianos, de tres en tres (seis indicadores: dos filas completas, sin huecos) */
+@container panel (min-width: 40rem) and (max-width: 61.99rem) {
+  .panel-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.panel-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.panel-kpi__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-kpi__titulo .icon {
+  color: var(--color-primary-text);
+}
+
+.panel-kpi__valor {
+  margin: 0.2rem 0 0;
+  color: var(--color-text-strong);
+  font-size: 1.75rem;
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+}
+
+.panel-kpi__valor--texto {
+  font-size: var(--text-lg);
+}
+
+.panel-kpi__periodo,
+.panel-kpi__nota,
+.panel-kpi__estado {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.panel-kpi__estado {
+  color: var(--color-danger);
+}
+
+.panel-kpi__enlace {
+  margin-top: auto;
+  padding-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-kpi__detalle {
+  font-size: var(--text-xs);
+}
+
+.panel-kpi__detalle summary {
+  color: var(--color-primary-text);
+  cursor: pointer;
+}
+
+.panel-kpi__detalle dl {
+  display: grid;
+  gap: 0.1rem;
+  margin: var(--space-1) 0 0;
+}
+
+.panel-kpi__detalle dl div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.panel-kpi__detalle dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Filas y bloques --------------------------------------------------------------------------------------- */
+.panel-fila {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+/* Columnas según el ancho del contenido (con el menú lateral abierto o plegado) */
+@container panel (min-width: 45rem) {
+  .panel-fila {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container panel (min-width: 90rem) {
+  .panel-fila--atencion {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+  }
+}
+
+@container panel (min-width: 80rem) {
+  .panel-fila--tres {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Mientras no quepan lado a lado, el centro de atención va arriba (sus asuntos en dos columnas) y las alertas debajo,
+   a todo lo ancho: su tabla necesita el espacio */
+@container panel (max-width: 89.99rem) {
+  .panel-fila--atencion {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel-atencion {
+    grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr));
+    column-gap: var(--space-3);
+  }
+}
+
+.panel-bloque {
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.panel-bloque__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.panel-bloque__titulo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+}
+
+.panel-bloque__enlace {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-subtitulo {
+  margin: var(--space-3) 0 var(--space-2);
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-subtitulo__nota {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}
+
+.panel-nota {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.panel-nota .icon {
+  flex-shrink: 0;
+  margin-top: 0.1em;
+}
+
+.panel-nota--aparte {
+  flex-wrap: nowrap;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.panel-vacio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.panel-sub {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}
+
+.panel-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.panel-ayuda {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  cursor: help;
+}
+
+.panel-ayuda:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-focus);
+}
+
+/* --- Cifras compactas ----------------------------------------------------------------------------------------- */
+.panel-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.panel-cifra {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.panel-cifra dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.panel-cifra dd {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+.panel-cifra--total {
+  background: var(--color-primary-soft);
+}
+
+.panel-cifras--compactas {
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+}
+
+/* --- Prioridad (con texto, nunca solo color) ---------------------------------------------------------------- */
+.panel-prioridad--alta {
+  --tag-bg: var(--color-danger-bg);
+  --tag-fg: var(--color-danger);
+}
+
+.panel-prioridad--media {
+  --tag-bg: var(--color-warning-bg);
+  --tag-fg: var(--color-warning);
+}
+
+.panel-prioridad--baja {
+  --tag-bg: var(--color-info-bg);
+  --tag-fg: var(--color-info);
+}
+
+/* --- Centro de atención --------------------------------------------------------------------------------------- */
+.panel-atencion {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-atencion__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.panel-atencion__item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.panel-atencion__icono {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+}
+
+.panel-atencion__icono--alta {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.panel-atencion__icono--media {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.panel-atencion__cantidad {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Alertas de seguimiento ------------------------------------------------------------------------------------ */
+.panel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.panel-chips .field__control {
+  width: auto;
+  min-height: var(--control-height-sm);
+  padding-block: 0.25rem;
+  font-size: var(--text-sm);
+}
+
+.panel-tabla__nombre {
+  font-weight: var(--weight-semibold);
+}
+
+@media (min-width: 40rem) {
+  .panel-tabla .table__cell,
+  .panel-tabla .table__th {
+    padding: var(--space-2) var(--space-3);
+  }
+}
+
+.panel-motivos {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.panel-motivos__item {
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--color-border-strong);
+}
+
+.panel-motivos__item--inasistencia {
+  border-left-color: var(--asistencia-falta-fg);
+}
+
+.panel-motivos__item--rendimiento {
+  border-left-color: var(--color-primary);
+}
+
+.panel-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Estados de asistencia: los colores establecidos ------------------------------------------------------- */
+.panel-estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-estado {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-estado__n {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.panel-estado--presente { background: #1ea150; color: #ffffff; }
+.panel-estado--falta { background: #fde7e6; color: #c53646; }
+.panel-estado--retardo { background: #fcf0ea; color: #cb914c; }
+.panel-estado--suspension { background: #de333d; color: #ffffff; }
+.panel-estado--justificada { background: #ecf4fe; color: #5b8aca; }
+
+/* --- Línea de tendencia ------------------------------------------------------------------------------------------ */
+.panel-linea {
+  margin: 0;
+}
+
+.panel-linea__marco {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
+.panel-linea__eje {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 8.5rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
+.panel-linea__lienzo {
+  position: relative;
+  height: 8.5rem;
+}
+
+.panel-linea__lienzo svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.panel-linea__rejilla {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.panel-linea__trazo {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Cada día es una columna transparente (más grande que el punto): al pasar o enfocarla, una línea fina y el punto */
+.panel-linea__columna {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--x) - var(--w) / 2);
+  width: var(--w);
+  min-width: 6px;
+  cursor: crosshair;
+}
+
+.panel-linea__columna::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--color-border-strong);
+  opacity: 0;
+}
+
+.panel-linea__columna:hover::before,
+.panel-linea__columna:focus-visible::before {
+  opacity: 1;
+}
+
+.panel-linea__columna:focus-visible {
+  outline: none;
+}
+
+.panel-linea__punto {
+  position: absolute;
+  top: var(--y);
+  left: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-surface);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+}
+
+.panel-linea__columna:hover .panel-linea__punto,
+.panel-linea__columna:focus-visible .panel-linea__punto,
+.panel-linea__punto.is-ultimo {
+  opacity: 1;
+}
+
+.panel-linea__etiqueta {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  color: var(--color-text-strong);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+  transform: translate(-100%, -150%);
+  pointer-events: none;
+}
+
+.panel-linea__fechas {
+  display: flex;
+  justify-content: space-between;
+  margin-left: calc(2.6rem + var(--space-1));
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+/* Tabla equivalente de cada gráfica */
+.panel-tabla-datos {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.panel-tabla-datos summary {
+  color: var(--color-primary-text);
+  cursor: pointer;
+}
+
+.panel-tabla-datos table {
+  width: 100%;
+  margin-top: var(--space-1);
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-tabla-datos :is(th, td) {
+  padding: 0.2rem 0.4rem;
+  border-bottom: var(--border);
+  text-align: left;
+}
+
+/* --- Barras horizontales (una sola serie) ------------------------------------------------------------------- */
+.panel-barras {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-barras__fila {
+  display: grid;
+  grid-template-columns: minmax(5rem, 9rem) minmax(0, 1fr) 3.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.6rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+}
+
+.panel-barras__fila:hover,
+.panel-barras__fila:focus-visible {
+  background: var(--color-hover-tint);
+  outline: none;
+}
+
+.panel-barras__nombre {
+  overflow: hidden;
+  color: var(--color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-barras__pista {
+  height: 0.6rem;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-surface-2);
+}
+
+.panel-barras__barra {
+  display: block;
+  width: var(--ancho);
+  min-width: 2px;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-primary);
+}
+
+.panel-barras__valor {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* --- Columnas (rangos y semanas): la etiqueta de cada una va debajo de la línea base, dentro de su espacio ---- */
+.panel-columnas {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-columnas__item {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 7.25rem;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.panel-columnas__item:hover,
+.panel-columnas__item:focus-visible {
+  background: var(--color-hover-tint);
+  outline: none;
+}
+
+.panel-columnas__valor {
+  color: var(--color-text-strong);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.panel-columnas__barra {
+  width: min(1.5rem, 70%);
+  height: calc(var(--alto) * 0.05rem);   /* --alto: de 0 a 100 */
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--color-primary);
+}
+
+.panel-columnas__nombre {
+  width: 100%;
+  padding-top: 0.25rem;
+  overflow: hidden;
+  border-top: var(--border);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Semanas: muchas columnas angostas; las fechas, en la ayuda de cada una y en el pie */
+.panel-columnas--finas .panel-columnas__item {
+  height: 6rem;
+}
+
+.panel-columnas--finas .panel-columnas__nombre {
+  height: 0;
+  padding: 0;
+}
+
+/* --- Avance de captura (una barra con tres estados ordenados) --------------------------------------------- */
+.panel-pila {
+  display: flex;
+  gap: 2px;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.panel-pila__parte {
+  min-width: 4px;
+}
+
+.panel-pila__parte--cerradas { background: var(--color-primary); }
+.panel-pila__parte--captura { background: color-mix(in srgb, var(--color-primary) 40%, var(--color-surface)); }
+.panel-pila__parte--sin { background: var(--color-surface-2); box-shadow: inset 0 0 0 1px var(--color-border); }
+
+.panel-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+}
+
+.panel-leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.panel-leyenda__marca {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+}
+
+/* --- Listas breves --------------------------------------------------------------------------------------------- */
+.panel-lista {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-lista__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  padding: 0.3rem 0;
+  border-bottom: var(--border);
+  font-size: var(--text-sm);
+}
+
+.panel-lista__item:last-child {
+  border-bottom: 0;
+}
+
+.panel-lista__item .panel-sub {
+  display: inline;
+}
+
+.panel-lista__valor {
+  margin-left: auto;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-mensajes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  font-size: var(--text-sm);
+}
+
+.panel-mensajes .btn {
+  margin-left: auto;
+}
+
+.panel-accesos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* --- Búsqueda de estudiante (Vista 360) ------------------------------------------------------------------------ */
+.panel-buscar {
+  position: relative;
+}
+
+.panel-buscar .field__control {
+  min-height: var(--control-height-sm);
+}
+
+.panel-buscar__resultados {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: var(--z-dropdown);
+  display: grid;
+  max-height: 16rem;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  list-style: none;
+}
+
+.panel-buscar__resultados[hidden] {
+  display: none;
+}
+
+.panel-buscar__opcion {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.panel-buscar__opcion:hover,
+.panel-buscar__opcion[aria-selected="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-text-strong);
+}
+
+/* --- Actividad reciente ------------------------------------------------------------------------------------------ */
+.panel-actividad {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-actividad__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 0.35rem 0;
+  border-bottom: var(--border);
+  font-size: var(--text-sm);
+}
+
+.panel-actividad__item:last-child {
+  border-bottom: 0;
+}
+
+.panel-actividad__icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-primary-text);
+}
+
+.panel-actividad__texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Ajustes › Seguimiento ------------------------------------------------------------------------------------------ */
+.panel-criterios {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: var(--space-4);
+}
+
+.panel-criterio .card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.panel-criterio__grupo {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: 0;
+}
+
+.panel-criterio__titulo {
+  margin-bottom: var(--space-1);
+  padding: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* --- Pantallas angostas ----------------------------------------------------------------------------------------- */
+@media (max-width: 39.99rem) {
+  .panel-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panel-kpi__valor {
+    font-size: var(--text-xl);
+  }
+
+  .panel-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panel-filtros__campo--alcance,
+  .panel-filtros__campo--ciclo,
+  .panel-filtros__campo--fecha,
+  .panel-filtros__acciones {
+    grid-column: 1 / -1;
+  }
+
+  .panel-bloque {
+    padding: var(--space-3);
+  }
+
+  .panel-barras__fila {
+    grid-template-columns: minmax(4rem, 6.5rem) minmax(0, 1fr) 3rem;
+  }
+
+  .panel-atencion__item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .panel-atencion__item .panel-prioridad {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-cuerpo,
+  .panel-cargando__giro {
+    transition: none;
+    animation-duration: 2.4s;
+  }
+}
+
+/* En la tabla de alertas, el motivo es lo que más se lee: las columnas de cifras, prioridad y accesos se ajustan a su
+   contenido y el motivo toma el resto */
+.panel-tabla .table__cell:nth-child(n + 3),
+.panel-tabla .table__th:nth-child(n + 3) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.panel-tabla .table__cell:first-child {
+  min-width: 8.5rem;
+}
+
+.panel-columnas__pie {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.2rem 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.panel-alcance .icon {
+  margin-right: 0.3rem;
+  vertical-align: -0.15em;
+}
+
+.panel-filtros .field__control {
+  width: 100%;
+  min-width: 0;
+}
+
+/* En el teléfono cada alerta es una tarjeta: el motivo, a todo lo ancho */
+@media (max-width: 39.99rem) {
+  .panel-tabla .table__cell:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  .panel-tabla .table__cell:nth-child(n + 3) {
+    width: auto;
+  }
+}
+
+/* --- Ir a una sección (los accesos del rol, compactos) ---------------------------------------------------------- */
+.panel-secciones {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.panel-secciones .tile-grid {
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.panel-secciones .tile {
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.panel-secciones .tile__chip {
+  width: 2rem;
+  height: 2rem;
+}
+
+.panel-secciones .tile__title {
+  font-size: var(--text-sm);
+}

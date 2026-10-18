@@ -28,7 +28,7 @@ class MenuConRutasRealesTests(SimpleTestCase):
 
     def test_el_orden_del_menu(self):
         self.assertEqual(list(self.items), [
-            'Panel de control', 'Mensajes', 'Comunicados', 'Estudiantes', 'Tutores', 'Profesores',
+            'Panel de control', 'Mensajes', 'Comunicados', 'Agenda', 'Estudiantes', 'Tutores', 'Profesores',
             'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias',
             'Horarios', 'Calificaciones', 'Bitácoras por grupo', 'Asistencias', 'Retiros anticipados', 'Registro de conducta', 'Reportes de conducta',
             'Usuarios', 'Roles y permisos', 'Ajustes',
@@ -72,7 +72,8 @@ class MenuConRutasRealesTests(SimpleTestCase):
     def test_las_secciones_del_menu(self):
         secciones = [(s['titulo'], [el['etiqueta'] for el in s['elementos']]) for s in NAVEGACION]
         self.assertEqual(secciones, [
-            (None, ['Panel de control', 'Mensajes', 'Comunicados']),
+            (None, ['Panel de control']),
+            ('Comunicación', ['Mensajes', 'Comunicados', 'Agenda']),
             # La de las cuentas de prefectura (solo la ven ellas)
             ('Prefectura', ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Retiros anticipados', 'Seguimiento', 'Reportes']),
             ('Comunidad escolar', ['Estudiantes', 'Tutores', 'Profesores']),

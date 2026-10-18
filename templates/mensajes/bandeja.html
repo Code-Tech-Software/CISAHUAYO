@@ -7,6 +7,9 @@
   envía sin recargar; sin JavaScript también funciona (formularios normales).
 {% endcomment %}
 
+{# Usa todo el ancho y casi todo el alto de la ventana (static/css/mensajes.css) #}
+{% block clase_pagina %} page--ancha page--chat{% endblock %}
+
 {% block title %}{% if conversacion and otro %}{{ otro.nombre }} · {% endif %}Mensajes | CISAHUAYO{% endblock %}
 
 {% block extra_head %}

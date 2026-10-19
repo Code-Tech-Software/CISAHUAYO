@@ -47,6 +47,8 @@ urlpatterns = [
     path('', include('Panel.urls')),
     # Agenda / Calendario (agenda/…; en los portales: PortalEstudiantes/urls.py, PortalTutores/urls.py)
     path('agenda/', include('Agenda.urls')),
+    # Reuniones con familias: gestión (reuniones/…) y configuración en Ajustes (ajustes/reuniones/…); el tutor las ve en su portal
+    path('', include('Reuniones.urls')),
     # Portales (cada uno con su propia sesión: CISAHUAYO/portales.py)
     path('portal/estudiantes/', include('PortalEstudiantes.urls')),
     path('portal/tutores/', include('PortalTutores.urls')),

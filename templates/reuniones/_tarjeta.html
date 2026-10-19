@@ -1,0 +1,15 @@
+{% load reuniones_extras %}
+{% comment %}Una reunión en las listas del panel y de la agenda del teléfono. Parámetros: reunion (con sus relaciones), faltan (opcional).{% endcomment %}
+<li>
+  <a class="reuniones-tarjeta reuniones-tarjeta--{{ reunion.estado|lower }}" href="{% url 'reuniones:detalle' reunion.pk %}">
+    <span class="reuniones-tarjeta__hora">
+      {% if reunion.programada %}<strong>{{ reunion.hora_inicio|time:"H:i" }}</strong><span>{{ reunion.fecha|date:"D j"|capfirst }}</span>{% else %}<strong>—</strong><span>{{ reunion.creada|date:"j M" }}</span>{% endif %}
+    </span>
+    <span class="reuniones-tarjeta__texto">
+      <span class="reuniones-tarjeta__titulo">{{ reunion.tutor|persona }}</span>
+      <span class="text-muted reuniones-sub">{{ reunion.get_area_display }}{% if reunion.sala %} · {{ reunion.sala }}{% endif %} · {% for e in reunion.estudiantes.all %}{{ e.alumno.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+      {% if faltan %}<span class="reuniones-tarjeta__falta">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} {{ faltan.0 }}{% if faltan|length > 1 %} (+{{ faltan|length|add:"-1" }}){% endif %}</span>{% endif %}
+    </span>
+    <span class="reuniones-etiquetas">{% include "reuniones/_estado.html" %}{% include "reuniones/_prioridad.html" %}</span>
+  </a>
+</li>

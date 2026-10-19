@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load static reuniones_extras %}
+{% comment %}Registrar una llamada, paso 1: buscar al tutor que llama en el registro (Reuniones/views.nueva).{% endcomment %}
+
+{% block title %}Registrar llamada · Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Registrar llamada</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Registrar llamada</h1>
+      <p class="page-header__description">Busca al tutor que llama. Registrar la llamada no confirma ninguna cita: la solicitud queda pendiente de programación.</p>
+    </div>
+  </header>
+
+  <form class="filters reuniones-buscar" method="get" role="search" aria-label="Buscar al tutor">
+    <div class="filters__field reuniones-buscar__campo"><label class="field__label" for="{{ buscar.q.id_for_label }}">{{ buscar.q.label }}</label>{{ buscar.q }}</div>
+    <div class="filters__actions"><button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="search" icon_class="icon--sm" %} Buscar</button></div>
+  </form>
+
+  {% if texto %}
+    {% if encontrados %}
+      <ul class="reuniones-tutores" aria-label="Tutores encontrados">
+        {% for tutor, hijos in encontrados %}
+          <li>
+            <a class="reuniones-tutor" href="{% url 'reuniones:nueva' %}?tutor={{ tutor.pk }}">
+              {% include "partials/avatar.html" with persona=tutor %}
+              <span class="reuniones-tutor__texto">
+                <span class="reuniones-tutor__nombre">{{ tutor|persona }}</span>
+                <span class="text-muted reuniones-sub">{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} {{ tutor.telefono }}{% if tutor.telefono_alternativo %} · {{ tutor.telefono_alternativo }}{% endif %}</span>
+                <span class="text-muted reuniones-sub">{% for hijo in hijos %}{{ hijo.nombre }} {{ hijo.apellido_paterno }}{% if not forloop.last %}, {% endif %}{% empty %}Sin estudiantes activos vinculados{% endfor %}</span>
+              </span>
+              <span class="btn btn--sm">Elegir</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="table-card"><div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No se encontró a nadie con «{{ texto }}»</p>
+        <p class="empty-state__text">Busca por nombre, apellido, teléfono o por el nombre del estudiante. El tutor debe estar dado de alta en Tutores.</p>
+      </div></div>
+    {% endif %}
+  {% elif buscar.is_bound %}
+    <p class="text-muted">Escribe al menos dos letras.</p>
+  {% endif %}
+{% endblock %}

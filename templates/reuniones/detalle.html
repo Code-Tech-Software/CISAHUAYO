@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% load static reuniones_extras %}
+{% comment %}
+  Detalle de una reunión con familia (Reuniones/views.detalle): la cita, lo que falta para confirmarla, los
+  participantes (quién es docente y quién acompaña, con su disponibilidad y su asistencia), las confirmaciones y avisos a
+  la familia, la minuta (las notas confidenciales solo con su permiso), los acuerdos con su seguimiento, los documentos,
+  la solicitud, los estudiantes, los antecedentes y el historial. Las acciones dependen del estado y del permiso.
+{% endcomment %}
+
+{% block title %}Reunión {{ reunion.folio }} | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ reunion.folio }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header reuniones-cabeza">
+    <div>
+      <p class="reuniones-folio">Folio {{ reunion.folio }} · Solicitada el {{ reunion.creada|date:"d/m/Y \a \l\a\s H:i" }} por {{ reunion.registrada_por|cuenta }}</p>
+      <h1 class="page-header__title">Reunión con {{ reunion.tutor|persona }}</h1>
+      <p class="page-header__description reuniones-etiquetas">{% include "reuniones/_estado.html" %}{% include "reuniones/_prioridad.html" %}<span class="tag">{{ reunion.get_area_display }}</span></p>
+    </div>
+  </header>
+
+  {# --- Acciones según el estado ---------------------------------------------------------------------------- #}
+  <div class="reuniones-acciones" role="toolbar" aria-label="Acciones de la reunión">
+    {% if puede.programar %}<a class="btn btn--primary btn--sm" href="{% url 'reuniones:programar' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} Programar</a>{% endif %}
+    {% if puede.iniciar %}<a class="btn btn--primary btn--sm" href="{% url 'reuniones:iniciar' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="user-check" icon_class="icon--sm" %} Iniciar y registrar asistencia</a>{% endif %}
+    {% if puede.finalizar %}<a class="btn btn--primary btn--sm" href="{% url 'reuniones:finalizar' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="notebook-pen" icon_class="icon--sm" %} Registrar minuta y terminar</a>{% endif %}
+    {% if puede.confirmar_tutor %}<a class="btn btn--sm{% if not reunion.confirmacion_tutor_id %} btn--primary{% endif %}" href="{% url 'reuniones:confirmar_tutor' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} Confirmación del tutor</a>{% endif %}
+    {% if puede.disponibilidad %}<a class="btn btn--sm{% if participacion.confirmacion == 'PENDIENTE' %} btn--primary{% endif %}" href="{% url 'reuniones:disponibilidad' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Confirmar mi disponibilidad</a>{% endif %}
+    {% if puede.participantes %}<a class="btn btn--sm" href="{% url 'reuniones:participantes' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Participantes</a>{% endif %}
+    {% if puede.reprogramar %}<a class="btn btn--sm" href="{% url 'reuniones:reprogramar' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Reprogramar</a>{% endif %}
+    {% if puede.sustituto %}<a class="btn btn--sm" href="{% url 'reuniones:sustituto' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Acompañante sustituto</a>{% endif %}
+    {% if puede.aviso %}<a class="btn btn--ghost btn--sm" href="{% url 'reuniones:aviso' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %} Aviso a la familia</a>{% endif %}
+    {% if puede.editar_minuta %}<a class="btn btn--ghost btn--sm" href="{% url 'reuniones:finalizar' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar minuta</a>{% endif %}
+    {% if reunion.estado == 'REALIZADA' and minuta %}
+      <a class="btn btn--ghost btn--sm" href="{% url 'reuniones:minuta' reunion.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Minuta para la familia</a>
+      {% if puede.confidencial %}<a class="btn btn--ghost btn--sm" href="{% url 'reuniones:minuta' reunion.pk %}?version=interna" target="_blank" rel="noopener">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Minuta interna</a>{% endif %}
+    {% endif %}
+    {% if puede.siguiente %}
+      <form method="post" action="{% url 'reuniones:siguiente' reunion.pk %}" class="reuniones-acciones__form">{% csrf_token %}<button type="submit" class="btn btn--ghost btn--sm">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Programar otra reunión vinculada</button></form>
+    {% endif %}
+    {% if puede.inasistencia %}<a class="btn btn--danger-text btn--sm" href="{% url 'reuniones:inasistencia' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} No realizada por inasistencia</a>{% endif %}
+    {% if puede.cancelar %}<a class="btn btn--danger-text btn--sm" href="{% url 'reuniones:cancelar' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="circle-x" icon_class="icon--sm" %} Cancelar</a>{% endif %}
+  </div>
+
+  {% if acompanamiento %}
+    <div class="alert alert--warning" role="alert">
+      {% include "partials/icon.html" with name="shield-check" icon_class="alert__icon" %}
+      <div class="alert__body"><p><strong>Acompañamiento directivo:</strong> {{ acompanamiento.0 }}</p>
+        <p>Toda reunión con un docente necesita un acompañante autorizado; sin él la cita no se confirma ni se inicia.{% if puede.participantes %} <a href="{% url 'reuniones:participantes' reunion.pk %}" data-modal-form>Asignarlo</a>.{% endif %}</p></div>
+    </div>
+  {% endif %}
+  {% if faltantes and reunion.estado == 'PROGRAMADA' %}
+    <div class="alert alert--info" role="status">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <div class="alert__body"><p><strong>Para quedar confirmada falta:</strong></p>
+        <ul class="reuniones-faltan">{% for falta in faltantes %}<li>{{ falta }}</li>{% endfor %}</ul></div>
+    </div>
+  {% elif faltantes and reunion.estado == 'CONFIRMADA' %}
+    <div class="alert alert--warning" role="alert">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><ul class="reuniones-faltan">{% for falta in faltantes %}<li>{{ falta }}</li>{% endfor %}</ul></div>
+    </div>
+  {% endif %}
+
+  <div class="reuniones-detalle">
+    <div class="reuniones-detalle__principal">
+      {# --- La cita ---------------------------------------------------------------------------------------- #}
+      <section class="card" aria-labelledby="cita-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="cita-titulo">La cita</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item details__item--wide"><dt class="details__label">Fecha y horario</dt>
+              <dd class="details__value{% if not reunion.programada %} details__value--empty{% endif %}">{% if reunion.programada %}{{ reunion.fecha|fecha_larga }} · {{ reunion.hora_inicio|time:"H:i" }} a {{ reunion.hora_fin|time:"H:i" }} ({{ reunion.duracion }} min){% else %}Por programar{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Lugar o sala</dt><dd class="details__value{% if not reunion.sala %} details__value--empty{% endif %}">{% if reunion.sala %}{{ reunion.sala }}{% if reunion.sala.ubicacion %}<span class="text-muted reuniones-sub">{{ reunion.sala.ubicacion }}</span>{% endif %}{% else %}Sin asignar{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Responsable</dt><dd class="details__value{% if not reunion.responsable %} details__value--empty{% endif %}">{% if reunion.responsable %}{{ reunion.responsable|cuenta }}{% else %}Sin asignar{% endif %}</dd></div>
+            {% if reunion.iniciada_en %}<div class="details__item"><dt class="details__label">Inició</dt><dd class="details__value">{{ reunion.iniciada_en|date:"d/m/Y H:i" }}</dd></div>{% endif %}
+            {% if reunion.terminada_en %}<div class="details__item"><dt class="details__label">Terminó</dt><dd class="details__value">{{ reunion.terminada_en|date:"d/m/Y H:i" }}</dd></div>{% endif %}
+            {% if reunion.estado == 'CANCELADA' or reunion.estado == 'NO_REALIZADA' %}
+              <div class="details__item details__item--wide"><dt class="details__label">{% if reunion.estado == 'CANCELADA' %}Motivo de la cancelación{% else %}Observaciones de la inasistencia{% endif %}</dt>
+                <dd class="details__value">{{ reunion.motivo_cierre|default:"—" }}<span class="text-muted reuniones-sub">{{ reunion.cerrada_por|cuenta }} · {{ reunion.cerrada_en|date:"d/m/Y H:i" }}</span></dd></div>
+            {% endif %}
+            {% if faltaron %}
+              <div class="details__item details__item--wide"><dt class="details__label">Faltó</dt>
+                <dd class="details__value"><ul class="reuniones-faltaron">{% for nombre, papel in faltaron %}<li><span class="tag tag--danger">{{ papel }}</span> {{ nombre }}</li>{% endfor %}</ul></dd></div>
+            {% endif %}
+          </dl>
+        </div>
+      </section>
+
+      {# --- Participantes ------------------------------------------------------------------------------------ #}
+      <section class="card" id="participantes" aria-labelledby="participantes-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="users" %}<h2 class="card__title" id="participantes-titulo">Personal del colegio</h2>
+          {% if puede.participantes %}<a class="card__header-action link-subtle" href="{% url 'reuniones:participantes' reunion.pk %}" data-modal-form>Cambiar</a>{% endif %}</header>
+        {% if docentes or acompanantes or personal %}
+          <ul class="reuniones-personas">
+            {% for participante in docentes %}{% include "reuniones/_participante.html" with titulo_papel="Docente" %}{% endfor %}
+            {% for participante in acompanantes %}{% include "reuniones/_participante.html" with titulo_papel="Acompañante directivo" %}{% endfor %}
+            {% for participante in personal %}{% include "reuniones/_participante.html" with titulo_papel="Personal escolar" %}{% endfor %}
+          </ul>
+          {% if docentes and acompanantes %}<p class="card__body text-muted reuniones-sub reuniones-nota-acompana">{% for a in acompanantes %}{{ a.usuario|cuenta }}{% if not forloop.last %} y {% endif %}{% endfor %} {{ acompanantes|length|pluralize:"acompaña,acompañan" }} a {% for d in docentes %}{{ d.usuario|cuenta }}{% if not forloop.last %}, {% endif %}{% endfor %} durante la reunión.</p>{% endif %}
+        {% else %}
+          <p class="card__body text-muted">Todavía no hay personal asignado.{% if puede.participantes %} <a href="{% url 'reuniones:participantes' reunion.pk %}" data-modal-form>Asignar</a>.{% endif %}</p>
+        {% endif %}
+        {% if retirados %}
+          <details class="reuniones-retirados">
+            <summary>Quiénes salieron de la reunión ({{ retirados|length }})</summary>
+            <ul>{% for p in retirados %}<li>{{ p.usuario|cuenta }} · {{ p.get_papel_display }} · {{ p.retirado_motivo }} ({{ p.retirado_en|date:"d/m H:i" }}){% if p.asistencia == 'AUSENTE' %} · <span class="tag tag--danger">No asistió</span>{% endif %}</li>{% endfor %}</ul>
+          </details>
+        {% endif %}
+      </section>
+
+      {# --- Confirmaciones y avisos a la familia ------------------------------------------------------------------ #}
+      <section class="card" id="confirmaciones" aria-labelledby="confirmaciones-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="phone" %}<h2 class="card__title" id="confirmaciones-titulo">La familia</h2></header>
+        <div class="card__body">
+          <ul class="reuniones-familia">
+            {% for invitado in tutores %}
+              <li class="reuniones-persona">
+                {% include "partials/avatar.html" with persona=invitado.tutor %}
+                <div class="reuniones-persona__texto">
+                  <p class="reuniones-persona__nombre">{{ invitado.tutor|persona }}{% if invitado.solicitante %} <span class="tag">Solicitó la reunión</span>{% endif %}</p>
+                  <p class="text-muted reuniones-sub">{% if invitado.solicitante %}Tel. {{ reunion.telefono }}{% if reunion.telefono_verificado %} (verificado){% endif %}{% else %}Tel. {{ invitado.tutor.telefono }}{% endif %}</p>
+                </div>
+                {% if invitado.asistencia == 'PRESENTE' %}<span class="tag tag--success">Asistió</span>{% elif invitado.asistencia == 'AUSENTE' %}<span class="tag tag--danger">No asistió</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+          <p class="reuniones-confirmacion">
+            {% if reunion.confirmacion_tutor %}{% with c=reunion.confirmacion_tutor %}
+              <span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Confirmó</span>
+              {{ c.tutor|persona }} · {{ c.get_medio_display }} · {{ c.momento|date:"d/m/Y H:i" }}{% if c.recibio %} · la recibió {{ c.recibio|cuenta }}{% endif %}
+            {% endwith %}{% elif reunion.programada and reunion.abierta %}
+              <span class="tag tag--warning">Sin confirmar</span> La familia todavía no confirma su asistencia.
+            {% endif %}
+          </p>
+          {% if contactos %}
+            <h3 class="reuniones-subtitulo">Confirmaciones y avisos registrados</h3>
+            <ul class="reuniones-mini">
+              {% for c in contactos %}<li><strong>{{ c.get_tipo_display }}</strong> · {{ c.get_medio_display }} · {{ c.momento|date:"d/m/Y H:i" }} · {% if c.tutor %}{{ c.tutor|persona }}{% endif %}{% if c.recibio %} · {{ c.recibio|cuenta }}{% endif %}{% if c.nota %}<span class="text-muted reuniones-sub">{{ c.nota }}</span>{% endif %}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      </section>
+
+      {# --- Minuta ---------------------------------------------------------------------------------------------- #}
+      {% if minuta or reunion.estado == 'EN_CURSO' %}
+        <section class="card" id="minuta" aria-labelledby="minuta-titulo">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title" id="minuta-titulo">Minuta</h2>
+            {% if firmada %}<span class="card__header-action tag tag--success">{% include "partials/icon.html" with name="badge-check" icon_class="icon--sm" %} Evidencia de firma registrada</span>{% elif minuta %}<span class="card__header-action tag">Sin evidencia de firma</span>{% endif %}</header>
+          <div class="card__body">
+            {% if minuta %}
+              <dl class="details">
+                <div class="details__item"><dt class="details__label">Horario real</dt><dd class="details__value">{{ minuta.inicio_real|time:"H:i" }} a {{ minuta.fin_real|time:"H:i" }}</dd></div>
+                <div class="details__item"><dt class="details__label">Siguiente reunión</dt><dd class="details__value">{% if minuta.siguiente_reunion %}Sí{% if minuta.siguiente_reunion_nota %}: {{ minuta.siguiente_reunion_nota }}{% endif %}{% else %}No es necesaria{% endif %}</dd></div>
+                <div class="details__item details__item--wide"><dt class="details__label">Temas tratados</dt><dd class="details__value">{{ minuta.temas|linebreaksbr }}</dd></div>
+                <div class="details__item details__item--wide"><dt class="details__label">Resumen</dt><dd class="details__value">{{ minuta.resumen|linebreaksbr }}</dd></div>
+              </dl>
+              {% if puede.confidencial %}
+                <div class="reuniones-confidencial reuniones-confidencial--lectura">
+                  <p class="reuniones-confidencial__titulo">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Notas internas confidenciales <span class="text-muted">· nunca se muestran a la familia</span></p>
+                  <p>{{ minuta.notas_internas|default:"Sin notas internas."|linebreaksbr }}</p>
+                </div>
+              {% endif %}
+              <p class="text-muted reuniones-sub">Registró {{ minuta.registrada_por|cuenta }} el {{ minuta.registrada_en|date:"d/m/Y H:i" }}{% if minuta.modificada_por and minuta.modificada_en|date:"YmdHi" != minuta.registrada_en|date:"YmdHi" %} · última edición de {{ minuta.modificada_por|cuenta }}{% endif %}.</p>
+            {% else %}
+              <p class="text-muted">La reunión está en curso. Al terminar, registra la minuta.</p>
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
+
+      {# --- Acuerdos ---------------------------------------------------------------------------------------- #}
+      {% if acuerdos or puede.acuerdos %}
+        <section class="card" id="acuerdos" aria-labelledby="acuerdos-titulo">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="acuerdos-titulo">Acuerdos y compromisos</h2>
+            {% if puede.acuerdos %}<a class="card__header-action btn btn--sm" href="{% url 'reuniones:acuerdo_nuevo' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Acuerdo</a>{% endif %}</header>
+          {% if acuerdos %}
+            <ul class="reuniones-acuerdos">
+              {% for acuerdo in acuerdos %}
+                <li class="reuniones-acuerdo">
+                  <div class="reuniones-acuerdo__cabeza">
+                    <p class="reuniones-acuerdo__texto">{{ acuerdo.descripcion|linebreaksbr }}</p>
+                    {% include "reuniones/_acuerdo_estado.html" %}
+                  </div>
+                  <p class="text-muted reuniones-sub">{{ acuerdo.get_quien_display }} · Responsable: {{ acuerdo.nombre_responsable }} · Fecha límite: {{ acuerdo.fecha_limite|date:"d/m/Y" }} · {% if acuerdo.compartido %}Compartido con la familia{% else %}{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Solo para el colegio{% endif %}</p>
+                  {% if acuerdo.seguimientos.all %}
+                    <ul class="reuniones-seguimientos">
+                      {% for s in acuerdo.seguimientos.all %}<li><strong>{{ s.get_estado_display }}</strong> · {{ s.nota }} <span class="text-muted">· {{ s.usuario|cuenta }}, {{ s.creado|date:"d/m/Y" }}</span>{% if s.evidencia %} · <a class="link-subtle" href="{% url 'reuniones:evidencia' s.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ s.evidencia_nombre }}</a>{% endif %}</li>{% endfor %}
+                    </ul>
+                  {% endif %}
+                  <div class="reuniones-acuerdo__acciones">
+                    {% if puede.gestiona or acuerdo.responsable_id == request.user.pk %}<a class="btn btn--ghost btn--sm" href="{% url 'reuniones:seguimiento' acuerdo.pk %}" data-modal-form>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Seguimiento</a>{% endif %}
+                    {% if puede.acuerdos %}<a class="btn btn--ghost btn--sm" href="{% url 'reuniones:acuerdo_editar' reunion.pk acuerdo.pk %}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>{% endif %}
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="card__body text-muted">Sin acuerdos registrados.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {# --- Documentos -------------------------------------------------------------------------------------- #}
+      {% if adjuntos or puede.documentos %}
+        <section class="card" id="documentos" aria-labelledby="documentos-titulo">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="paperclip" %}<h2 class="card__title" id="documentos-titulo">Documentos</h2>
+            {% if puede.documentos %}<a class="card__header-action btn btn--sm" href="{% url 'reuniones:documentos' reunion.pk %}" data-modal-form>{% include "partials/icon.html" with name="upload" icon_class="icon--sm" %} Subir</a>{% endif %}</header>
+          {% if adjuntos %}
+            <ul class="reuniones-mini reuniones-documentos">
+              {% for a in adjuntos %}<li><a class="link-subtle" href="{% url 'reuniones:documento' a.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name=a.es_imagen|yesno:"image,file-text" icon_class="icon--sm" %} {{ a.nombre_original }}</a> · {{ a.get_clase_display }}{% if a.compartido %} · <span class="tag">Compartido con la familia</span>{% endif %} <span class="text-muted">· {{ a.subido_por|cuenta }}, {{ a.creado|date:"d/m/Y" }}</span></li>{% endfor %}
+            </ul>
+          {% else %}
+            <p class="card__body text-muted">Sin documentos. Sube aquí la minuta firmada como «Evidencia de firma».</p>
+          {% endif %}
+        </section>
+      {% endif %}
+    </div>
+
+    <aside class="reuniones-detalle__lateral">
+      <section class="card" aria-labelledby="solicitud-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="file-text" %}<h2 class="card__title" id="solicitud-titulo">La solicitud</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item details__item--wide"><dt class="details__label">Motivo</dt><dd class="details__value">{{ reunion.motivo }}</dd></div>
+            <div class="details__item details__item--wide"><dt class="details__label">Descripción</dt><dd class="details__value">{{ reunion.descripcion|linebreaksbr }}</dd></div>
+            <div class="details__item details__item--wide"><dt class="details__label">Horarios que propuso</dt>
+              <dd class="details__value{% if not reunion.propuestas %} details__value--empty{% endif %}">{% for p in reunion.propuestas %}<span class="reuniones-propuesta">{{ p.fecha }}{% if p.desde %} · {{ p.desde }}{% if p.hasta %} a {{ p.hasta }}{% endif %}{% endif %}</span>{% empty %}Ninguno{% endfor %}</dd></div>
+            {% if puede.observaciones %}
+              <div class="details__item details__item--wide reuniones-confidencial"><dt class="details__label">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Observaciones internas</dt>
+                <dd class="details__value{% if not reunion.observaciones_internas %} details__value--empty{% endif %}">{{ reunion.observaciones_internas|default:"Sin observaciones"|linebreaksbr }}</dd></div>
+            {% endif %}
+          </dl>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="estudiantes-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="estudiantes-titulo">Estudiantes</h2></header>
+        <ul class="reuniones-familia card__body">
+          {% for e in reunion.estudiantes.all %}
+            <li class="reuniones-persona">
+              {% include "partials/avatar.html" with persona=e.alumno %}
+              <div class="reuniones-persona__texto">
+                <p class="reuniones-persona__nombre"><a class="link-subtle" href="{% url 'reuniones:estudiante' e.alumno_id %}">{{ e.alumno|persona }}</a></p>
+                <p class="text-muted reuniones-sub">{{ e.inscripcion|grupo_corto }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      {% if total_antecedentes or reunion.reunion_anterior or siguientes %}
+        <section class="card" aria-labelledby="antecedentes-titulo">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="antecedentes-titulo">Antecedentes</h2></header>
+          <div class="card__body">
+            {% if reunion.reunion_anterior %}<p>Seguimiento de <a class="link-subtle" href="{% url 'reuniones:detalle' reunion.reunion_anterior_id %}">{{ reunion.reunion_anterior.folio }}</a>.</p>{% endif %}
+            {% for s in siguientes %}<p>Continúa en <a class="link-subtle" href="{% url 'reuniones:detalle' s.pk %}">{{ s.folio }}</a> ({{ s.get_estado_display|lower }}).</p>{% endfor %}
+            {% if total_antecedentes %}
+              <ul class="reuniones-mini">
+                {% for r in antecedentes %}<li><a class="link-subtle" href="{% url 'reuniones:detalle' r.pk %}">{{ r.folio }}</a> · {{ r.motivo }} · {{ r.get_estado_display }}{% if r.fecha %} · {{ r.fecha|date:"d/m/Y" }}{% endif %}</li>{% endfor %}
+              </ul>
+              {% if total_antecedentes > antecedentes|length %}<p class="text-muted reuniones-sub">Y {{ total_antecedentes|add:"-6" }} más en el historial de cada estudiante.</p>{% endif %}
+            {% endif %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if cambios %}
+        <section class="card" aria-labelledby="cambios-titulo">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="refresh-cw" %}<h2 class="card__title" id="cambios-titulo">Reprogramaciones</h2></header>
+          <ul class="reuniones-mini card__body">
+            {% for c in cambios %}
+              <li><strong>{{ c.creado|date:"d/m/Y H:i" }}</strong> · {{ c.usuario|cuenta }}<br>
+                Antes: {{ c.fecha_anterior|date:"d/m/Y" }} {{ c.inicio_anterior|time:"H:i" }}–{{ c.fin_anterior|time:"H:i" }}{% if c.sala_anterior %} ({{ c.sala_anterior }}){% endif %}<br>
+                Ahora: {{ c.fecha_nueva|date:"d/m/Y" }} {{ c.inicio_nuevo|time:"H:i" }}–{{ c.fin_nuevo|time:"H:i" }}{% if c.sala_nueva %} ({{ c.sala_nueva }}){% endif %}<br>
+                <span class="text-muted">Motivo: {{ c.motivo }}</span></li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+      <section class="card" aria-labelledby="historial-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="historial-titulo">Historial</h2></header>
+        <ol class="reuniones-historial card__body">
+          {% for evento in eventos %}
+            <li><span class="reuniones-historial__cuando">{{ evento.creado|date:"d/m H:i" }}</span> <strong>{{ evento.get_tipo_display }}</strong> · {{ evento.descripcion }} <span class="text-muted">· {% if evento.usuario %}{{ evento.usuario|cuenta }}{% elif evento.tutor %}{{ evento.tutor|persona }} (portal){% else %}Sistema{% endif %}</span></li>
+          {% endfor %}
+        </ol>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

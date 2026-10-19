@@ -815,8 +815,8 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
             'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias', 'Calificaciones',
-                        'Bitácoras por grupo', 'Mensajes', 'Comunicados', 'Agenda'},
-            'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes', 'Agenda'},
+                        'Bitácoras por grupo', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'},
+            'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes', 'Agenda', 'Reuniones con familias'},
         }
         for nombre_rol, esperados in casos.items():
             with self.subTest(rol=nombre_rol):
@@ -843,9 +843,10 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
 
     def test_el_tablero_ofrece_solo_accesos_permitidos(self):
         html = self.html_de(crear_usuario('lupita', crear_rol('Solo estudiantes', {'Alumnos.view_alumno'})))
-        self.assertIn('tile__title">Estudiantes', html)
-        self.assertNotIn('tile__title">Tutores', html)
-        self.assertNotIn('tile__title">Usuarios', html)
+        self.assertNotIn('Ir a una sección', html)            # el panel ya no repite el menú (pedido del 2026-10-18)
+        self.assertIn(f'href="{reverse("alumnos:lista")}"', html)
+        self.assertNotIn(f'href="{reverse("tutores:lista")}"', html)
+        self.assertNotIn(f'href="{reverse("usuarios:lista")}"', html)
 
     def test_asistencias_lleva_a_la_primera_pantalla_a_la_que_se_tiene_acceso(self):
         casos = [

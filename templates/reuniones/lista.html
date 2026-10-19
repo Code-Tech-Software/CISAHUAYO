@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Lista de reuniones con familias (Reuniones/views.lista), con búsqueda y filtros de nivel, grupo, estudiante, tutor,
+  participante, estado, prioridad y fechas. Un docente solo ve las suyas.
+{% endcomment %}
+
+{% block title %}{% if atiende %}Lista de reuniones{% else %}Mis reuniones{% endif %} · Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reuniones con familias</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if atiende %}Reuniones con familias{% else %}Mis reuniones con familias{% endif %}</h1>
+      <p class="page-header__description">{% if atiende %}Todas las solicitudes y citas que puedes consultar.{% else %}Las reuniones en que participas. Confirma tu disponibilidad desde cada una.{% endif %}</p>
+    </div>
+  </header>
+
+  {% include "reuniones/_navegacion.html" with activa='lista' %}
+  {% url 'reuniones:lista' as url_lista %}
+  {% include "reuniones/_filtros.html" with accion=url_lista con_fechas=True limpiar=url_lista %}
+
+  <ul class="reuniones-totales" aria-label="Reuniones por estado">
+    {% for clave, nombre, total in totales %}{% if total %}
+      <li><a class="reuniones-totales__item" href="{% url 'reuniones:lista' %}?estado={{ clave }}"><span class="reuniones-totales__numero">{{ total }}</span> {{ nombre }}</a></li>
+    {% endif %}{% endfor %}
+  </ul>
+
+  {% if pagina.paginator.count %}
+    {% include "reuniones/_tabla.html" with filas=pagina etiqueta="Reuniones con familias" %}
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="reuniones" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{% if mas_filtros or filtro.q.value %}Sin reuniones con esos filtros{% else %}Todavía no hay reuniones{% endif %}</p>
+        <p class="empty-state__text">{% if atiende %}Registra la llamada de un tutor con «Registrar llamada».{% else %}Aquí aparecerán las reuniones a las que te inviten.{% endif %}</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "reuniones/accion.html" %}
+{% comment %}La minuta: al terminar la reunión (con la presencia del acompañante durante toda la reunión) o para editarla.{% endcomment %}
+{% block campos %}
+  {% include "partials/field.html" with campo=form.inicio_real %}
+  {% include "partials/field.html" with campo=form.fin_real %}
+  {% include "partials/field.html" with campo=form.temas clase="form-grid__full" %}
+  {% include "partials/field.html" with campo=form.resumen clase="form-grid__full" %}
+  {% if form.notas_internas %}
+    <div class="form-grid__full reuniones-confidencial">
+      {% include "partials/field.html" with campo=form.notas_internas %}
+    </div>
+  {% endif %}
+  {% include "reuniones/_campo.html" with campo=form.siguiente_reunion %}
+  {% include "partials/field.html" with campo=form.siguiente_reunion_nota clase="form-grid__full" %}
+  {% if form.acompanantes %}
+    <fieldset class="field form-grid__full">
+      <legend class="field__label">Acompañamiento directivo</legend>
+      <div class="choice-group choice-group--stack">
+        {% for casilla in form.casillas_de_acompanantes %}
+          <label class="choice choice--check" for="{{ casilla.id_for_label }}">{{ casilla }}<span class="choice__box">{{ casilla.label }}</span></label>
+        {% endfor %}
+      </div>
+      <p class="field__hint">Con docentes, la reunión solo queda realizada si un acompañante autorizado estuvo durante toda la reunión.</p>
+    </fieldset>
+  {% endif %}
+{% endblock %}

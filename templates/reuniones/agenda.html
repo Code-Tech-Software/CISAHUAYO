@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static l10n reuniones_extras %}
+{% comment %}
+  Agenda de reuniones con familias (Reuniones/views.agenda): día (una columna por sala: la disponibilidad de las salas),
+  semana (una columna por día de atención) y mes; en el teléfono, la lista por fecha. Los filtros se conservan al
+  cambiar de vista o de fecha. Cada reunión lleva su estado con texto y color.
+{% endcomment %}
+
+{% block title %}Agenda · Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Agenda</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Agenda de reuniones</h1>
+      <p class="page-header__description">Las citas programadas{% if not atiende %} en que participas{% endif %}. El día muestra cada sala para ver qué horarios están libres.</p>
+    </div>
+  </header>
+
+  {% include "reuniones/_navegacion.html" with activa='agenda' %}
+
+  <div class="reuniones-agenda-barra">
+    <nav class="pills" aria-label="Vista de la agenda">
+      {% for clave, nombre in vistas %}
+        {% if clave == 'lista' %}<a class="pill" href="{{ lista_url }}">{{ nombre }}</a>
+        {% else %}<a class="pill{% if clave == vista %} is-active{% endif %}" href="{{ enlaces_de_vista|get:clave }}"{% if clave == vista %} aria-current="page"{% endif %}>{{ nombre }}</a>{% endif %}
+      {% endfor %}
+    </nav>
+    <div class="reuniones-agenda-barra__fecha">
+      <a class="btn btn--icon btn--sm" href="{{ anterior }}" aria-label="Anterior" data-tooltip="Anterior">{% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}</a>
+      <a class="btn btn--sm" href="{{ hoy_url }}">Hoy</a>
+      <a class="btn btn--icon btn--sm" href="{{ siguiente }}" aria-label="Siguiente" data-tooltip="Siguiente">{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</a>
+      <h2 class="reuniones-agenda-barra__titulo">{{ titulo }}</h2>
+    </div>
+  </div>
+
+  {% url 'reuniones:agenda' as url_agenda %}
+  {% with limpiar=url_agenda|add:"?vista="|add:vista %}
+    {% include "reuniones/_filtros.html" with accion=url_agenda conservar=conservar_ocultos limpiar=limpiar %}
+  {% endwith %}
+
+  <ul class="reuniones-leyenda" aria-label="Estados">
+    <li><span class="reuniones-leyenda__marca reuniones-bloque--programada"></span>Programada, por confirmar</li>
+    <li><span class="reuniones-leyenda__marca reuniones-bloque--confirmada"></span>Confirmada</li>
+    <li><span class="reuniones-leyenda__marca reuniones-bloque--en_curso"></span>En curso</li>
+    <li><span class="reuniones-leyenda__marca reuniones-bloque--realizada"></span>Realizada</li>
+    <li><span class="reuniones-leyenda__marca reuniones-bloque--no_realizada"></span>No realizada</li>
+    <li><span class="reuniones-leyenda__marca reuniones-bloque--cancelada"></span>Cancelada</li>
+  </ul>
+
+  {% if rejilla %}
+    {% localize off %}
+    <div class="reuniones-rejilla" style="--columnas: {{ rejilla.columnas|length }}">
+      <div class="reuniones-rejilla__cabeza">
+        <span aria-hidden="true"></span>
+        {% for columna in rejilla.columnas %}
+          <div class="reuniones-rejilla__titulo{% if columna.es_hoy %} is-hoy{% endif %}">
+            {% if columna.fecha %}<a class="link-subtle" href="{{ url_agenda }}?vista=dia&amp;fecha={{ columna.fecha|date:'Y-m-d' }}{% if filtros_qs %}&amp;{{ filtros_qs }}{% endif %}">{{ columna.titulo }}</a>{% else %}{{ columna.titulo }}{% endif %}
+            {% if columna.subtitulo and not columna.fecha %}<small>{{ columna.subtitulo }}</small>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="reuniones-rejilla__cuerpo" style="height: {{ rejilla.alto }}rem">
+        <div class="reuniones-rejilla__horas" aria-hidden="true">
+          {% for texto, arriba in rejilla.horas %}<span style="top: {{ arriba }}%">{{ texto }}</span>{% endfor %}
+        </div>
+        {% for columna in rejilla.columnas %}
+          <div class="reuniones-rejilla__columna{% if columna.es_hoy %} is-hoy{% endif %}" role="list" aria-label="{{ columna.titulo }}">
+            {% for texto, arriba in rejilla.horas %}<span class="reuniones-rejilla__linea" style="top: {{ arriba }}%" aria-hidden="true"></span>{% endfor %}
+            {% for bloque in columna.bloques %}
+              {% with r=bloque.reunion %}
+                <a class="reuniones-bloque reuniones-bloque--{{ r.estado|lower }}" role="listitem" href="{% url 'reuniones:detalle' r.pk %}"
+                   style="top: {{ bloque.arriba }}%; height: {{ bloque.alto }}%; left: {{ bloque.izquierda }}%; width: {{ bloque.ancho }}%"
+                   data-tooltip="{{ r.folio }} · {{ r.get_estado_display }} · {{ r.tutor|persona }}">
+                  <span class="reuniones-bloque__hora">{{ r.hora_inicio|time:"H:i" }}–{{ r.hora_fin|time:"H:i" }}</span>
+                  <span class="reuniones-bloque__titulo">{{ r.tutor.nombre }} {{ r.tutor.apellido_paterno }}</span>
+                  <span class="reuniones-bloque__sub">{% if vista == 'semana' %}{{ r.sala|default:"Sin sala" }}{% else %}{{ r.get_area_display }}{% endif %} · {{ r.get_estado_display }}</span>
+                </a>
+              {% endwith %}
+            {% endfor %}
+            {% if ahora is not None %}{% if vista == 'dia' or columna.es_hoy %}<span class="reuniones-rejilla__ahora" style="top: {{ ahora }}%" aria-hidden="true"></span>{% endif %}{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endlocalize %}
+  {% elif semanas %}
+    <div class="reuniones-mes" aria-label="{{ titulo }}">
+      <div class="reuniones-mes__encabezado" aria-hidden="true"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span></div>
+      {% for semana in semanas %}
+        <div class="reuniones-mes__semana">
+          {% for dia in semana.dias %}
+            <div class="reuniones-mes__dia{% if not dia.en_mes %} is-fuera{% endif %}{% if dia.es_hoy %} is-hoy{% endif %}">
+              <a class="reuniones-mes__numero" href="{{ url_agenda }}?vista=dia&amp;fecha={{ dia.fecha|date:'Y-m-d' }}{% if filtros_qs %}&amp;{{ filtros_qs }}{% endif %}" aria-label="{{ dia.texto }}: ver el día">{{ dia.fecha.day }}</a>
+              <ul class="reuniones-mes__lista">
+                {% for r in dia.eventos|slice:":3" %}
+                  <li><a class="reuniones-chip reuniones-bloque--{{ r.estado|lower }}" href="{% url 'reuniones:detalle' r.pk %}" data-tooltip="{{ r.folio }} · {{ r.get_estado_display }}">{{ r.hora_inicio|time:"H:i" }} {{ r.tutor.apellido_paterno }}</a></li>
+                {% endfor %}
+              </ul>
+              {% if dia.eventos|length > 3 %}<a class="reuniones-mes__mas" href="{{ url_agenda }}?vista=dia&amp;fecha={{ dia.fecha|date:'Y-m-d' }}{% if filtros_qs %}&amp;{{ filtros_qs }}{% endif %}">+{{ dia.eventos|length|add:"-3" }} más</a>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# --- En el teléfono: la lista por fecha ------------------------------------------------------------------- #}
+  <div class="reuniones-agenda-movil">
+    {% for fecha_dia, del_dia in por_dia %}
+      <section class="reuniones-agenda-movil__dia">
+        <h3 class="reuniones-agenda-movil__fecha">{{ fecha_dia|fecha_larga }}{% if fecha_dia == hoy %} · Hoy{% endif %}</h3>
+        <ul class="reuniones-agenda-lista">{% for reunion in del_dia %}{% include "reuniones/_tarjeta.html" %}{% endfor %}</ul>
+      </section>
+    {% empty %}
+      <div class="empty-state empty-state--inline">
+        {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Sin reuniones en este periodo</p>
+        <p class="empty-state__text">Cambia de fecha o de filtros.</p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

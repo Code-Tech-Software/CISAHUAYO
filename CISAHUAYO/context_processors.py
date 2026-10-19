@@ -66,6 +66,15 @@ def _usa_retiros(usuario):
     return usa_retiros(usuario)
 
 
+def _atiende_reuniones(usuario):
+    from Reuniones.alcance import atiende_reuniones
+    return atiende_reuniones(usuario)
+
+
+def _participa_en_reuniones(usuario):
+    return usuario.has_perm('Reuniones.participar')
+
+
 def _retiros_en_prefectura(usuario):
     return _usa_prefectura(usuario) and _usa_retiros(usuario)
 
@@ -99,6 +108,9 @@ NAVEGACION = (
             {'etiqueta': 'Comunicados', 'icono': 'megaphone', 'ruta': 'comunicados:inicio', 'destinos': ((_usa_comunicados, 'comunicados:inicio'),), 'contador': 'comunicados'},
             # Agenda / Calendario: todos la consultan (cada quien, los eventos de sus niveles y de todo el colegio)
             {'etiqueta': 'Agenda', 'icono': 'calendar', 'ruta': 'agenda:calendario'},
+            # Reuniones con familias: quien registra o gestiona entra a su panel; un docente, a la lista de sus reuniones
+            {'etiqueta': 'Reuniones con familias', 'icono': 'users', 'ruta': 'reuniones:inicio',
+             'destinos': ((_atiende_reuniones, 'reuniones:inicio'), (_participa_en_reuniones, 'reuniones:lista'))},
         ),
     },
     {

@@ -1,0 +1,12 @@
+{% extends "reuniones/accion.html" %}
+{% load reuniones_extras %}
+{% comment %}Seguimiento de un acuerdo: nuevo estado, observación y evidencia opcional.{% endcomment %}
+{% block enctype %} enctype="multipart/form-data"{% endblock %}
+{% block antes %}
+  <section class="card">
+    <div class="card__body">
+      <p><strong>{{ acuerdo.descripcion }}</strong></p>
+      <p class="text-muted reuniones-sub">{{ acuerdo.nombre_responsable }} · vence el {{ acuerdo.fecha_limite|date:"d/m/Y" }} · {% include "reuniones/_acuerdo_estado.html" %}</p>
+    </div>
+  </section>
+{% endblock %}

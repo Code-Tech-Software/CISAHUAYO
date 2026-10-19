@@ -1,0 +1,11 @@
+{% load reuniones_extras %}{# Resumen compacto de la reunión en los formularios de sus acciones. Parámetro: reunion. #}
+<section class="card reuniones-resumen">
+  <div class="card__body reuniones-resumen__cuerpo">
+    <div>
+      <p class="reuniones-folio">{{ reunion.folio }} · {{ reunion.get_area_display }}</p>
+      <p class="reuniones-resumen__cuando">{{ reunion|cuando }}</p>
+      <p class="text-muted">{{ reunion.tutor|persona }} · {% for e in reunion.estudiantes.all %}{{ e.alumno.nombre }} {{ e.alumno.apellido_paterno }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    </div>
+    {% include "reuniones/_estado.html" %}
+  </div>
+</section>

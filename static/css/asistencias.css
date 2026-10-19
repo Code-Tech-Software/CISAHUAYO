@@ -1851,7 +1851,7 @@
   inset: 0 0 auto;
   height: 4px;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
+  background: var(--franja-institucional);
 }
 
 .reporte__encabezado {

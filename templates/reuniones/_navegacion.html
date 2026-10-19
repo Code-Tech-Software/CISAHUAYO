@@ -1,0 +1,21 @@
+{% comment %}
+  Las secciones del módulo (panel, agenda, lista y compromisos) y «Registrar llamada». Parámetro: activa.
+  Del contexto: atiende (quien registra o gestiona: ve el panel y registra llamadas) y sin_niveles.
+{% endcomment %}
+<div class="reuniones-barra">
+  <nav class="pills pills--section" aria-label="Secciones de reuniones con familias">
+    {% if atiende %}<a class="pill{% if activa == 'panel' %} is-active{% endif %}" href="{% url 'reuniones:inicio' %}"{% if activa == 'panel' %} aria-current="page"{% endif %}>Panel</a>{% endif %}
+    <a class="pill{% if activa == 'agenda' %} is-active{% endif %}" href="{% url 'reuniones:agenda' %}"{% if activa == 'agenda' %} aria-current="page"{% endif %}>Agenda</a>
+    <a class="pill{% if activa == 'lista' %} is-active{% endif %}" href="{% url 'reuniones:lista' %}"{% if activa == 'lista' %} aria-current="page"{% endif %}>{% if atiende %}Lista{% else %}Mis reuniones{% endif %}</a>
+    <a class="pill{% if activa == 'compromisos' %} is-active{% endif %}" href="{% url 'reuniones:compromisos' %}"{% if activa == 'compromisos' %} aria-current="page"{% endif %}>Compromisos</a>
+  </nav>
+  {% if atiende %}
+    <a class="btn btn--primary btn--sm" href="{% url 'reuniones:nueva' %}">{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} Registrar llamada</a>
+  {% endif %}
+</div>
+{% if sin_niveles %}
+  <div class="alert alert--warning" role="status">
+    {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+    <div class="alert__body"><p>{{ sin_niveles }}</p></div>
+  </div>
+{% endif %}

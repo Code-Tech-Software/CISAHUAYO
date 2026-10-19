@@ -81,6 +81,8 @@ INSTALLED_APPS = [
     'Panel',
     # Agenda / Calendario: eventos del colegio por nivel educativo (también en los portales): Agenda/
     'Agenda',
+    # Reuniones con familias: solicitudes por teléfono, citas, confirmaciones, minuta y acuerdos: Reuniones/
+    'Reuniones',
 ]
 
 MIDDLEWARE = [
@@ -128,6 +130,7 @@ TEMPLATES = [
                 'Mensajes.context_processors.mensajeria',
                 'Comunicados.context_processors.comunicados',
                 'Retiros.context_processors.retiros',
+                'Reuniones.context_processors.reuniones',
             ],
         },
     },

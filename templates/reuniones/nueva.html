@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load static reuniones_extras %}
+{% comment %}
+  Registrar una llamada, paso 2: la solicitud del tutor elegido (Reuniones/forms.py · SolicitudForm). Folio, fecha y
+  quién la registró se ponen solos. Si participa un docente se pide al acompañante directivo (o guardarla pendiente de
+  asignarlo): static/js/reuniones-form.js lo avisa en vivo y el servidor lo vuelve a revisar.
+{% endcomment %}
+
+{% block title %}Registrar llamada · Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:nueva' %}">Registrar llamada</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ tutor|persona }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Solicitud de {{ tutor|persona }}</h1>
+      <p class="page-header__description">Anota lo que pide el tutor. Queda pendiente de programación: registrar la llamada no confirma una cita.</p>
+    </div>
+    <div class="page-header__actions"><a class="btn btn--ghost btn--sm" href="{% url 'reuniones:nueva' %}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Otro tutor</a></div>
+  </header>
+
+  <form class="form-page reuniones-solicitud" method="post" novalidate data-reuniones-solicitud>
+    {% csrf_token %}
+    <input type="hidden" name="tutor" value="{{ tutor.pk }}">
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="phone" %}<h2 class="card__title">La llamada</h2></header>
+      <div class="card__body form-grid">
+        {% if form.estudiantes %}
+          {% include "partials/casillas.html" with campo=form.alumnos clase="form-grid__full" %}
+        {% else %}
+          <div class="alert alert--warning form-grid__full" role="status">{% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}<div class="alert__body"><p>Este tutor no tiene estudiantes activos vinculados. Vincúlalos en su ficha de Tutores antes de registrar la reunión.</p></div></div>
+        {% endif %}
+        {% include "partials/field.html" with campo=form.telefono %}
+        <div class="field reuniones-campo-casilla">{% include "reuniones/_campo.html" with campo=form.telefono_verificado %}</div>
+        {% if form.otros_tutores.field.queryset.exists %}{% include "partials/casillas.html" with campo=form.otros_tutores clase="form-grid__full" %}{% endif %}
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="users" %}<h2 class="card__title">Con quién quiere reunirse</h2></header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.area %}
+        {% include "partials/field.html" with campo=form.responsable %}
+        <div class="form-grid__full reuniones-docentes" data-reuniones-participantes>
+          {% include "partials/casillas.html" with campo=form.docentes %}
+          <div class="reuniones-acompanante" data-reuniones-acompanante>
+            <div class="alert alert--info reuniones-regla" role="note">
+              {% include "partials/icon.html" with name="shield-check" icon_class="alert__icon" %}
+              <div class="alert__body"><p>Toda reunión con un docente necesita un <strong>acompañante directivo</strong> (dirección, coordinación académica o prefectura de estos niveles), aunque el tutor pida hablar solo con el maestro.</p></div>
+            </div>
+            {% include "partials/field.html" with campo=form.acompanante %}
+            {% include "reuniones/_campo.html" with campo=form.acompanante_despues %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="file-text" %}<h2 class="card__title">La solicitud</h2></header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.motivo %}
+        {% include "partials/field.html" with campo=form.prioridad %}
+        {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
+        <fieldset class="field form-grid__full">
+          <legend class="field__label">Fechas y horarios que propone el tutor</legend>
+          <div class="reuniones-propuestas">
+            {% for fecha, desde, hasta in form.propuestas %}
+              <div class="reuniones-propuestas__fila">
+                {% include "partials/field.html" with campo=fecha %}
+                {% include "partials/field.html" with campo=desde %}
+                {% include "partials/field.html" with campo=hasta %}
+              </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <div class="form-grid__full reuniones-confidencial">{% include "partials/field.html" with campo=form.observaciones %}</div>
+      </div>
+    </section>
+
+    {% if antecedentes %}
+      <section class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title">Reuniones anteriores de estos estudiantes</h2></header>
+        <ul class="reuniones-mini">
+          {% for r in antecedentes %}
+            <li><a class="link-subtle" href="{% url 'reuniones:detalle' r.pk %}">{{ r.folio }}</a> · {{ r.motivo }} · {{ r.get_estado_display }}{% if r.fecha %} · {{ r.fecha|date:"d/m/Y" }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    <div class="action-bar">
+      <a class="btn" href="{% url 'reuniones:lista' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Registrar solicitud</button>
+    </div>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/reuniones-form.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "portales/base.html" %}
+{% load static reuniones_extras %}
+{% comment %}
+  Reuniones con el colegio del tutor (Reuniones/views_portal.lista): solo las citas a las que está invitado, próximas y
+  anteriores, con su estado. Para pedir una reunión se llama al colegio.
+{% endcomment %}
+
+{% block title %}Reuniones · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/reuniones.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reuniones</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reuniones con el colegio</h1>
+      <p class="page-header__description">Tus citas con dirección, coordinación, prefectura o los maestros de tus hijos. Para pedir una reunión, llama al colegio.</p>
+    </div>
+  </header>
+
+  <h2 class="portal-heading">Próximas</h2>
+  {% if proximas %}
+    <ul class="reuniones-agenda-lista">
+      {% for reunion in proximas %}{% include "portales/tutores/reuniones/_tarjeta.html" %}{% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty-state empty-state--inline">
+      {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">No tienes citas próximas</p>
+      <p class="empty-state__text">Cuando el colegio programe una reunión contigo aparecerá aquí para que confirmes tu asistencia.</p>
+    </div>
+  {% endif %}
+
+  {% if anteriores %}
+    <h2 class="portal-heading">Anteriores</h2>
+    <ul class="reuniones-agenda-lista">
+      {% for reunion in anteriores %}{% include "portales/tutores/reuniones/_tarjeta.html" %}{% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

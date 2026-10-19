@@ -135,6 +135,12 @@
           Conducta <span class="tabs__count">{{ conducta.registros|length }}</span>
         </button>
       {% endif %}
+      {# Tampoco es una pestaña: el historial de reuniones con la familia (antecedentes y acuerdos que la cuenta puede ver) #}
+      {% if perms.Reuniones.registrar or perms.Reuniones.gestionar or perms.Reuniones.todo or perms.Reuniones.participar %}
+        <a class="tabs__tab tabs__tab--enlace" href="{% url 'reuniones:estudiante' alumno.pk %}">
+          {% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Reuniones con la familia
+        </a>
+      {% endif %}
     </div>
 
     {# --- Resumen ---------------------------------------------------------- #}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static reuniones_extras %}
+{% comment %}Compromisos de las reuniones (Reuniones/views.compromisos): sin cumplir, vencidos, por estado y los míos.{% endcomment %}
+
+{% block title %}Compromisos · Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Compromisos</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Compromisos de las reuniones</h1>
+      <p class="page-header__description">Los acuerdos con su responsable y su fecha límite. Un acuerdo sin cumplir después de su fecha límite aparece como vencido.</p>
+    </div>
+  </header>
+
+  {% include "reuniones/_navegacion.html" with activa='compromisos' %}
+
+  <nav class="pills" aria-label="Estado de los compromisos">
+    {% for clave, nombre in estados %}
+      <a class="pill{% if clave == estado %} is-active{% endif %}" href="?estado={{ clave }}{% if mios %}&amp;mios=1{% endif %}"{% if clave == estado %} aria-current="page"{% endif %}>{{ nombre }}</a>
+    {% endfor %}
+    <a class="pill{% if mios %} is-active{% endif %}" href="?estado={{ estado }}{% if not mios %}&amp;mios=1{% endif %}">A mi cargo</a>
+  </nav>
+
+  {% if pagina.paginator.count %}
+    <div class="table-card">
+      <div class="reuniones-tabla-marco">
+        <table class="table reuniones-tabla">
+          <caption class="visually-hidden">Compromisos</caption>
+          <thead class="table__head"><tr>
+            <th class="table__th" scope="col">Acuerdo</th><th class="table__th" scope="col">Responsable</th>
+            <th class="table__th" scope="col">Fecha límite</th><th class="table__th" scope="col">Estado</th>
+            <th class="table__th" scope="col">Reunión</th>
+          </tr></thead>
+          <tbody class="table__body">
+            {% for acuerdo in pagina %}
+              <tr class="table__row">
+                <td class="table__cell table__cell--main">{{ acuerdo.descripcion|truncatechars:140 }}</td>
+                <td class="table__cell" data-label="Responsable">{{ acuerdo.nombre_responsable }}<span class="text-muted reuniones-sub">{{ acuerdo.get_quien_display }}</span></td>
+                <td class="table__cell" data-label="Fecha límite">{{ acuerdo.fecha_limite|date:"d/m/Y" }}</td>
+                <td class="table__cell" data-label="Estado">{% include "reuniones/_acuerdo_estado.html" %}</td>
+                <td class="table__cell" data-label="Reunión"><a class="link-subtle" href="{% url 'reuniones:detalle' acuerdo.reunion_id %}#acuerdos">{{ acuerdo.reunion.folio }}</a><span class="text-muted reuniones-sub">{{ acuerdo.reunion.tutor|persona }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="compromisos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card"><div class="empty-state">
+      {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">Sin compromisos en esta vista</p>
+      <p class="empty-state__text">Los acuerdos se registran al realizar cada reunión.</p>
+    </div></div>
+  {% endif %}
+{% endblock %}

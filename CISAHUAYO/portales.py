@@ -184,6 +184,9 @@ def navegacion(request, tipo, cuenta):
         retiros = reverse('portal_tutores:retiros:lista')
         secciones[0]['elementos'].append(
             _elemento('Retiros anticipados', 'log-out', retiros, request.path.startswith(retiros), contador='retiros'))
+        # Reuniones con el colegio (2026-10-19): sus citas, confirmarlas, los acuerdos compartidos y la minuta
+        reuniones = reverse('portal_tutores:reuniones:lista')
+        secciones[0]['elementos'].append(_elemento('Reuniones', 'users', reuniones, request.path.startswith(reuniones)))
         from Alumnos.models import TutorAlumno
         estudiantes = []
         for vinculo in TutorAlumno.objects.filter(tutor=cuenta, activo=True).select_related('alumno').order_by('alumno__nombre'):

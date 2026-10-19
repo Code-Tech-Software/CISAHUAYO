@@ -50,11 +50,13 @@
   };
 
   /* ------------------------------------------------------------------ contadores */
-  /* El número de la campana: mensajes, comunicados y avisos de retiros sin leer */
+  /* El número de la campana: mensajes, comunicados, avisos de retiros y de reuniones sin leer (static/js/reuniones-avisos.js
+     pone los suyos en data-reuniones-sin-leer) */
   const pintarCampana = () => {
     const comunicados = Number(raiz.dataset.comunicadosSinLeer) || 0;
     const retiros = Number(raiz.dataset.retirosSinLeer) || 0;
-    const n = mensajes + comunicados + retiros;
+    const reuniones = Number(raiz.dataset.reunionesSinLeer) || 0;
+    const n = mensajes + comunicados + retiros + reuniones;
     if (total) {
       total.textContent = String(n);
       total.hidden = !n;
@@ -63,6 +65,7 @@
     if (mensajes) partes.push(`${mensajes} mensaje${mensajes === 1 ? '' : 's'} sin leer`);
     if (comunicados) partes.push(`${comunicados} comunicado${comunicados === 1 ? '' : 's'} sin leer`);
     if (retiros) partes.push(`${retiros} aviso${retiros === 1 ? '' : 's'} de retiro sin leer`);
+    if (reuniones) partes.push(`${reuniones} aviso${reuniones === 1 ? '' : 's'} de reuniones sin leer`);
     boton?.setAttribute('aria-label', ['Notificaciones', ...partes].join(', '));
     document.title = n ? `(${n}) ${tituloBase}` : tituloBase;
   };
@@ -83,7 +86,8 @@
     lista.hidden = !lista.children.length;
     const deComunicados = raiz.querySelector('[data-comunicados-lista]');
     const deRetiros = raiz.querySelector('[data-retiros-lista]');
-    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length || deRetiros?.children.length);
+    const deReuniones = raiz.querySelector('[data-reuniones-lista]');
+    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length || deRetiros?.children.length || deReuniones?.children.length);
   };
 
   /* Los comunicados cambiaron (static/js/comunicados-avisos.js): se vuelve a pintar el número y el estado vacío */

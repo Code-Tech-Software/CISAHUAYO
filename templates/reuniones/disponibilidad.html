@@ -1,0 +1,5 @@
+{% extends "reuniones/accion.html" %}
+{% comment %}Confirmar la disponibilidad de un participante (el propio o, si se atiende la reunión, la de otro).{% endcomment %}
+{% block antes %}
+  <p class="reuniones-papel">{{ participante.get_papel_display }}{% if participante.es_acompanante %} · acompaña a los docentes de la reunión{% endif %}</p>
+{% endblock %}

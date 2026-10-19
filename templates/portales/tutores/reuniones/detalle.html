@@ -1,0 +1,113 @@
+{% extends "portales/base.html" %}
+{% load static reuniones_extras %}
+{% comment %}
+  Una cita del tutor (Reuniones/views_portal.detalle): cuándo y dónde, con quién (quién es el docente y quién acompaña),
+  sus estudiantes, el estado, la confirmación de su asistencia, los cambios de fecha, los acuerdos compartidos con la
+  familia, los documentos compartidos y la minuta para la familia. Nunca las notas internas ni lo que no se compartió.
+{% endcomment %}
+
+{% block title %}Reunión {{ reunion.folio }} · {{ portal.nombre }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/reuniones.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'portal_tutores:reuniones:lista' %}">Reuniones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ reunion.folio }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="reuniones-folio">Folio {{ reunion.folio }}</p>
+      <h1 class="page-header__title">Reunión con {{ reunion.get_area_display|lower }}</h1>
+      <p class="page-header__description reuniones-etiquetas">{% include "reuniones/_estado.html" %}</p>
+    </div>
+  </header>
+
+  {% if puede_confirmar %}
+    <div class="alert alert--info reuniones-portal-confirmar" role="status">
+      {% include "partials/icon.html" with name="calendar" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Confirma tu asistencia</strong> a esta cita. Si no puedes asistir, llama al colegio para cambiarla.</p>
+        <form method="post" action="{% url 'portal_tutores:reuniones:confirmar' reunion.pk %}">{% csrf_token %}<button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Confirmo que asistiré</button></form>
+      </div>
+    </div>
+  {% elif reunion.confirmacion_tutor and reunion.abierta %}
+    <p class="reuniones-confirmacion"><span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Asistencia confirmada</span> el {{ reunion.confirmacion_tutor.momento|date:"d/m/Y H:i" }}</p>
+  {% endif %}
+
+  <div class="reuniones-detalle">
+    <div class="reuniones-detalle__principal">
+      <section class="card">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar" %}<h2 class="card__title">La cita</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item details__item--wide"><dt class="details__label">Cuándo</dt><dd class="details__value{% if not reunion.programada %} details__value--empty{% endif %}">{% if reunion.programada %}{{ reunion.fecha|fecha_larga }} · {{ reunion.hora_inicio|time:"H:i" }} a {{ reunion.hora_fin|time:"H:i" }}{% else %}El colegio te avisará la fecha{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Dónde</dt><dd class="details__value">{% if reunion.sala %}{{ reunion.sala }}{% if reunion.sala.ubicacion %} · {{ reunion.sala.ubicacion }}{% endif %}{% else %}Por definir{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Estudiantes</dt><dd class="details__value">{% for e in estudiantes %}{{ e.alumno.nombre }} {{ e.alumno.apellido_paterno }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>
+            {% if reunion.estado == 'CANCELADA' %}<div class="details__item details__item--wide"><dt class="details__label">Cancelada</dt><dd class="details__value">El {{ reunion.cerrada_en|date:"d/m/Y" }}. Si tienes dudas, llama al colegio.</dd></div>{% endif %}
+          </dl>
+        </div>
+      </section>
+
+      {% if personal %}
+        <section class="card">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="users" %}<h2 class="card__title">{% if reunion.abierta %}Te atenderán{% else %}Personal del colegio{% endif %}</h2></header>
+          <ul class="reuniones-familia card__body">
+            {% for p in personal %}
+              <li class="reuniones-persona">
+                <div class="reuniones-persona__texto">
+                  <p class="reuniones-persona__nombre">{{ p.usuario|cuenta }}</p>
+                  <p class="reuniones-papel reuniones-papel--{{ p.papel|lower }}">{{ p.get_papel_display }}</p>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+      {% if acuerdos %}
+        <section class="card">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title">Acuerdos</h2></header>
+          <ul class="reuniones-acuerdos">
+            {% for acuerdo in acuerdos %}
+              <li class="reuniones-acuerdo">
+                <div class="reuniones-acuerdo__cabeza"><p class="reuniones-acuerdo__texto">{{ acuerdo.descripcion|linebreaksbr }}</p>{% include "reuniones/_acuerdo_estado.html" %}</div>
+                <p class="text-muted reuniones-sub">{{ acuerdo.get_quien_display }} · Fecha límite: {{ acuerdo.fecha_limite|date:"d/m/Y" }}</p>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    </div>
+
+    <aside class="reuniones-detalle__lateral">
+      {% if tiene_minuta %}
+        <section class="card">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title">Minuta</h2></header>
+          <div class="card__body"><a class="btn btn--sm" href="{% url 'portal_tutores:reuniones:minuta' reunion.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Ver o imprimir la minuta</a></div>
+        </section>
+      {% endif %}
+      {% if documentos %}
+        <section class="card">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="paperclip" %}<h2 class="card__title">Documentos</h2></header>
+          <ul class="reuniones-mini card__body">
+            {% for a in documentos %}<li><a class="link-subtle" href="{% url 'portal_tutores:reuniones:documento' a.pk %}" target="_blank" rel="noopener">{{ a.nombre_original }}</a></li>{% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+      {% if cambios %}
+        <section class="card">
+          <header class="card__header card__header--icon">{% include "partials/icon.html" with name="refresh-cw" %}<h2 class="card__title">Cambios de fecha</h2></header>
+          <ul class="reuniones-mini card__body">
+            {% for c in cambios %}<li>Antes: {{ c.fecha_anterior|date:"d/m/Y" }} a las {{ c.inicio_anterior|time:"H:i" }} · cambió el {{ c.creado|date:"d/m/Y" }}</li>{% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+    </aside>
+  </div>
+{% endblock %}

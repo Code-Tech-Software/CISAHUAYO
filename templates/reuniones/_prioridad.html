@@ -1,0 +1,2 @@
+{# La prioridad (solo si no es normal). Parámetros: reunion. #}
+{% if reunion.prioridad != 'NORMAL' %}<span class="tag reuniones-prioridad{% if reunion.prioridad == 'URGENTE' %} tag--danger{% else %} tag--warning{% endif %}">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %}{{ reunion.get_prioridad_display }}</span>{% endif %}

@@ -174,13 +174,13 @@
   background: var(--t-fondo);
 }
 
-/* La franja tricolor del tema, como la del menú */
+/* La franja tricolor, como la del menú: la institucional, igual en todos los temas */
 .tema-muestra::before {
   content: "";
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, var(--t-brand) 0 32%, var(--t-accent) 32% 58%, var(--t-stripe) 58% 100%);
+  background: var(--franja-institucional);
 }
 
 .tema-muestra__menu {

@@ -13,7 +13,9 @@ from .models import PerfilUsuario, Rol
 from .seguridad import objetos_de_permisos
 
 ESCOLARES = ('alumnos', 'tutores', 'profesores', 'inscripciones', 'ciclos', 'grados', 'grupos', 'materias', 'horarios', 'periodos', 'asistencias',
-             'calificaciones', 'bitacoras', 'conducta', 'mensajes', 'comunicados', 'retiros')
+             'calificaciones', 'bitacoras', 'conducta', 'mensajes', 'comunicados', 'retiros', 'reuniones')
+# Reuniones con familias: quienes gestionan y acompañan las de sus niveles (dirección, coordinación y prefectura)
+REUNIONES_DIRECTIVAS = {'Reuniones.participar', 'Reuniones.gestionar', 'Reuniones.acompanar', 'Reuniones.confidencial'}
 
 
 def _direccion():
@@ -28,6 +30,7 @@ def _control_escolar():
         | {'Conducta.view_registroconducta', 'Conducta.add_registroconducta', 'Conducta.change_registroconducta'}
         | permisos_de_modulos('calificaciones', solo=('ver',))
         | {'Mensajes.usar', 'Mensajes.contactar_familias'}
+        | {'Reuniones.registrar'}
     )
 
 
@@ -39,6 +42,7 @@ def _docente():
         | {'Bitacoras.registrar'}
         | {'Mensajes.usar'}
         | {'Comunicados.recibir'}
+        | {'Reuniones.participar'}
     )
 
 
@@ -49,13 +53,14 @@ def _coordinacion():
         | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
         | {'Mensajes.usar'}
         | {'Comunicados.recibir', 'Comunicados.enviar'}   # a los niveles que coordina
+        | REUNIONES_DIRECTIVAS
     )
 
 
 def _recepcion():
     return {
         'Alumnos.view_alumno', 'Alumnos.add_asistenciageneral', 'Alumnos.view_asistenciageneral',
-        'Alumnos.view_justificacion', 'Mensajes.usar',
+        'Alumnos.view_justificacion', 'Mensajes.usar', 'Reuniones.registrar',
     }
 
 
@@ -63,7 +68,8 @@ def _prefectura():
     # Corregir lo de otros y los casos cerrados (Prefectura.corregir_otros) lo concede el administrador si quiere
     return ((permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
             | {'Mensajes.usar', 'Mensajes.contactar_familias'}
-            | {'Retiros.consultar', 'Retiros.confirmar'})   # retiros de su alcance
+            | {'Retiros.consultar', 'Retiros.confirmar'}   # retiros de su alcance
+            | REUNIONES_DIRECTIVAS)
 
 
 # nombre, descripción, color, permisos

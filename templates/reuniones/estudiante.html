@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static reuniones_extras %}
+{% comment %}
+  Historial de reuniones con la familia de un estudiante (Reuniones/views.estudiante): sus reuniones y acuerdos, solo
+  los que la cuenta puede consultar. Es informativo: no cambia calificaciones ni genera sanciones.
+{% endcomment %}
+
+{% block title %}Reuniones de {{ alumno|persona }} | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ alumno|persona }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reuniones con la familia de {{ alumno|persona }}</h1>
+      <p class="page-header__description">{{ inscripcion|grupo_corto }} · Los antecedentes y acuerdos que puedes consultar.</p>
+    </div>
+    {% if perms.Alumnos.view_alumno %}<div class="page-header__actions"><a class="btn btn--ghost btn--sm" href="{% url 'alumnos:detalle' alumno.pk %}">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Perfil del estudiante</a></div>{% endif %}
+  </header>
+
+  <section class="card" aria-labelledby="acuerdos-titulo">
+    <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="acuerdos-titulo">Acuerdos</h2></header>
+    {% if acuerdos %}
+      <ul class="reuniones-acuerdos">
+        {% for acuerdo in acuerdos %}
+          <li class="reuniones-acuerdo">
+            <div class="reuniones-acuerdo__cabeza"><p class="reuniones-acuerdo__texto">{{ acuerdo.descripcion }}</p>{% include "reuniones/_acuerdo_estado.html" %}</div>
+            <p class="text-muted reuniones-sub">{{ acuerdo.nombre_responsable }} · vence el {{ acuerdo.fecha_limite|date:"d/m/Y" }} · <a class="link-subtle" href="{% url 'reuniones:detalle' acuerdo.reunion_id %}#acuerdos">{{ acuerdo.reunion.folio }}</a></p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}<p class="card__body text-muted">Sin acuerdos registrados.</p>{% endif %}
+  </section>
+
+  {% if reuniones %}
+    {% include "reuniones/_tabla.html" with filas=reuniones etiqueta="Reuniones del estudiante" %}
+  {% else %}
+    <div class="table-card"><div class="empty-state">
+      {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">Sin reuniones que puedas consultar</p>
+    </div></div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% load reuniones_extras %}
+{% comment %}Una cita en el portal del tutor: cuándo, dónde, de quién y su estado (sin motivos ni notas). Parámetro: reunion.{% endcomment %}
+<li>
+  <a class="reuniones-tarjeta reuniones-tarjeta--{{ reunion.estado|lower }}" href="{% url 'portal_tutores:reuniones:detalle' reunion.pk %}">
+    <span class="reuniones-tarjeta__hora">
+      {% if reunion.programada %}<strong>{{ reunion.hora_inicio|time:"H:i" }}</strong><span>{{ reunion.fecha|date:"D j M"|capfirst }}</span>{% else %}<strong>—</strong><span>Por programar</span>{% endif %}
+    </span>
+    <span class="reuniones-tarjeta__texto">
+      <span class="reuniones-tarjeta__titulo">Con {{ reunion.get_area_display|lower }}</span>
+      <span class="text-muted reuniones-sub">{% if reunion.sala %}{{ reunion.sala }} · {% endif %}{% for e in reunion.estudiantes.all %}{{ e.alumno.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+    </span>
+    <span class="reuniones-etiquetas">{% include "reuniones/_estado.html" %}</span>
+  </a>
+</li>

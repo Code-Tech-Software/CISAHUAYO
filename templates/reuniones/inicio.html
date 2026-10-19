@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static reuniones_extras %}
+{% comment %}
+  Panel de reuniones con familias (Reuniones/views.inicio): indicadores (cada uno lleva a su lista), las reuniones de
+  hoy, lo que necesita atención (citas de la semana sin confirmar y qué les falta), las solicitudes sin programar y las
+  próximas confirmadas. Todo el colegio o un nivel, según el alcance de la cuenta.
+{% endcomment %}
+
+{% block title %}Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reuniones con familias</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reuniones con familias</h1>
+      <p class="page-header__description">Las citas que solicitan los tutores con dirección, coordinación académica, prefectura o un docente. Toda reunión con un docente lleva un acompañante directivo.</p>
+    </div>
+    <form class="reuniones-nivel" method="get" data-autosubmit>
+      <label class="visually-hidden" for="reuniones-nivel">Nivel educativo</label>
+      <select class="field__control field__control--select" id="reuniones-nivel" name="nivel">
+        <option value="">{% if acceso.ve_todo %}Todo el colegio{% else %}Todos mis niveles{% endif %}</option>
+        {% for clave, nombre in niveles %}<option value="{{ clave }}"{% if clave == nivel %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+      </select>
+      <noscript><button type="submit" class="btn btn--sm">Ver</button></noscript>
+    </form>
+  </header>
+
+  {% include "reuniones/_navegacion.html" with activa='panel' %}
+
+  <ul class="reuniones-kpis" aria-label="Indicadores">
+    {% for clave, nombre, total, icono, url in indicadores %}
+      <li>
+        <a class="reuniones-kpi reuniones-kpi--{{ clave }}{% if total and clave == 'vencidos' or total and clave == 'inasistencias' %} is-alerta{% endif %}" href="{{ url }}">
+          <span class="reuniones-kpi__icono" aria-hidden="true">{% include "partials/icon.html" with name=icono icon_class="icon--sm" %}</span>
+          <span class="reuniones-kpi__numero">{{ total }}</span>
+          <span class="reuniones-kpi__nombre">{{ nombre }}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <div class="reuniones-panel">
+    <section class="card" aria-labelledby="hoy-titulo">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="hoy-titulo">Hoy, {{ hoy|date:"j \d\e F"|lower }}</h2>
+        <a class="card__header-action link-subtle" href="{% url 'reuniones:agenda' %}?vista=dia">Ver por sala</a></header>
+      {% if de_hoy %}
+        <ul class="reuniones-agenda-lista">
+          {% for reunion in de_hoy %}{% include "reuniones/_tarjeta.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="card__body text-muted">No hay reuniones programadas para hoy.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="atencion-titulo">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="triangle-alert" %}<h2 class="card__title" id="atencion-titulo">Por confirmar esta semana</h2></header>
+      {% if atencion %}
+        <ul class="reuniones-agenda-lista">
+          {% for reunion, faltan in atencion %}{% include "reuniones/_tarjeta.html" with faltan=faltan %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="card__body text-muted">Todas las citas de los próximos siete días están confirmadas.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="programar-titulo">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="phone" %}<h2 class="card__title" id="programar-titulo">Solicitudes sin programar</h2>
+        <a class="card__header-action link-subtle" href="{% url 'reuniones:lista' %}?estado=SOLICITADA">Ver todas</a></header>
+      {% if por_programar %}
+        <ul class="reuniones-agenda-lista">
+          {% for reunion in por_programar %}{% include "reuniones/_tarjeta.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="card__body text-muted">No hay solicitudes pendientes de programar.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="proximas-titulo">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="check-check" %}<h2 class="card__title" id="proximas-titulo">Próximas confirmadas</h2></header>
+      {% if proximas %}
+        <ul class="reuniones-agenda-lista">
+          {% for reunion in proximas %}{% include "reuniones/_tarjeta.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="card__body text-muted">Sin reuniones confirmadas próximamente.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

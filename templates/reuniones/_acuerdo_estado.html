@@ -1,0 +1,2 @@
+{% load reuniones_extras %}{# El estado de un acuerdo (vencido si pasó su fecha sin cumplirse). Parámetro: acuerdo. #}
+<span class="tag reuniones-acuerdo-estado {{ acuerdo.estado_actual|tono_acuerdo }}">{{ acuerdo.nombre_estado }}</span>

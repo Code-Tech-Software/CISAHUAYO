@@ -1,0 +1,103 @@
+{% load static reuniones_extras %}<!DOCTYPE html>
+{% comment %}
+  Minuta de una reunión con familia lista para imprimir o guardar en PDF desde el navegador (A4 vertical): datos
+  institucionales, la cita, los estudiantes, los asistentes, los temas, el resumen, los acuerdos y los espacios para
+  firmas. La versión para la familia (la del portal) nunca lleva las notas internas ni los acuerdos no compartidos; la
+  interna, solo con el permiso de notas confidenciales. Solo dice que está firmada si hay una evidencia de firma
+  registrada. Con ?pdf=1 abre directo el diálogo de impresión.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minuta {{ reunion.folio }}{% if interna %} (interna){% endif %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/reuniones.css' %}">
+  <style>@page { size: A4 portrait; margin: 14mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la reunión</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte reuniones-minuta">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Minuta de reunión con la familia{% if interna %} · versión interna{% endif %}</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Folio</dt><dd>{{ reunion.folio }}</dd></div>
+        <div><dt>Fecha</dt><dd>{{ reunion.fecha|fecha_larga }}</dd></div>
+        <div><dt>Horario real</dt><dd>{{ minuta.inicio_real|time:"H:i" }} a {{ minuta.fin_real|time:"H:i" }}</dd></div>
+        <div><dt>Lugar</dt><dd>{{ reunion.sala|default:"—" }}</dd></div>
+        <div><dt>Con</dt><dd>{{ reunion.get_area_display }}</dd></div>
+      </dl>
+    </header>
+
+    {% if interna %}<p class="reuniones-minuta__aviso">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Documento interno: incluye notas confidenciales y acuerdos no compartidos. No se entrega a la familia.</p>{% endif %}
+
+    <section class="reporte__seccion">
+      <h2 class="reuniones-minuta__titulo">Estudiantes</h2>
+      <ul class="reuniones-minuta__lista">{% for e in estudiantes %}<li>{{ e.alumno|persona }} · {{ e.inscripcion|grupo_corto }}</li>{% endfor %}</ul>
+    </section>
+
+    <section class="reporte__seccion">
+      <h2 class="reuniones-minuta__titulo">Asistentes</h2>
+      <ul class="reuniones-minuta__lista">
+        {% for t in familia %}<li>{{ t.tutor|persona }} · {% if t.solicitante %}Tutor que solicitó la reunión{% else %}Tutor{% endif %}</li>{% endfor %}
+        {% for p in personal %}<li>{{ p.usuario|cuenta }} · {{ p.get_papel_display }}{% if p.es_acompanante and p.presente_toda %} (durante toda la reunión){% endif %}</li>{% endfor %}
+      </ul>
+    </section>
+
+    <section class="reporte__seccion">
+      <h2 class="reuniones-minuta__titulo">Temas tratados</h2>
+      <p>{{ minuta.temas|linebreaksbr }}</p>
+      <h2 class="reuniones-minuta__titulo">Resumen</h2>
+      <p>{{ minuta.resumen|linebreaksbr }}</p>
+      {% if interna %}
+        <h2 class="reuniones-minuta__titulo">Notas internas confidenciales</h2>
+        <p>{{ minuta.notas_internas|default:"Sin notas internas."|linebreaksbr }}</p>
+      {% endif %}
+    </section>
+
+    <section class="reporte__seccion">
+      <h2 class="reuniones-minuta__titulo">Acuerdos y compromisos</h2>
+      {% if acuerdos %}
+        <table class="reuniones-minuta__tabla">
+          <thead><tr><th scope="col">Acuerdo</th><th scope="col">Responsable</th><th scope="col">Fecha límite</th>{% if interna %}<th scope="col">Con la familia</th>{% endif %}</tr></thead>
+          <tbody>
+            {% for a in acuerdos %}<tr><td>{{ a.descripcion|linebreaksbr }}</td><td>{{ a.nombre_responsable }}<br><small>{{ a.get_quien_display }}</small></td><td>{{ a.fecha_limite|date:"d/m/Y" }}</td>{% if interna %}<td>{{ a.compartido|yesno:"Compartido,No compartido" }}</td>{% endif %}</tr>{% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>Sin acuerdos registrados.</p>
+      {% endif %}
+      {% if minuta.siguiente_reunion %}<p><strong>Siguiente reunión:</strong> se acordó reunirse de nuevo{% if minuta.siguiente_reunion_nota %} ({{ minuta.siguiente_reunion_nota }}){% endif %}.</p>{% endif %}
+    </section>
+
+    <section class="reporte__seccion reuniones-minuta__firmas">
+      <h2 class="reuniones-minuta__titulo">Firmas</h2>
+      <p class="reuniones-minuta__estado-firma">{% if firma %}Se registró la evidencia de firma el {{ firma.creado|date:"d/m/Y" }}.{% else %}Pendiente de firma: el colegio todavía no registra la minuta firmada.{% endif %}</p>
+      <div class="reuniones-minuta__lineas">
+        {% for t in familia %}<div class="reuniones-minuta__linea"><span></span>{{ t.tutor|persona }}<small>Tutor</small></div>{% endfor %}
+        {% for p in personal %}<div class="reuniones-minuta__linea"><span></span>{{ p.usuario|cuenta }}<small>{{ p.get_papel_display }}</small></div>{% endfor %}
+      </div>
+    </section>
+
+    <footer class="reuniones-minuta__pie">Generada el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }} · {{ reunion.folio }}</footer>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

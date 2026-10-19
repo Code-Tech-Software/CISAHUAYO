@@ -1,0 +1,20 @@
+{% load reuniones_extras %}
+{% comment %}Una persona del colegio en la reunión: su papel, su disponibilidad y su asistencia. Parámetros: participante, titulo_papel.{% endcomment %}
+<li class="reuniones-persona reuniones-persona--{{ participante.papel|lower }}">
+  {% include "partials/avatar.html" with persona=participante.usuario %}
+  <div class="reuniones-persona__texto">
+    <p class="reuniones-persona__nombre">{{ participante.usuario|cuenta }}{% if reunion.responsable_id == participante.usuario_id %} <span class="tag">Responsable</span>{% endif %}</p>
+    <p class="reuniones-papel reuniones-papel--{{ participante.papel|lower }}">{% if participante.es_acompanante %}{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %}{% elif participante.es_docente %}{% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}{% endif %} {{ titulo_papel }}{% if participante.sustituye_a %} · sustituto de {{ participante.sustituye_a.usuario|cuenta }}{% endif %}</p>
+    {% if participante.confirmacion_nota and participante.confirmacion == 'NO_DISPONIBLE' %}<p class="text-muted reuniones-sub">«{{ participante.confirmacion_nota }}»</p>{% endif %}
+  </div>
+  <div class="reuniones-persona__estado">
+    {% if participante.asistencia == 'PRESENTE' %}<span class="tag tag--success">Asistió{% if participante.es_acompanante and participante.presente_toda %} toda la reunión{% endif %}</span>
+    {% elif participante.asistencia == 'AUSENTE' %}<span class="tag tag--danger">No asistió</span>
+    {% elif reunion.programada %}
+      {% if participante.confirmacion == 'CONFIRMADA' %}<span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Disponible</span>
+      {% elif participante.confirmacion == 'NO_DISPONIBLE' %}<span class="tag tag--danger">No disponible</span>
+      {% else %}<span class="tag tag--warning">Sin confirmar</span>{% endif %}
+    {% endif %}
+    {% if puede.disponibilidad_de_otros and participante.usuario_id != request.user.pk %}<a class="btn btn--ghost btn--icon btn--sm" href="{% url 'reuniones:disponibilidad_de' reunion.pk participante.pk %}" data-modal-form aria-label="Registrar la disponibilidad de {{ participante.usuario|cuenta }}" data-tooltip="Registrar su disponibilidad">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}</a>{% endif %}
+  </div>
+</li>

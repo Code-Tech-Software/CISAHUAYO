@@ -1,0 +1,28 @@
+{% comment %}
+  Búsqueda y filtros (Reuniones/forms.py · FiltroForm) de la agenda y la lista. Parámetros: accion (a dónde), conservar
+  (campos ocultos: [(nombre, valor)]), con_fechas (muestra desde y hasta), limpiar (enlace para quitar los filtros).
+{% endcomment %}
+<form class="filters reuniones-filtros" method="get" action="{{ accion }}" role="search" aria-label="Buscar y filtrar reuniones">
+  {% for nombre, valor in conservar %}<input type="hidden" name="{{ nombre }}" value="{{ valor }}">{% endfor %}
+  <div class="filters__field reuniones-filtros__busqueda"><label class="field__label" for="{{ filtro.q.id_for_label }}">Buscar</label>{{ filtro.q }}</div>
+  <div class="filters__field"><label class="field__label" for="{{ filtro.estado.id_for_label }}">Estado</label>{{ filtro.estado }}</div>
+  <div class="filters__field"><label class="field__label" for="{{ filtro.nivel.id_for_label }}">Nivel</label>{{ filtro.nivel }}</div>
+  <details class="reuniones-filtros__mas"{% if mas_filtros %} open{% endif %}>
+    <summary class="btn btn--ghost btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Más filtros{% if mas_filtros %} <span class="badge">{{ mas_filtros }}</span>{% endif %}</summary>
+    <div class="reuniones-filtros__panel">
+      <div class="filters__field"><label class="field__label" for="{{ filtro.grupo.id_for_label }}">Grupo</label>{{ filtro.grupo }}</div>
+      <div class="filters__field"><label class="field__label" for="{{ filtro.estudiante.id_for_label }}">Estudiante</label>{{ filtro.estudiante }}</div>
+      <div class="filters__field"><label class="field__label" for="{{ filtro.tutor.id_for_label }}">Tutor</label>{{ filtro.tutor }}</div>
+      <div class="filters__field"><label class="field__label" for="{{ filtro.participante.id_for_label }}">Participante</label>{{ filtro.participante }}</div>
+      <div class="filters__field"><label class="field__label" for="{{ filtro.prioridad.id_for_label }}">Prioridad</label>{{ filtro.prioridad }}</div>
+      {% if con_fechas %}
+        <div class="filters__field"><label class="field__label" for="{{ filtro.desde.id_for_label }}">Desde</label>{{ filtro.desde }}</div>
+        <div class="filters__field"><label class="field__label" for="{{ filtro.hasta.id_for_label }}">Hasta</label>{{ filtro.hasta }}</div>
+      {% endif %}
+    </div>
+  </details>
+  <div class="filters__actions">
+    <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar</button>
+    <a class="btn btn--ghost btn--sm" href="{{ limpiar }}">Limpiar</a>
+  </div>
+</form>

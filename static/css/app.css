@@ -24,7 +24,7 @@
        --color-primary...); así el tema oscuro y los temas de color de cada
        persona (static/css/temas.css) solo redefinen roles. La paleta
        cruda (--color-teal-400...) solo aparece fuera de la sección 1 en los
-       detalles de marca que se ven igual en ambos temas (la franja tricolor).
+       detalles de marca que se ven igual en todos los temas (la franja tricolor: --franja-*).
      - Sin degradados: el color es plano; solo la veladura del fondo (--aurora)
        y las franjas de tramos duros (que no se ven como degradado) usan gradient.
      - Mobile first: los estilos base son los del móvil y la sección 6 los amplía.
@@ -140,8 +140,14 @@
   --color-brand: var(--color-crimson-600);
   --color-brand-soft: var(--color-crimson-50);
   --color-badge: var(--color-crimson-600);
-  /* Tercer color de la franja tricolor (guinda · amarillo · turquesa); cada tema de color pone el suyo */
+  /* Turquesa de cada tema de color (veladura del fondo); la franja tricolor usa los colores fijos de abajo */
   --color-stripe: var(--color-teal-400);
+  /* Franja tricolor institucional (tinto · amarillo · azul): fija en el tema claro, el oscuro y los de color.
+     Ningún tema redefine --franja-*, y --franja-institucional se resuelve aquí, en :root, con los valores literales */
+  --franja-tinto: #a22a47;
+  --franja-amarillo: #eabf6d;
+  --franja-azul: #a2c6ca;
+  --franja-institucional: linear-gradient(90deg, #a22a47 0 32%, #eabf6d 32% 58%, #a2c6ca 58% 100%);
   /* Texto sobre el color de acento (la cifra del filtro activo) */
   --color-on-accent: var(--color-slate-900);
 
@@ -515,7 +521,7 @@ body {
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
+  background: var(--franja-institucional);
 }
 
 .sidebar__header {
@@ -1700,7 +1706,7 @@ body {
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
+  background: var(--franja-institucional);
 }
 
 @keyframes palette-in {
@@ -3964,6 +3970,18 @@ body {
   --avatar-tint: var(--color-info-bg);
 }
 
+/* Reuniones con familias en la campana (Reuniones/context_processors.py) */
+.aviso__avatar--reunion {
+  --avatar-tone: var(--color-accent-text);
+  --avatar-tint: var(--color-accent-soft);
+}
+
+.notificaciones__lista--reuniones {
+  margin-bottom: var(--space-1);
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border);
+}
+
 .aviso--comunicado.is-urgente {
   background: color-mix(in srgb, #f59e0b 10%, transparent);
 }
@@ -4322,7 +4340,7 @@ body {
   height: 4px;
   margin: var(--space-4) auto 0;
   border-radius: 4px;
-  background: linear-gradient(90deg, var(--color-brand) 0 34%, var(--color-accent) 34% 62%, var(--color-stripe) 62% 100%);
+  background: linear-gradient(90deg, var(--franja-tinto) 0 34%, var(--franja-amarillo) 34% 62%, var(--franja-azul) 62% 100%);
 }
 
 .error-state__title {
@@ -4368,7 +4386,7 @@ body {
   inset: 0 0 auto;
   z-index: 3;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 32%, var(--color-accent) 32% 58%, var(--color-stripe) 58% 100%);
+  background: var(--franja-institucional);
 }
 
 @keyframes sheet-in {

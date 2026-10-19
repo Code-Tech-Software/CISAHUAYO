@@ -243,6 +243,38 @@ MODULOS = (
                       'Exclusivo del administrador.',
         }),
     )),
+    Modulo('reuniones', 'Reuniones con familias', 'users', 'Las citas que solicitan los tutores para reunirse con dirección, coordinación académica, prefectura o un docente: programación, confirmaciones, minuta y acuerdos.', (
+        Funcion('Reuniones en que participa', {'ver': 'Reuniones.participar'}, etiquetas={'ver': 'Participar'}, ayuda={
+            'ver': 'Ver las reuniones en que participa (p. ej. un docente) y confirmar su disponibilidad. Sin las observaciones internas ni las '
+                   'notas confidenciales.',
+        }),
+        Funcion('Solicitudes y citas', {'crear': 'Reuniones.registrar'}, etiquetas={'crear': 'Registrar y programar'}, ayuda={
+            'crear': 'Atender las llamadas de cualquier nivel: registrar solicitudes, consultar la agenda y la disponibilidad, programar y '
+                     'reprogramar citas, y anotar las confirmaciones y los avisos a la familia. No da acceso a las notas confidenciales.',
+        }),
+        Funcion('Gestión de reuniones', {'editar': 'Reuniones.gestionar'}, etiquetas={'editar': 'Gestionar'}, ayuda={
+            'editar': 'Las reuniones de los estudiantes de sus niveles («Niveles que dirige» o «Niveles que coordina» de su ficha, o su alcance '
+                      'de prefectura): participantes, cancelación, inicio con la asistencia real, sustitutos, minuta, acuerdos, documentos e '
+                      'inasistencias.',
+        }),
+        Funcion('Acompañamiento directivo', {'editar': 'Reuniones.acompanar'}, etiquetas={'editar': 'Acompañar'}, ayuda={
+            'editar': 'Puede ser el acompañante directivo (dirección, coordinación académica o prefectura) de las reuniones con docentes de '
+                      'sus niveles. Toda reunión con un docente necesita uno.',
+        }),
+        Funcion('Notas confidenciales', {'ver': 'Reuniones.confidencial'}, etiquetas={'ver': 'Ver y escribir'}, ayuda={
+            'ver': 'Ver y escribir las notas internas confidenciales de la minuta de las reuniones que puede consultar. Nunca se muestran a la '
+                   'familia.',
+        }),
+        Funcion('Reuniones de todo el colegio', {'editar': 'Reuniones.todo'}, etiquetas={'editar': 'Gestionar'},
+                reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Consultar y gestionar las reuniones de todos los niveles. Exclusivo del administrador.',
+        }),
+        Funcion('Configuración de reuniones', {'editar': 'Reuniones.configurar'}, etiquetas={'editar': 'Configurar'},
+                reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Motivos, lugares y salas, horario de atención, duración y anticipación de los avisos (Ajustes › Reuniones). Exclusivo '
+                      'del administrador.',
+        }),
+    )),
     Modulo('agenda', 'Agenda', 'calendar', 'El calendario de eventos del colegio por nivel educativo. Todos consultan los de sus niveles y los de todo el colegio.', (
         Funcion('Eventos de la agenda', {'editar': 'Agenda.gestionar'}, etiquetas={'editar': 'Gestionar'},
                 reservado={'editar': ADMINISTRADOR}, ayuda={

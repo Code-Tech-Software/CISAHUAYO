@@ -1,0 +1,25 @@
+{% extends "reuniones/accion.html" %}
+{% load static %}
+{% comment %}
+  Participantes de una reunión: docentes, acompañantes directivos, otro personal, responsable y tutores que asisten.
+  static/js/reuniones-form.js avisa en vivo si hay un docente sin acompañante (el servidor lo vuelve a revisar).
+{% endcomment %}
+{% block antes %}
+  <div class="alert alert--info reuniones-regla" role="note" data-reuniones-regla>
+    {% include "partials/icon.html" with name="shield-check" icon_class="alert__icon" %}
+    <div class="alert__body"><p><strong>Regla del colegio:</strong> si participa un docente, debe estar un acompañante directivo autorizado, aunque el tutor pida hablar solo con el maestro. Puedes guardar sin él, pero la cita no se podrá confirmar.</p></div>
+  </div>
+{% endblock %}
+{% block campos %}
+  <div class="form-grid__full" data-reuniones-participantes>
+    {% include "partials/casillas.html" with campo=form.docentes %}
+    <p class="reuniones-aviso-docente" data-reuniones-sin-acompanante hidden>{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Elegiste un docente: marca también a un acompañante directivo.</p>
+    {% include "partials/casillas.html" with campo=form.acompanantes %}
+  </div>
+  {% include "partials/casillas.html" with campo=form.personal clase="form-grid__full" %}
+  {% include "partials/field.html" with campo=form.responsable %}
+  {% if form.tutores.field.queryset.exists %}{% include "partials/casillas.html" with campo=form.tutores clase="form-grid__full" %}{% endif %}
+{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/reuniones-form.js' %}" defer></script>
+{% endblock %}

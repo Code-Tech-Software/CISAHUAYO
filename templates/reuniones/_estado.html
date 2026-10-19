@@ -1,0 +1,2 @@
+{% load reuniones_extras %}{# Etiqueta del estado de una reunión, con texto, icono y color. Parámetro: reunion. #}
+<span class="tag reuniones-estado reuniones-estado--{{ reunion.estado|lower }}{% with tono=reunion.estado|tono_estado %}{% if tono %} {{ tono }}{% endif %}{% endwith %}">{% include "partials/icon.html" with name=reunion.estado|icono_estado icon_class="icon--sm" %}{{ reunion.get_estado_display }}</span>

@@ -1,0 +1,13 @@
+{% extends "reuniones/accion.html" %}
+{% comment %}Subir documentos o la evidencia de firma de la minuta (fotos o PDF, varios a la vez).{% endcomment %}
+{% block enctype %} enctype="multipart/form-data"{% endblock %}
+{% block campos %}
+  <div class="field form-grid__full{% if form.archivos.errors %} is-invalid{% endif %}">
+    <label class="field__label field__label--required" for="id_archivos">Archivos</label>
+    <input class="field__control" type="file" name="archivos" id="id_archivos" accept="{{ acepta }}" multiple>
+    <p class="field__hint">{{ ayuda_archivos }} Hasta 10 a la vez.</p>
+    {% for error in form.archivos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+  </div>
+  {% include "partials/field.html" with campo=form.clase %}
+  {% include "reuniones/_campo.html" with campo=form.compartido %}
+{% endblock %}

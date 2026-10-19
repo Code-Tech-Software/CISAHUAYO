@@ -567,26 +567,6 @@
       </div>
     </div>
     {% endif %}
-
-    {# --- Ir a una sección: los mismos accesos del panel anterior, según lo que permite el rol (compactos) ------------ #}
-    <section class="panel-secciones" aria-labelledby="titulo-secciones">
-      <h2 class="panel-bloque__titulo" id="titulo-secciones">Ir a una sección</h2>
-      <div class="tile-grid">
-        {% for seccion in navegacion %}
-          {% if seccion.titulo %}
-            {% for elemento in seccion.elementos %}
-              <a class="tile{% if forloop.parentloop.counter == 3 %} tile--tone-2{% endif %}" href="{{ elemento.url }}">
-                <span class="tile__chip">{% include "partials/icon.html" with name=elemento.icono icon_class="icon--sm" %}</span>
-                <div class="tile__body">
-                  <p class="tile__title">{{ elemento.etiqueta }}</p>
-                  <p class="tile__text">{{ seccion.titulo }}</p>
-                </div>
-              </a>
-            {% endfor %}
-          {% endif %}
-        {% endfor %}
-      </div>
-    </section>
   </div>
 {% endwith %}
 {% endblock %}

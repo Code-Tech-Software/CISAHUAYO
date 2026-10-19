@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Formulario de una acción sobre una reunión (programar, confirmar, cancelar, iniciar, minuta, acuerdos…): se abre en la
+  ventana modal con data-modal-form y también funciona como página. Contexto: reunion, form, titulo, descripcion,
+  boton, peligro, volver. Bloques: campos, antes, despues, enctype.
+{% endcomment %}
+
+{% block title %}{{ titulo }} · {{ reunion.folio }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/reuniones.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:lista' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">{{ reunion.folio }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ titulo }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{{ titulo }}</h1>
+      {% if descripcion %}<p class="page-header__description">{{ descripcion }}</p>{% endif %}
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate{% block enctype %}{% endblock %}>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    {% include "reuniones/_resumen.html" %}
+    {% block antes %}{% endblock %}
+    <section class="card">
+      <div class="card__body form-grid">
+        {% block campos %}{% for campo in form.visible_fields %}{% include "reuniones/_campo.html" %}{% endfor %}{% endblock %}
+      </div>
+    </section>
+    {% block despues %}{% endblock %}
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn {% if peligro %}btn--danger{% else %}btn--primary{% endif %}">{{ boton }}</button>
+    </div>
+  </form>
+{% endblock %}

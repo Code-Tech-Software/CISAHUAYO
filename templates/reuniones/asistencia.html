@@ -1,0 +1,29 @@
+{% extends "reuniones/accion.html" %}
+{% comment %}
+  Iniciar la reunión (quién llegó) o registrarla como no realizada (quién faltó): una casilla por persona del colegio,
+  con su papel, y otra por tutor.
+{% endcomment %}
+{% block campos %}
+  <fieldset class="field form-grid__full">
+    <legend class="field__label">{{ form.etiqueta_personal }}</legend>
+    <div class="choice-group choice-group--stack">
+      {% for casilla in form.casillas_de_personal %}
+        <label class="choice choice--check" for="{{ casilla.id_for_label }}">{{ casilla }}<span class="choice__box">{{ casilla.label }}</span></label>
+      {% empty %}<p class="text-muted">Sin personal asignado.</p>{% endfor %}
+    </div>
+  </fieldset>
+  <fieldset class="field form-grid__full">
+    <legend class="field__label">{{ form.etiqueta_tutor }}</legend>
+    <div class="choice-group choice-group--stack">
+      {% for casilla in form.casillas_de_tutores %}
+        <label class="choice choice--check" for="{{ casilla.id_for_label }}">{{ casilla }}<span class="choice__box">{{ casilla.label }}</span></label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% if form.nota %}{% include "partials/field.html" with campo=form.nota clase="form-grid__full" %}{% endif %}
+{% endblock %}
+{% block despues %}
+  {% if puede_sustituir %}
+    <p class="text-muted reuniones-sub">¿No llegó el acompañante directivo? <a class="link-subtle" href="{% url 'reuniones:sustituto' reunion.pk %}">Asigna un sustituto disponible</a> o <a class="link-subtle" href="{% url 'reuniones:reprogramar' reunion.pk %}">reprograma la reunión</a>.</p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "reuniones/accion.html" %}
+{% load reuniones_extras %}
+{% comment %}Programar o reprogramar: los horarios que propuso el tutor y el horario de atención, como referencia.{% endcomment %}
+{% block antes %}
+  <section class="card reuniones-referencia">
+    <div class="card__body">
+      <dl class="details">
+        <div class="details__item details__item--wide"><dt class="details__label">Propuso el tutor</dt>
+          <dd class="details__value{% if not propuestas %} details__value--empty{% endif %}">
+            {% for p in propuestas %}<span class="reuniones-propuesta">{{ p.fecha }}{% if p.desde %} · {{ p.desde }}{% if p.hasta %} a {{ p.hasta }}{% endif %}{% endif %}</span>{% empty %}Sin horarios propuestos{% endfor %}
+          </dd></div>
+        <div class="details__item details__item--wide"><dt class="details__label">Horario de atención</dt>
+          <dd class="details__value">{{ configuracion.nombres_de_dias|join:", " }} · {{ configuracion.hora_apertura|time:"H:i" }} a {{ configuracion.hora_cierre|time:"H:i" }} · {{ configuracion.duracion }} minutos por reunión</dd></div>
+      </dl>
+      <p class="text-muted reuniones-sub"><a class="link-subtle" href="{% url 'reuniones:agenda' %}?vista=dia" target="_blank" rel="noopener">Ver la agenda del día por sala</a> para elegir un horario libre.</p>
+    </div>
+  </section>
+{% endblock %}

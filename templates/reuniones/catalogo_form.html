@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}Registrar o editar un motivo o una sala (Ajustes › Reuniones). Uno ya usado no se borra: se desactiva.{% endcomment %}
+
+{% block title %}{% if instancia %}Editar {{ nombre }}{% else %}Nuevo: {{ nombre }}{% endif %} · Ajustes | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Reuniones</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% if instancia %}{{ instancia }}{% else %}Nuevo{% endif %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% if instancia %}Editar {{ nombre }} «{{ instancia }}»{% else %}Registrar {{ nombre }}{% endif %}</h1>
+      <p class="page-header__description">Si ya se usó, desactívalo en lugar de borrarlo: deja de ofrecerse y el historial lo conserva.</p>
+    </div>
+  </header>
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <section class="card">
+      <div class="card__body form-grid">
+        {% for campo in form.visible_fields %}{% include "reuniones/_campo.html" %}{% endfor %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </div>
+  </form>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Ajustes › Reuniones (Reuniones/views.ajustes, solo el administrador): horario de atención, duración predeterminada,
+  anticipación de los avisos, motivos, lugares y salas, y quién tiene cada permiso del módulo (se conceden en Roles y
+  permisos; el alcance por nivel, en la ficha de cada usuario).
+{% endcomment %}
+
+{% block title %}Reuniones · Ajustes | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reuniones</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes</h1>
+      <p class="page-header__description">Reuniones con familias: horario de atención, motivos, salas y permisos.</p>
+    </div>
+  </header>
+  {% include "ajustes/_pestanas.html" %}
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <section class="card">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clock" %}<h2 class="card__title">Horario y avisos</h2></header>
+      <div class="card__body form-grid">
+        {% include "partials/casillas.html" with campo=form.dias clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.hora_apertura %}
+        {% include "partials/field.html" with campo=form.hora_cierre %}
+        {% include "partials/field.html" with campo=form.duracion %}
+        {% include "partials/field.html" with campo=form.recordatorio_horas %}
+        {% include "partials/field.html" with campo=form.aviso_acuerdos_dias %}
+      </div>
+    </section>
+    <div class="action-bar"><button type="submit" class="btn btn--primary">Guardar</button></div>
+  </form>
+
+  <div class="reuniones-ajustes">
+    <section class="card">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="list" %}<h2 class="card__title">Motivos de reunión</h2>
+        <a class="card__header-action btn btn--sm" href="{% url 'reuniones:motivo_crear' %}" data-modal-form>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Motivo</a></header>
+      <ul class="reuniones-catalogo">
+        {% for motivo in motivos %}
+          <li class="{% if not motivo.activo %}is-muted{% endif %}"><span>{{ motivo.nombre }}{% if not motivo.activo %} <span class="tag">Inactivo</span>{% endif %}</span><span class="text-muted reuniones-sub">{{ motivo.usos }} reunión{{ motivo.usos|pluralize:"es" }}</span>
+            <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'reuniones:motivo_editar' motivo.pk %}" data-modal-form aria-label="Editar {{ motivo }}" data-tooltip="Editar">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}</a></li>
+        {% empty %}<li class="text-muted">Sin motivos.</li>{% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="map-pin" %}<h2 class="card__title">Lugares y salas</h2>
+        <a class="card__header-action btn btn--sm" href="{% url 'reuniones:sala_crear' %}" data-modal-form>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Sala</a></header>
+      <ul class="reuniones-catalogo">
+        {% for sala in salas %}
+          <li class="{% if not sala.activo %}is-muted{% endif %}"><span>{{ sala.nombre }}{% if sala.ubicacion %} · <span class="text-muted">{{ sala.ubicacion }}</span>{% endif %}{% if not sala.activo %} <span class="tag">Inactiva</span>{% endif %}</span><span class="text-muted reuniones-sub">{{ sala.usos }} reunión{{ sala.usos|pluralize:"es" }}</span>
+            <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'reuniones:sala_editar' sala.pk %}" data-modal-form aria-label="Editar {{ sala }}" data-tooltip="Editar">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}</a></li>
+        {% empty %}<li class="text-muted">Sin salas.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <section class="card">
+    <header class="card__header card__header--icon">{% include "partials/icon.html" with name="shield-check" %}<h2 class="card__title">Permisos para registrar y gestionar</h2>
+      <a class="card__header-action link-subtle" href="{% url 'roles:lista' %}">Roles y permisos</a></header>
+    <div class="card__body">
+      <p class="text-muted">Se conceden a cada rol en «Roles y permisos» (módulo Reuniones con familias). Quien gestiona o acompaña solo lo hace en sus niveles: los «Niveles que dirige» y «Niveles que coordina» de su ficha de usuario o su alcance de prefectura.</p>
+      <dl class="details">
+        {% for descripcion, etiqueta, roles in permisos %}
+          <div class="details__item details__item--wide"><dt class="details__label">{{ descripcion }}</dt><dd class="details__value">{{ roles|join:", "|default:"Ningún rol" }}</dd></div>
+        {% endfor %}
+        <div class="details__item details__item--wide"><dt class="details__label">Cuentas que pueden acompañar hoy</dt><dd class="details__value">{% for u in acompanantes %}{{ u.get_full_name|default:u.username }}{% if not forloop.last %}, {% endif %}{% empty %}Ninguna{% endfor %}</dd></div>
+      </dl>
+    </div>
+  </section>
+{% endblock %}

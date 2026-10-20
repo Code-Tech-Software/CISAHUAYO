@@ -1,0 +1,12 @@
+{% comment %}
+  Un encabezado de la tabla de estudiantes que la ordena al tocarlo (otra vez, en el sentido contrario). Parámetros:
+  titulo, columna ({siguiente, aria, activa, ascendente}: Alumnos/tabla.py · columnas_de_orden) y clase (opcional,
+  p. ej. table__col--wide).
+{% endcomment %}
+<th class="table__th{% if clase %} {{ clase }}{% endif %}" scope="col" aria-sort="{{ columna.aria }}">
+  <a class="tabla-orden{% if columna.activa %} is-activa{% if columna.ascendente %} is-ascendente{% endif %}{% endif %}" href="{% querystring orden=columna.siguiente page=None %}"
+     aria-label="{{ titulo }}: ordenar{% if columna.activa and columna.ascendente %} en sentido contrario{% endif %}">
+    {{ titulo }}
+    {% include "partials/icon.html" with name="chevron-down" icon_class="icon--sm tabla-orden__icono" %}
+  </a>
+</th>

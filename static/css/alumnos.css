@@ -439,3 +439,139 @@
 .tabs__tab--enlace:hover {
   color: var(--color-link-hover);
 }
+
+/* --- Lista de estudiantes: encabezados que ordenan la tabla (templates/alumnos/_encabezado_orden.html) ---------- */
+.tabla-orden {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  text-transform: inherit;
+}
+
+.tabla-orden:hover,
+.tabla-orden.is-activa {
+  color: var(--color-text-strong);
+}
+
+.tabla-orden:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.tabla-orden__icono {
+  opacity: 0;
+  transition: transform var(--transition-base), opacity var(--transition-base);
+}
+
+.tabla-orden:hover .tabla-orden__icono {
+  opacity: 0.45;
+}
+
+.tabla-orden.is-activa .tabla-orden__icono {
+  opacity: 1;
+}
+
+/* Ascendente: la flecha hacia arriba */
+.tabla-orden.is-ascendente .tabla-orden__icono {
+  transform: rotate(180deg);
+}
+
+/* --- Señales rápidas junto al nombre (solo las que aplican) ------------------------------------------------- */
+.alumno-senales {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  margin: 0.3rem 0 0 calc(2.5rem + var(--space-3));   /* alineadas con el nombre, después del avatar */
+  padding: 0;
+  list-style: none;
+}
+
+.alumno-senal {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  cursor: help;
+}
+
+.alumno-senal:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.alumno-senal--atencion,
+.alumno-senal--alta {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.alumno-senal--media {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.alumno-senal--baja {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+.alumno-senal--retiro,
+.alumno-senal--avisado {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+/* Ya salió: queda como dato, en gris */
+.alumno-senal--retirado {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+.alumno-senal--reunion {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+a.alumno-senal {
+  cursor: pointer;
+}
+
+a.alumno-senal:hover {
+  filter: brightness(0.95);
+}
+
+.alumno-senal--salud {
+  background: color-mix(in srgb, var(--color-brand) 10%, var(--color-surface));
+  color: var(--color-brand);
+}
+
+/* CURP y fotografía (datos por completar): en gris, para no confundirse con las alertas de seguimiento */
+
+/* El selector de orden solo donde algún encabezado que ordena no se ve (el teléfono, y la tableta o la laptop, donde la
+   edad se oculta): en pantallas anchas se ordena desde los encabezados de la tabla */
+@media (min-width: 80rem) {
+  .alumnos-orden-movil {
+    display: none;
+  }
+}
+
+/* El nombre no se corta aunque la tabla tenga varias columnas (si no caben, la tabla se desplaza de lado) */
+@media (min-width: 40rem) {
+  .tabla-estudiantes .table__cell--main {
+    min-width: 13rem;
+  }
+
+  /* Un nombre largo pasa al siguiente renglón en lugar de cortarse con «…» */
+  .tabla-estudiantes .person__name {
+    overflow: visible;
+    white-space: normal;
+  }
+}

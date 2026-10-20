@@ -13,7 +13,7 @@ from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, pagina
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro
 
-from . import importacion
+from . import importacion, tabla
 from .academico import prefetch_inscripciones_actuales, sincronizar_inscripciones
 from .asistencias import con_justificada_general
 from .forms import (
@@ -66,6 +66,9 @@ def alumno_lista(request):
         prefetch_inscripciones_actuales(), prefetch_vinculos_activos(),
     )
     pagina, rango_paginas, por_pagina = paginar(request, alumnos)
+    # La página guarda la lista: las señales y la asistencia de hoy quedan en los mismos objetos que pinta la tabla
+    ve_asistencia = tabla.preparar_filas(request.user, list(pagina))
+    orden = filtro.activos.get('orden', 'nombre')
 
     conteos = dict(Alumno.objects.values_list('estatus').annotate(total=Count('pk')))
     estatus_filtros = [
@@ -86,6 +89,9 @@ def alumno_lista(request):
         'total_alumnos': sum(total for estatus, total in conteos.items() if estatus != 'BAJA'),
         'total_bajas': conteos.get('BAJA', 0),
         'filtros_activos': filtros_activos,
+        'orden': orden,
+        'columnas': tabla.columnas_de_orden(orden),
+        've_asistencia': ve_asistencia,
         'ciclo_actual': ciclo_activo(),
         # Tras registrar a un alumno se muestran, una sola vez, sus credenciales de acceso
         'credenciales': request.session.pop(SESION_CREDENCIALES, None),

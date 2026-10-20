@@ -57,3 +57,18 @@ def nombre_de_nivel(nivel):
 def tono_estatus(estatus):
     """Variante de color (.tag--*) de un estatus."""
     return TONOS_ESTATUS.get(estatus, 'neutral')
+
+
+@register.filter
+def grado_equivalente(inscripcion):
+    """«7° A» o «K2 B»: la equivalencia del grado en la continuidad escolar (la guardada en Grados o, si no tiene, la
+    habitual de su nivel) con su grupo. Sin una equivalencia posible, el grado de siempre («1° A Secundaria»)."""
+    if not inscripcion:
+        return ''
+    from ..academico import equivalencia_sugerida
+    grado = inscripcion.grado
+    codigo = grado.equivalencia or equivalencia_sugerida(grado.nivel, grado.numero)
+    if not codigo:
+        return str(inscripcion.grupo or grado)
+    texto = f'{codigo}°' if str(codigo).isdigit() else str(codigo)
+    return f'{texto} {inscripcion.grupo.nombre}' if inscripcion.grupo_id else texto

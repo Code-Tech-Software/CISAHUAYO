@@ -76,7 +76,12 @@
       <label class="visually-hidden" for="{{ filtro.situacion.id_for_label }}">{{ filtro.situacion.label }}</label>
       {{ filtro.situacion }}
     </div>
-    <div class="filters__field">
+    {% comment %}
+      El orden se elige tocando los encabezados de la tabla. Donde alguno no se ve (en el teléfono la tabla se vuelve
+      tarjetas; en tableta y laptop se oculta la edad), con esta lista; en pantallas anchas queda oculta, pero conserva el
+      orden al filtrar.
+    {% endcomment %}
+    <div class="filters__field alumnos-orden-movil">
       <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
       {{ filtro.orden }}
     </div>
@@ -94,14 +99,17 @@
     </p>
 
     <div class="table-card">
-      <table class="table">
+      {# Entre tableta y escritorio, si no cabe, se desplaza de lado (la edad y el tutor solo se muestran en pantallas anchas) #}
+      <div class="scroll-x">
+      <table class="table tabla-estudiantes">
         <caption class="visually-hidden">Lista de estudiantes</caption>
         <thead class="table__head">
           <tr>
-            <th class="table__th" scope="col">Estudiante</th>
-            <th class="table__th" scope="col">Grado actual</th>
+            {% include "alumnos/_encabezado_orden.html" with titulo="Estudiante" columna=columnas.nombre %}
+            {% include "alumnos/_encabezado_orden.html" with titulo="Grado actual" columna=columnas.grado %}
+            {% if ve_asistencia %}<th class="table__th" scope="col">Asistencia hoy</th>{% endif %}
             <th class="table__th table__col--wide" scope="col">Tutor principal</th>
-            <th class="table__th" scope="col">Edad</th>
+            {% include "alumnos/_encabezado_orden.html" with titulo="Edad" columna=columnas.edad clase="table__col--wide" %}
             <th class="table__th" scope="col">Estatus</th>
             <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
           </tr>
@@ -118,14 +126,37 @@
                       <span class="person__meta">Ref. {{ alumno.referencia }}</span>
                     </span>
                   </a>
+                  {% if alumno.senales %}
+                    {# Señales rápidas, solo las que aplican: requiere atención, alergias, CURP y fotografía #}
+                    <ul class="alumno-senales" aria-label="Señales de {{ alumno }}">
+                      {% for senal in alumno.senales %}
+                        <li>
+                          {# La del retiro y la de la reunión llevan a su registro #}
+                          {% if senal.url %}<a{% else %}<span tabindex="0"{% endif %} class="alumno-senal alumno-senal--{{ senal.clave }}{% if senal.tono %} alumno-senal--{{ senal.tono }}{% endif %}"{% if senal.url %} href="{{ senal.url }}"{% endif %} data-tooltip="{{ senal.texto }}">
+                            {% include "partials/icon.html" with name=senal.icono icon_class="icon--sm" %}<span class="visually-hidden">{{ senal.texto }}</span>
+                          {% if senal.url %}</a>{% else %}</span>{% endif %}
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
                 </td>
                 <td class="table__cell" data-label="Grado actual">
                   {% if inscripcion %}
-                    <span class="cell-stack"><span class="cell-stack__main">{{ inscripcion.grupo }}</span><span class="cell-stack__sub">{{ inscripcion.ciclo }}</span></span>
+                    {# La equivalencia en la continuidad escolar (7° A, K2 B); el grado de su nivel queda en la descripción emergente #}
+                    <span class="cell-stack"><span class="cell-stack__main" data-tooltip="{% firstof inscripcion.grupo inscripcion.grado %}">{{ inscripcion|grado_equivalente }}</span><span class="cell-stack__sub">{{ inscripcion.ciclo }}</span></span>
                   {% else %}
                     <span class="text-muted">Sin inscripción</span>
                   {% endif %}
                 </td>
+                {% if ve_asistencia %}
+                  {# Su entrada al colegio hoy (Alumnos/tabla.py · asistencia_de_hoy) #}
+                  <td class="table__cell" data-label="Asistencia hoy">
+                    {% with dato=alumno.asistencia_hoy %}
+                      {% if dato.tono %}<span class="tag{% if dato.tono != 'neutral' %} tag--{{ dato.tono }}{% endif %}"{% if dato.detalle %} data-tooltip="{{ dato.detalle }}"{% endif %}>{{ dato.texto }}</span>
+                      {% else %}<span class="text-muted"{% if dato.detalle %} data-tooltip="{{ dato.detalle }}"{% endif %}>{{ dato.texto }}</span>{% endif %}
+                    {% endwith %}
+                  </td>
+                {% endif %}
                 <td class="table__cell table__col--wide" data-label="Tutor principal">
                   {% if vinculo %}
                     <span class="cell-stack">
@@ -137,7 +168,7 @@
                     <span class="tag tag--warning">Sin tutor</span>
                   {% endif %}
                 </td>
-                <td class="table__cell" data-label="Edad">{{ alumno.edad }} año{{ alumno.edad|pluralize }}</td>
+                <td class="table__cell table__col--wide" data-label="Edad">{{ alumno.edad }} año{{ alumno.edad|pluralize }}</td>
                 <td class="table__cell" data-label="Estatus">
                   <span class="tag tag--{{ alumno.estatus|tono_estatus }}">{{ alumno.get_estatus_display }}</span>
                 </td>
@@ -170,6 +201,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </div>
 
     {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="estudiantes" por_pagina=por_pagina opciones=opciones_por_pagina %}

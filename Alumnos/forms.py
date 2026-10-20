@@ -1,11 +1,11 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
-from django.db.models import Q
+from django.db.models import F, OuterRef, Q, Subquery
 from django.utils import timezone
 
 from .academico import ciclo_actual as ciclo_activo, motivo_no_inscribible
-from .models import Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Tutor, TutorAlumno
+from .models import Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Tutor, TutorAlumno, orden_de_nivel
 from .utils import (
     CURP_RE,
     compactar_espacios as _compactar,
@@ -590,9 +590,16 @@ class InscribirForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.ModelForm):
 # Listado: filtros
 # ---------------------------------------------------------------------------
 class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
+    # La tabla se ordena desde sus encabezados (Estudiante, Grado actual y Edad); las demás órdenes siguen valiendo en
+    # la dirección (enlaces guardados). Por grado: el de su inscripción del ciclo actual, en orden escolar (el mismo de
+    # la equivalencia), su grupo y su nombre; quien no está inscrito va al final.
     ORDENES = {
         'nombre': ('apellido_paterno', 'apellido_materno', 'nombre'),
         '-nombre': ('-apellido_paterno', '-apellido_materno', '-nombre'),
+        'grado': (),
+        '-grado': (),
+        'edad': ('-fecha_nacimiento', 'apellido_paterno', 'apellido_materno', 'nombre'),     # de menor a mayor edad
+        '-edad': ('fecha_nacimiento', 'apellido_paterno', 'apellido_materno', 'nombre'),
         '-ingreso': ('-fecha_ingreso', 'apellido_paterno'),
         'ingreso': ('fecha_ingreso', 'apellido_paterno'),
         'referencia': ('referencia',),
@@ -600,6 +607,10 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
     ORDEN_CHOICES = [
         ('nombre', 'Nombre (A-Z)'),
         ('-nombre', 'Nombre (Z-A)'),
+        ('grado', 'Grado (del menor al mayor)'),
+        ('-grado', 'Grado (del mayor al menor)'),
+        ('edad', 'Edad (de menor a mayor)'),
+        ('-edad', 'Edad (de mayor a menor)'),
         ('-ingreso', 'Ingreso más reciente'),
         ('ingreso', 'Ingreso más antiguo'),
         ('referencia', 'Referencia'),
@@ -665,4 +676,19 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
                 pk__in=TutorAlumno.objects.filter(activo=True, tutor__estatus='ACTIVO').values('alumno_id'),
             )
 
-        return queryset.distinct().order_by(*self.ORDENES[datos.get('orden', 'nombre')])
+        orden = datos.get('orden', 'nombre')
+        if orden in ('grado', '-grado'):
+            return self._por_grado(queryset.distinct(), descendente=orden == '-grado')
+        return queryset.distinct().order_by(*self.ORDENES[orden])
+
+    @staticmethod
+    def _por_grado(queryset, descendente=False):
+        actual = Inscripcion.objects.filter(alumno=OuterRef('pk'), activa=True, ciclo__activo=True).order_by('-pk')
+        queryset = queryset.annotate(
+            orden_nivel_actual=Subquery(actual.annotate(orden=orden_de_nivel('grado__nivel')).values('orden')[:1]),
+            orden_grado_actual=Subquery(actual.values('grado__numero')[:1]),
+            orden_grupo_actual=Subquery(actual.values('grupo__nombre__orden')[:1]),
+        )
+        sentido = (lambda campo: F(campo).desc(nulls_last=True)) if descendente else (lambda campo: F(campo).asc(nulls_last=True))
+        return queryset.order_by(sentido('orden_nivel_actual'), sentido('orden_grado_actual'), sentido('orden_grupo_actual'),
+                                 'apellido_paterno', 'apellido_materno', 'nombre')

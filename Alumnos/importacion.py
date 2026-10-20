@@ -58,7 +58,7 @@ COLUMNAS = (
     Columna('fecha_ingreso', 'Fecha de ingreso', 'AAAA-MM-DD o DD/MM/AAAA. Si falta se usa la de hoy.'),
     Columna('escuela_procedencia', 'Escuela de procedencia', ''),
     Columna('estatus', 'Estatus', 'Activo, Egresado o Suspendido. Si falta queda Activo.'),
-    Columna('grado', 'Grado', 'Para inscribirlo en el ciclo actual: «1° Primaria», «3 Secundaria»… o su equivalencia (7, K1). Si el grado tiene varios grupos, con el grupo: «1° A Primaria».'),
+    Columna('grado', 'Grado', 'Para inscribirlo en el ciclo actual: «1° Primaria», «3 Secundaria»… o su equivalencia (7, K1). Si el grado tiene varios grupos, con el grupo: «1° A Primaria» o «7° A».'),
     Columna('contrasena', 'Contraseña', 'La que se le asigna (4 caracteres o más). Si falta se genera una.'),
     Columna('tutor_nombre', 'Nombre del tutor', 'Si lo escribes, también hacen falta su apellido paterno, su teléfono y su parentesco.', ('Nombre del tutor principal',)),
     Columna('tutor_apellido_paterno', 'Apellido paterno del tutor', ''),
@@ -163,7 +163,9 @@ def _clave_de_grado(texto):
 
 class _Grados:
     """Los grados y grupos activos, para reconocer «1° Primaria», «1° A Primaria», «primero de secundaria» o una
-    equivalencia («7», «K1»). Devuelve el grupo: el que se escribió o, si el grado tiene uno solo, ese."""
+    equivalencia («7», «K1»), también con el grupo («7° A», «K1 B»: como lo exporta la tabla de estudiantes). La
+    equivalencia es la guardada en Grados o, si no tiene, la habitual de su nivel. Devuelve el grupo: el que se escribió
+    o, si el grado tiene uno solo, ese."""
 
     def __init__(self):
         self.indice = {}
@@ -171,13 +173,20 @@ class _Grados:
             nivel = clave_de_texto(grado.get_nivel_display())
             for clave in (f'{grado.numero} {nivel}', f'{nivel} {grado.numero}', f'{grado.numero}{nivel}'):
                 self.indice[clave] = grado
-        for grado in Grado.objects.filter(activo=True).exclude(equivalencia=''):
-            self.indice.setdefault(clave_de_texto(grado.equivalencia), grado)
+        # Primero las equivalencias guardadas y luego las habituales: una guardada nunca la tapa la habitual de otro grado
+        for grado in sorted(Grado.objects.filter(activo=True), key=lambda g: not g.equivalencia):
+            if grado.equivalencia_efectiva:
+                self.indice.setdefault(clave_de_texto(grado.equivalencia_efectiva), grado)
+        por_equivalencia = {}
         for grupo in Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre'):
             nivel, numero = clave_de_texto(grupo.grado.get_nivel_display()), grupo.grado.numero
             letra = clave_de_texto(grupo.nombre.nombre)
             for clave in (f'{numero} {letra} {nivel}', f'{numero} {nivel} {letra}', f'{nivel} {numero} {letra}'):
                 self.indice[_clave_de_grado(clave)] = grupo
+            if grupo.grado.equivalencia_efectiva:
+                por_equivalencia.setdefault(_clave_de_grado(f'{grupo.grado.equivalencia_efectiva} {letra}'), []).append(grupo)
+        for clave, grupos in por_equivalencia.items():
+            self.indice.setdefault(clave, sorted(grupos, key=lambda g: not g.grado.equivalencia)[0])
 
     def buscar(self, texto):
         encontrado = self.indice.get(_clave_de_grado(texto))

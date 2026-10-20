@@ -6,7 +6,7 @@
    angosto, para dejar el mayor espacio posible a los mensajes y al campo para escribir. En pantallas angostas se ve un panel a la vez (la conversación, cuando hay una abierta).
    Todo con los colores de rol del sistema (siguen el tema de cada persona y el modo oscuro). Sin degradados.
    Orden: 1. Tarjeta · 2. Conversaciones y búsqueda · 3. Conversación · 4. Mensajes · 5. Escribir · 6. Estados vacíos ·
-   7. Pantallas medianas y angostas.
+   7. Pantallas medianas y angostas · 8. Moderación (templates/mensajes/moderacion*.html).
    ========================================================================== */
 
 /* --- 1. Tarjeta ----------------------------------------------------------------------------------------- */
@@ -68,6 +68,11 @@
   color: var(--color-on-primary);
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
+}
+
+/* La entrada a la moderación (solo el administrador), al otro extremo del encabezado */
+.chat__moderar {
+  margin-left: auto;
 }
 
 .chat__no-leidos[hidden] {
@@ -835,5 +840,122 @@
   /* En el teléfono no hay teclado con Mayús+Intro a la vista: la pista ocupa lugar sin ayudar */
   .chat__atajos {
     display: none;
+  }
+}
+
+/* --- 8. Moderación: la búsqueda, la conversación de solo lectura y la confirmación ----------------------------- */
+/* Los nombres completos: en esta tabla importa saber exactamente quién escribió */
+.moderacion-tabla .person {
+  min-width: 10rem;
+}
+
+.moderacion-tabla .person__name {
+  white-space: normal;
+}
+
+.moderacion-tabla .moderacion-fecha {
+  white-space: nowrap;
+}
+
+.moderacion-tabla .moderacion-texto {
+  min-width: 16rem;
+}
+
+.moderacion-fragmento {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.moderacion-fragmento mark {
+  padding: 0 0.1em;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  color: var(--color-text-strong);
+}
+
+.moderacion-texto .tag {
+  margin-top: var(--space-1);
+}
+
+.moderacion-tabla .moderacion-retirar:hover {
+  color: var(--color-danger);
+}
+
+.moderacion-hilo {
+  --chat-burbuja-radio: 1rem;
+  --chat-burbuja-pico: 0.3rem;
+
+  overflow: hidden;
+}
+
+.moderacion-hilo__quienes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border);
+}
+
+.moderacion-hilo__mensajes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-4);
+}
+
+.burbuja__autor {
+  margin: 0 0 0.1rem;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+/* El mensaje que se buscó: un anillo para encontrarlo en la conversación */
+.burbuja.is-destacado {
+  outline: 2px solid var(--color-warning);
+  outline-offset: 2px;
+  scroll-margin-block: var(--space-8);
+}
+
+.moderacion-hilo__retirar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.moderacion-hilo__retirar:hover {
+  text-decoration: underline;
+}
+
+.moderacion-hilo__retirar:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.moderacion-retiro__quien {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.moderacion-retiro__burbuja {
+  --chat-burbuja-radio: 1rem;
+  --chat-burbuja-pico: 0.3rem;
+
+  max-width: 100%;
+}
+
+@media (max-width: 48rem) {
+  .moderacion-hilo__mensajes {
+    padding: var(--space-2);
+  }
+
+  .moderacion-hilo__retirar {
+    min-height: 2rem;
   }
 }

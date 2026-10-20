@@ -1,0 +1,103 @@
+"""Pantallas de la moderación de la mensajería (solo en el sistema, con `Mensajes.moderar`: exclusivo del administrador).
+
+- Búsqueda en todas las conversaciones, por persona, texto o fechas.
+- Una conversación completa, de solo lectura (no la marca como leída: quien modera no es miembro).
+- Retirar un mensaje: confirmación y borrado completo (Mensajes/moderacion.py).
+Las imágenes de los mensajes se entregan aquí por su propia ruta (las de la mensajería solo las ven los miembros).
+"""
+from django.contrib import messages
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.safestring import mark_safe
+from django.views.decorators.http import require_GET
+
+from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
+from CISAHUAYO.permisos import requiere_permisos
+
+from . import enriquecido, moderacion
+from .forms import FiltroModeracionForm
+from .models import Conversacion, ImagenMensaje, Mensaje, Participante
+from .moderacion import MODERAR
+
+
+def _volver(request):
+    """A dónde regresar después de retirar: la búsqueda o la conversación de donde se abrió."""
+    inicio = reverse('mensajes:moderacion')
+    pedido = request.POST.get('volver') or request.GET.get('volver') or ''
+    return pedido if pedido.startswith(inicio) and '//' not in pedido else inicio
+
+
+def _html(mensaje):
+    """El HTML limpio del mensaje, con sus imágenes por la ruta de la moderación ('' si no tiene formato)."""
+    if not mensaje.html:
+        return ''
+    return mark_safe(enriquecido.presentar(mensaje.html, lambda pk: reverse('mensajes:moderacion_imagen', args=[pk])))
+
+
+@requiere_permisos(MODERAR)
+@require_GET
+def buscar(request):
+    filtro = FiltroModeracionForm(request.GET)
+    datos = filtro.activos
+    contexto = {'filtro': filtro, 'filtros_activos': datos,
+                'por_pagina_defecto': POR_PAGINA_DEFECTO, 'opciones_por_pagina': OPCIONES_POR_PAGINA}
+    if datos:   # sin criterios no se lista nada: se busca, no se recorren las conversaciones de todos
+        pagina, rango, por_pagina = paginar(request, moderacion.buscar(**datos))
+        pagina.object_list = moderacion.con_destinatarios(pagina.object_list)
+        for mensaje in pagina.object_list:
+            mensaje.fragmento = moderacion.resaltar(mensaje.texto, datos.get('texto', ''))
+        contexto.update(pagina=pagina, rango_paginas=rango, por_pagina=por_pagina)
+    return render(request, 'mensajes/moderacion.html', contexto)
+
+
+@requiere_permisos(MODERAR)
+@require_GET
+def conversacion(request, pk):
+    conversacion = get_object_or_404(Conversacion, pk=pk)
+    destacado = request.GET.get('mensaje', '')
+    alrededor = destacado or request.GET.get('alrededor', '')
+    mensajes, hay_anteriores, hay_posteriores = moderacion.ventana(conversacion, alrededor=int(alrededor) if alrededor.isdigit() else None)
+    # Las familias y los estudiantes a la izquierda; el personal, a la derecha (como en su propia pantalla)
+    miembros = sorted(moderacion.miembros_de(conversacion), key=lambda p: (p.tipo == Participante.SISTEMA, p.pk))
+    derecha = miembros[-1].pk if len(miembros) > 1 else None
+    for mensaje in mensajes:
+        mensaje.a_la_derecha = mensaje.autor_id == derecha
+        mensaje.html_visible = _html(mensaje)
+        mensaje.dia = timezone.localtime(mensaje.creado).date()
+    return render(request, 'mensajes/moderacion_conversacion.html', {
+        'conversacion': conversacion, 'miembros': miembros, 'mensajes': mensajes,
+        'hay_anteriores': hay_anteriores, 'hay_posteriores': hay_posteriores,
+        'destacado': int(destacado) if destacado.isdigit() else None, 'volver': _volver(request),
+        'aqui': request.get_full_path(),
+    })
+
+
+@requiere_permisos(MODERAR)
+def retirar(request, pk):
+    mensaje = get_object_or_404(Mensaje.objects.select_related(*moderacion.CON_CUENTA), pk=pk)
+    volver = _volver(request)
+    if request.method == 'POST':
+        moderacion.retirar(mensaje)
+        messages.success(request, 'Se retiró el mensaje. Ya no aparece para ninguna de las dos personas.')
+        return redirect(volver)
+    mensaje.para = moderacion.con_destinatarios([mensaje])[0].para
+    mensaje.html_visible = _html(mensaje)
+    return render(request, 'mensajes/moderacion_retirar.html', {
+        'mensaje': mensaje, 'volver': volver, 'imagenes': mensaje.imagenes.count(),
+    })
+
+
+@requiere_permisos(MODERAR)
+@require_GET
+def imagen(request, pk):
+    """La imagen de un mensaje enviado (las que aún no se envían son solo de quien las subió: ni la moderación las ve)."""
+    from Conducta.views import entregar_archivo
+
+    imagen = ImagenMensaje.objects.filter(pk=pk, mensaje__isnull=False).first()
+    if imagen is None:
+        raise Http404('No existe esa imagen.')
+    respuesta = entregar_archivo(imagen.archivo, imagen.nombre_original, imagen.tipo, descargar=request.GET.get('descargar') == '1')
+    respuesta['Cache-Control'] = 'private, no-store'   # si se retira, que no quede guardada en el navegador
+    return respuesta

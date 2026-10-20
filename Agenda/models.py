@@ -15,13 +15,15 @@ COLEGIO = 'COLEGIO'
 ALCANCES = [*Grado.NIVEL_CHOICES, (COLEGIO, 'Todo el colegio')]
 NOMBRE_DE_ALCANCE = dict(ALCANCES)
 
-# (fondo, texto): el texto es el que alcanza al menos 4.5:1 de contraste sobre el fondo
+# (fondo, texto): los colores de cada nivel que usa el colegio (pedido del 2026-10-20) y, encima, el texto que alcanza
+# al menos 4.5:1 de contraste sobre ese fondo (entre paréntesis). En el morado de primaria el blanco no llega (4.39):
+# lleva texto negro.
 COLORES = {
-    'PREESCOLAR': ('#F59E0B', '#111827'),
-    'PRIMARIA': ('#16A34A', '#111827'),
-    'SECUNDARIA': ('#2563EB', '#FFFFFF'),
-    'PREPARATORIA': ('#9333EA', '#FFFFFF'),
-    COLEGIO: ('#DC2626', '#FFFFFF'),
+    'PREESCOLAR': ('#48A8D0', '#111827'),     # azul (6.58)
+    'PRIMARIA': ('#A1639C', '#000000'),       # morado (4.97)
+    'SECUNDARIA': ('#C64A24', '#FFFFFF'),     # rojo (4.77)
+    'PREPARATORIA': ('#507735', '#FFFFFF'),   # verde, el bachillerato (5.21)
+    COLEGIO: ('#DFD327', '#111827'),          # amarillo, todos los niveles (11.39)
 }
 
 

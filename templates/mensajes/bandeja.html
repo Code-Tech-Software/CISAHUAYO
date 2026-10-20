@@ -42,6 +42,9 @@
       <header class="chat__lista-encabezado">
         <h1 class="chat__titulo">Mensajes</h1>
         <span class="chat__no-leidos" data-mensajes-no-leidos aria-label="{{ mensajeria.no_leidos }} sin leer"{% if not mensajeria.no_leidos %} hidden{% endif %}>{{ mensajeria.no_leidos }}</span>
+        {% if not portal and perms.Mensajes.moderar %}
+          <a class="btn btn--ghost btn--sm chat__moderar" href="{% url 'mensajes:moderacion' %}" data-tooltip="Buscar y retirar mensajes inapropiados">{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Moderar</a>
+        {% endif %}
       </header>
       <form class="chat__buscar" method="get" action="{{ urls.inicio }}" role="search">
         {% include "partials/icon.html" with name="search" icon_class="chat__buscar-icono" %}

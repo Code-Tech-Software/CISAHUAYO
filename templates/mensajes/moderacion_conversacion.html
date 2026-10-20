@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Una conversación completa en la moderación (Mensajes/views_moderacion.py): de solo lectura, con «Retirar» en cada
+  mensaje. Las familias y los estudiantes a la izquierda; el personal, a la derecha. No se marca como leída.
+{% endcomment %}
+
+{% block title %}Conversación · Moderación | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/mensajes.css' %}">
+  <link rel="stylesheet" href="{% static 'css/editor-mensajes.css' %}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'mensajes:inicio' %}">Mensajes</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Moderación</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Conversación</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Conversación entre {% for persona in miembros %}{{ persona.nombre }}{% if not forloop.last %} y {% endif %}{% endfor %}</h1>
+      <p class="page-header__description">Solo lectura. Al retirar un mensaje se borra por completo para las dos personas, con sus imágenes.</p>
+    </div>
+    <div class="page-header__actions">
+      <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la búsqueda</a>
+    </div>
+  </header>
+
+  <section class="card moderacion-hilo" aria-label="Mensajes de la conversación">
+    <header class="moderacion-hilo__quienes">
+      {% for persona in miembros %}{% include "mensajes/_moderacion_persona.html" %}{% endfor %}
+    </header>
+    <div class="moderacion-hilo__mensajes">
+      {% if hay_anteriores %}
+        <p class="chat__anteriores"><a class="btn btn--sm btn--ghost" href="?alrededor={{ mensajes.0.pk }}&amp;volver={{ volver|urlencode }}">Ver mensajes anteriores</a></p>
+      {% endif %}
+      {% for mensaje in mensajes %}
+        {% ifchanged mensaje.dia %}<p class="chat__dia"><span>{{ mensaje.creado|date:"l j \d\e F \d\e Y"|lower|capfirst }}</span></p>{% endifchanged %}
+        <article class="burbuja{% if mensaje.a_la_derecha %} burbuja--mia{% endif %}{% if mensaje.pk == destacado %} is-destacado{% endif %}" id="mensaje-{{ mensaje.pk }}" aria-label="Mensaje de {{ mensaje.autor.nombre }}">
+          <p class="burbuja__autor">{{ mensaje.autor.nombre }}</p>
+          {% if mensaje.html_visible %}
+            <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
+          {% else %}
+            <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
+          {% endif %}
+          <p class="burbuja__pie">
+            <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|time:"H:i" }}</time>
+            <a class="moderacion-hilo__retirar" href="{% url 'mensajes:moderacion_retirar' mensaje.pk %}?volver={{ aqui|urlencode }}" data-modal-form
+               aria-label="Retirar este mensaje de {{ mensaje.autor.nombre }}">{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Retirar</a>
+          </p>
+        </article>
+      {% empty %}
+        <p class="chat__inicio-conversacion"><span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" %}</span>Esta conversación no tiene mensajes.</p>
+      {% endfor %}
+      {% if hay_posteriores %}
+        {% with ultimo=mensajes|last %}<p class="chat__anteriores"><a class="btn btn--sm btn--ghost" href="?alrededor={{ ultimo.pk }}&amp;volver={{ volver|urlencode }}">Ver mensajes posteriores</a></p>{% endwith %}
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

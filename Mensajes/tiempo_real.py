@@ -66,6 +66,31 @@ def avisar_mensaje(mensaje):
         _enviar(miembro.participante_id, {'type': 'mensaje.nuevo', 'datos': datos_de_mensaje(mensaje, miembro.participante)})
 
 
+def avisar_retiro(conversacion_id, mensaje_id):
+    """A cada miembro: el mensaje retirado (moderación, Mensajes/moderacion.py) sale de su pantalla, y se pone al día con
+    la nueva vista previa de la conversación (la del mensaje anterior; `vacia` si no queda ninguno) y lo que tiene sin
+    leer. Solo van ids y lo que sigue en la conversación: nada del mensaje retirado."""
+    from .context_processors import _hora
+    from .models import Conversacion
+    from .reglas import _sin_leer, no_leidos, vista_previa
+    conversacion = Conversacion.objects.select_related('ultimo_mensaje').filter(pk=conversacion_id).first()
+    ultimo = conversacion.ultimo_mensaje if conversacion else None
+    miembros = Miembro.objects.filter(conversacion=conversacion_id).select_related(
+        'participante__usuario', 'participante__alumno', 'participante__tutor')
+    for miembro in miembros:
+        participante = miembro.participante
+        _enviar(participante.pk, {'type': 'mensaje.retirado', 'datos': {
+            'conversacion': conversacion_id,
+            'id': mensaje_id,
+            'vacia': ultimo is None,
+            'vista_previa': vista_previa(ultimo.texto) if ultimo else '',
+            'mio': bool(ultimo and ultimo.autor_id == participante.pk),
+            'hora': _hora(ultimo.creado) if ultimo else '',
+            'pendientes': _sin_leer(participante).filter(conversacion=conversacion_id).count(),
+            'no_leidos': no_leidos(participante),
+        }})
+
+
 def avisar_lectura(conversacion, lector, hasta):
     """A la otra persona: hasta dónde se leyó (sus mensajes pasan a «Leído»). A quien leyó: su nuevo total sin leer."""
     from .reglas import no_leidos

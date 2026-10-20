@@ -9,6 +9,8 @@
    - Una cuenta que solo recibe comunicados (sin mensajería) también se conecta: aquí solo se le pinta la campana.
    - Mensaje nuevo: si la página está a la vista, un aviso en pantalla (al tocarlo se abre la conversación); si no,
      un aviso del navegador (si se permitió desde la campana).
+   - Mensaje retirado por moderación: la campana se queda con lo que sigue sin leer de esa conversación, y se quitan el
+     aviso en pantalla y el del navegador si eran de ese mensaje.
    - Reenvía cada evento a la página como «mensajeria:evento» (la pantalla de mensajes lo usa: static/js/mensajes.js;
      los comunicados, static/js/comunicados-avisos.js) y, al reconectarse, avisa con «avisos:reconectado».
 */
@@ -139,6 +141,7 @@
     window.clearTimeout(cierre);
     flotante = elemento('a', 'aviso-flotante');
     flotante.href = datos.url;
+    flotante.dataset.mensaje = String(datos.id);
     flotante.setAttribute('role', 'status');
     const texto = elemento('span', 'aviso-flotante__texto');
     texto.append(
@@ -164,6 +167,7 @@
 
   /* ------------------------------------------------------------------ avisos del navegador */
   const soporta = 'Notification' in window && window.isSecureContext;
+  const enNavegador = new Map();   /* conversación -> {mensaje, aviso}: el último aviso del navegador de cada una */
   const sincronizarPermiso = () => {
     if (permiso) permiso.hidden = !(soporta && Notification.permission === 'default');
   };
@@ -181,6 +185,7 @@
     if (!soporta || Notification.permission !== 'granted') return;
     try {
       const aviso = new Notification(datos.autor, { body: datos.vista_previa, tag: `conversacion-${datos.conversacion}`, icon: logo });
+      enNavegador.set(datos.conversacion, { mensaje: datos.id, aviso });
       aviso.addEventListener('click', () => {
         window.focus();
         window.location.href = datos.url;
@@ -188,6 +193,27 @@
       });
     } catch (error) {
       /* algunos navegadores móviles solo permiten avisos desde un service worker */
+    }
+  };
+
+  /* ------------------------------------------------------------------ mensajes retirados (moderación) */
+  const retirarAviso = (datos) => {
+    const pendientes = Number(datos.pendientes) || 0;
+    const fila = lista?.querySelector(`[data-aviso-conversacion="${datos.conversacion}"]`);
+    if (fila && !pendientes) {
+      quitarAviso(datos.conversacion);
+    } else if (fila) {
+      fila.querySelector('.aviso__vista').textContent = datos.vista_previa;
+      fila.querySelector('.aviso__hora').textContent = datos.hora;
+      const conteo = fila.querySelector('.aviso__conteo');
+      conteo.textContent = String(pendientes);
+      conteo.setAttribute('aria-label', `${pendientes} sin leer`);
+    }
+    if (flotante?.dataset.mensaje === String(datos.id)) flotante.remove();
+    const delNavegador = enNavegador.get(datos.conversacion);
+    if (delNavegador?.mensaje === datos.id) {
+      delNavegador.aviso.close();
+      enNavegador.delete(datos.conversacion);
     }
   };
 
@@ -204,6 +230,9 @@
     } else if (datos.evento === 'resumen') {
       ponerTotal(datos.no_leidos);
       quitarAviso(datos.conversacion);
+    } else if (datos.evento === 'retirado') {
+      ponerTotal(datos.no_leidos);
+      retirarAviso(datos);
     }
   };
 

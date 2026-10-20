@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}La confirmación antes de retirar un mensaje (en una ventana sobre la moderación o como página).{% endcomment %}
+
+{% block title %}Retirar mensaje · Moderación | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/mensajes.css' %}">
+  <link rel="stylesheet" href="{% static 'css/editor-mensajes.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'mensajes:inicio' %}">Mensajes</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Moderación</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Retirar mensaje</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">¿Retirar este mensaje?</h1>
+      <p class="page-header__description">Se borrará por completo para {{ mensaje.autor.nombre }}{% if mensaje.para %} y {{ mensaje.para.nombre }}{% endif %}{% if imagenes == 1 %}, con su imagen{% elif imagenes %}, con sus {{ imagenes }} imágenes{% endif %}. No queda copia ni aviso de que existió. No se puede deshacer.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    <section class="card moderacion-retiro">
+      <div class="card__body">
+        <p class="moderacion-retiro__quien">
+          <strong>{{ mensaje.autor.nombre }}</strong>{% if mensaje.para %} a {{ mensaje.para.nombre }}{% endif %}
+          · <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|date:"j \d\e F \d\e Y"|lower }}, {{ mensaje.creado|time:"H:i" }}</time>
+        </p>
+        <div class="burbuja moderacion-retiro__burbuja">
+          {% if mensaje.html_visible %}
+            <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
+          {% else %}
+            <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn btn--danger">Retirar mensaje</button>
+    </div>
+  </form>
+{% endblock %}

@@ -1,6 +1,6 @@
 """El canal de avisos de cada pestaña abierta (WebSocket en /ws/mensajes/).
 
-Solo envía (del servidor a la pestaña): mensajes nuevos, lecturas y el total sin leer. Escribir y marcar como leído van
+Solo envía (del servidor a la pestaña): mensajes nuevos, mensajes retirados por moderación, lecturas y el total sin leer. Escribir y marcar como leído van
 por peticiones normales (Mensajes/views.py), que guardan en la base de datos y luego avisan aquí.
 
 La cuenta se toma de la sesión, igual que en las páginas: un usuario del sistema con la mensajería o la sesión de un
@@ -55,6 +55,9 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
     # --- eventos del grupo (Mensajes/tiempo_real.py) ---------------------------------------------------------------
     async def mensaje_nuevo(self, evento):
         await self.send_json({'evento': 'mensaje', **evento['datos']})
+
+    async def mensaje_retirado(self, evento):
+        await self.send_json({'evento': 'retirado', **evento['datos']})
 
     async def mensaje_leido(self, evento):
         await self.send_json({'evento': 'leido', **evento['datos']})

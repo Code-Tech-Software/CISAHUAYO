@@ -7,6 +7,8 @@
    - Con los eventos en tiempo real (static/js/avisos.js → «mensajeria:evento»): agrega los mensajes que llegan a la
      conversación abierta y la marca como leída (si la pestaña está a la vista), pone «Leído» en los propios cuando la
      otra persona los lee y mantiene la lista de conversaciones (orden, vista previa, hora y no leídos).
+   - Un mensaje retirado por moderación (evento «retirado») sale de la conversación abierta y la lista se queda con la
+     vista previa del mensaje anterior (o sin la conversación, si ya no tiene mensajes).
    - Búsqueda: filtra las conversaciones y busca personas a las que se puede escribir.
    Sin JavaScript la pantalla funciona con formularios normales.
 */
@@ -173,6 +175,45 @@
     fila.querySelector('.chat-item')?.classList.remove('is-sin-leer');
   };
 
+  /* ------------------------------------------------------------------ mensajes retirados (moderación) */
+  /* Sale de la conversación abierta, con su día si se queda sin mensajes */
+  const quitarMensaje = (datos) => {
+    if (datos.conversacion !== conversacion || !mensajes) return;
+    const burbuja = document.getElementById(`mensaje-${datos.id}`);
+    if (!burbuja) return;
+    const antes = burbuja.previousElementSibling;
+    burbuja.remove();
+    const despues = antes?.nextElementSibling;
+    if (antes?.matches('[data-chat-dia]') && (!despues || despues.matches('[data-chat-dia]'))) antes.remove();
+    if (!mensajes.querySelector('.burbuja')) {
+      const vacio = elemento('p', 'chat__inicio-conversacion');
+      vacio.dataset.chatSinMensajes = '';
+      const marca = elemento('span', 'chat__icono-vacio');
+      marca.setAttribute('aria-hidden', 'true');
+      marca.append(icono('message-circle'));
+      vacio.append(marca, 'Aún no hay mensajes.');
+      mensajes.append(vacio);
+    }
+  };
+
+  /* La lista se queda con lo que sigue en la conversación: el mensaje anterior y lo que falta por leer */
+  const retirarDeLaLista = (datos) => {
+    const fila = conversaciones?.querySelector(`[data-conversacion-item="${datos.conversacion}"]`);
+    if (!fila) return;
+    if (datos.vacia) {
+      fila.remove();
+      if (sinConversaciones) sinConversaciones.hidden = Boolean(conversaciones.querySelector('[data-conversacion-item]'));
+      return;
+    }
+    fila.querySelector('[data-chat-item-vista]').textContent = `${datos.mio ? 'Tú: ' : ''}${datos.vista_previa}`;
+    fila.querySelector('[data-chat-item-hora]').textContent = datos.hora;
+    const pendientes = datos.conversacion === conversacion ? 0 : Number(datos.pendientes) || 0;
+    const conteo = fila.querySelector('[data-chat-item-conteo]');
+    conteo.textContent = String(pendientes);
+    conteo.hidden = !pendientes;
+    fila.querySelector('.chat-item')?.classList.toggle('is-sin-leer', Boolean(pendientes));
+  };
+
   /* ------------------------------------------------------------------ eventos en tiempo real */
   document.addEventListener('mensajeria:evento', ({ detail: datos }) => {
     if (datos.evento === 'mensaje') {
@@ -183,6 +224,9 @@
         if (document.visibilityState === 'visible') marcarLeida();
         else porLeer = true;
       }
+    } else if (datos.evento === 'retirado') {
+      quitarMensaje(datos);
+      retirarDeLaLista(datos);
     } else if (datos.evento === 'leido' && datos.conversacion === conversacion) {
       marcarLeidosHasta(datos.hasta);
     } else if (datos.evento === 'resumen') {

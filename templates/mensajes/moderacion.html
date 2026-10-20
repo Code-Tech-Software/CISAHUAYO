@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Moderación de la mensajería (Mensajes/views_moderacion.py, exclusiva del administrador): buscar en todas las
+  conversaciones por persona, texto o fechas, abrir la conversación y retirar un mensaje (se borra por completo).
+{% endcomment %}
+
+{% block title %}Moderación · Mensajes | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/mensajes.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'mensajes:inicio' %}">Mensajes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Moderación</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Moderación de mensajes</h1>
+      <p class="page-header__description">Busca en todas las conversaciones del colegio y retira los mensajes inapropiados. Un mensaje retirado se borra por completo, con sus imágenes: no queda copia ni aviso de que existió.</p>
+    </div>
+  </header>
+
+  <form class="filters" method="get" role="search" aria-label="Buscar mensajes" data-autosubmit>
+    {% if por_pagina and por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.persona.id_for_label }}">Persona</label>
+      {% include "partials/icon.html" with name="user" icon_class="filters__icon" %}
+      {{ filtro.persona }}
+    </div>
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.texto.id_for_label }}">Texto del mensaje</label>
+      {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+      {{ filtro.texto }}
+    </div>
+    <div class="filters__field filters__field--date">
+      <label class="visually-hidden" for="{{ filtro.desde.id_for_label }}">Desde</label>
+      {{ filtro.desde }}
+    </div>
+    <div class="filters__field filters__field--date">
+      <label class="visually-hidden" for="{{ filtro.hasta.id_for_label }}">Hasta</label>
+      {{ filtro.hasta }}
+    </div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+      {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% url 'mensajes:moderacion' %}">Limpiar</a>{% endif %}
+    </div>
+  </form>
+
+  {% if not filtros_activos %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="shield-check" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">Busca los mensajes que quieres revisar</p>
+        <p class="empty-state__text">Escribe el nombre de una persona (estudiante, tutor o personal), unas palabras del mensaje o un rango de fechas. Se busca en todas las conversaciones.</p>
+      </div>
+    </div>
+  {% elif pagina.paginator.count %}
+    <p class="results-summary" role="status">{{ pagina.paginator.count }} mensaje{{ pagina.paginator.count|pluralize }} con los filtros aplicados</p>
+
+    <div class="table-card">
+      <table class="table table--people moderacion-tabla">
+        <caption class="visually-hidden">Mensajes encontrados</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">De</th>
+            <th class="table__th" scope="col">Para</th>
+            <th class="table__th" scope="col">Fecha</th>
+            <th class="table__th" scope="col">Mensaje</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for mensaje in pagina %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">
+                {% include "mensajes/_moderacion_persona.html" with persona=mensaje.autor %}
+              </td>
+              <td class="table__cell" data-label="Para">
+                {% if mensaje.para %}{% include "mensajes/_moderacion_persona.html" with persona=mensaje.para %}{% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td class="table__cell moderacion-fecha" data-label="Fecha">
+                <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|date:"j M Y" }}<br><span class="text-muted">{{ mensaje.creado|time:"H:i" }}</span></time>
+              </td>
+              <td class="table__cell moderacion-texto" data-label="Mensaje">
+                <span class="moderacion-fragmento">{{ mensaje.fragmento }}</span>
+                {% if mensaje.con_imagenes %}<span class="tag tag--info">{% include "partials/icon.html" with name="image" icon_class="icon--sm" %} {{ mensaje.con_imagenes }} {% if mensaje.con_imagenes == 1 %}imagen{% else %}imágenes{% endif %}</span>{% endif %}
+              </td>
+              <td class="table__cell table__cell--actions">
+                <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'mensajes:moderacion_conversacion' mensaje.conversacion_id %}?mensaje={{ mensaje.pk }}&amp;volver={{ request.get_full_path|urlencode }}#mensaje-{{ mensaje.pk }}"
+                   aria-label="Ver en la conversación" data-tooltip="Ver en la conversación">
+                  {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
+                </a>
+                <a class="btn btn--ghost btn--icon btn--sm moderacion-retirar" href="{% url 'mensajes:moderacion_retirar' mensaje.pk %}?volver={{ request.get_full_path|urlencode }}"
+                   aria-label="Retirar el mensaje" data-tooltip="Retirar" data-modal-form>
+                  {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="mensajes" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No encontramos mensajes con esos filtros</p>
+        <p class="empty-state__text">Prueba con otra persona, otras palabras o un rango de fechas más amplio.</p>
+        <a class="btn btn--sm" href="{% url 'mensajes:moderacion' %}">Limpiar filtros</a>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -243,6 +243,21 @@ class Grado(models.Model):
         return f'{self.equivalencia_numero}°' if self.equivalencia_numero is not None else self.equivalencia
 
     @property
+    def equivalencia_efectiva(self):
+        """La equivalencia guardada o, si no tiene, la habitual de su nivel («7», «K1»); vacío si no hay ninguna."""
+        from .academico import equivalencia_sugerida
+        return self.equivalencia or equivalencia_sugerida(self.nivel, self.numero)
+
+    @property
+    def nombre_equivalente(self):
+        """Cómo se nombra en la continuidad escolar: «7°» o «K1» (la equivalencia efectiva); sin ninguna, el nombre de
+        siempre («1° Secundaria»). Es el que usan la tabla de estudiantes, su filtro de grados y su exportación."""
+        codigo = str(self.equivalencia_efectiva)
+        if not codigo:
+            return str(self)
+        return f'{codigo}°' if codigo.isdigit() else codigo
+
+    @property
     def equivalencia_frase(self):
         """«Equivale al 7°» o «Equivale a K1»; vacío si no tiene equivalencia."""
         if not self.equivalencia:
@@ -324,6 +339,14 @@ class Grupo(models.Model):
     def corto(self):
         """«1° A», sin el nivel."""
         return f'{self.grado.numero}° {self.nombre}'
+
+    @property
+    def nombre_equivalente(self):
+        """«7° A» o «K3 B»: la equivalencia del grado en la continuidad escolar con el grupo; sin equivalencia, el nombre
+        de siempre («1° A Secundaria»)."""
+        if not self.grado.equivalencia_efectiva:
+            return str(self)
+        return f'{self.grado.nombre_equivalente} {self.nombre}'
 
     @classmethod
     def principal_de(cls, grado):

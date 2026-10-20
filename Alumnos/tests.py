@@ -327,7 +327,7 @@ class ListaTests(BaseTestCase):
     def test_muestra_grado_tutor_y_conteos(self):
         respuesta = self.client.get(reverse('alumnos:lista'))
         html = respuesta.content.decode()
-        self.assertIn('1° Primaria', html)
+        self.assertIn('data-tooltip="1° A Primaria">1° A</span>', html)   # la equivalencia; el grado de su nivel, al pasar el cursor
         self.assertIn('Rosa Quintero', html)
         self.assertIn('Sin tutor', html)
         self.assertEqual(respuesta.context['total_alumnos'], 2)   # las bajas no cuentan como alumnos

@@ -1,0 +1,8 @@
+{% comment %}Una persona de la mensajería en la moderación: sus iniciales, su nombre y su clase de cuenta.{% endcomment %}
+<span class="person">
+  <span class="avatar avatar--sm chat-persona__avatar--{{ persona.tipo|lower }}" aria-hidden="true">{{ persona.iniciales }}</span>
+  <span class="person__text">
+    <span class="person__name">{{ persona.nombre }}</span>
+    <span class="person__meta">{{ persona.tipo_corto }}</span>
+  </span>
+</span>

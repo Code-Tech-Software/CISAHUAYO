@@ -206,6 +206,11 @@ MODULOS = (
             'crear': 'Escribir a cualquier estudiante o tutor y aparecer entre los contactos de todos ellos (una cuenta de '
                      'prefectura, solo los de su alcance).',
         }),
+        Funcion('Moderación de mensajes', {'editar': 'Mensajes.moderar'}, etiquetas={'editar': 'Moderar'},
+                reservado={'editar': ADMINISTRADOR}, ayuda={
+            'editar': 'Buscar en todas las conversaciones (por persona, texto o fecha) y retirar los mensajes inapropiados: se borran por '
+                      'completo, con sus imágenes, sin dejar copia ni marca. Exclusivo del administrador.',
+        }),
     )),
     Modulo('comunicados', 'Comunicados', 'megaphone', 'Avisos informativos para tutores, estudiantes y profesores, con seguimiento de lectura.', (
         Funcion('Comunicados recibidos', {'ver': 'Comunicados.recibir'}, etiquetas={'ver': 'Consultar'}, ayuda={

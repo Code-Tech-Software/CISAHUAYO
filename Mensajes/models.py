@@ -9,6 +9,9 @@ la base de datos del proyecto (sobreviven a cualquier reinicio); Redis solo repa
 Desde el 2026-10-17 un mensaje puede llevar formato (negritas, listas, tablas, enlaces, imágenes…): `html` guarda la
 versión limpia (Mensajes/enriquecido.py) y `texto`, la de texto plano (vista previa, avisos, búsqueda). Los mensajes
 anteriores, sin `html`, se siguen mostrando como texto.
+
+Desde el 2026-10-20 el administrador puede retirar mensajes inapropiados (moderación, Mensajes/moderacion.py): se borran
+por completo, sin dejar copia ni marca.
 """
 import uuid
 from pathlib import Path
@@ -38,6 +41,7 @@ class Participante(models.Model):
         permissions = [
             ('usar', 'Usar la mensajería con otros usuarios del sistema (y un docente, con sus estudiantes y sus tutores)'),
             ('contactar_familias', 'Escribir a estudiantes y tutores y atender sus mensajes'),
+            ('moderar', 'Buscar en todas las conversaciones y retirar mensajes inapropiados'),
         ]
         constraints = [
             # Exactamente una cuenta, la de su tipo
@@ -68,6 +72,11 @@ class Participante(models.Model):
             partes = [p for p in (self.usuario.first_name, self.usuario.last_name) if p] or [self.usuario.get_username()]
             return ''.join(p[0] for p in partes)[:2].upper()
         return self.cuenta.iniciales
+
+    @property
+    def tipo_corto(self):
+        """La clase de cuenta en una palabra (en la moderación, junto al nombre)."""
+        return {self.SISTEMA: 'Personal', self.ESTUDIANTE: 'Estudiante', self.TUTOR: 'Tutor'}[self.tipo]
 
     @property
     def clave(self):

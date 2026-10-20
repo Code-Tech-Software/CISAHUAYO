@@ -35,6 +35,16 @@ def entrar_al_portal(cliente, tipo, cuenta):
     sesion.save()
 
 
+def contraste(fondo, texto):
+    """El contraste WCAG entre dos colores «#RRGGBB» (1 a 21)."""
+    def luminancia(color):
+        canales = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        lineales = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in canales]
+        return 0.2126 * lineales[0] + 0.7152 * lineales[1] + 0.0722 * lineales[2]
+    claro, oscuro = sorted((luminancia(fondo), luminancia(texto)), reverse=True)
+    return (claro + 0.05) / (oscuro + 0.05)
+
+
 def ids_del_mes(respuesta):
     return [dato['id'] for dato in respuesta.context['datos_eventos']]
 
@@ -108,12 +118,12 @@ class MesTests(BaseTestCase):
 class EventoTests(BaseTestCase):
     def test_el_color_sale_del_alcance_con_texto_legible(self):
         esperados = {
-            'PREESCOLAR': '#F59E0B', 'PRIMARIA': '#16A34A', 'SECUNDARIA': '#2563EB', 'PREPARATORIA': '#9333EA', COLEGIO: '#DC2626',
+            'PREESCOLAR': '#48A8D0', 'PRIMARIA': '#A1639C', 'SECUNDARIA': '#C64A24', 'PREPARATORIA': '#507735', COLEGIO: '#DFD327',
         }
         for clave, color in esperados.items():
             uno = evento(clave, clave)
             self.assertEqual(uno.color, color)
-            self.assertIn(uno.color_texto, ('#111827', '#FFFFFF'))
+            self.assertGreaterEqual(contraste(uno.color, uno.color_texto), 4.5, clave)   # el texto se lee sobre el color
         self.assertEqual(evento('General', COLEGIO).nombre_alcance, 'Todo el colegio')
 
     def test_fechas_y_horario_en_texto(self):

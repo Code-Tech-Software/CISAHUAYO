@@ -450,6 +450,14 @@ class GradoChoiceField(forms.ModelChoiceField):
     iterator = GradoChoiceIterator
 
 
+class GradoEquivalenteChoiceField(GradoChoiceField):
+    """Los grados con su equivalencia en la continuidad escolar («7°», «K1»), agrupados por nivel: como los muestra la
+    tabla de estudiantes."""
+
+    def label_from_instance(self, grado):
+        return grado.nombre_equivalente
+
+
 def grados_disponibles(incluir=None):
     """Grados que se pueden elegir al inscribir: los activos (y `incluir`, aunque ya no lo esté), en orden escolar."""
     condicion = Q(activo=True)
@@ -626,7 +634,7 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
         'type': 'search', 'placeholder': 'Nombre, referencia, CURP o tutor…', 'autocomplete': 'off',
     }))
     estatus = forms.ChoiceField(required=False, choices=[('', 'Todos'), *Alumno.ESTATUS_CHOICES], label='Estatus')
-    grado = GradoChoiceField(Grado.objects.academicos(), required=False, empty_label='Todos los grados', label='Grado actual')
+    grado = GradoEquivalenteChoiceField(Grado.objects.academicos(), required=False, empty_label='Todos los grados', label='Grado actual')
     situacion = forms.ChoiceField(required=False, choices=SITUACION_CHOICES, label='Situación')
     orden = forms.ChoiceField(required=False, choices=ORDEN_CHOICES, label='Ordenar por')
 

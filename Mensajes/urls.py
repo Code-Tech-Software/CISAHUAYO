@@ -2,10 +2,11 @@
 - en el sistema (/mensajes/, espacio «mensajes»): usuarios con Mensajes.usar o Mensajes.contactar_familias;
 - en los portales (/portal/estudiantes/mensajes/ y /portal/tutores/mensajes/, espacios «portal_estudiantes:mensajes» y
   «portal_tutores:mensajes»): la sesión de ese portal (ver PortalEstudiantes/urls.py y PortalTutores/urls.py).
+La moderación (/mensajes/moderacion/) existe solo en el sistema, con Mensajes.moderar.
 """
 from django.urls import path
 
-from . import views
+from . import views, views_moderacion
 
 
 def rutas(envolver):
@@ -27,4 +28,10 @@ def rutas_de_portal(tipo):
 
 
 app_name = 'mensajes'
-urlpatterns = rutas(views.para_sistema)
+urlpatterns = rutas(views.para_sistema) + [
+    # Moderación (solo en el sistema, exclusiva del administrador: Mensajes/views_moderacion.py)
+    path('moderacion/', views_moderacion.buscar, name='moderacion'),
+    path('moderacion/conversaciones/<int:pk>/', views_moderacion.conversacion, name='moderacion_conversacion'),
+    path('moderacion/mensajes/<int:pk>/retirar/', views_moderacion.retirar, name='moderacion_retirar'),
+    path('moderacion/imagenes/<int:pk>/', views_moderacion.imagen, name='moderacion_imagen'),
+]

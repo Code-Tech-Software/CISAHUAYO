@@ -371,6 +371,13 @@ def alumno_inscribir(request, pk):
 # ---------------------------------------------------------------------------
 # Exportación y búsquedas (JSON)
 # ---------------------------------------------------------------------------
+def _grado_equivalente(inscripcion):
+    """«7° A»: como se ve en la tabla (y como lo reconoce la importación al volver a subir el archivo)."""
+    if inscripcion is None:
+        return ''
+    return inscripcion.grupo.nombre_equivalente if inscripcion.grupo_id else inscripcion.grado.nombre_equivalente
+
+
 @require_GET
 @requiere_permisos('Alumnos.view_alumno')
 def alumno_exportar(request):
@@ -396,7 +403,7 @@ def alumno_exportar(request):
             alumno.referencia, alumno.nombre, alumno.apellido_paterno, alumno.apellido_materno,
             alumno.curp, alumno.get_sexo_display(), alumno.fecha_nacimiento, alumno.edad,
             alumno.get_estatus_display(),
-            inscripcion.ciclo if inscripcion else '', inscripcion.grado if inscripcion else '',
+            inscripcion.ciclo if inscripcion else '', _grado_equivalente(inscripcion),
             vinculo.tutor if vinculo else '', vinculo.get_parentesco_display() if vinculo else '',
             vinculo.tutor.telefono if vinculo else '',
             alumno.correo_electronico or '', alumno.domicilio, alumno.colonia, alumno.ciudad,

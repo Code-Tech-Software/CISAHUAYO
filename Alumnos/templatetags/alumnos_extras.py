@@ -65,10 +65,4 @@ def grado_equivalente(inscripcion):
     habitual de su nivel) con su grupo. Sin una equivalencia posible, el grado de siempre («1° A Secundaria»)."""
     if not inscripcion:
         return ''
-    from ..academico import equivalencia_sugerida
-    grado = inscripcion.grado
-    codigo = grado.equivalencia or equivalencia_sugerida(grado.nivel, grado.numero)
-    if not codigo:
-        return str(inscripcion.grupo or grado)
-    texto = f'{codigo}°' if str(codigo).isdigit() else str(codigo)
-    return f'{texto} {inscripcion.grupo.nombre}' if inscripcion.grupo_id else texto
+    return inscripcion.grupo.nombre_equivalente if inscripcion.grupo_id else inscripcion.grado.nombre_equivalente

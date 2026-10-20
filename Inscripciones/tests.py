@@ -735,4 +735,4 @@ class PromocionTests(BaseTestCase):
         self.client.post(reverse('ciclos:establecer_actual', args=[self.destino.pk]))
         respuesta = self.client.get(reverse('alumnos:lista'), {'situacion': 'inscritos'})
         self.assertIn(self.a, list(respuesta.context['pagina']))
-        self.assertContains(respuesta, '2° Primaria')
+        self.assertContains(respuesta, 'data-tooltip="2° A Primaria">2° A</span>')   # su grado nuevo (con su equivalencia)

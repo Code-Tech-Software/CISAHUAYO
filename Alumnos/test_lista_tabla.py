@@ -2,6 +2,8 @@
 del grado en la continuidad escolar, la asistencia de hoy (solo con permiso de consultarla) y, junto al nombre, solo las
 señales que aplican (requiere atención en el panel de control, retiro anticipado de hoy, reunión próxima con la
 familia, alergias, CURP que falta o no es válida y sin fotografía)."""
+import csv
+import io
 from dataclasses import dataclass, field
 from datetime import date, time, timedelta
 from unittest.mock import patch
@@ -12,7 +14,7 @@ from django.urls import reverse
 
 from CISAHUAYO.pruebas import PRUEBAS, BaseTestCase, ciclo_actual_de_prueba, crear_alumno, crear_grado, crear_rol, crear_usuario, grupo_de, inscribir
 
-from . import tabla
+from . import importacion, tabla
 from .models import Alumno, AsistenciaGeneral, DiaNoLectivo
 
 LISTA = reverse('alumnos:lista')
@@ -155,3 +157,30 @@ class TablaDeEstudiantesTests(BaseTestCase):
         hoy = timezone.localdate()
         self.assertEqual(tabla.retiros_de_hoy(consulta, [self.ana], hoy), {})
         self.assertEqual(tabla.reuniones_proximas(consulta, [self.ana], hoy), {})
+
+    # --- La equivalencia en la fila, en el filtro y en la exportación ------------------------------------------------
+    def test_el_ciclo_no_se_repite_en_cada_fila(self):
+        respuesta = self.client.get(LISTA)
+        self.assertContains(respuesta, self.insc_ana.ciclo.nombre, count=1)   # solo en el encabezado de la página
+
+    def test_el_filtro_de_grados_usa_la_equivalencia(self):
+        html = self.client.get(LISTA).content.decode()
+        self.assertIn(f'<option value="{self.secundaria.pk}">7°</option>', html)
+        self.assertIn(f'<option value="{self.preescolar.pk}">K2</option>', html)
+        self.assertIn(f'<option value="{self.primaria.pk}">3°</option>', html)   # sin equivalencia guardada: la habitual
+        self.assertIn('<optgroup label="Secundaria">', html)                      # siguen agrupados por nivel
+        self.assertEqual(self.apellidos(grado=self.secundaria.pk), ['Zamora'])
+
+    def test_la_exportacion_usa_la_equivalencia(self):
+        contenido = self.client.get(reverse('alumnos:exportar')).content.decode('utf-8').lstrip('\ufeff')
+        filas = list(csv.DictReader(io.StringIO(contenido)))
+        grados = {fila['Apellido paterno']: fila['Grado'] for fila in filas}
+        self.assertEqual(grados, {'Zamora': '7° A', 'Alba': 'K2 A', 'Mora': '3° A', 'Luna': ''})
+
+    def test_la_importacion_reconoce_el_grado_exportado(self):
+        grados = importacion._Grados()
+        self.assertEqual(grados.buscar('7° A'), grupo_de(self.secundaria))
+        self.assertEqual(grados.buscar('K2 A'), grupo_de(self.preescolar))
+        self.assertEqual(grados.buscar('3° A'), grupo_de(self.primaria))
+        self.assertEqual(grados.buscar('1° A Secundaria'), grupo_de(self.secundaria))   # lo de siempre sigue valiendo
+        self.assertEqual(grados.buscar('7'), grupo_de(self.secundaria))

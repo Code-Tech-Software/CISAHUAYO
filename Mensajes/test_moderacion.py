@@ -13,7 +13,7 @@ from CISAHUAYO import portales
 from CISAHUAYO.pruebas import PRUEBAS, BaseTestCase
 from Usuarios import catalogo
 
-from . import moderacion, reglas, tiempo_real
+from . import reglas, tiempo_real
 from .models import Conversacion, ImagenMensaje, Mensaje
 from .tests import ARCHIVOS_TEMPORALES, BANDEJA, Colegio, entrar_al_portal, png
 
@@ -100,10 +100,10 @@ class ModeracionTests(Colegio, BaseTestCase):
 
     def test_resaltar_recorta_alrededor_de_la_coincidencia(self):
         texto = 'a ' * 200 + 'palabra final'
-        fragmento = str(moderacion.resaltar(texto, 'palabra'))
+        fragmento = str(reglas.resaltar(texto, 'palabra'))
         self.assertTrue(fragmento.startswith('…'))
         self.assertIn('<mark>palabra</mark> final', fragmento)
-        self.assertEqual(str(moderacion.resaltar('<script>x</script>', '')), '&lt;script&gt;x&lt;/script&gt;')
+        self.assertEqual(str(reglas.resaltar('<script>x</script>', '')), '&lt;script&gt;x&lt;/script&gt;')
 
     def test_la_conversacion_se_ve_completa_y_no_se_marca_como_leida(self):
         antes = reglas.no_leidos(self.p(self.marta))
@@ -165,7 +165,7 @@ class ModeracionTests(Colegio, BaseTestCase):
         # quien modera la ve por su propia ruta, en la conversación y en la confirmación
         de_moderacion = reverse('mensajes:moderacion_imagen', args=[imagen.pk])
         self.assertContains(self.client.get(reverse('mensajes:moderacion_conversacion', args=[self.con_ana.pk])), f'src="{de_moderacion}"')
-        self.assertContains(self.client.get(reverse('mensajes:moderacion_retirar', args=[mensaje.pk])), 'con su imagen')
+        self.assertContains(self.client.get(reverse('mensajes:moderacion_retirar', args=[mensaje.pk])), 'con su archivo adjunto')
         entregada = self.client.get(de_moderacion)
         self.assertEqual(entregada.status_code, 200)
         entregada.close()   # suelta el archivo (en Windows no se puede borrar mientras está abierto)

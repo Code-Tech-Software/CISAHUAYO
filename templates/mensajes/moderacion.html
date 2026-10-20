@@ -88,6 +88,7 @@
               </td>
               <td class="table__cell moderacion-texto" data-label="Mensaje">
                 <span class="moderacion-fragmento">{{ mensaje.fragmento }}</span>
+                {% if mensaje.con_documentos %}<span class="tag tag--info">{% include "partials/icon.html" with name="file-text" icon_class="icon--sm" %} {{ mensaje.con_documentos }} PDF</span>{% endif %}
                 {% if mensaje.con_imagenes %}<span class="tag tag--info">{% include "partials/icon.html" with name="image" icon_class="icon--sm" %} {{ mensaje.con_imagenes }} {% if mensaje.con_imagenes == 1 %}imagen{% else %}imágenes{% endif %}</span>{% endif %}
               </td>
               <td class="table__cell table__cell--actions">

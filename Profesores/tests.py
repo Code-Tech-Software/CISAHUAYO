@@ -169,9 +169,9 @@ class ListaTests(BaseTestCase):
     def test_muestra_las_materias_y_la_carga_semanal_del_ciclo_actual(self):
         respuesta = self.pedir()
         marta = next(p for p in respuesta.context['pagina'] if p.pk == self.marta.pk)
-        self.assertEqual((marta.materias, marta.duracion), (1, '1 h 30 min'))
+        self.assertEqual((marta.materias, marta.carga['texto']), (1, '1 h 30 min'))
         beto = next(p for p in respuesta.context['pagina'] if p.pk == self.beto.pk)
-        self.assertEqual((beto.materias, beto.duracion), (0, ''))
+        self.assertEqual((beto.materias, beto.carga['texto']), (0, ''))
 
     def test_sin_ciclo_actual_no_falla(self):
         self.ciclo.activo = False
@@ -224,8 +224,11 @@ class CrearTests(BaseTestCase):
         respuesta = self.client.get(self.url)
         self.assertEqual(respuesta.status_code, 200)
         for nombre, campo in respuesta.context['form'].fields.items():
-            if nombre == 'niveles':   # casillas tipo chip: llevan choice__input
+            if nombre in ('niveles', 'quitar_fotografia'):   # casillas tipo chip: llevan choice__input
                 self.assertIn('choice__input', campo.widget.attrs.get('class', ''))
+                continue
+            if nombre == 'fotografia':   # el campo de la foto, como en estudiantes
+                self.assertIn('photo-field__input', campo.widget.attrs.get('class', ''))
                 continue
             self.assertIn('field__control', campo.widget.attrs.get('class', ''), nombre)
 
@@ -506,10 +509,12 @@ class BajaTests(BaseTestCase):
         self.assertContains(self.baja(follow=True), 'ya estaba dado de baja')
 
     def test_reactivar_no_devuelve_las_materias(self):
+        """No se las devuelve solo: se las ofrece en su perfil (las que siguen sin profesor)."""
         self.baja({'quitar_del_ciclo': 'on'})
         respuesta = self.client.post(reverse('profesores:reactivar', args=[self.profesor.pk]), follow=True)
-        self.assertRedirects(respuesta, reverse('profesores:lista'))
+        self.assertRedirects(respuesta, reverse('profesores:detalle', args=[self.profesor.pk]) + '#materias')
         self.assertContains(respuesta, 'fue reactivado')
+        self.assertContains(respuesta, 'Las materias que tenía al darse de baja')
         self.profesor.refresh_from_db()
         self.assertEqual(self.profesor.estatus, 'ACTIVO')
         self.assertEqual(MateriaGrado.objects.filter(ciclo=self.actual, profesor=self.profesor).count(), 0)
@@ -719,11 +724,11 @@ class ExportarTests(BaseTestCase):
     def test_exporta_los_activos_con_sus_materias_en_orden_escolar(self):
         filas = self.filas()
         self.assertEqual(filas[0][:3], ['Nombre', 'Apellido paterno', 'Apellido materno'])
-        self.assertIn('2026-2027', filas[0][-3])
-        self.assertEqual(filas[0][-2:], ['Materias que puede impartir', 'Horas máximas por semana'])
+        self.assertIn('2026-2027', filas[0][-4])
+        self.assertEqual(filas[0][-3:], ['Horas por semana en el ciclo actual', 'Materias que puede impartir', 'Horas máximas por semana'])
         self.assertEqual([f[0] for f in filas[1:]], ['Beto', "'=Marta"])                 # neutraliza fórmulas de Excel
-        self.assertEqual(filas[2][-3], 'Español (1° Primaria); Matemáticas (2° Primaria)')
-        self.assertEqual(filas[1][-3], '')
+        self.assertEqual(filas[2][-4], 'Español (1° A); Matemáticas (2° A)')                # con la equivalencia del grupo
+        self.assertEqual(filas[1][-4], '')
 
     def test_incluye_lo_que_puede_impartir_y_su_tope_de_horas(self):
         from Alumnos.docentes import habilitar

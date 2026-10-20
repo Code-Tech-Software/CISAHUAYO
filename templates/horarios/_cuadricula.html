@@ -53,7 +53,8 @@
                         {% else %}
                           <span class="slot__name">{{ materia.nombre }}</span>
                         {% endif %}
-                        <span class="slot__code">{{ asignacion.grupo }}</span>
+                        {# En el horario del profesor, el grupo con su equivalencia (7° A) #}
+                        <span class="slot__code" title="{{ asignacion.grupo }}">{{ asignacion.grupo.nombre_equivalente }}</span>
                       {% else %}
                         {% if editable and perms.Alumnos.change_horariomateria %}
                           <a class="slot__name" href="{% url 'horarios:editar' bloque.pk %}" aria-label="Editar {{ materia.nombre }}, {{ bloque.get_dia_semana_display }} de {{ bloque.hora_inicio|time:'H:i' }} a {{ bloque.hora_fin|time:'H:i' }}" data-modal-form>{{ materia.nombre }}</a>

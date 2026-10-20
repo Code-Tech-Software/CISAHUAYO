@@ -45,9 +45,10 @@
           <p class="burbuja__autor">{{ mensaje.autor.nombre }}</p>
           {% if mensaje.html_visible %}
             <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
-          {% else %}
+          {% elif not mensaje.sin_texto %}
             <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
           {% endif %}
+          {% if mensaje.documentos %}{% include "mensajes/_documentos.html" with documentos=mensaje.documentos %}{% endif %}
           <p class="burbuja__pie">
             <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|time:"H:i" }}</time>
             <a class="moderacion-hilo__retirar" href="{% url 'mensajes:moderacion_retirar' mensaje.pk %}?volver={{ aqui|urlencode }}" data-modal-form

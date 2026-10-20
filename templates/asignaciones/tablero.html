@@ -172,7 +172,7 @@
                   {% if fila.profesor %}
                     <span class="cell-stack">
                       <span class="cell-stack__main">
-                        {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ fila.profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.profesor }}</a>{% else %}{{ fila.profesor }}{% endif %}
+                        {% if perms.Alumnos.view_profesor %}<a class="link-subtle" href="{{ fila.profesor.get_absolute_url }}?ciclo={{ ciclo.pk }}#materias">{{ fila.profesor }}</a>{% else %}{{ fila.profesor }}{% endif %}
                       </span>
                       {% if fila.profesor.estatus != "ACTIVO" %}
                         <span class="cell-stack__sub"><span class="tag tag--danger">Profesor de baja</span></span>

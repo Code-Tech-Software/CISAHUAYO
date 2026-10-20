@@ -1,0 +1,21 @@
+{% comment %}
+  Las conversaciones de la bandeja (templates/mensajes/bandeja.html y «Ver más conversaciones»: Mensajes/views.conversaciones).
+  Parámetros: bandeja, espacio, hoy_iso y actual (el id de la conversación abierta).
+{% endcomment %}
+{% for item in bandeja %}
+  <li data-conversacion-item="{{ item.pk }}" data-texto="{{ item.otro.nombre|lower }}">
+    <a class="chat-item{% if actual == item.pk %} is-actual{% endif %}{% if item.no_leidos %} is-sin-leer{% endif %}" href="{% url espacio|add:':conversacion' item.pk %}"{% if actual == item.pk %} aria-current="page"{% endif %}>
+      <span class="avatar chat-item__avatar chat-persona__avatar--{{ item.otro.tipo|lower }}" aria-hidden="true">{{ item.otro.iniciales }}</span>
+      <span class="chat-item__texto">
+        <span class="chat-item__fila">
+          <span class="chat-item__nombre">{{ item.otro.nombre }}</span>
+          <time class="chat-item__hora" datetime="{{ item.actualizada|date:'c' }}" data-chat-item-hora>{% if item.actualizada|date:"Y-m-d" == hoy_iso %}{{ item.actualizada|time:"H:i" }}{% else %}{{ item.actualizada|date:"d/m" }}{% endif %}</time>
+        </span>
+        <span class="chat-item__fila">
+          <span class="chat-item__vista" data-chat-item-vista>{% if item.mio %}Tú: {% endif %}{{ item.ultimo_mensaje.texto|truncatechars:80 }}</span>
+          <span class="chat-item__conteo" data-chat-item-conteo aria-label="{{ item.no_leidos }} sin leer"{% if not item.no_leidos %} hidden{% endif %}>{{ item.no_leidos }}</span>
+        </span>
+      </span>
+    </a>
+  </li>
+{% endfor %}

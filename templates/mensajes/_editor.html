@@ -53,6 +53,8 @@
       </div>
       <div class="editor__grupo" data-editor-grupo="insertar">
         <button type="button" class="editor__boton" data-comando="imagen" aria-label="Insertar imagen" data-tooltip="Insertar imagen">{% include "partials/icon.html" with name="image-plus" %}</button>
+        {# Adjuntar documentos PDF: lo maneja static/js/mensajes.js (van debajo del texto, no dentro) #}
+        <button type="button" class="editor__boton" data-chat-adjuntar aria-label="Adjuntar documento PDF" data-tooltip="Adjuntar documento PDF">{% include "partials/icon.html" with name="paperclip" %}</button>
         <button type="button" class="editor__boton" data-comando="enlace" aria-haspopup="dialog" aria-expanded="false" aria-label="Insertar enlace" data-tooltip="Insertar enlace (Ctrl+K)" data-panel="enlace">{% include "partials/icon.html" with name="link" %}</button>
       </div>
     </div>

@@ -2,10 +2,11 @@ from datetime import timedelta
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
-from Alumnos.forms import EstiloCamposMixin
+from Alumnos.forms import TAMANO_MAXIMO_FOTO, EstiloCamposMixin
 from Alumnos.models import Grado, MateriaGrado, Profesor, ProfesorNivel
 from Alumnos.utils import CURP_RE, compactar_espacios, normalizar_curp, validar_telefono
 
@@ -29,10 +30,13 @@ def campo_niveles():
 class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
     """Alta y edición. La baja y la reactivación son acciones aparte (no hay borrado físico)."""
 
+    quitar_fotografia = forms.BooleanField(required=False, label='Quitar fotografía',
+                                           widget=forms.CheckboxInput(attrs={'class': 'choice__input'}))
+
     class Meta:
         model = Profesor
         fields = [
-            'nombre', 'apellido_paterno', 'apellido_materno', 'curp', 'fecha_nacimiento',
+            'fotografia', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp', 'fecha_nacimiento',
             'telefono', 'telefono_alternativo', 'correo_electronico',
             'domicilio', 'colonia', 'ciudad', 'estado', 'cp',
             'profesion', 'cedula_profesional', 'especialidad', 'fecha_ingreso', 'horas_maximas',
@@ -64,13 +68,16 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'horas_maximas': forms.NumberInput(attrs={'min': 1, 'max': MAXIMO_DE_HORAS, 'inputmode': 'numeric', 'placeholder': 'Sin tope'}),
             'fecha_ingreso': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'observaciones': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Notas internas sobre este profesor'}),
+            # La misma foto que en los estudiantes: se ve en su perfil, en la lista y donde aparezca su avatar
+            'fotografia': forms.FileInput(attrs={'accept': 'image/*', 'class': 'photo-field__input visually-hidden'}),
         }
         help_texts = {
             'curp': 'Opcional. Si la capturas, debe ser única entre los profesores.',
             'telefono': 'Es el número principal de contacto.',
             'correo_electronico': 'Opcional. Debe ser único entre los profesores.',
             'especialidad': 'Opcional. Sirve de referencia al elegir quién imparte cada materia.',
-            'horas_maximas': 'Opcional. Las horas de clase por semana que puede dar como máximo: en «Asignaciones» se avisa si su carga la rebasa.',
+            'horas_maximas': 'Opcional. Las horas de clase por semana que puede dar como máximo: en «Asignaciones» y en la lista de profesores se avisa si su carga la rebasa.',
+            'fotografia': 'JPG o PNG de hasta 5 MB.',
         }
 
     def __init__(self, *args, actor=None, abrir_acceso=False, **kwargs):
@@ -100,6 +107,8 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
 
         from Usuarios.docentes import sincronizar_nombre
 
+        if self.cleaned_data.get('quitar_fotografia') and 'fotografia' not in self.files:
+            self.instance.fotografia = None
         with transaction.atomic():
             profesor = super().save(commit)
             profesor.establecer_niveles(self.cleaned_data['niveles'])
@@ -159,6 +168,12 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
                 raise ValidationError(f'Un profesor debe tener al menos {EDAD_MINIMA} años.')
         return fecha
 
+    def clean_fotografia(self):
+        foto = self.cleaned_data.get('fotografia')
+        if isinstance(foto, UploadedFile) and foto.size > TAMANO_MAXIMO_FOTO:
+            raise ValidationError('La fotografía no debe pesar más de 5 MB.')
+        return foto
+
     def clean_horas_maximas(self):
         horas = self.cleaned_data.get('horas_maximas')
         if horas is not None and not 1 <= horas <= MAXIMO_DE_HORAS:
@@ -176,15 +191,24 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
 # Listado: filtros
 # ---------------------------------------------------------------------------
 class FiltroProfesoresForm(EstiloCamposMixin, forms.Form):
+    POR_NOMBRE = ('apellido_paterno', 'apellido_materno', 'nombre')
     ORDENES = {
-        'nombre': ('apellido_paterno', 'apellido_materno', 'nombre'),
+        'nombre': POR_NOMBRE,
         '-nombre': ('-apellido_paterno', '-apellido_materno', '-nombre'),
         '-reciente': ('-creado', 'apellido_paterno'),
         'antiguo': ('creado', 'apellido_paterno'),
+        # Por nivel, materias y carga se ordena después, sobre esta lista por nombre (Profesores/tabla.py)
+        **dict.fromkeys(('niveles', '-niveles', 'materias', '-materias', 'carga', '-carga'), POR_NOMBRE),
     }
     ORDEN_CHOICES = [
         ('nombre', 'Nombre (A-Z)'),
         ('-nombre', 'Nombre (Z-A)'),
+        ('niveles', 'Nivel (de preescolar a bachillerato)'),
+        ('-niveles', 'Nivel (de bachillerato a preescolar)'),
+        ('-materias', 'Más materias'),
+        ('materias', 'Menos materias'),
+        ('-carga', 'Más horas por semana'),
+        ('carga', 'Menos horas por semana'),
         ('-reciente', 'Registro más reciente'),
         ('antiguo', 'Registro más antiguo'),
     ]
@@ -192,6 +216,7 @@ class FiltroProfesoresForm(EstiloCamposMixin, forms.Form):
         ('', 'Cualquier situación'),
         ('con_materias', 'Con materias en el ciclo actual'),
         ('sin_materias', 'Sin materias en el ciclo actual'),
+        ('rebasa', 'Rebasa su tope de horas'),
     ]
 
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
@@ -252,6 +277,9 @@ class FiltroProfesoresForm(EstiloCamposMixin, forms.Form):
                 MateriaGrado.objects.filter(profesor=OuterRef('pk'), ciclo=ciclo, activa=True)
                 if ciclo else MateriaGrado.objects.none()
             )
-            queryset = queryset.filter(con_materias if situacion == 'con_materias' else ~con_materias)
+            if situacion == 'rebasa':   # con materias y con tope; si lo rebasa se ve con sus horarios (Profesores/tabla.py)
+                queryset = queryset.filter(con_materias, horas_maximas__isnull=False)
+            else:
+                queryset = queryset.filter(con_materias if situacion == 'con_materias' else ~con_materias)
 
         return queryset.distinct().order_by(*self.ORDENES[datos.get('orden', 'nombre')])

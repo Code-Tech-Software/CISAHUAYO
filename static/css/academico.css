@@ -842,3 +842,37 @@ a.slot__name:hover {
     grid-column: 1 / 4;
   }
 }
+
+/* --- Profesores: la carga contra su tope en la lista y las materias por devolver al reactivarlo --------------- */
+.tabla-profesores .person {
+  min-width: 12rem;
+}
+
+/* El nombre completo: con la columna de carga ya no cabe en un renglón en pantallas medianas */
+.tabla-profesores .person__name {
+  white-space: normal;
+}
+
+.profesor-carga {
+  gap: 0.2rem;
+  min-width: 7rem;
+}
+
+.profesor-carga .meter {
+  max-width: 8rem;
+}
+
+.profesor-carga .tag {
+  width: fit-content;
+}
+
+.profesor-devolver {
+  margin-bottom: var(--space-4);
+}
+
+.profesor-devolver__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}

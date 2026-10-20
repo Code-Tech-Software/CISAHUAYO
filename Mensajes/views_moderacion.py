@@ -16,7 +16,7 @@ from django.views.decorators.http import require_GET
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 
-from . import enriquecido, moderacion
+from . import enriquecido, moderacion, reglas
 from .forms import FiltroModeracionForm
 from .models import Conversacion, ImagenMensaje, Mensaje, Participante
 from .moderacion import MODERAR
@@ -29,11 +29,15 @@ def _volver(request):
     return pedido if pedido.startswith(inicio) and '//' not in pedido else inicio
 
 
+def _url_de_archivo(pk):
+    return reverse('mensajes:moderacion_imagen', args=[pk])
+
+
 def _html(mensaje):
     """El HTML limpio del mensaje, con sus imágenes por la ruta de la moderación ('' si no tiene formato)."""
     if not mensaje.html:
         return ''
-    return mark_safe(enriquecido.presentar(mensaje.html, lambda pk: reverse('mensajes:moderacion_imagen', args=[pk])))
+    return mark_safe(enriquecido.presentar(mensaje.html, _url_de_archivo))
 
 
 @requiere_permisos(MODERAR)
@@ -47,7 +51,7 @@ def buscar(request):
         pagina, rango, por_pagina = paginar(request, moderacion.buscar(**datos))
         pagina.object_list = moderacion.con_destinatarios(pagina.object_list)
         for mensaje in pagina.object_list:
-            mensaje.fragmento = moderacion.resaltar(mensaje.texto, datos.get('texto', ''))
+            mensaje.fragmento = reglas.resaltar(mensaje.texto, datos.get('texto', ''))
         contexto.update(pagina=pagina, rango_paginas=rango, por_pagina=por_pagina)
     return render(request, 'mensajes/moderacion.html', contexto)
 
@@ -62,6 +66,7 @@ def conversacion(request, pk):
     # Las familias y los estudiantes a la izquierda; el personal, a la derecha (como en su propia pantalla)
     miembros = sorted(moderacion.miembros_de(conversacion), key=lambda p: (p.tipo == Participante.SISTEMA, p.pk))
     derecha = miembros[-1].pk if len(miembros) > 1 else None
+    reglas.con_documentos(mensajes, _url_de_archivo)
     for mensaje in mensajes:
         mensaje.a_la_derecha = mensaje.autor_id == derecha
         mensaje.html_visible = _html(mensaje)
@@ -84,15 +89,17 @@ def retirar(request, pk):
         return redirect(volver)
     mensaje.para = moderacion.con_destinatarios([mensaje])[0].para
     mensaje.html_visible = _html(mensaje)
+    reglas.con_documentos([mensaje], _url_de_archivo)
     return render(request, 'mensajes/moderacion_retirar.html', {
-        'mensaje': mensaje, 'volver': volver, 'imagenes': mensaje.imagenes.count(),
+        'mensaje': mensaje, 'volver': volver, 'archivos': mensaje.imagenes.count(),
     })
 
 
 @requiere_permisos(MODERAR)
 @require_GET
 def imagen(request, pk):
-    """La imagen de un mensaje enviado (las que aún no se envían son solo de quien las subió: ni la moderación las ve)."""
+    """La imagen o el documento de un mensaje enviado (lo que aún no se envía es solo de quien lo subió: ni la moderación
+    lo ve)."""
     from Conducta.views import entregar_archivo
 
     imagen = ImagenMensaje.objects.filter(pk=pk, mensaje__isnull=False).first()

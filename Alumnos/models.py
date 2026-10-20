@@ -1159,7 +1159,11 @@ class Profesor(models.Model):
         help_text='Opcional. Sirve para avisar cuando su carga de clases la rebasa.',
     )
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
+    fotografia = models.ImageField(upload_to='profesores/', blank=True, null=True, verbose_name='Fotografía')
     estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='ACTIVO', verbose_name='Estatus')
+    # Las materias (MateriaGrado) del ciclo actual que se le quitaron en su última baja: al reactivarlo se le ofrecen de
+    # nuevo, las que sigan sin profesor (Profesores/views.py)
+    materias_al_darse_de_baja = models.JSONField(default=list, blank=True, editable=False)
     # Una sola cuenta por profesor y un solo profesor por cuenta: la cuenta guarda el acceso (usuario, contraseña, rol y
     # permisos); aquí solo vive la información del docente
     usuario = models.OneToOneField(

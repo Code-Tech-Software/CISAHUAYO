@@ -223,7 +223,8 @@ class ColumnaDeNivelesTests(BaseTestCase):
     def test_los_niveles_van_en_su_propia_columna(self):
         con_niveles(crear_profesor(nombre='Marta', apellido_paterno='Rangel'), 'PRIMARIA')
         html = self.client.get(reverse('profesores:lista')).content.decode()
-        encabezados = re.findall(r'<th class="table__th[^"]*" scope="col">([^<]+)</th>', html)
+        celdas = re.findall(r'<th class="table__th[^"]*" scope="col"[^>]*>(.*?)</th>', html, re.S)
+        encabezados = [' '.join(re.sub(r'<[^>]+>', ' ', celda).split()) for celda in celdas]   # también los que ordenan
         self.assertEqual(encabezados[:3], ['Profesor', 'Niveles', 'Contacto'])
         celda = re.search(r'<td class="table__cell" data-label="Niveles">(.*?)</td>', html, re.S).group(1)
         self.assertIn('Primaria', celda)

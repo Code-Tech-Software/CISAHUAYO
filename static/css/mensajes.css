@@ -225,6 +225,81 @@
   white-space: nowrap;
 }
 
+/* Mensajes encontrados al buscar: con quién, cuándo y el fragmento con lo buscado resaltado */
+.chat-resultado {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--transition-fast);
+}
+
+.chat-resultado:hover {
+  background: var(--color-surface-hover);
+}
+
+.chat-resultado:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.chat-resultado__texto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.chat-resultado__fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.chat-resultado__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-resultado__hora {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.chat-resultado__fragmento {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.chat-resultado__fragmento mark {
+  padding: 0 0.1em;
+  border-radius: var(--radius-sm);
+  background: var(--color-warning-bg);
+  color: var(--color-text-strong);
+}
+
+/* «Ver más conversaciones», al pie de la lista */
+.chat__mas {
+  flex-shrink: 0;
+  margin: 0;
+  padding: var(--space-2);
+  border-top: var(--border);
+  text-align: center;
+}
+
 /* El color del avatar dice qué clase de cuenta es (personal, estudiante, tutor) */
 .chat-persona__avatar--sistema {
   --avatar-tone: var(--color-primary-text);
@@ -565,11 +640,105 @@
   --size: 0.95rem;
 }
 
+/* La hora de lectura, a la vista en el último mensaje propio leído */
+.burbuja__leido {
+  margin-left: 0.15rem;
+  font-weight: var(--weight-semibold);
+}
+
+/* El mensaje que se buscó (en la búsqueda o en la moderación): un anillo para encontrarlo en la conversación */
+.burbuja.is-destacado {
+  outline: 2px solid var(--color-warning);
+  outline-offset: 2px;
+  scroll-margin-block: var(--space-8);
+}
+
+/* Documentos PDF adjuntos, debajo del texto: una ficha por documento que se abre en otra pestaña */
+.burbuja__documentos {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0.15rem;
+  padding: 0;
+  list-style: none;
+}
+
+.burbuja__texto + .burbuja__documentos {
+  margin-top: var(--space-2);
+}
+
+.documento-adjunto {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: min(14rem, 100%);
+  padding: var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background-color var(--transition-fast);
+}
+
+.documento-adjunto:hover {
+  background: var(--color-surface-hover);
+}
+
+.documento-adjunto:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+}
+
+.burbuja--mia .documento-adjunto {
+  border-color: color-mix(in srgb, var(--color-on-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--color-on-primary) 14%, transparent);
+  color: var(--color-on-primary);
+}
+
+.burbuja--mia .documento-adjunto:hover {
+  background: color-mix(in srgb, var(--color-on-primary) 22%, transparent);
+}
+
+.documento-adjunto__icono {
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.documento-adjunto__texto {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.documento-adjunto__nombre {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documento-adjunto__tamano {
+  font-size: var(--text-2xs);
+  opacity: 0.85;
+}
+
 @keyframes burbuja-entra {
   from {
     opacity: 0;
     transform: translateY(0.4rem);
   }
+}
+
+/* «Ver mensajes más recientes» (abierta en un mensaje anterior), al final */
+.chat__recientes {
+  margin: var(--space-3) 0 0;
 }
 
 /* --- 5. Escribir ------------------------------------------------------------------------------------------ */
@@ -663,6 +832,64 @@
   background: var(--color-surface-2);
   font-family: inherit;
   font-size: inherit;
+}
+
+/* Los documentos por enviar, arriba de la caja: una ficha por documento (mientras sube, con su aviso) */
+.chat__adjuntos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.chat__adjuntos[hidden] {
+  display: none;
+}
+
+.chat-adjunto {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(18rem, 100%);
+  padding: 0.25rem 0.25rem 0.25rem var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.chat-adjunto.is-subiendo {
+  opacity: 0.7;
+}
+
+.chat-adjunto__icono {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--color-danger);
+}
+
+.chat-adjunto__texto {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.chat-adjunto__nombre {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-adjunto__detalle {
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+}
+
+.chat-adjunto__quitar {
+  flex-shrink: 0;
 }
 
 /* Error al enviar: arriba del campo, con el color de peligro */
@@ -908,13 +1135,6 @@
   margin: 0 0 0.1rem;
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
-}
-
-/* El mensaje que se buscó: un anillo para encontrarlo en la conversación */
-.burbuja.is-destacado {
-  outline: 2px solid var(--color-warning);
-  outline-offset: 2px;
-  scroll-margin-block: var(--space-8);
 }
 
 .moderacion-hilo__retirar {

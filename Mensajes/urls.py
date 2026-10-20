@@ -14,12 +14,16 @@ def rutas(envolver):
         path('', envolver(views.bandeja), name='inicio'),
         path('nueva/', envolver(views.nueva), name='nueva'),
         path('contactos/', envolver(views.contactos), name='contactos'),
+        path('buscar/', envolver(views.buscar), name='buscar'),
+        path('conversaciones/', envolver(views.conversaciones), name='conversaciones'),
         path('resumen/', envolver(views.resumen), name='resumen'),
         path('<int:pk>/', envolver(views.conversacion), name='conversacion'),
         path('<int:pk>/enviar/', envolver(views.enviar), name='enviar'),
         path('<int:pk>/leida/', envolver(views.leida), name='leida'),
         path('<int:pk>/imagenes/', envolver(views.imagen_subir), name='imagen_subir'),
+        path('<int:pk>/documentos/', envolver(views.documento_subir), name='documento_subir'),
         path('imagenes/<int:pk>/', envolver(views.imagen), name='imagen'),
+        path('documentos/<int:pk>/', envolver(views.documento), name='documento'),
     ]
 
 

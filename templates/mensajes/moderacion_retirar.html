@@ -20,7 +20,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">¿Retirar este mensaje?</h1>
-      <p class="page-header__description">Se borrará por completo para {{ mensaje.autor.nombre }}{% if mensaje.para %} y {{ mensaje.para.nombre }}{% endif %}{% if imagenes == 1 %}, con su imagen{% elif imagenes %}, con sus {{ imagenes }} imágenes{% endif %}. No queda copia ni aviso de que existió. No se puede deshacer.</p>
+      <p class="page-header__description">Se borrará por completo para {{ mensaje.autor.nombre }}{% if mensaje.para %} y {{ mensaje.para.nombre }}{% endif %}{% if archivos == 1 %}, con su archivo adjunto{% elif archivos %}, con sus {{ archivos }} archivos adjuntos{% endif %}. No queda copia ni aviso de que existió. No se puede deshacer.</p>
     </div>
   </header>
 
@@ -36,9 +36,10 @@
         <div class="burbuja moderacion-retiro__burbuja">
           {% if mensaje.html_visible %}
             <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
-          {% else %}
+          {% elif not mensaje.sin_texto %}
             <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
           {% endif %}
+          {% if mensaje.documentos %}{% include "mensajes/_documentos.html" with documentos=mensaje.documentos %}{% endif %}
         </div>
       </div>
     </section>

@@ -30,34 +30,83 @@ from Usuarios.docentes import desvincular, puede_desactivar_su_cuenta
 from Usuarios.seguridad import ACCION_ALTA, ACCION_BAJA, ACCION_CAMBIO, puede_gestionar, registrar, rol_de
 from Usuarios.views import SESION_CREDENCIALES, guardar_credenciales
 
+from . import tabla
 from .forms import FiltroProfesoresForm, ProfesorForm
 
 
 # ---------------------------------------------------------------------------
 # Listado
 # ---------------------------------------------------------------------------
+def _con_materias(profesores, ciclo):
+    """Con `materias`: cuántas imparte en el ciclo actual."""
+    if ciclo:
+        return profesores.annotate(
+            materias=Count('asignaciones', filter=Q(asignaciones__ciclo=ciclo, asignaciones__activa=True), distinct=True),
+        )
+    return profesores.annotate(materias=Value(0, output_field=IntegerField()))
+
+
+def _filtrados(filtro, ciclo, consulta):
+    """(profesores del filtro en su orden, minutos de todos o None): con orden por nivel, materias o carga, o con «Rebasa
+    su tope», la carga se calcula para todos los del filtro (Profesores/tabla.py); si no, solo para la página."""
+    profesores = _con_materias(filtro.filtrar(consulta, ciclo), ciclo)
+    datos = filtro.activos
+    if not tabla.necesita_todos(datos):
+        return profesores, None
+    profesores = list(profesores)
+    minutos = minutos_por_profesor([p.pk for p in profesores], ciclo)
+    return tabla.ordenar_y_filtrar(profesores, datos, minutos), minutos
+
+
+def pendientes_con_familias(profesores):
+    """{id de profesor: texto} de lo que tiene pendiente en «Reuniones con familias» (reuniones abiertas en que
+    participa y acuerdos a su cargo sin cumplir): se avisa al darlo de baja, para reasignarlo."""
+    usuarios = {p.usuario_id: p.pk for p in profesores if p.usuario_id}
+    if not usuarios:
+        return {}
+    from Reuniones.models import Acuerdo, ParticipanteReunion, Reunion
+    reuniones = dict(
+        ParticipanteReunion.objects.filter(usuario__in=usuarios, activo=True, reunion__estado__in=Reunion.ABIERTAS)
+        .values('usuario').annotate(n=Count('reunion', distinct=True)).values_list('usuario', 'n')
+    )
+    acuerdos = dict(
+        Acuerdo.objects.filter(responsable__in=usuarios).exclude(estado=Acuerdo.CUMPLIDO)
+        .values('responsable').annotate(n=Count('pk')).values_list('responsable', 'n')
+    )
+    textos = {}
+    for usuario, profesor in usuarios.items():
+        partes = []
+        if reuniones.get(usuario):
+            n = reuniones[usuario]
+            partes.append(f'{n} reunión{"es" if n != 1 else ""} con familias pendiente{"s" if n != 1 else ""}')
+        if acuerdos.get(usuario):
+            n = acuerdos[usuario]
+            partes.append(f'{n} acuerdo{"s" if n != 1 else ""} a su cargo sin cumplir')
+        if partes:
+            textos[profesor] = f'Tiene {" y ".join(partes)}: reasígnalos en «Reuniones con familias».'
+    return textos
+
+
 @requiere_permisos('Alumnos.view_profesor')
 def profesor_lista(request):
     filtro = FiltroProfesoresForm(request.GET)
     ciclo = ciclo_actual()
-    profesores = filtro.filtrar(Profesor.objects.all(), ciclo).select_related('usuario').prefetch_related('niveles')
-    if ciclo:
-        profesores = profesores.annotate(
-            materias=Count('asignaciones', filter=Q(asignaciones__ciclo=ciclo, asignaciones__activa=True), distinct=True),
-        )
-    else:
-        profesores = profesores.annotate(materias=Value(0, output_field=IntegerField()))
+    profesores, minutos = _filtrados(filtro, ciclo, Profesor.objects.select_related('usuario').prefetch_related('niveles'))
     pagina, rango_paginas, por_pagina = paginar(request, profesores)
-
-    # La carga horaria solo se calcula para los profesores de la página
-    minutos = minutos_por_profesor([p.pk for p in pagina], ciclo)
+    # La carga contra su tope y las señales junto al nombre (Profesores/tabla.py)
+    pagina.object_list = tabla.preparar_filas(pagina.object_list, ciclo, minutos)
+    con_familias = pendientes_con_familias(pagina.object_list) if request.user.has_perm('Alumnos.delete_profesor') else {}
     for profesor in pagina:
-        profesor.duracion = formatear_duracion(minutos[profesor.pk]) if minutos[profesor.pk] else ''
-        # Para la baja desde el listado: si se puede desactivar también su cuenta (lo mismo que ofrece su perfil)
+        # Para la baja desde el listado: si se puede desactivar también su cuenta (lo mismo que ofrece su perfil) y lo
+        # que tiene pendiente con las familias
         profesor.puede_desactivar_cuenta = profesor.estatus == 'ACTIVO' and puede_desactivar_su_cuenta(request.user, profesor)
+        profesor.pendientes_con_familias = con_familias.get(profesor.pk, '')
 
     conteos = dict(Profesor.objects.order_by().values_list('estatus').annotate(total=Count('pk')))
+    orden = filtro.activos.get('orden', 'nombre')
     return render(request, 'profesores/lista.html', {
+        'orden': orden,
+        'columnas': tabla.columnas(orden),
         'filtro': filtro,
         'pagina': pagina,
         'rango_paginas': rango_paginas,
@@ -104,7 +153,7 @@ def _resultado_del_acceso(request, form, profesor):
 
 @requiere_permisos('Alumnos.add_profesor')
 def profesor_crear(request):
-    form = ProfesorForm(request.POST if request.method == 'POST' else None, actor=request.user,
+    form = ProfesorForm(request.POST if request.method == 'POST' else None, request.FILES or None, actor=request.user,
                         abrir_acceso=request.GET.get('acceso') == '1')
     if request.method == 'POST':
         if form.is_valid():
@@ -119,8 +168,8 @@ def profesor_crear(request):
 @requiere_permisos('Alumnos.change_profesor')
 def profesor_editar(request, pk):
     profesor = get_object_or_404(Profesor, pk=pk)
-    form = ProfesorForm(request.POST if request.method == 'POST' else None, instance=profesor, actor=request.user,
-                        abrir_acceso=request.GET.get('acceso') == '1')
+    form = ProfesorForm(request.POST if request.method == 'POST' else None, request.FILES or None, instance=profesor,
+                        actor=request.user, abrir_acceso=request.GET.get('acceso') == '1')
     if request.method == 'POST':
         if form.is_valid():
             form.save()
@@ -205,6 +254,11 @@ def profesor_detalle(request, pk):
         if request.user.has_perm('Alumnos.change_profesor') and profesor.estatus == 'ACTIVO' else []
     )
 
+    # Reactivado: las materias que se le quitaron al darse de baja y siguen sin profesor, para devolvérselas
+    materias_que_tenia = []
+    if editable and ciclo.activo and request.user.has_perm('Alumnos.change_materiagrado'):
+        materias_que_tenia = list(materias_al_darse_de_baja(profesor))
+
     # Su cuenta de acceso (una sola) y lo que quien consulta puede hacer con ella
     cuenta = profesor.usuario if profesor.usuario_id else None
     usuario = request.user
@@ -242,6 +296,11 @@ def profesor_detalle(request, pk):
             if profesor.estatus == 'ACTIVO' else 0
         ),
         'esta_de_baja': profesor.estatus == 'INACTIVO',
+        'materias_que_tenia': materias_que_tenia,
+        'pendientes_con_familias': (
+            pendientes_con_familias([profesor]).get(profesor.pk, '')
+            if profesor.estatus == 'ACTIVO' and usuario.has_perm('Alumnos.delete_profesor') else ''
+        ),
     })
 
 
@@ -260,11 +319,15 @@ def profesor_baja(request, pk):
     liberadas = 0
     cuenta_desactivada = None
     with transaction.atomic():
-        profesor.estatus = 'INACTIVO'
-        profesor.save(update_fields=['estatus', 'modificado'])
+        quitadas = []
         if request.POST.get('quitar_del_ciclo'):
             # Solo el ciclo actual: el historial de los ciclos cerrados conserva quién daba cada materia
-            liberadas = MateriaGrado.objects.filter(profesor=profesor, ciclo__activo=True, activa=True).update(profesor=None)
+            vigentes = MateriaGrado.objects.filter(profesor=profesor, ciclo__activo=True, activa=True)
+            quitadas = list(vigentes.values_list('pk', flat=True))
+            liberadas = vigentes.update(profesor=None)
+        profesor.estatus = 'INACTIVO'
+        profesor.materias_al_darse_de_baja = quitadas   # si se reactiva, se le ofrecen de nuevo
+        profesor.save(update_fields=['estatus', 'materias_al_darse_de_baja', 'modificado'])
         if request.POST.get('desactivar_cuenta') and puede_desactivar_su_cuenta(request.user, profesor):
             cuenta_desactivada = profesor.usuario
             cuenta_desactivada.is_active = False
@@ -281,6 +344,15 @@ def profesor_baja(request, pk):
     return redirect('profesores:lista')
 
 
+def materias_al_darse_de_baja(profesor):
+    """Las materias del ciclo actual que se le quitaron en su última baja y siguen sin profesor."""
+    return (
+        MateriaGrado.objects.filter(pk__in=profesor.materias_al_darse_de_baja or [], profesor__isnull=True, activa=True, ciclo__activo=True)
+        .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado')
+        .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'materia__nombre')
+    )
+
+
 @require_POST
 @requiere_permisos('Alumnos.change_profesor')
 def profesor_reactivar(request, pk):
@@ -291,8 +363,25 @@ def profesor_reactivar(request, pk):
         aviso = ''
         if profesor.usuario_id and not profesor.usuario.is_active:
             aviso = f' Su cuenta «{profesor.usuario.username}» sigue desactivada: reactívala en «Usuarios» si volverá a entrar al sistema.'
+        libres = materias_al_darse_de_baja(profesor).count()
+        if libres and request.user.has_perm('Alumnos.change_materiagrado'):
+            # En su perfil se le ofrecen de nuevo, para devolvérselas con un clic
+            messages.success(request, f'{profesor} fue reactivado. Al darse de baja impartía {libres} materia{"s" if libres != 1 else ""} '
+                                      f'que sigue{"n" if libres != 1 else ""} sin profesor: puedes devolvérsela{"s" if libres != 1 else ""} aquí.{aviso}')
+            return redirect(f'{profesor.get_absolute_url()}#materias')
         messages.success(request, f'{profesor} fue reactivado. Asígnale de nuevo las materias que imparte.{aviso}')
     return redirect('profesores:lista')
+
+
+@require_POST
+@requiere_permisos('Alumnos.change_profesor')
+def profesor_descartar_materias(request, pk):
+    """Ya no ofrecerle las materias que tenía al darse de baja."""
+    profesor = get_object_or_404(Profesor, pk=pk)
+    profesor.materias_al_darse_de_baja = []
+    profesor.save(update_fields=['materias_al_darse_de_baja', 'modificado'])
+    messages.info(request, 'Listo: ya no se le ofrecerán las materias que tenía al darse de baja.')
+    return redirect(f'{profesor.get_absolute_url()}#materias')
 
 
 @requiere_permisos('Alumnos.view_profesor')
@@ -422,16 +511,21 @@ def asignar(request):
 def profesor_exportar(request):
     filtro = FiltroProfesoresForm(request.GET)
     ciclo = ciclo_actual()
-    profesores = list(filtro.filtrar(Profesor.objects.all(), ciclo).prefetch_related('niveles'))
+    profesores, minutos = _filtrados(filtro, ciclo, Profesor.objects.prefetch_related('niveles'))
+    profesores = list(profesores)
+    if minutos is None:
+        minutos = minutos_por_profesor([p.pk for p in profesores], ciclo)
 
     materias = defaultdict(list)
     if ciclo:
         asignaciones = (
             MateriaGrado.objects.filter(ciclo=ciclo, activa=True, profesor__in=[p.pk for p in profesores])
-            .select_related('materia', 'grado').order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'materia__nombre')
+            .select_related('materia', 'grado', 'grupo__grado', 'grupo__nombre')
+            .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'materia__nombre')
         )
-        for asignacion in asignaciones:
-            materias[asignacion.profesor_id].append(f'{asignacion.materia} ({asignacion.grado})')
+        for asignacion in asignaciones:   # con la equivalencia del grupo, como se ve en el perfil: «Matemáticas (7° A)»
+            grupo = asignacion.grupo.nombre_equivalente if asignacion.grupo_id else asignacion.grado.nombre_equivalente
+            materias[asignacion.profesor_id].append(f'{asignacion.materia} ({grupo})')
 
     habilitadas = defaultdict(list)
     for profesor_id, nombre in (
@@ -447,7 +541,8 @@ def profesor_exportar(request):
     escritor.writerow([
         'Nombre', 'Apellido paterno', 'Apellido materno', 'CURP', 'Teléfono', 'Teléfono alternativo', 'Correo electrónico',
         'Niveles', 'Profesión', 'Cédula profesional', 'Especialidad', 'Fecha de ingreso', 'Estatus',
-        f'Materias en el ciclo actual{f" ({ciclo})" if ciclo else ""}', 'Materias que puede impartir', 'Horas máximas por semana',
+        f'Materias en el ciclo actual{f" ({ciclo})" if ciclo else ""}', 'Horas por semana en el ciclo actual', 'Materias que puede impartir',
+        'Horas máximas por semana',
     ])
     for profesor in profesores:
         escritor.writerow([proteger_celda_csv(valor) for valor in [
@@ -456,6 +551,7 @@ def profesor_exportar(request):
             profesor.cedula_profesional,
             profesor.especialidad, f'{profesor.fecha_ingreso:%d/%m/%Y}' if profesor.fecha_ingreso else '',
             profesor.get_estatus_display(), '; '.join(materias.get(profesor.pk, [])),
+            formatear_duracion(minutos[profesor.pk]) if minutos[profesor.pk] else '',
             '; '.join(habilitadas.get(profesor.pk, [])), profesor.horas_maximas or '',
         ]])
     return respuesta

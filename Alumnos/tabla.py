@@ -25,11 +25,12 @@ def _hora(valor):
     return f'{valor.hour}:{valor.minute:02d}'
 
 
-def columnas_de_orden(orden):
-    """Los encabezados que ordenan la tabla (Estudiante, Grado actual y Edad): a qué orden lleva tocar cada uno (el
-    contrario si ya ordena por él) y su aria-sort. El orden predeterminado (por nombre) no se escribe en la dirección."""
+def columnas_de_orden(orden, claves=('nombre', 'grado', 'edad')):
+    """Los encabezados que ordenan la tabla (Estudiante, Grado actual y Edad; la de profesores pasa las suyas): a qué
+    orden lleva tocar cada uno (el contrario si ya ordena por él) y su aria-sort. El orden predeterminado (por nombre)
+    no se escribe en la dirección."""
     columnas = {}
-    for clave in ('nombre', 'grado', 'edad'):
+    for clave in claves:
         if orden == clave:
             columna = {'siguiente': f'-{clave}', 'aria': 'ascending', 'activa': True, 'ascendente': True}
         elif orden == f'-{clave}':

@@ -134,7 +134,12 @@ class Mensaje(models.Model):
     texto = models.TextField(max_length=MAXIMO)
     # Vacío en los mensajes sin formato (y en todos los anteriores al editor): se muestran como texto
     html = models.TextField(blank=True, default='')
+    # Solo documentos, sin nada escrito: `texto` es su resumen («📎 circular.pdf») para vistas previas, avisos y
+    # búsquedas, y la burbuja no lo muestra (ya muestra los documentos)
+    sin_texto = models.BooleanField(default=False)
     creado = models.DateTimeField(auto_now_add=True)
+    # Cuándo lo leyó la otra persona (vacío: sin leer, o leído antes del 2026-10-20, cuando no se guardaba la hora)
+    leido_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Mensaje'
@@ -154,11 +159,15 @@ def ruta_de_imagen(instancia, nombre):
 
 
 class ImagenMensaje(models.Model):
-    """Una imagen subida desde el editor a una conversación. Mientras no se envía el mensaje (`mensaje` vacío) solo la ve
-    quien la subió; después, los miembros de la conversación."""
+    """Un archivo subido a una conversación: una imagen del editor (va dentro del HTML del mensaje) o, desde el
+    2026-10-20, un documento PDF adjunto (va debajo del texto). Mientras no se envía el mensaje (`mensaje` vacío) solo
+    lo ve quien lo subió; después, los miembros de la conversación. Lo que nunca se envía se borra al día siguiente
+    (Mensajes/limpieza.py)."""
 
+    DOCUMENTO = 'application/pdf'
     TAMANO_MAXIMO_MB = 5
     PENDIENTES_MAXIMAS = 20   # subidas sin enviar por persona y conversación
+    DOCUMENTOS_POR_MENSAJE = 10
 
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name='imagenes')
     autor = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name='imagenes_subidas')
@@ -170,10 +179,24 @@ class ImagenMensaje(models.Model):
     creada = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Imagen de un mensaje'
-        verbose_name_plural = 'Imágenes de mensajes'
+        verbose_name = 'Archivo de un mensaje'
+        verbose_name_plural = 'Archivos de mensajes'
         default_permissions = ()
         indexes = [models.Index(fields=['conversacion', 'autor', 'mensaje'], name='imagen_mensaje_pendiente')]
 
     def __str__(self):
         return self.nombre_original
+
+    @property
+    def es_documento(self):
+        return self.tipo == self.DOCUMENTO
+
+    @property
+    def tamano_texto(self):
+        """«PDF · 240 KB» / «PDF · 1.3 MB»."""
+        if self.tamano >= 1024 * 1024:
+            return f'PDF · {self.tamano / (1024 * 1024):.1f} MB'
+        return f'PDF · {max(1, round(self.tamano / 1024))} KB'
+
+    def como_dict(self, url):
+        return {'id': self.pk, 'nombre': self.nombre_original, 'tamano': self.tamano_texto, 'url': url}

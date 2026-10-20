@@ -7,17 +7,15 @@ mensaje anterior). Las pantallas abiertas de las dos personas lo quitan al momen
 El permiso (`Mensajes.moderar`) es exclusivo del rol Administrador (Usuarios/catalogo.py).
 """
 import logging
-import re
 
 from django.db import transaction
 from django.db.models import Count, Q
-from django.utils.html import conditional_escape
-from django.utils.safestring import mark_safe
 
-from .models import Conversacion, Mensaje, Miembro, Participante
+from .models import Conversacion, ImagenMensaje, Mensaje, Miembro, Participante
+from .reglas import CON_CUENTA
+from .reglas import ventana as ventana_alrededor
 
 MODERAR = 'Mensajes.moderar'
-CON_CUENTA = ('autor__usuario', 'autor__alumno', 'autor__tutor')
 
 registro = logging.getLogger(__name__)
 
@@ -42,7 +40,10 @@ def personas_que_coinciden(texto):
 def buscar(persona='', texto='', desde=None, hasta=None):
     """Los mensajes de todas las conversaciones que coinciden, del más reciente al más antiguo. `persona`: los de las
     conversaciones donde participa (los que escribió y los que recibió); `texto`: cada palabra en el mensaje."""
-    consulta = Mensaje.objects.select_related(*CON_CUENTA).annotate(con_imagenes=Count('imagenes'))
+    consulta = Mensaje.objects.select_related(*CON_CUENTA).annotate(
+        con_imagenes=Count('imagenes', filter=Q(imagenes__tipo__startswith='image/')),
+        con_documentos=Count('imagenes', filter=Q(imagenes__tipo=ImagenMensaje.DOCUMENTO)),
+    )
     if persona:
         consulta = consulta.filter(conversacion__in=Miembro.objects.filter(participante__in=personas_que_coinciden(persona)).values('conversacion'))
     for palabra in (texto or '').split():
@@ -66,29 +67,6 @@ def con_destinatarios(mensajes):
     return mensajes
 
 
-def resaltar(texto, buscado='', largo=220):
-    """El texto en una línea, recortado alrededor de la primera coincidencia, con las palabras buscadas en <mark> (todo
-    lo demás, escapado)."""
-    texto = ' '.join((texto or '').split())
-    palabras = [re.escape(p) for p in (buscado or '').split()]
-    patron = re.compile('|'.join(palabras), re.IGNORECASE) if palabras else None
-    inicio = 0
-    if patron and (primera := patron.search(texto)) and primera.start() > largo // 3:
-        inicio = primera.start() - largo // 4
-    fragmento = texto[inicio:inicio + largo]
-    partes = []
-    if patron:
-        ultimo = 0
-        for coincidencia in patron.finditer(fragmento):
-            partes.append(conditional_escape(fragmento[ultimo:coincidencia.start()]))
-            partes.append(f'<mark>{conditional_escape(coincidencia.group())}</mark>')
-            ultimo = coincidencia.end()
-        partes.append(conditional_escape(fragmento[ultimo:]))
-    else:
-        partes.append(conditional_escape(fragmento))
-    return mark_safe(('…' if inicio else '') + ''.join(partes) + ('…' if inicio + largo < len(texto) else ''))
-
-
 # ---------------------------------------------------------------------------
 # Una conversación completa
 # ---------------------------------------------------------------------------
@@ -99,13 +77,9 @@ def miembros_de(conversacion):
 def ventana(conversacion, alrededor=None, cantidad=40):
     """(mensajes en orden, hay_anteriores, hay_posteriores): los últimos `cantidad` o, con `alrededor` (el id de un
     mensaje), los que están antes y después de él."""
-    base = conversacion.mensajes.select_related(*CON_CUENTA)
     if alrededor:
-        mitad = cantidad // 2
-        previos = list(base.filter(pk__lt=alrededor).order_by('-pk')[:mitad + 1])
-        siguientes = list(base.filter(pk__gte=alrededor).order_by('pk')[:mitad + 1])
-        return list(reversed(previos[:mitad])) + siguientes[:mitad], len(previos) > mitad, len(siguientes) > mitad
-    mensajes = list(base.order_by('-pk')[:cantidad + 1])
+        return ventana_alrededor(conversacion, alrededor, cantidad)
+    mensajes = list(conversacion.mensajes.select_related(*CON_CUENTA).order_by('-pk')[:cantidad + 1])
     return list(reversed(mensajes[:cantidad])), len(mensajes) > cantidad, False
 
 
@@ -113,7 +87,7 @@ def ventana(conversacion, alrededor=None, cantidad=40):
 # Retirar
 # ---------------------------------------------------------------------------
 def retirar(mensaje):
-    """Borra el mensaje por completo: su texto, su formato, sus imágenes (y sus archivos). La conversación queda con el
+    """Borra el mensaje por completo: su texto, su formato, sus imágenes y documentos (y sus archivos). La conversación queda con el
     mensaje anterior como el último (o vacía, y deja de aparecer en la bandeja). No se guarda nada de lo retirado."""
     conversacion_id, mensaje_id = mensaje.conversacion_id, mensaje.pk
     archivos = [(imagen.archivo.storage, imagen.archivo.name) for imagen in mensaje.imagenes.all() if imagen.archivo]

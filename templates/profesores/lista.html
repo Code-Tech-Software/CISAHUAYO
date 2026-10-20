@@ -5,6 +5,8 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  {# Los encabezados que ordenan y las señales junto al nombre, como en la tabla de estudiantes #}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -82,14 +84,16 @@
     </p>
 
     <div class="table-card">
-      <table class="table table--personas">
+      <table class="table table--personas tabla-profesores">
         <caption class="visually-hidden">Lista de profesores</caption>
         <thead class="table__head">
           <tr>
-            <th class="table__th" scope="col">Profesor</th>
-            <th class="table__th" scope="col">Niveles</th>
+            {# Tocar Profesor, Niveles, Materias o Carga ordena por esa columna (otra vez, al revés): Profesores/tabla.py #}
+            {% include "alumnos/_encabezado_orden.html" with titulo="Profesor" columna=columnas.nombre %}
+            {% include "alumnos/_encabezado_orden.html" with titulo="Niveles" columna=columnas.niveles %}
             <th class="table__th" scope="col">Contacto</th>
-            <th class="table__th" scope="col">{% if ciclo %}Materias en {{ ciclo }}{% else %}Materias{% endif %}</th>
+            {% if ciclo %}{% include "alumnos/_encabezado_orden.html" with titulo="Materias en "|add:ciclo.nombre columna=columnas.materias %}{% else %}<th class="table__th" scope="col">Materias</th>{% endif %}
+            {% include "alumnos/_encabezado_orden.html" with titulo="Carga" columna=columnas.carga %}
             <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
           </tr>
         </thead>
@@ -104,6 +108,18 @@
                     <span class="person__meta">{{ profesor.especialidad|default:profesor.profesion|default:"Sin especialidad registrada" }}</span>
                   </span>
                 </a>
+                {% if profesor.senales %}
+                  {# Señales, solo las que aplican: sin cuenta, cuenta desactivada, sin niveles o materias sin habilitación #}
+                  <ul class="alumno-senales" aria-label="Señales de {{ profesor }}">
+                    {% for senal in profesor.senales %}
+                      <li>
+                        <span tabindex="0" class="alumno-senal alumno-senal--{{ senal.clave }} alumno-senal--{{ senal.tono }}" data-tooltip="{{ senal.texto }}">
+                          {% include "partials/icon.html" with name=senal.icono icon_class="icon--sm" %}<span class="visually-hidden">{{ senal.texto }}</span>
+                        </span>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
               </td>
               <td class="table__cell" data-label="Niveles">{% include "profesores/_niveles.html" with profesor=profesor %}</td>
               <td class="table__cell" data-label="Contacto">
@@ -115,13 +131,29 @@
               <td class="table__cell" data-label="Materias">
                 {% if viendo_bajas or not ciclo %}—
                 {% elif profesor.materias %}
-                  <span class="cell-stack">
-                    <span class="cell-stack__main">{{ profesor.materias }} materia{{ profesor.materias|pluralize }}</span>
-                    {% if profesor.duracion %}<span class="cell-stack__sub">{{ profesor.duracion }} por semana</span>{% endif %}
-                  </span>
+                  {{ profesor.materias }} materia{{ profesor.materias|pluralize }}
                 {% else %}
                   <span class="tag tag--warning">Sin materias</span>
                 {% endif %}
+              </td>
+              <td class="table__cell" data-label="Carga">
+                {# Sus horas de clase por semana contra su tope («18 h de 20 h»), con aviso si está cerca, en él o lo rebasa #}
+                {% with carga=profesor.carga %}
+                  {% if viendo_bajas or not ciclo %}—
+                  {% elif carga.texto %}
+                    <span class="cell-stack profesor-carga">
+                      <span class="cell-stack__main">{{ carga.texto }}{% if carga.tope %} <span class="text-muted">de {{ carga.tope }}</span>{% endif %}</span>
+                      {% if carga.porcentaje is not None %}
+                        <progress class="meter{% if carga.estado == 'rebasa' %} meter--danger{% elif carga.estado == 'tope' or carga.estado == 'cerca' %} meter--warning{% endif %}" max="100" value="{{ carga.porcentaje }}" aria-label="Carga de {{ profesor }}: {{ carga.porcentaje }} % de su tope">{{ carga.porcentaje }}%</progress>
+                      {% endif %}
+                      {% if carga.aviso %}<span class="tag tag--{% if carga.estado == 'rebasa' %}danger{% else %}warning{% endif %}">{{ carga.aviso }}</span>{% endif %}
+                    </span>
+                  {% elif profesor.materias %}
+                    <span class="text-muted">Sin horario armado</span>
+                  {% else %}
+                    <span class="text-muted">{% if carga.tope %}0 h de {{ carga.tope }}{% else %}—{% endif %}</span>
+                  {% endif %}
+                {% endwith %}
               </td>
               <td class="table__cell table__cell--actions">
                 <a class="btn btn--ghost btn--icon btn--sm" href="{{ profesor.get_absolute_url }}" aria-label="Ver el perfil de {{ profesor }}" data-tooltip="Ver perfil">
@@ -142,7 +174,7 @@
                 {% if perms.Alumnos.delete_profesor and profesor.estatus == "ACTIVO" %}
                   <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
                           data-action="{% url 'profesores:baja' profesor.pk %}" data-nombre="{{ profesor }}"
-                          data-aviso="{% if profesor.materias %}Imparte {{ profesor.materias }} materia{{ profesor.materias|pluralize }} en el ciclo actual. Si las deja sin profesor, tendrás que asignarles a alguien más.{% endif %}"
+                          data-aviso="{% if profesor.materias %}Imparte {{ profesor.materias }} materia{{ profesor.materias|pluralize }} en el ciclo actual. Si las deja sin profesor, tendrás que asignarles a alguien más.{% endif %}{% if profesor.pendientes_con_familias %}{% if profesor.materias %} {% endif %}{{ profesor.pendientes_con_familias }}{% endif %}"
                           data-opcion-materias="{% if profesor.materias %}También quitarlo de su{{ profesor.materias|pluralize }} {% if profesor.materias != 1 %}{{ profesor.materias }} {% endif %}materia{{ profesor.materias|pluralize }} del ciclo actual{% endif %}"
                           data-opcion-cuenta="{% if profesor.puede_desactivar_cuenta %}También desactivar su cuenta «{{ profesor.usuario.username }}»{% endif %}"
                           aria-label="Dar de baja a {{ profesor }}" data-tooltip="Dar de baja">

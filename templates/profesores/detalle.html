@@ -208,6 +208,34 @@
         </div>
       {% endif %}
 
+      {% if materias_que_tenia %}
+        {# Reactivado: las materias que se le quitaron al darse de baja y siguen sin profesor (Profesores/views.py) #}
+        <section class="card profesor-devolver" aria-labelledby="titulo-devolver">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="undo" %}<h2 class="card__title" id="titulo-devolver">Las materias que tenía al darse de baja</h2>
+          </header>
+          <form class="card__body" method="post" action="{% url 'profesores:asignar' %}">
+            {% csrf_token %}
+            <input type="hidden" name="profesor" value="{{ profesor.pk }}">
+            <input type="hidden" name="next" value="{{ profesor.get_absolute_url }}#materias">
+            <p class="text-muted">Siguen sin profesor. Marca las que vuelve a impartir: si alguna se empalma con otra de sus clases, se omite y se te avisa.</p>
+            <div class="choice-group">
+              {% for item in materias_que_tenia %}
+                <label class="choice choice--check" for="devolver-{{ item.pk }}">
+                  <input class="choice__input" type="checkbox" name="asignacion" value="{{ item.pk }}" id="devolver-{{ item.pk }}" checked>
+                  <span class="choice__box">{{ item.materia.nombre }} · {{ item.grupo.nombre_equivalente }}</span>
+                </label>
+              {% endfor %}
+            </div>
+            <div class="profesor-devolver__acciones">
+              <button type="submit" class="btn btn--primary btn--sm">Devolvérselas</button>
+              <button type="submit" class="btn btn--ghost btn--sm" form="descartar-materias">Ya no</button>
+            </div>
+          </form>
+          <form id="descartar-materias" method="post" action="{% url 'profesores:descartar_materias' profesor.pk %}" hidden>{% csrf_token %}</form>
+        </section>
+      {% endif %}
+
       {% if perms.Alumnos.change_materiagrado and editable and total_pendientes %}
         <div class="panel-actions">
           <button type="button" class="btn btn--sm" data-modal-open="modal-asignar-materias">
@@ -237,7 +265,8 @@
                     <code class="code">{{ item.materia.clave }}</code>
                   </td>
                   <td class="table__cell" data-label="Grado">
-                    {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ item.grupo.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ item.grupo }}</a>{% else %}{{ item.grupo }}{% endif %}
+                    {# La equivalencia en la continuidad escolar (7° A); el grupo de su nivel, en la descripción emergente #}
+                    {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ item.grupo.get_absolute_url }}?ciclo={{ ciclo.pk }}" data-tooltip="{{ item.grupo }}">{{ item.grupo.nombre_equivalente }}</a>{% else %}<span data-tooltip="{{ item.grupo }}">{{ item.grupo.nombre_equivalente }}</span>{% endif %}
                   </td>
                   <td class="table__cell" data-label="Horario">
                     {% if item.lineas %}
@@ -255,7 +284,7 @@
                     {% endif %}
                     {% if perms.Alumnos.change_materiagrado and ciclo_abierto %}
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-quitar-materia" data-quitar-prof
-                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ item.grupo }}"
+                              data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ item.grupo.nombre_equivalente }}"
                               aria-label="Quitar a {{ profesor }} de {{ item.materia }} en {{ item.grupo }}" data-tooltip="Quitar al profesor">
                         {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
                       </button>
@@ -338,7 +367,7 @@
                     {% if item.grados %}
                       <span class="cell-stack">
                         <span class="cell-stack__main">Imparte en {{ item.grados|length }} grupo{{ item.grados|length|pluralize }}</span>
-                        <span class="cell-stack__sub">{% for grado in item.grados %}{{ grado }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                        <span class="cell-stack__sub">{% for grado in item.grados %}{{ grado.nombre_equivalente }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
                       </span>
                     {% else %}
                       <span class="text-muted">Sin grupos asignados</span>
@@ -445,7 +474,7 @@
           <p>Elige las materias que imparte <strong>{{ profesor }}</strong> en el ciclo <strong>{{ ciclo }}</strong>. Solo salen las que todavía no tienen profesor, de los niveles en los que da clases.</p>
           {% for grupo in pendientes %}
             <fieldset class="field">
-              <legend class="field__label">{{ grupo.grupo }}</legend>
+              <legend class="field__label">{{ grupo.grupo.nombre_equivalente }} <span class="text-muted">· {{ grupo.grupo }}</span></legend>
               <div class="choice-group">
                 {% for item in grupo.asignaciones %}
                   <label class="choice choice--check" for="asignar-{{ item.pk }}">
@@ -499,6 +528,12 @@
         </header>
         <div class="modal__body">
           <p><strong>{{ profesor }}</strong> dejará de aparecer entre los profesores activos y no se ofrecerá al asignar materias.</p>
+          {% if pendientes_con_familias %}
+            <div class="alert alert--warning" role="note">
+              {% include "partials/icon.html" with name="users" icon_class="alert__icon" %}
+              <p class="alert__body">{{ pendientes_con_familias }}</p>
+            </div>
+          {% endif %}
           {% if asignaciones_actuales %}
             <div class="alert alert--warning" role="note">
               {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}

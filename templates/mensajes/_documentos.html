@@ -1,0 +1,14 @@
+{% comment %}Los documentos PDF adjuntos de un mensaje, en su burbuja (se abren en otra pestaña). Parámetro: documentos (con url).{% endcomment %}
+<ul class="burbuja__documentos">
+  {% for documento in documentos %}
+    <li>
+      <a class="documento-adjunto" href="{{ documento.url }}" target="_blank" rel="noopener">
+        <span class="documento-adjunto__icono" aria-hidden="true">{% include "partials/icon.html" with name="file-text" %}</span>
+        <span class="documento-adjunto__texto">
+          <span class="documento-adjunto__nombre">{{ documento.nombre_original }}</span>
+          <span class="documento-adjunto__tamano">{{ documento.tamano_texto }}</span>
+        </span>
+      </a>
+    </li>
+  {% endfor %}
+</ul>

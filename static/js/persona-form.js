@@ -180,6 +180,42 @@
     });
   }
 
+  /* ------------------------------------------------------------------ Fotografía (profesores)
+     La vista previa de la foto elegida, como en el registro de estudiantes (static/js/alumnos-form.js). */
+  const foto = qs('input[type="file"][name="fotografia"]');
+  const vistaPrevia = qs('[data-photo-preview]');
+  const pistaFoto = qs('[data-photo-hint]');
+  if (foto && vistaPrevia && pistaFoto) {
+    const MAXIMO_FOTO = 5 * 1024 * 1024;
+    const original = [...vistaPrevia.childNodes];
+    const pista = pistaFoto.textContent;
+    let direccion = null;
+    foto.addEventListener('change', () => {
+      const archivo = foto.files[0];
+      pistaFoto.classList.remove('field__error');
+      pistaFoto.textContent = pista;
+      if (direccion) URL.revokeObjectURL(direccion);
+      direccion = null;
+      if (!archivo) {
+        vistaPrevia.replaceChildren(...original);
+        return;
+      }
+      if (!archivo.type.startsWith('image/') || archivo.size > MAXIMO_FOTO) {
+        foto.value = '';
+        vistaPrevia.replaceChildren(...original);
+        pistaFoto.classList.add('field__error');
+        pistaFoto.textContent = archivo.type.startsWith('image/') ? 'La fotografía no debe pesar más de 5 MB.' : 'Elige un archivo de imagen (JPG o PNG).';
+        return;
+      }
+      direccion = URL.createObjectURL(archivo);
+      const imagen = document.createElement('img');
+      imagen.className = 'photo-field__img';
+      imagen.alt = 'Vista previa de la fotografía';
+      imagen.src = direccion;
+      vistaPrevia.replaceChildren(imagen);
+    });
+  }
+
   /* Si el servidor devolvió errores, el cursor va al primer campo con problema. */
   qs('.field.is-invalid .field__control')?.focus();
 })();

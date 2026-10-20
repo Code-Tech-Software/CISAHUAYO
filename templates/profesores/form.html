@@ -5,6 +5,8 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  {# El campo de la foto, como en el registro de estudiantes #}
+  <link rel="stylesheet" href="{% static 'css/alumnos.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -32,7 +34,7 @@
     {% for estado in estados_mx %}<option value="{{ estado }}">{% endfor %}
   </datalist>
 
-  <form class="form-page" id="profesor-form" method="post" novalidate data-persona-form data-cuenta-docente>
+  <form class="form-page" id="profesor-form" method="post" enctype="multipart/form-data" novalidate data-persona-form data-cuenta-docente>
     {% csrf_token %}
 
     {% if form.non_field_errors or form.acceso.non_field_errors and not form.acceso.disponible %}
@@ -49,6 +51,31 @@
       <header class="card__header card__header--icon">
         {% include "partials/icon.html" with name="user" %}<h2 class="card__title" id="seccion-personal">Datos personales</h2>
       </header>
+      <div class="card__body">
+        <div class="photo-field" data-photo-field>
+          <div class="photo-field__preview" data-photo-preview>
+            {% if profesor.fotografia %}
+              <img class="photo-field__img" src="{{ profesor.fotografia.url }}" alt="Fotografía actual de {{ profesor }}">
+            {% else %}
+              <span class="photo-field__placeholder">{% include "partials/icon.html" with name="camera" icon_class="icon--lg" %}</span>
+            {% endif %}
+          </div>
+          <div class="photo-field__body">
+            <p class="field__label">Fotografía <span class="text-muted">(opcional)</span></p>
+            <div class="photo-field__actions">
+              {{ form.fotografia }}
+              <label class="btn btn--sm photo-field__button" for="{{ form.fotografia.id_for_label }}">
+                {% include "partials/icon.html" with name="upload" icon_class="icon--sm" %} Elegir foto
+              </label>
+              {% if es_edicion and profesor.fotografia %}
+                {% include "partials/chip.html" with campo=form.quitar_fotografia %}
+              {% endif %}
+            </div>
+            <p class="field__hint" data-photo-hint>{{ form.fotografia.help_text }}</p>
+            {% for error in form.fotografia.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+      </div>
       <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.nombre %}
         {% include "partials/field.html" with campo=form.apellido_paterno %}

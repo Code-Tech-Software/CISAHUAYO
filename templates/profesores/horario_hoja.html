@@ -62,7 +62,7 @@
             {% for asignacion in asignaciones %}
               <tr>
                 <th scope="row">{{ asignacion.materia }}</th>
-                <td>{{ asignacion.grupo }}</td>
+                <td>{{ asignacion.grupo.nombre_equivalente }}</td>
                 <td>{% for linea in asignacion.lineas %}{{ linea }}{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-muted">Sin horario</span>{% endfor %}</td>
                 <td>{{ asignacion.duracion|default:"—" }}</td>
               </tr>

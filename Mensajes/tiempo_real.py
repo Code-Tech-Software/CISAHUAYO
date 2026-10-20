@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
 
-from .models import Miembro
+from .models import ImagenMensaje, Miembro
 
 registro = logging.getLogger(__name__)
 
@@ -39,16 +39,22 @@ def url_de_conversacion(participante, conversacion_id):
 def datos_de_mensaje(mensaje, para):
     """Lo que necesita la pantalla de `para` para mostrar el mensaje y su aviso. El texto va tal cual (el navegador lo
     pone como texto, nunca como HTML); el formato, en `html`, ya limpio en el servidor (Mensajes/enriquecido.py)."""
-    from .reglas import html_visible, no_leidos, vista_previa
+    from .reglas import ESPACIO, el_otro, html_visible, no_leidos, vista_previa
     creado = timezone.localtime(mensaje.creado)
+    otro = mensaje.autor if mensaje.autor_id != para.pk else el_otro(mensaje.conversacion_id, para)
+    espacio = ESPACIO[para.tipo]
+    documentos = mensaje.imagenes.filter(tipo=ImagenMensaje.DOCUMENTO).order_by('pk')
     return {
         'conversacion': mensaje.conversacion_id,
         'id': mensaje.pk,
         'mio': mensaje.autor_id == para.pk,
         'autor': mensaje.autor.nombre,
         'iniciales': mensaje.autor.iniciales,
-        'texto': mensaje.texto,
+        # Con quién es la conversación (para ponerla en la lista si aún no está, también la propia recién empezada)
+        'con': {'nombre': otro.nombre, 'iniciales': otro.iniciales, 'tipo': otro.tipo.lower()} if otro else None,
+        'texto': '' if mensaje.sin_texto else mensaje.texto,
         'html': html_visible(mensaje, para),   # limpio en el servidor; '' si no tiene formato
+        'documentos': [d.como_dict(reverse(f'{espacio}:documento', args=[d.pk])) for d in documentos],
         'vista_previa': mensaje.texto if len(mensaje.texto) <= 120 else vista_previa(mensaje.texto),
         'hora': creado.strftime('%H:%M'),
         'fecha': creado.date().isoformat(),
@@ -91,9 +97,11 @@ def avisar_retiro(conversacion_id, mensaje_id):
         }})
 
 
-def avisar_lectura(conversacion, lector, hasta):
-    """A la otra persona: hasta dónde se leyó (sus mensajes pasan a «Leído»). A quien leyó: su nuevo total sin leer."""
-    from .reglas import no_leidos
+def avisar_lectura(conversacion, lector, hasta, momento=None):
+    """A la otra persona: hasta dónde se leyó y cuándo (sus mensajes pasan a «Leído a las 10:42»). A quien leyó: su
+    nuevo total sin leer."""
+    from .reglas import no_leidos, texto_de_lectura
+    leido = texto_de_lectura(momento or timezone.now())
     for miembro in Miembro.objects.filter(conversacion=conversacion).exclude(participante=lector):
-        _enviar(miembro.participante_id, {'type': 'mensaje.leido', 'datos': {'conversacion': conversacion.pk, 'hasta': hasta}})
+        _enviar(miembro.participante_id, {'type': 'mensaje.leido', 'datos': {'conversacion': conversacion.pk, 'hasta': hasta, 'leido': leido}})
     _enviar(lector.pk, {'type': 'mensajes.resumen', 'datos': {'conversacion': conversacion.pk, 'no_leidos': no_leidos(lector)}})

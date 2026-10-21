@@ -416,7 +416,7 @@ class DetalleTests(BaseTestCase):
         libre = asignar(crear_materia('CIE', 'Ciencias'), self.p1, self.actual)
         respuesta = self.detalle()
         self.assertEqual(respuesta.context['total_pendientes'], 1)
-        self.assertEqual([(str(g['grupo'].grado), [a.pk for a in g['asignaciones']]) for g in respuesta.context['pendientes']], [('1° Primaria', [libre.pk])])
+        self.assertEqual([(str(g['grupo'].grado), [a.pk for a in g['asignaciones']]) for g in respuesta.context['pendientes']], [('1°', [libre.pk])])
         self.assertContains(respuesta, 'modal-asignar-materias')
 
     def test_no_ofrece_materias_quitadas_ni_de_baja_ni_de_grados_de_baja(self):
@@ -563,7 +563,7 @@ class AsignarTests(BaseTestCase):
 
     def test_confirma_con_un_mensaje(self):
         respuesta = self.client.post(self.url, {'asignacion': [self.a1.pk], 'profesor': self.profesor.pk}, follow=True)
-        self.assertContains(respuesta, 'Marta Rangel Soto imparte ahora Matemáticas en 1° Primaria')
+        self.assertContains(respuesta, 'Marta Rangel Soto imparte ahora Matemáticas en 1°')
 
     def test_asigna_varias_materias_a_la_vez(self):
         respuesta = self.client.post(self.url, {'asignacion': [self.a1.pk, self.a2.pk], 'profesor': self.profesor.pk}, follow=True)
@@ -628,7 +628,7 @@ class AsignarTests(BaseTestCase):
         respuesta = self.client.post(self.url, {'asignacion': [self.a2.pk], 'profesor': self.profesor.pk}, follow=True)
         self.assertContains(respuesta, 'No se pudo asignar')
         self.assertContains(respuesta, 'un profesor no puede estar en dos grupos a la vez')
-        self.assertContains(respuesta, 'Matemáticas en 1° A Primaria (lunes 08:00–09:00)')
+        self.assertContains(respuesta, 'Matemáticas en 1° A (lunes 08:00–09:00)')
         self.a2.refresh_from_db()
         self.assertIsNone(self.a2.profesor)
 
@@ -673,7 +673,7 @@ class AsignarTests(BaseTestCase):
         self.assertIsNone(libre.profesor)
         self.assertEqual(ocupada.profesor, self.profesor)
         self.assertContains(respuesta, 'imparte ahora 1 materia más')
-        self.assertContains(respuesta, 'Ciencias de 2° Primaria')
+        self.assertContains(respuesta, 'Ciencias de 2°')
 
     def test_quitar_al_profesor_no_revisa_empalmes(self):
         bloque(self.a1, 0, (8, 0), (9, 0))

@@ -40,7 +40,7 @@ class MateriasTests(BaseTestCase):
         boton = boton_de_baja(html, reverse('materias:baja', args=[self.en_plan.pk]))
         self.assertIsNotNone(boton)
         self.assertIn('data-modal-open="modal-baja"', boton)
-        self.assertIn('data-opcion-plan="También quitarla del plan del ciclo 2026-2027 (2° Primaria)"', boton)
+        self.assertIn('data-opcion-plan="También quitarla del plan del ciclo 2026-2027 (2°)"', boton)
         self.assertIn('data-opcion-plan=""', boton_de_baja(html, reverse('materias:baja', args=[self.sin_plan.pk])))
         self.assertEqual(html.count('id="modal-baja"'), 1)
         self.assertIn('data-baja-opcion="plan"', html)

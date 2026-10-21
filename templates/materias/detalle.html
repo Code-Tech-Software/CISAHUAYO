@@ -26,7 +26,7 @@
             <span class="tag tag--{{ tono }}">{{ materia.activa|yesno:"Activa,Dada de baja" }}</span>
             <code class="code">{{ materia.clave }}</code>
             {% if materia.grado %}
-              <span class="text-muted">{{ materia.grado }}{% if materia.grado.equivalencia_frase %} · {{ materia.grado.equivalencia_frase }}{% endif %}</span>
+              <span class="text-muted">{{ materia.grado }}{% if materia.grado.equivalencia_efectiva %} · {{ materia.grado.nombre_de_nivel }}{% endif %}</span>
             {% else %}
               <span class="tag tag--warning">Sin grado</span>
             {% endif %}
@@ -93,7 +93,7 @@
           <dt class="details__label">Grado</dt>
           <dd class="details__value">
             {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ clase.grupo.get_absolute_url }}">{{ clase.grupo }}</a>{% else %}{{ clase.grupo }}{% endif %}
-            {% if clase.grado.equivalencia_frase %}<span class="details__note">{{ clase.grado.equivalencia_frase }}</span>{% endif %}
+            {% if clase.grado.equivalencia_efectiva %}<span class="details__note">{{ clase.grupo.nombre_de_nivel }}</span>{% endif %}
           </dd>
         </div>
         <div class="details__item">

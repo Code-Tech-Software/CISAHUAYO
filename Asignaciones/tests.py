@@ -104,7 +104,7 @@ class TableroTests(AsignacionesTestCase):
     def test_lista_las_materias_vigentes_en_orden_escolar(self):
         _, filas = self.filas()
         self.assertEqual(filas, [
-            ('ESP', '1° Primaria'), ('MAT', '1° Primaria'), ('MAT', '2° Primaria'), ('ING', '1° Secundaria'),
+            ('ESP', '1°'), ('MAT', '1°'), ('MAT', '2°'), ('ING', '7°'),
         ])
 
     def test_no_muestra_materias_quitadas_ni_de_otros_ciclos(self):
@@ -132,21 +132,21 @@ class TableroTests(AsignacionesTestCase):
 
     def test_filtra_por_estado(self):
         for estado, esperado in (
-            ('sin_profesor', {('ESP', '1° Primaria'), ('ING', '1° Secundaria')}),
-            ('con_profesor', {('MAT', '1° Primaria'), ('MAT', '2° Primaria')}),
-            ('no_habilitado', {('MAT', '2° Primaria')}),
-            ('sin_horario', {('ESP', '1° Primaria'), ('ING', '1° Secundaria')}),
+            ('sin_profesor', {('ESP', '1°'), ('ING', '7°')}),
+            ('con_profesor', {('MAT', '1°'), ('MAT', '2°')}),
+            ('no_habilitado', {('MAT', '2°')}),
+            ('sin_horario', {('ESP', '1°'), ('ING', '7°')}),
         ):
             with self.subTest(estado=estado):
                 self.assertEqual(set(self.filas(estado=estado)[1]), esperado)
 
     def test_filtra_por_grado_y_por_profesor(self):
-        self.assertEqual(set(self.filas(grado=self.g1.pk)[1]), {('ESP', '1° Primaria'), ('MAT', '1° Primaria')})
-        self.assertEqual(self.filas(profesor=self.beto.pk)[1], [('MAT', '2° Primaria')])
+        self.assertEqual(set(self.filas(grado=self.g1.pk)[1]), {('ESP', '1°'), ('MAT', '1°')})
+        self.assertEqual(self.filas(profesor=self.beto.pk)[1], [('MAT', '2°')])
 
     def test_busca_por_materia_clave_y_profesor_sin_duplicar(self):
-        for texto, esperado in (('ingl', [('ING', '1° Secundaria')]), ('esp', [('ESP', '1° Primaria')]),
-                                ('aguilar', [('MAT', '2° Primaria')]), ('zzz', [])):
+        for texto, esperado in (('ingl', [('ING', '7°')]), ('esp', [('ESP', '1°')]),
+                                ('aguilar', [('MAT', '2°')]), ('zzz', [])):
             self.assertEqual(self.filas(q=texto)[1], esperado, texto)
         self.assertEqual(len(self.filas(q='mat')[1]), 2)
 
@@ -170,7 +170,7 @@ class TableroTests(AsignacionesTestCase):
         proximo = ciclo_proximo_de_prueba()
         asignar(self.esp, self.g2, proximo)
         respuesta, filas = self.filas(ciclo=proximo.pk)
-        self.assertEqual(filas, [('ESP', '2° Primaria')])
+        self.assertEqual(filas, [('ESP', '2°')])
         self.assertEqual(respuesta.context['ciclo'], proximo)
 
     def test_un_ciclo_cerrado_no_se_edita(self):
@@ -434,11 +434,11 @@ class ExportarTests(AsignacionesTestCase):
     def test_indica_si_el_profesor_esta_habilitado_y_el_horario(self):
         _, filas = self.pedir()
         por_materia = {(f[4], f[2]): f for f in filas[1:]}
-        marta = por_materia[('Matemáticas', '1° Primaria')]
+        marta = por_materia[('Matemáticas', '1°')]
         self.assertEqual((marta[6], marta[7], marta[9]), ('Marta Rangel Soto', 'Sí', '1 h 30 min'))
         self.assertIn('8:00', marta[8])
-        self.assertEqual(por_materia[('Matemáticas', '2° Primaria')][7], 'No')
-        sin = por_materia[('Español', '1° Primaria')]
+        self.assertEqual(por_materia[('Matemáticas', '2°')][7], 'No')
+        sin = por_materia[('Español', '1°')]
         self.assertEqual((sin[6], sin[7], sin[8]), ('Sin profesor', '', ''))
 
     def test_respeta_los_filtros_y_el_ciclo(self):

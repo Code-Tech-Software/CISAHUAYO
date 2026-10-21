@@ -144,7 +144,7 @@
             <tr class="table__row">
               <td class="table__cell table__cell--main">
                 <a class="person" href="{% url 'asistencias:dia' %}?fecha={{ fecha|date:'Y-m-d' }}&amp;grado={{ fila.grado.pk }}">
-                  <span class="avatar avatar--soft avatar--square avatar--tone-{{ fila.grado.nivel|nivel_tono }}" aria-hidden="true">{{ fila.grado.numero }}°</span>
+                  <span class="avatar avatar--soft avatar--square avatar--tone-{{ fila.grado.nivel|nivel_tono }}" aria-hidden="true">{{ fila.grado }}</span>
                   <span class="person__text"><span class="person__name">{{ fila.grado }}</span></span>
                 </a>
               </td>

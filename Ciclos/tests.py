@@ -308,7 +308,7 @@ class DetalleTests(BaseTestCase):
         inscribir(crear_alumno(), self.actual, self.primero, activa=False)
         respuesta = self.detalle(self.actual)
         filas = respuesta.context['filas']
-        self.assertEqual([str(f['grado']) for f in filas], ['3° Preescolar', '1° Primaria', '2° Primaria'])
+        self.assertEqual([str(f['grado']) for f in filas], ['K3', '1°', '2°'])
         self.assertEqual([(f['activas'], f['bajas']) for f in filas], [(0, 0), (1, 1), (2, 0)])
         self.assertEqual([f['porcentaje'] for f in filas], [0, 50, 100])
         self.assertEqual((respuesta.context['total_activas'], respuesta.context['total_bajas']), (3, 1))
@@ -317,7 +317,7 @@ class DetalleTests(BaseTestCase):
         inscribir(crear_alumno(), self.actual, self.primero)
         self.primero.activo = False
         self.primero.save()
-        self.assertIn('1° Primaria', [str(f['grado']) for f in self.detalle(self.actual).context['filas']])
+        self.assertIn('1°', [str(f['grado']) for f in self.detalle(self.actual).context['filas']])
         self.assertContains(self.detalle(self.actual), 'Grado dado de baja')
 
     def test_un_grado_dado_de_baja_sin_alumnos_no_aparece(self):

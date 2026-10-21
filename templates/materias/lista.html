@@ -118,7 +118,7 @@
                 {% if materia.grado %}
                   <span class="cell-stack">
                     <span class="cell-stack__main">{{ materia.grado }}</span>
-                    {% if materia.grado.equivalencia_frase %}<span class="cell-stack__sub">{{ materia.grado.equivalencia_frase }}</span>{% endif %}
+                    {% if materia.grado.equivalencia_efectiva %}<span class="cell-stack__sub">{{ materia.grado.nombre_de_nivel }}</span>{% endif %}
                   </span>
                 {% else %}
                   <span class="tag tag--warning">Sin grado</span>

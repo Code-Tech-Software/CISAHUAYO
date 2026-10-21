@@ -43,11 +43,11 @@ def cuando(reunion):
 
 @register.filter
 def grupo_corto(inscripcion):
-    """«Primaria · 2° A» de una inscripción."""
+    """«Secundaria · 7° A» de una inscripción (el grupo con la equivalencia del grado)."""
     if not inscripcion:
         return 'Sin inscripción en el ciclo actual'
     grado = inscripcion.grado
-    grupo = f'{grado.numero}° {inscripcion.grupo.nombre}' if inscripcion.grupo_id else f'{grado.numero}°'
+    grupo = inscripcion.grupo.corto if inscripcion.grupo_id else str(grado)
     return f'{grado.get_nivel_display()} · {grupo}'
 
 

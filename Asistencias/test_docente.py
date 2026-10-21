@@ -84,7 +84,7 @@ class AccesoTests(BaseDocenteTestCase):
         respuesta = self.client.get(URL)
         self.assertEqual(respuesta.context['asignaciones'], [self.mat])
         self.assertEqual(respuesta.context['asignacion'], self.mat)
-        self.assertContains(respuesta, 'Mat · 4° A Primaria')
+        self.assertContains(respuesta, 'Mat · 4° A')
 
     def test_una_materia_ajena_no_se_abre_ni_se_guarda(self):
         self.assertEqual(self.client.get(URL, {'materia': self.esp.pk}).status_code, 403)

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
 
-{% block title %}{{ grado }} | CISAHUAYO{% endblock %}
+{% block title %}{{ grado.nombre_de_nivel }} | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -10,7 +10,7 @@
 {% block breadcrumbs %}
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'grados:lista' %}">Grados</a></li>
-  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ grado }}</span></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ grado.nombre_de_nivel }}</span></li>
 {% endblock %}
 
 {% block content %}
@@ -21,7 +21,7 @@
 
         <div class="identity__text">
           <p class="identity__eyebrow">{{ grado.get_nivel_display }}</p>
-          <h1 class="identity__name" id="perfil-nombre">{{ grado }}</h1>
+          <h1 class="identity__name" id="perfil-nombre">{{ grado.nombre_de_nivel }}</h1>
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ grado.activo|yesno:"Activo,Dado de baja" }}</span>
             {% if grado.equivalencia %}<span title="Equivalencia en la continuidad escolar">{{ grado.equivalencia_frase }}</span>{% endif %}
@@ -77,7 +77,7 @@
         <div class="identity__fact"><dt>Materias</dt><dd>{{ total_materias }}</dd></div>
         <div class="identity__fact">
           <dt>Pasa a</dt>
-          <dd>{% if siguiente %}<a href="{{ siguiente.get_absolute_url }}">{{ siguiente }}</a>{% else %}<span class="text-muted">Último grado</span>{% endif %}</dd>
+          <dd>{% if siguiente %}<a href="{{ siguiente.get_absolute_url }}">{{ siguiente.nombre_de_nivel }}</a>{% else %}<span class="text-muted">Último grado</span>{% endif %}</dd>
         </div>
       </dl>
     </section>
@@ -132,7 +132,7 @@
       {% if inscripciones %}
         <div class="table-card">
           <table class="table">
-            <caption class="visually-hidden">Estudiantes de {{ grado }} en el ciclo {{ ciclo }}</caption>
+            <caption class="visually-hidden">Estudiantes de {{ grado.nombre_de_nivel }} en el ciclo {{ ciclo }}</caption>
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Estudiante</th>
@@ -193,7 +193,7 @@
             {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
             <p class="empty-state__title">{% if ciclo %}Sin estudiantes en este ciclo{% else %}Aún no hay ciclos escolares{% endif %}</p>
             <p class="empty-state__text">
-              {% if ciclo %}Cuando inscribas estudiantes en {{ grado }}, aparecerán aquí como la lista del grado.{% else %}Crea un ciclo escolar para poder inscribir estudiantes.{% endif %}
+              {% if ciclo %}Cuando inscribas estudiantes en {{ grado.nombre_de_nivel }}, aparecerán aquí como la lista del grado.{% else %}Crea un ciclo escolar para poder inscribir estudiantes.{% endif %}
             </p>
             {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo %}
               <a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>Inscribir estudiante</a>
@@ -230,7 +230,7 @@
       {% if materias %}
         <div class="table-card">
           <table class="table">
-            <caption class="visually-hidden">Materias de {{ grado }} en el ciclo {{ ciclo }}</caption>
+            <caption class="visually-hidden">Materias de {{ grado.nombre_de_nivel }} en el ciclo {{ ciclo }}</caption>
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Materia</th>
@@ -282,8 +282,8 @@
                       {% if item.activa %}
                         {% if perms.Alumnos.delete_materiagrado %}
                           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-quitar-materia" data-quitar
-                                  data-action="{% url 'materias:quitar' item.pk %}" data-materia="{{ item.materia }}" data-grado="{{ grado }}"
-                                  aria-label="Quitar {{ item.materia }} de {{ grado }}" data-tooltip="Quitar del grado">
+                                  data-action="{% url 'materias:quitar' item.pk %}" data-materia="{{ item.materia }}" data-grado="{{ grado.nombre_de_nivel }}"
+                                  aria-label="Quitar {{ item.materia }} de {{ grado.nombre_de_nivel }}" data-tooltip="Quitar del grado">
                             {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
                           </button>
                         {% endif %}
@@ -320,7 +320,7 @@
       {% if historial %}
         <div class="table-card">
           <table class="table">
-            <caption class="visually-hidden">Estudiantes de {{ grado }} en cada ciclo</caption>
+            <caption class="visually-hidden">Estudiantes de {{ grado.nombre_de_nivel }} en cada ciclo</caption>
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Ciclo</th>
@@ -366,11 +366,11 @@
         <input type="hidden" name="grado" value="{{ grado.pk }}">
         <input type="hidden" name="next" value="{{ request.get_full_path }}#materias">
         <header class="modal__header">
-          <h2 class="modal__title" id="modal-asignar-titulo">Asignar materias a {{ grado }}</h2>
+          <h2 class="modal__title" id="modal-asignar-titulo">Asignar materias a {{ grado.nombre_de_nivel }}</h2>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p>Elige las materias que imparte <strong>{{ grado }}</strong> en el ciclo <strong>{{ ciclo }}</strong>.</p>
+          <p>Elige las materias que imparte <strong>{{ grado.nombre_de_nivel }}</strong> en el ciclo <strong>{{ ciclo }}</strong>.</p>
           <div class="choice-group">
             {% for materia in materias_por_asignar %}
               <label class="choice choice--check" for="asignar-materia-{{ materia.pk }}">
@@ -418,11 +418,11 @@
       <form class="modal__panel" method="post" action="{% url 'grados:baja' grado.pk %}">
         {% csrf_token %}
         <header class="modal__header">
-          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja {{ grado }}</h2>
+          <h2 class="modal__title" id="modal-baja-titulo">Dar de baja {{ grado.nombre_de_nivel }}</h2>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
         <div class="modal__body">
-          <p><strong>{{ grado }}</strong> dejará de ofrecerse al inscribir estudiantes y de aparecer en el listado de grados activos.</p>
+          <p><strong>{{ grado.nombre_de_nivel }}</strong> dejará de ofrecerse al inscribir estudiantes y de aparecer en el listado de grados activos.</p>
           {% if inscritos_actuales %}
             <div class="alert alert--warning" role="note">
               {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}

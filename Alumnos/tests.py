@@ -598,7 +598,7 @@ class CrearTests(BaseTestCase):
         alumno = Alumno.objects.get()
         self.assertEqual(alumno.inscripciones.get().grado, grado)
         self.assertRedirects(respuesta, reverse('alumnos:lista'))
-        self.assertContains(self.client.get(alumno.get_absolute_url()), '3° Primaria')
+        self.assertContains(self.client.get(alumno.get_absolute_url()), '3°')
 
     def test_sin_inscribir_no_crea_inscripcion(self):
         self.publicar(**{'insc-ciclo': '', 'insc-grado': ''})
@@ -785,7 +785,7 @@ class PerfilTests(BaseTestCase):
         asistencia = respuesta.context['asistencia']
         self.assertEqual((asistencia['presentes'], asistencia['retardos'], asistencia['faltas']), (2, 1, 1))
         self.assertEqual(asistencia['porcentaje'], 75)
-        self.assertContains(respuesta, '4° Primaria')
+        self.assertContains(respuesta, '4°')
 
     def test_cambia_el_estatus(self):
         respuesta = self.client.post(reverse('alumnos:estatus', args=[self.alumno.pk]), {'estatus': 'SUSPENDIDO'})

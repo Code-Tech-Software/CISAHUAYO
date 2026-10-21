@@ -17,14 +17,14 @@
   {% with tono=grupo.activo|yesno:"success,danger" %}
     <section class="identity identity--{{ tono }}" aria-labelledby="perfil-nombre">
       <div class="identity__main">
-        <span class="identity__badge" aria-hidden="true">{{ grado.numero }}°{% if grupo.nombre.nombre|length <= 2 %}{{ grupo.nombre }}{% endif %}</span>
+        <span class="identity__badge" aria-hidden="true">{{ grado }}{% if grupo.nombre.nombre|length <= 2 %}{{ grupo.nombre }}{% endif %}</span>
 
         <div class="identity__text">
           <p class="identity__eyebrow">Grupo · {{ grado.get_nivel_display }}</p>
           <h1 class="identity__name" id="perfil-nombre">{{ grupo }}</h1>
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ grupo.activo|yesno:"Activo,Dado de baja" }}</span>
-            {% if grado.equivalencia %}<span>{{ grado.equivalencia_frase }}</span>{% endif %}
+            {% if grado.equivalencia_efectiva %}<span>{{ grupo.nombre_de_nivel }}</span>{% endif %}
             {% if ciclo %}<span class="text-muted">{{ inscripciones|length }} estudiante{{ inscripciones|length|pluralize }} en el ciclo {{ ciclo }}</span>{% endif %}
           </p>
         </div>

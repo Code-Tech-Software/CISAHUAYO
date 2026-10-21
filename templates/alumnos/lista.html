@@ -143,7 +143,7 @@
                 <td class="table__cell" data-label="Grado actual">
                   {% if inscripcion %}
                     {# La equivalencia en la continuidad escolar (7° A, K2 B); el grado de su nivel queda en la descripción emergente. El ciclo no se repite: es el actual, el del encabezado #}
-                    <span data-tooltip="{% firstof inscripcion.grupo inscripcion.grado %}">{{ inscripcion|grado_equivalente }}</span>
+                    <span data-tooltip="{% firstof inscripcion.grupo.nombre_de_nivel inscripcion.grado.nombre_de_nivel %}">{{ inscripcion|grado_equivalente }}</span>
                   {% else %}
                     <span class="text-muted">Sin inscripción</span>
                   {% endif %}

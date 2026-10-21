@@ -150,7 +150,7 @@ class ListaTests(BaseTestCase):
     def test_orden_por_grado_sigue_el_orden_escolar_y_no_el_alfabetico(self):
         # alfabéticamente PREPARATORIA < PRIMARIA, pero escolarmente va después
         respuesta = self.pedir(orden='grado')
-        self.assertEqual([str(i.grado) for i in respuesta.context['pagina']], ['1° Primaria', '1° Preparatoria'])
+        self.assertEqual([str(i.grado) for i in respuesta.context['pagina']], ['1°', '10°'])
 
     def test_filtros_invalidos_se_ignoran(self):
         # un ciclo inválido equivale a «todos los ciclos»; el resto de valores inválidos simplemente no filtran
@@ -256,7 +256,7 @@ class CrearTests(BaseTestCase):
     def test_inscribe_y_vuelve_al_listado_del_ciclo_con_mensaje(self):
         respuesta = self.client.post(self.url, self.datos(), follow=True)
         self.assertRedirects(respuesta, lista(self.actual))
-        self.assertContains(respuesta, f'{self.alumno} fue inscrito en 3° A Primaria (2026-2027)')
+        self.assertContains(respuesta, f'{self.alumno} fue inscrito en 3° A (2026-2027)')
         inscripcion = Inscripcion.objects.get()
         self.assertEqual((inscripcion.alumno, inscripcion.ciclo, inscripcion.grado, inscripcion.activa), (self.alumno, self.actual, self.grado, True))
         self.assertContains(respuesta, self.alumno.apellido_paterno)       # ya se ve en el listado
@@ -291,7 +291,7 @@ class CrearTests(BaseTestCase):
         inscribir(self.alumno, self.actual, crear_grado('PRIMARIA', 1))
         respuesta = self.client.post(self.url, self.datos())
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'ya está inscrito en el ciclo 2026-2027 (1° Primaria)')
+        self.assertContains(respuesta, 'ya está inscrito en el ciclo 2026-2027 (1°)')
         self.assertEqual(Inscripcion.objects.count(), 1)
         self.assertEqual(len(respuesta.context['form'].errors), 1)       # un solo aviso, no dos
 
@@ -347,7 +347,7 @@ class EditarTests(BaseTestCase):
     def test_cambia_de_grado_y_vuelve_al_listado_del_ciclo(self):
         respuesta = self.client.post(self.url, {'grado': self.otro.pk, 'fecha_inscripcion': hoy().isoformat()}, follow=True)
         self.assertRedirects(respuesta, lista(self.ciclo))
-        self.assertContains(respuesta, 'se actualizó: 4° A Primaria')
+        self.assertContains(respuesta, 'se actualizó: 4° A')
         self.inscripcion.refresh_from_db()
         self.assertEqual(self.inscripcion.grado, self.otro)
 
@@ -486,7 +486,7 @@ class ExportarTests(BaseTestCase):
         self.assertEqual(filas[0][:2], ['Referencia', 'Apellido paterno'])
         self.assertEqual(len(filas), 2)                               # solo la activa del ciclo actual
         self.assertEqual(filas[1][3], "'=Ana")                        # neutraliza fórmulas de Excel
-        self.assertEqual(filas[1][4:], [self.actual.nombre, '2° Primaria', f'{hoy():%d/%m/%Y}', 'Activa'])
+        self.assertEqual(filas[1][4:], [self.actual.nombre, '2°', f'{hoy():%d/%m/%Y}', 'Activa'])
 
     def test_respeta_los_filtros(self):
         self.assertEqual([f[3] for f in self.filas(estado='BAJA')[1:]], ['Beto'])
@@ -583,25 +583,25 @@ class PromocionTests(BaseTestCase):
     def test_el_plan_cuenta_a_quien_si_se_reinscribe_y_a_quien_se_omite(self):
         self.preparar()
         plan = {str(f['grado']): f for f in self.client.get(self.url, self.parametros()).context['plan']}
-        self.assertEqual(list(plan), ['1° Primaria', '2° Primaria', '6° Primaria'])         # orden escolar
-        self.assertEqual((plan['1° Primaria']['cantidad'], plan['1° Primaria']['ya_inscritos']), (1, 1))   # A pasa, B ya está
-        self.assertEqual((plan['2° Primaria']['cantidad'], plan['2° Primaria']['no_activos']), (0, 1))     # suspendido
-        self.assertEqual(plan['6° Primaria']['cantidad'], 1)
+        self.assertEqual(list(plan), ['1°', '2°', '6°'])         # orden escolar
+        self.assertEqual((plan['1°']['cantidad'], plan['1°']['ya_inscritos']), (1, 1))   # A pasa, B ya está
+        self.assertEqual((plan['2°']['cantidad'], plan['2°']['no_activos']), (0, 1))     # suspendido
+        self.assertEqual(plan['6°']['cantidad'], 1)
         # la inscripción dada de baja no forma parte del plan
-        self.assertNotIn(self.con_baja.pk, plan['1° Primaria']['alumnos'])
+        self.assertNotIn(self.con_baja.pk, plan['1°']['alumnos'])
 
     def test_el_destino_sugerido_es_el_siguiente_grado(self):
         self.preparar()
         plan = {str(f['grado']): f['sugerido'] for f in self.client.get(self.url, self.parametros()).context['plan']}
-        self.assertEqual(plan['1° Primaria'], str(self.g2.pk))
-        self.assertEqual(plan['2° Primaria'], str(self.g6.pk))    # 3.° a 5.° no existen: sigue el 6.°
-        self.assertEqual(plan['6° Primaria'], str(self.s1.pk))    # pasa a 1.° de secundaria
+        self.assertEqual(plan['1°'], str(self.g2.pk))
+        self.assertEqual(plan['2°'], str(self.g6.pk))    # 3.° a 5.° no existen: sigue el 6.°
+        self.assertEqual(plan['6°'], str(self.s1.pk))    # pasa a 1.° de secundaria
 
     def test_el_ultimo_grado_se_omite_por_defecto_y_nunca_se_egresa_solo(self):
         ultimo = crear_alumno()
         inscribir(ultimo, self.origen, self.s1)
         plan = {str(f['grado']): f['sugerido'] for f in self.client.get(self.url, self.parametros()).context['plan']}
-        self.assertEqual(plan['1° Secundaria'], 'omitir')
+        self.assertEqual(plan['7°'], 'omitir')
 
     def test_origen_igual_a_destino_es_un_error(self):
         respuesta = self.client.get(self.url, {'origen': self.origen.pk, 'destino': self.origen.pk})

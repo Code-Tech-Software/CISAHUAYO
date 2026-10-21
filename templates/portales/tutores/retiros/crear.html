@@ -56,7 +56,7 @@
                 {% include "partials/avatar.html" with persona=hijo.alumno %}
                 <span class="retiros-hijo__texto">
                   <span class="retiros-hijo__nombre">{{ hijo.alumno.nombre_completo }}</span>
-                  {% if hijo.inscripcion %}<span class="retiros-hijo__grupo">{{ hijo.inscripcion.grado.get_nivel_display }} · {{ hijo.inscripcion.grado.numero }}° grado · Grupo {{ hijo.inscripcion.grupo.nombre }}</span>{% endif %}
+                  {% if hijo.inscripcion %}<span class="retiros-hijo__grupo">{% firstof hijo.inscripcion.grupo hijo.inscripcion.grado %} · {{ hijo.inscripcion.grado.get_nivel_display }}</span>{% endif %}
                   {% if not hijo.disponible %}<span class="retiros-hijo__motivo">{{ hijo.motivo }}</span>{% endif %}
                 </span>
                 <span class="retiros-hijo__marca" aria-hidden="true">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}</span>

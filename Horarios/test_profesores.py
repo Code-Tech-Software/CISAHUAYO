@@ -86,7 +86,7 @@ class CrearConProfesorTests(BaseProfesorTests):
         respuesta = self.client.post(self.url, datos(self.esp, dias=(0,), inicio='08:30', fin='09:30'))
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, 'un profesor no puede estar en dos grupos a la vez')
-        self.assertContains(respuesta, 'Matemáticas en 1° A Primaria (lunes 08:00–09:00)')
+        self.assertContains(respuesta, 'Matemáticas en 1° A (lunes 08:00–09:00)')
         self.assertFalse(HorarioMateria.objects.filter(materia_grado=self.esp).exists())
 
     def test_con_varios_dias_basta_un_empalme_para_no_guardar_nada(self):
@@ -177,7 +177,7 @@ class PantallasConProfesorTests(BaseProfesorTests):
         asignar('CIE', 'Ciencias', self.g1, self.ciclo)
         respuesta = self.client.get(reverse('horarios:lista'), {'ciclo': self.ciclo.pk})
         filas = {str(f['grupo'].grado): f for n in respuesta.context['niveles'] for f in n['filas']}
-        self.assertEqual((filas['1° Primaria']['sin_profesor'], filas['2° Primaria']['sin_profesor']), (1, 0))
+        self.assertEqual((filas['1°']['sin_profesor'], filas['2°']['sin_profesor']), (1, 0))
         self.assertContains(respuesta, '1 sin profesor')
 
     def test_el_indice_resume_a_los_profesores_con_clases(self):

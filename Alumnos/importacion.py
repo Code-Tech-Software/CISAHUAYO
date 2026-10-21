@@ -191,7 +191,7 @@ class _Grados:
     def buscar(self, texto):
         encontrado = self.indice.get(_clave_de_grado(texto))
         if encontrado is None:
-            raise ErrorDeCelda(f'Grado: «{texto}» no existe o está dado de baja. Escríbelo como «1° Primaria» o «1° A Primaria».')
+            raise ErrorDeCelda(f'Grado: «{texto}» no existe o está dado de baja. Escríbelo como «7° A», «1° Primaria» o «1° A Primaria».')
         if isinstance(encontrado, Grupo):
             return encontrado
         grupos = list(encontrado.grupos.filter(activo=True).select_related('grado', 'nombre').order_by('nombre__orden', 'nombre__nombre'))

@@ -37,7 +37,7 @@ class AltaTests(BaseConductaTestCase):
         self.assertRedirects(respuesta, reverse('conducta:detalle', args=[registro.pk]))
         self.assertEqual(
             (registro.ciclo, registro.nivel, registro.grado, registro.grupo, registro.grupo_texto, registro.periodo, registro.inscripcion),
-            (self.ciclo, 'PRIMARIA', self.primaria, self.inscripcion.grupo, '4° A Primaria', self.periodo, self.inscripcion),
+            (self.ciclo, 'PRIMARIA', self.primaria, self.inscripcion.grupo, '4° A', self.periodo, self.inscripcion),
         )
         self.assertEqual((registro.registrado_por, registro.tipo, registro.categoria_nombre, registro.motivo_nombre), (self.admin, INCIDENCIA, 'Convivencia', 'Agresión verbal'))
         self.assertEqual(registro.gravedad, 'MODERADA')   # la del motivo
@@ -53,12 +53,12 @@ class AltaTests(BaseConductaTestCase):
                                                 fecha_fin=self.ciclo.fecha_fin + timedelta(days=330))
         inscribir_antes(self.alumno, siguiente, Grado.objects.create(nivel='PRIMARIA', numero=5))
         registro.refresh_from_db()
-        self.assertEqual((registro.grupo_texto, registro.grado, registro.nivel, registro.ciclo), ('4° A Primaria', self.primaria, 'PRIMARIA', self.ciclo))
-        self.assertContains(self.client.get(reverse('conducta:lista')), '4° A Primaria')
+        self.assertEqual((registro.grupo_texto, registro.grado, registro.nivel, registro.ciclo), ('4° A', self.primaria, 'PRIMARIA', self.ciclo))
+        self.assertContains(self.client.get(reverse('conducta:lista')), '4° A')
         # Editarlo tampoco lo cambia
         self.client.post(reverse('conducta:editar', args=[registro.pk]), self.datos(descripcion='Le gritó a un compañero en el patio.'))
         registro.refresh_from_db()
-        self.assertEqual(registro.grupo_texto, '4° A Primaria')
+        self.assertEqual(registro.grupo_texto, '4° A')
 
     def test_sin_inscripcion_en_el_ciclo_de_la_fecha_no_se_registra(self):
         self.inscripcion.delete()

@@ -115,18 +115,18 @@ class ListaTests(BaseTestCase):
 
     def test_resumen_de_cada_grado(self):
         _, filas = self.filas()
-        primero = filas['1° Primaria']
+        primero = filas['1°']
         self.assertEqual((primero['materias'], primero['bloques'], primero['minutos'], primero['sin_horario']), (2, 2, 150, 1))
         self.assertEqual(primero['duracion'], '2 h 30 min')
-        segundo = filas['2° Primaria']
+        segundo = filas['2°']
         self.assertEqual((segundo['materias'], segundo['bloques'], segundo['sin_horario'], segundo['duracion']), (1, 0, 1, ''))
-        sin_nada = filas['3° Primaria']
+        sin_nada = filas['3°']
         self.assertEqual((sin_nada['materias'], sin_nada['bloques'], sin_nada['sin_horario']), (0, 0, 0))
 
     def test_elige_otro_ciclo(self):
         respuesta, filas = self.filas(ciclo=self.proximo.pk)
         self.assertEqual(respuesta.context['ciclo'], self.proximo)
-        self.assertEqual(filas['1° Primaria']['materias'], 0)
+        self.assertEqual(filas['1°']['materias'], 0)
 
     def test_un_ciclo_invalido_se_ignora(self):
         respuesta, _ = self.filas(ciclo='x')
@@ -136,7 +136,7 @@ class ListaTests(BaseTestCase):
         self.p2.activo = False
         self.p2.save()
         _, filas = self.filas()
-        self.assertIn('2° Primaria', filas)
+        self.assertIn('2°', filas)
         self.p3.activo = False
         self.p3.save()
         _, filas = self.filas()

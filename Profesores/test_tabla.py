@@ -118,8 +118,8 @@ class EquivalenciaTests(Base):
     def test_en_el_perfil_el_horario_y_el_csv(self):
         grupo = Grupo.principal_de(self.secundaria)
         perfil = self.client.get(reverse('profesores:detalle', args=[self.marta.pk]))
-        self.assertContains(perfil, f'data-tooltip="{grupo}">7° {grupo.nombre}</a>')
-        self.assertContains(perfil, f'<span class="slot__code" title="{grupo}">7° {grupo.nombre}</span>', html=True)
+        self.assertContains(perfil, f'data-tooltip="{grupo.nombre_de_nivel}">7° {grupo.nombre}</a>')
+        self.assertContains(perfil, f'<span class="slot__code" title="{grupo.nombre_de_nivel}">7° {grupo.nombre}</span>', html=True)
         hoja = self.client.get(reverse('profesores:horario_imprimir', args=[self.marta.pk]))
         self.assertContains(hoja, f'<td>7° {grupo.nombre}</td>', html=True)
         contenido = self.client.get(reverse('profesores:exportar')).content.decode('utf-8').lstrip('﻿')
@@ -129,7 +129,7 @@ class EquivalenciaTests(Base):
         libre = asignar(self.esp, self.secundaria, self.ciclo)
         perfil = self.client.get(reverse('profesores:detalle', args=[self.marta.pk]))
         self.assertContains(perfil, f'value="{libre.pk}"')
-        self.assertContains(perfil, f'7° {libre.grupo.nombre} <span class="text-muted">· {libre.grupo}</span>', html=True)
+        self.assertContains(perfil, f'7° {libre.grupo.nombre} <span class="text-muted">· {libre.grupo.nombre_de_nivel}</span>', html=True)
 
 
 # ---------------------------------------------------------------------------

@@ -234,7 +234,7 @@ class CrearJustificacionTests(BaseJustificacionTests):
         materia_en_grado('HIS', otra, self.ciclo)
         respuesta = self.client.get(url('justificacion_materias', alumno=self.alumno.pk, fecha=self.dia.isoformat()))
         datos = respuesta.json()
-        self.assertEqual(datos['grado'], '4° A Primaria')
+        self.assertEqual(datos['grado'], '4° A')
         self.assertEqual(sorted(m['clave'] for m in datos['materias']), ['CIE', 'ESP', 'MAT'])
 
     def test_sin_alumno_o_sin_inscripcion_no_ofrece_materias(self):

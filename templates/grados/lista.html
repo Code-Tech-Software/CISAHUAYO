@@ -62,7 +62,7 @@
             <article class="grade-card grade-card--acciones-arriba grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
               <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}°</span>
               <div class="grade-card__body">
-                <h3 class="grade-card__name grade-card__linea"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado }}</a></h3>
+                <h3 class="grade-card__name grade-card__linea"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado.nombre_de_nivel }}</a></h3>
                 <p class="grade-card__eq grade-card__linea" title="Equivalencia en la continuidad escolar">{% if fila.grado.equivalencia %}{{ fila.grado.equivalencia_frase }}{% else %}<span class="text-muted">Sin equivalencia</span>{% endif %}</p>
                 <p class="grade-card__meta grade-card__linea">
                   {% with grupos=fila.grado.grupos_activos %}{% if grupos %}Grupo{{ grupos|length|pluralize }} {% for grupo in grupos %}{{ grupo.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}Sin grupos{% endif %}{% endwith %}
@@ -80,16 +80,16 @@
                         <button type="submit" class="btn btn--sm">Reactivar</button>
                       </form>
                     {% else %}
-                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'grados:editar' fila.grado.pk %}" aria-label="Editar {{ fila.grado }}" data-tooltip="Editar" data-modal-form>
+                      <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'grados:editar' fila.grado.pk %}" aria-label="Editar {{ fila.grado.nombre_de_nivel }}" data-tooltip="Editar" data-modal-form>
                         {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
                       </a>
                     {% endif %}
                   {% endif %}
                   {% if perms.Alumnos.delete_grado and not viendo_bajas %}
                     <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-baja" data-baja
-                            data-action="{% url 'grados:baja' fila.grado.pk %}" data-nombre="{{ fila.grado }}"
+                            data-action="{% url 'grados:baja' fila.grado.pk %}" data-nombre="{{ fila.grado.nombre_de_nivel }}"
                             data-aviso="{% if fila.inscritos %}Tiene {{ fila.inscritos }} estudiante{{ fila.inscritos|pluralize }} inscrito{{ fila.inscritos|pluralize }} en el ciclo actual. Seguirán inscritos, pero no podrás inscribir a nadie más.{% endif %}"
-                            aria-label="Dar de baja {{ fila.grado }}" data-tooltip="Dar de baja">
+                            aria-label="Dar de baja {{ fila.grado.nombre_de_nivel }}" data-tooltip="Dar de baja">
                       {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
                     </button>
                   {% endif %}

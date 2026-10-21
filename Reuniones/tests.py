@@ -143,7 +143,7 @@ class RegistroTests(Colegio, BaseTestCase):
         respuesta = self.client.get(reverse('reuniones:nueva'), {'tutor': self.ana.pk})
         self.assertContains(respuesta, 'value="3531112233"')
         self.assertContains(respuesta, 'Primaria, 2° A')
-        self.assertContains(respuesta, 'Secundaria, 1° A')
+        self.assertContains(respuesta, 'Secundaria, 7° A')   # el grupo con la equivalencia del grado
         busqueda = self.client.get(reverse('reuniones:nueva'), {'q': 'Campos'})
         self.assertContains(busqueda, f'?tutor={self.ana.pk}')
         self.assertNotContains(busqueda, f'?tutor={self.rosa.pk}')

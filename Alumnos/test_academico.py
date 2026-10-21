@@ -133,7 +133,7 @@ class OrdenDeGradosTests(TestCase):
             crear_grado(nivel, numero)
         self.assertEqual(
             [str(g) for g in Grado.objects.academicos()],
-            ['3° Preescolar', '1° Primaria', '6° Primaria', '1° Secundaria', '2° Secundaria', '1° Preparatoria'],
+            ['K3', '1°', '6°', '7°', '8°', '10°'],
         )
 
     def test_los_grados_nuevos_nacen_activos(self):

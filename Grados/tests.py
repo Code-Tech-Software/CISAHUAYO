@@ -78,14 +78,14 @@ class ListaTests(BaseTestCase):
     def test_agrupa_por_nivel_en_orden_escolar(self):
         niveles = self.lista().context['niveles']
         self.assertEqual([n['nombre'] for n in niveles], ['Preescolar', 'Primaria', 'Secundaria', 'Preparatoria'])
-        self.assertEqual([str(f['grado']) for f in niveles[1]['filas']], ['1° Primaria', '6° Primaria'])
+        self.assertEqual([f['grado'].nombre_de_nivel for f in niveles[1]['filas']], ['1° Primaria', '6° Primaria'])
 
     def test_no_muestra_los_grados_dados_de_baja_salvo_en_su_filtro(self):
         activos = [str(f['grado']) for n in self.lista().context['niveles'] for f in n['filas']]
         self.assertNotIn('2° Primaria', activos)
         bajas = self.lista(estado='BAJA')
         self.assertTrue(bajas.context['viendo_bajas'])
-        self.assertEqual([str(f['grado']) for n in bajas.context['niveles'] for f in n['filas']], ['2° Primaria'])
+        self.assertEqual([f['grado'].nombre_de_nivel for n in bajas.context['niveles'] for f in n['filas']], ['2° Primaria'])
         self.assertContains(bajas, 'Reactivar')
 
     def test_conteos_de_las_pestanas(self):

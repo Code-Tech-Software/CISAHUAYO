@@ -77,7 +77,7 @@
             <li>
               {# Siempre las mismas cuatro líneas (de una sola línea cada una): todas las tarjetas miden lo mismo #}
               <article class="grade-card grade-card--tone-{{ grupo.grado.nivel|nivel_tono }}{% if not grupo.activo or not grupo.grado.activo %} is-inactive{% endif %}">
-                <span class="grade-card__number" aria-hidden="true">{{ grupo.grado.numero }}°{% if grupo.nombre.nombre|length <= 2 %}{{ grupo.nombre }}{% endif %}</span>
+                <span class="grade-card__number" aria-hidden="true">{{ grupo.grado }}{% if grupo.nombre.nombre|length <= 2 %}{{ grupo.nombre }}{% endif %}</span>
                 <div class="grade-card__body">
                   <h3 class="grade-card__name grade-card__linea"><a class="grade-card__link" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">{{ grupo }}</a></h3>
                   <p class="grade-card__meta grade-card__linea">{% if fila.materias %}{{ fila.materias }} materia{{ fila.materias|pluralize }}{% if fila.duracion %} · {{ fila.duracion }} por semana{% endif %}{% else %}Sin materias asignadas{% endif %}</p>

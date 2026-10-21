@@ -133,7 +133,7 @@
                       <span class="cell-stack">
                         <span class="cell-stack__main">{{ carga.total_materias }} materia{{ carga.total_materias|pluralize }} en {{ carga.total_grados }} grado{{ carga.total_grados|pluralize }}</span>
                         <span class="cell-stack__sub cell-stack__sub--truncate">
-                          {% for asignacion in carga.asignaciones|slice:":3" %}{{ asignacion.materia.nombre }} ({{ asignacion.grado.numero }}°){% if not forloop.last %}, {% endif %}{% endfor %}{% if carga.total_materias > 3 %} y {{ carga.total_materias|add:"-3" }} más{% endif %}
+                          {% for asignacion in carga.asignaciones|slice:":3" %}{{ asignacion.materia.nombre }} ({{ asignacion.grado }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if carga.total_materias > 3 %} y {{ carga.total_materias|add:"-3" }} más{% endif %}
                         </span>
                       </span>
                     {% else %}

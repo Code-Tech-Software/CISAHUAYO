@@ -82,7 +82,7 @@ def _lista(nombres, maximo):
 
 
 def _grupo_corto(grupo):
-    return f'{grupo.grado.numero}° {grupo.nombre}'
+    return grupo.corto   # «7° A»: la equivalencia del grado
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +332,7 @@ class Alcance:
                 por_nivel[grado.nivel] = {'clave': grado.nivel, 'nombre': grado.get_nivel_display(), 'grados': []}
                 arbol.append(por_nivel[grado.nivel])
             if grado.pk not in por_grado:
-                por_grado[grado.pk] = {'id': grado.pk, 'nombre': f'{grado.numero}° de {grado.get_nivel_display()}', 'grupos': []}
+                por_grado[grado.pk] = {'id': grado.pk, 'nombre': str(grado), 'grupos': []}
                 por_nivel[grado.nivel]['grados'].append(por_grado[grado.pk])
             por_grado[grado.pk]['grupos'].append({'id': grupo.pk, 'nombre': f'{_grupo_corto(grupo)}', 'materias': materias.get(grupo.pk, [])})
 

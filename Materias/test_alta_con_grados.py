@@ -77,7 +77,7 @@ class AltaConGradoTests(BaseTestCase):
         self.assertEqual((materia.clave, materia.grado), ('MAT-1P', self.primero))   # sin escribirla: la propuesta
         asignacion = MateriaGrado.objects.get(materia=materia)
         self.assertEqual((asignacion.ciclo, asignacion.grado, asignacion.activa, asignacion.profesor), (self.ciclo, self.primero, True, None))
-        self.assertContains(respuesta, 'fue registrada con la clave MAT-1P y se agregó al plan de 1° Primaria (ciclo 2026-2027)')
+        self.assertContains(respuesta, 'fue registrada con la clave MAT-1P y se agregó al plan de 1° (ciclo 2026-2027)')
         self.assertContains(respuesta, 'Queda sin profesor')
 
     def test_no_acepta_varios_grados(self):
@@ -213,7 +213,7 @@ class EdicionDelGradoTests(BaseTestCase):
         clase.refresh_from_db()
         self.assertEqual((clase.grado, clase.profesor, clase.activa), (self.segundo, marta, True))   # misma clase, mismo profesor
         self.assertEqual(MateriaGrado.objects.count(), 1)
-        self.assertContains(respuesta, 'Su clase del ciclo 2026-2027 quedó en 2° Primaria')
+        self.assertContains(respuesta, 'Su clase del ciclo 2026-2027 quedó en 2°')
 
     def test_a_otro_nivel_se_queda_sin_el_profesor_que_no_da_clases_ahi(self):
         secundaria = crear_grado('SECUNDARIA', 1)
@@ -229,7 +229,7 @@ class EdicionDelGradoTests(BaseTestCase):
         HorarioMateria.objects.create(materia_grado=clase, dia_semana=0, hora_inicio=time(8), hora_fin=time(9))
         respuesta = self.editar(grado=self.segundo.pk)
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'Ya tiene horario en 1° Primaria (2026-2027)')
+        self.assertContains(respuesta, 'Ya tiene horario en 1° (2026-2027)')
         self.materia.refresh_from_db()
         self.assertEqual(self.materia.grado, self.primero)
 
@@ -346,7 +346,7 @@ class SiempreEnElPlanDeSuGradoTests(BaseTestCase):
         materia = Materia.objects.create(clave='MAT', nombre='Matemáticas', grado=self.primero, activa=False)
         respuesta = self.client.post(reverse('materias:reactivar', args=[materia.pk]), follow=True)
         self.assertTrue(MateriaGrado.objects.filter(materia=materia, grado=self.primero, ciclo=self.ciclo, activa=True).exists())
-        self.assertContains(respuesta, 'Volvió al plan de 1° Primaria del ciclo 2026-2027')
+        self.assertContains(respuesta, 'Volvió al plan de 1° del ciclo 2026-2027')
 
     def test_la_migracion_pone_en_el_ciclo_actual_a_las_que_tienen_grado(self):
         migracion = importlib.import_module('Alumnos.migrations.0017_materias_en_el_plan_de_su_grado')

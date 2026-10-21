@@ -40,7 +40,7 @@ class AgregarRecreoTests(RecreoTestCase):
         self.assertRedirects(respuesta, f"{reverse('horarios:lista')}?ciclo={self.ciclo.pk}")
         self.assertEqual(Recreo.objects.filter(ciclo=self.ciclo, grado=self.primero).count(), 5)
         self.assertEqual(Recreo.objects.filter(ciclo=self.ciclo, grado=self.segundo).count(), 5)
-        self.assertContains(respuesta, 'Se agregó «Receso» a 1° A Primaria, 2° A Primaria: Lun, Mar, Mié, Jue, Vie · 10:30–11:00.')
+        self.assertContains(respuesta, 'Se agregó «Receso» a 1° A, 2° A: Lun, Mar, Mié, Jue, Vie · 10:30–11:00.')
 
     def test_cada_dia_con_su_hora(self):
         self.client.post(self.url, {
@@ -74,7 +74,7 @@ class AgregarRecreoTests(RecreoTestCase):
         bloque(asignar('MAT', 'Matemáticas', self.segundo, self.ciclo), 0, (10, 0), (11, 0))
         respuesta = self.client.post(self.url, {'grupos': [grupo_de(self.primero).pk, grupo_de(self.segundo).pk], 'nombre': 'Receso', **horas([0, 1])})
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'En 2° A Primaria: Se empalma con Matemáticas (lunes 10:00–11:00)')
+        self.assertContains(respuesta, 'En 2° A: Se empalma con Matemáticas (lunes 10:00–11:00)')
         self.assertEqual(list(respuesta.context['form'].errors), ['inicio_0'])
         self.assertFalse(Recreo.objects.exists())
 
@@ -166,7 +166,7 @@ class EditarYQuitarRecreoTests(RecreoTestCase):
         self.assertRedirects(respuesta, self.del_grado(self.primero))
         self.recreo.refresh_from_db()
         self.assertEqual((self.recreo.nombre, self.recreo.hora_inicio, self.recreo.hora_fin), ('Receso largo', time(11), time(11, 30)))
-        self.assertContains(respuesta, 'Se actualizó «Receso largo» de 1° A Primaria (lunes).')
+        self.assertContains(respuesta, 'Se actualizó «Receso largo» de 1° A (lunes).')
 
     def test_puede_quedarse_a_la_misma_hora_pero_no_empalmarse_con_una_clase(self):
         self.assertEqual(self.client.post(self.url_editar, self.datos()).status_code, 302)     # no choca consigo mismo
@@ -184,7 +184,7 @@ class EditarYQuitarRecreoTests(RecreoTestCase):
         respuesta = self.client.post(reverse('horarios:recreo_eliminar', args=[self.recreo.pk]), follow=True)
         self.assertRedirects(respuesta, self.del_grado(self.primero))
         self.assertEqual(list(Recreo.objects.all()), [otro_dia])
-        self.assertContains(respuesta, 'Se quitó «Receso» de 1° A Primaria (lunes 10:30–11:00).')
+        self.assertContains(respuesta, 'Se quitó «Receso» de 1° A (lunes 10:30–11:00).')
 
     def test_quitar_pide_post(self):
         self.assertEqual(self.client.get(reverse('horarios:recreo_eliminar', args=[self.recreo.pk])).status_code, 405)

@@ -83,7 +83,7 @@ def grado_crear(request):
         if form.is_valid():
             grado = form.save()
             grupos = ', '.join(str(g.nombre) for g in form.grupos_agregados)
-            messages.success(request, f'El grado {grado} fue registrado con {"los grupos" if len(form.grupos_agregados) > 1 else "el grupo"} {grupos}.')
+            messages.success(request, f'El grado {grado.nombre_de_nivel} fue registrado con {"los grupos" if len(form.grupos_agregados) > 1 else "el grupo"} {grupos}.')
             return redirect('grados:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
@@ -103,7 +103,7 @@ def grado_editar(request, pk):
             if form.grupos_quitados:
                 varios = len(form.grupos_quitados) > 1
                 detalle += f' {"Se dieron de baja los grupos" if varios else "Se dio de baja el grupo"} {", ".join(str(g.nombre) for g in form.grupos_quitados)}.'
-            messages.success(request, f'El grado {grado} se actualizó.{detalle}')
+            messages.success(request, f'El grado {grado.nombre_de_nivel} se actualizó.{detalle}')
             return redirect('grados:lista')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form, grado)
@@ -187,14 +187,14 @@ def grado_baja(request, pk):
     """Baja lógica: el grado deja de ofrecerse al inscribir, pero conserva sus inscripciones y su historial."""
     grado = get_object_or_404(Grado, pk=pk)
     if not grado.activo:
-        messages.info(request, f'El grado {grado} ya estaba dado de baja.')
+        messages.info(request, f'El grado {grado.nombre_de_nivel} ya estaba dado de baja.')
         return redirect('grados:lista')
 
     grado.activo = False
     grado.save(update_fields=['activo'])
     messages.success(
         request,
-        f'El grado {grado} fue dado de baja. Sus inscripciones se conservan y puedes reactivarlo desde el filtro «Bajas».',
+        f'El grado {grado.nombre_de_nivel} fue dado de baja. Sus inscripciones se conservan y puedes reactivarlo desde el filtro «Bajas».',
     )
     return redirect('grados:lista')
 
@@ -212,13 +212,13 @@ def grado_reactivar(request, pk):
         if otro:
             messages.error(
                 request,
-                f'No se puede reactivar {grado}: su equivalencia ({grado.equivalencia_texto}) ya la tiene {otro}. '
-                f'Cambia primero la equivalencia de {otro} y vuelve a intentarlo.',
+                f'No se puede reactivar {grado.nombre_de_nivel}: su equivalencia ({grado.equivalencia_texto}) ya la tiene {otro.nombre_de_nivel}. '
+                f'Cambia primero la equivalencia de {otro.nombre_de_nivel} y vuelve a intentarlo.',
             )
             return redirect('grados:lista')
         grado.activo = True
         grado.save(update_fields=['activo'])
-        messages.success(request, f'El grado {grado} fue reactivado.')
+        messages.success(request, f'El grado {grado.nombre_de_nivel} fue reactivado.')
     return redirect('grados:lista')
 
 

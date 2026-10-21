@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if es_edicion %}Editar {{ grado }}{% else %}Nuevo grado{% endif %} | CISAHUAYO{% endblock %}
+{% block title %}{% if es_edicion %}Editar {{ grado.nombre_de_nivel }}{% else %}Nuevo grado{% endif %} | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
@@ -11,7 +11,7 @@
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
   <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'grados:lista' %}">Grados</a></li>
   {% if es_edicion %}
-    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ grado.get_absolute_url }}">{{ grado }}</a></li>
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ grado.get_absolute_url }}">{{ grado.nombre_de_nivel }}</a></li>
     <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Editar</span></li>
   {% else %}
     <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nuevo grado</span></li>
@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Corrige el nivel o el grado de {{ grado }}, o cambia sus grupos.{% else %}Elige el nivel, el grado y sus grupos. Después podrás inscribir estudiantes en cada grupo.{% endif %}
+        {% if es_edicion %}Corrige el nivel o el grado de {{ grado.nombre_de_nivel }}, o cambia sus grupos.{% else %}Elige el nivel, el grado y sus grupos. Después podrás inscribir estudiantes en cada grupo.{% endif %}
       </p>
     </div>
   </header>

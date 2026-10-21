@@ -387,7 +387,7 @@ class ImportarEstudiantesTests(BaseTestCase):
         self.assertEqual(resultado.errores, [])
         grados = [Alumno.objects.get(curp=c).inscripciones.get().grado for c in (CURP_ANA, CURP_LUIS, CURP_RAUL, CURP_SOFIA, CURP_TOMAS)]
         self.assertEqual(grados[:4], [primero] * 4)
-        self.assertEqual(str(grados[4]), '2° Preescolar')
+        self.assertEqual(grados[4].nombre_de_nivel, '2° Preescolar')
 
     def test_un_grado_que_no_existe_o_esta_de_baja_es_un_error(self):
         ciclo_actual_de_prueba()

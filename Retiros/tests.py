@@ -99,7 +99,7 @@ class AvisoDelTutorTests(Colegio, BaseTestCase):
     def test_avisa_desde_su_portal_y_ve_el_resumen(self):
         pantalla = self.tutor.get(NUEVO)
         self.assertContains(pantalla, 'Lucía')
-        self.assertContains(pantalla, 'Primaria · 2° grado · Grupo A')
+        self.assertContains(pantalla, '2° A · Primaria')   # el grupo con su equivalencia y el nivel
         self.assertContains(pantalla, 'Yo (Ana Campos')
         respuesta = self.tutor.post(NUEVO, {
             'alumnos': [self.lucia.pk, self.leo.pk], 'fecha': lunes().isoformat(), 'hora': '11:30', 'motivo': self.cita.pk,

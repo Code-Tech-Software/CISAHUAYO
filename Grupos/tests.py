@@ -38,7 +38,7 @@ def crear_materia(clave='MAT', nombre='Matemáticas', grado=None):
 class GrupoTests(BaseTestCase):
     def test_se_nombra_con_su_grado(self):
         grupo = crear_grupo(crear_grado('PRIMARIA', 1), 'B')
-        self.assertEqual(str(grupo), '1° B Primaria')
+        self.assertEqual(str(grupo), '1° B')
         self.assertEqual(grupo.corto, '1° B')
 
     def test_el_principal_es_el_primero_del_catalogo_y_se_crea_si_falta(self):
@@ -189,15 +189,15 @@ class InscribirEnUnGrupoTests(BaseTestCase):
     def test_con_varios_grupos_hay_que_elegirlo(self):
         b = crear_grupo(self.grado, 'B')
         respuesta = self.client.post(self.url, self.datos())
-        self.assertEqual(respuesta.context['form'].errors['grupo'], ['Elige el grupo de 1° Primaria.'])
+        self.assertEqual(respuesta.context['form'].errors['grupo'], ['Elige el grupo de 1°.'])
         respuesta = self.client.post(self.url, self.datos(grupo=b.pk), follow=True)
         self.assertEqual(Inscripcion.objects.get().grupo, b)
-        self.assertContains(respuesta, 'fue inscrito en 1° B Primaria')
+        self.assertContains(respuesta, 'fue inscrito en 1° B')
 
     def test_el_grupo_tiene_que_ser_del_grado(self):
         otro = crear_grupo(crear_grado('PRIMARIA', 2), 'B')
         respuesta = self.client.post(self.url, self.datos(grupo=otro.pk))
-        self.assertEqual(respuesta.context['form'].errors['grupo'], ['Ese grupo no es de 1° Primaria.'])
+        self.assertEqual(respuesta.context['form'].errors['grupo'], ['Ese grupo no es de 1°.'])
         self.assertFalse(Inscripcion.objects.exists())
 
     def test_el_campo_sabe_de_que_grado_es_cada_grupo(self):
@@ -250,7 +250,7 @@ class HorarioPorGrupoTests(BaseTestCase):
         self.alta(self.a, self.en_a)
         respuesta = self.alta(self.b, self.en_b)
         self.assertEqual(respuesta.status_code, 200)
-        self.assertIn('1° A Primaria', str(respuesta.context['form'].errors))
+        self.assertIn('1° A', str(respuesta.context['form'].errors))
         self.assertEqual(HorarioMateria.objects.count(), 1)
 
     def test_el_horario_de_un_grado_lleva_al_de_su_primer_grupo(self):
@@ -279,7 +279,7 @@ class ListadoDeGruposTests(BaseTestCase):
         self.assertEqual(primaria['nombre'], 'Primaria')
         self.assertEqual(
             [(str(f['grupo']), f['inscritos'], f['materias'], f['sin_profesor']) for f in primaria['filas']],
-            [('1° A Primaria', 0, 1, 1), ('1° B Primaria', 1, 1, 1)],
+            [('1° A', 0, 1, 1), ('1° B', 1, 1, 1)],
         )
         self.assertContains(respuesta, self.b.get_absolute_url())
         self.assertContains(respuesta, '2 grupos · 1 estudiante inscrito en el ciclo 2026-2027')
@@ -323,7 +323,7 @@ class PerfilDelGrupoTests(BaseTestCase):
         self.assertEqual(respuesta.context['inscripciones'], [self.ana])
         self.assertEqual(respuesta.context['materias'], [self.en_b])
         self.assertEqual(respuesta.context['sin_profesor'], 0)
-        self.assertContains(respuesta, '1° B Primaria')
+        self.assertContains(respuesta, '1° B')
         self.assertContains(respuesta, reverse('horarios:grupo', args=[self.b.pk]))
 
     def test_enlaza_con_los_otros_grupos_del_grado(self):
@@ -369,7 +369,7 @@ class CatalogoTests(BaseTestCase):
         grupo = grupo_de(crear_grado('PRIMARIA', 1))
         self.client.post(reverse('grupos:nombre_editar', args=[self.a.pk]), {'nombre': 'Azul', 'orden': 1})
         grupo.refresh_from_db()
-        self.assertEqual(str(grupo), '1° Azul Primaria')
+        self.assertEqual(str(grupo), '1° Azul')
 
     def test_la_baja_deja_de_ofrecerlo_pero_los_grupos_lo_conservan(self):
         b = letra('B')
@@ -410,7 +410,7 @@ class MigracionTests(BaseTestCase):
         migracion = importlib.import_module('Alumnos.migrations.0020_grupos')
         migracion.un_grupo_por_grado(apps, None)
         migracion.un_grupo_por_grado(apps, None)   # repetible
-        self.assertEqual([str(g) for g in grado.grupos.all()], ['1° A Primaria'])
+        self.assertEqual([str(g) for g in grado.grupos.all()], ['1° A'])
         receso.refresh_from_db()
         self.assertEqual(receso.nombre, 'Receso largo')
 

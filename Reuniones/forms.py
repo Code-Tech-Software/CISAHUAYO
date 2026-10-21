@@ -76,7 +76,7 @@ def materias_por_docente(grupos):
     textos = {}
     for clase in (MateriaGrado.objects.filter(ciclo=ciclo, activa=True, grupo__in=grupos, profesor__usuario__isnull=False)
                   .select_related('materia', 'grupo__grado', 'grupo__nombre', 'profesor')):
-        textos.setdefault(clase.profesor.usuario_id, []).append(f'{clase.materia.nombre} ({clase.grupo.grado.numero}° {clase.grupo.nombre})')
+        textos.setdefault(clase.profesor.usuario_id, []).append(f'{clase.materia.nombre} ({clase.grupo.corto})')
     return {usuario: ' · '.join(sorted(set(materias))) for usuario, materias in textos.items()}
 
 
@@ -174,7 +174,7 @@ class SolicitudForm(EstiloCamposMixin, forms.Form):
         nombre = nombre_de_persona(alumno)
         if inscripcion is None:
             return f'{nombre} · sin inscripción en el ciclo actual'
-        grupo = f'{inscripcion.grado.numero}° {inscripcion.grupo.nombre}' if inscripcion.grupo_id else f'{inscripcion.grado.numero}°'
+        grupo = inscripcion.grupo.corto if inscripcion.grupo_id else str(inscripcion.grado)
         return f'{nombre} · {inscripcion.grado.get_nivel_display()}, {grupo}'
 
     def propuestas(self):

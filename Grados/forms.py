@@ -126,7 +126,7 @@ class GradoForm(EstiloCamposMixin, forms.ModelForm):
                 otro = Grado.objects.filter(activo=True, equivalencia=equivalencia).exclude(pk=self.instance.pk).first()
                 if otro:
                     texto = Grado(equivalencia=equivalencia).equivalencia_texto
-                    self.add_error('equivalencia', f'La equivalencia {texto} ya la tiene {otro}: cada grado tiene la suya.')
+                    self.add_error('equivalencia', f'La equivalencia {texto} ya la tiene {otro.nombre_de_nivel}: cada grado tiene la suya.')
         return datos
 
     def clean_equivalencia(self):

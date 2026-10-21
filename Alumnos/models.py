@@ -227,6 +227,14 @@ class Grado(models.Model):
     objects = GradoQuerySet.as_manager()
 
     def __str__(self):
+        """Su nombre en todo el sitio: la equivalencia en la continuidad escolar («7°», «K1»; pedido del 2026-10-20). Sin
+        ninguna, el de su nivel («1° Secundaria»)."""
+        return self.nombre_equivalente
+
+    @property
+    def nombre_de_nivel(self):
+        """«1° Secundaria»: el grado dentro de su nivel. Lo usan Grados (donde se configura la equivalencia) y las
+        descripciones emergentes junto a la equivalencia."""
         return f"{self.numero}° {self.get_nivel_display()}"
 
     @property
@@ -250,11 +258,11 @@ class Grado(models.Model):
 
     @property
     def nombre_equivalente(self):
-        """Cómo se nombra en la continuidad escolar: «7°» o «K1» (la equivalencia efectiva); sin ninguna, el nombre de
-        siempre («1° Secundaria»). Es el que usan la tabla de estudiantes, su filtro de grados y su exportación."""
+        """Cómo se nombra en la continuidad escolar: «7°» o «K1» (la equivalencia efectiva); sin ninguna, el de su nivel
+        («1° Secundaria»)."""
         codigo = str(self.equivalencia_efectiva)
         if not codigo:
-            return str(self)
+            return self.nombre_de_nivel
         return f'{codigo}°' if codigo.isdigit() else codigo
 
     @property
@@ -333,19 +341,27 @@ class Grupo(models.Model):
     objects = GrupoQuerySet.as_manager()
 
     def __str__(self):
+        """Su nombre en todo el sitio: «7° A» o «K3 B», con la equivalencia del grado (pedido del 2026-10-20)."""
+        return self.nombre_equivalente
+
+    @property
+    def nombre_de_nivel(self):
+        """«1° A Secundaria»: el grupo dentro de su nivel (para las descripciones emergentes junto a la equivalencia)."""
         return f'{self.grado.numero}° {self.nombre} {self.grado.get_nivel_display()}'
 
     @property
     def corto(self):
-        """«1° A», sin el nivel."""
-        return f'{self.grado.numero}° {self.nombre}'
+        """Sin el nivel: «7° A» (o, si el grado no tiene equivalencia, «1° A»)."""
+        if not self.grado.equivalencia_efectiva:
+            return f'{self.grado.numero}° {self.nombre}'
+        return self.nombre_equivalente
 
     @property
     def nombre_equivalente(self):
-        """«7° A» o «K3 B»: la equivalencia del grado en la continuidad escolar con el grupo; sin equivalencia, el nombre
-        de siempre («1° A Secundaria»)."""
+        """«7° A» o «K3 B»: la equivalencia del grado en la continuidad escolar con el grupo; sin equivalencia, el de su
+        nivel («1° A Secundaria»)."""
         if not self.grado.equivalencia_efectiva:
-            return str(self)
+            return self.nombre_de_nivel
         return f'{self.grado.nombre_equivalente} {self.nombre}'
 
     @classmethod

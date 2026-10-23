@@ -5,6 +5,7 @@ y ahí llegan los avisos de sus conversaciones. Los mensajes ya están guardados
 Redis no está disponible, nadie pierde nada (al recargar, todo está ahí); solo se registra el error.
 """
 import logging
+from datetime import timedelta
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -39,7 +40,7 @@ def url_de_conversacion(participante, conversacion_id):
 def datos_de_mensaje(mensaje, para):
     """Lo que necesita la pantalla de `para` para mostrar el mensaje y su aviso. El texto va tal cual (el navegador lo
     pone como texto, nunca como HTML); el formato, en `html`, ya limpio en el servidor (Mensajes/enriquecido.py)."""
-    from .reglas import ESPACIO, el_otro, html_visible, no_leidos, vista_previa
+    from .reglas import ESPACIO, MINUTOS_PARA_EDITAR, cita_de, el_otro, html_visible, no_leidos, se_puede_editar, vista_previa
     creado = timezone.localtime(mensaje.creado)
     otro = mensaje.autor if mensaje.autor_id != para.pk else el_otro(mensaje.conversacion_id, para)
     espacio = ESPACIO[para.tipo]
@@ -56,6 +57,12 @@ def datos_de_mensaje(mensaje, para):
         'html': html_visible(mensaje, para),   # limpio en el servidor; '' si no tiene formato
         'documentos': [d.como_dict(reverse(f'{espacio}:documento', args=[d.pk])) for d in documentos],
         'vista_previa': mensaje.texto if len(mensaje.texto) <= 120 else vista_previa(mensaje.texto),
+        'cita': cita_de(mensaje),
+        'editado': mensaje.editado is not None,
+        # Hasta cuándo puede corregirlo quien lo escribió (ISO; '' si ya no o si no es suyo)
+        'editable_hasta': (mensaje.creado + timedelta(minutes=MINUTOS_PARA_EDITAR)).isoformat()
+                          if se_puede_editar(mensaje, para) else '',
+        'url_editar': reverse(f'{espacio}:editar', args=[mensaje.pk]),
         'hora': creado.strftime('%H:%M'),
         'fecha': creado.date().isoformat(),
         'fecha_texto': date_format(creado, 'j \\d\\e F'),
@@ -105,3 +112,17 @@ def avisar_lectura(conversacion, lector, hasta, momento=None):
     for miembro in Miembro.objects.filter(conversacion=conversacion).exclude(participante=lector):
         _enviar(miembro.participante_id, {'type': 'mensaje.leido', 'datos': {'conversacion': conversacion.pk, 'hasta': hasta, 'leido': leido}})
     _enviar(lector.pk, {'type': 'mensajes.resumen', 'datos': {'conversacion': conversacion.pk, 'no_leidos': no_leidos(lector)}})
+
+
+def avisar_edicion(mensaje):
+    """A cada miembro: el mensaje corregido (su nuevo texto, con la marca «editado») y, si es el último, la vista previa."""
+    miembros = Miembro.objects.filter(conversacion=mensaje.conversacion_id).select_related(
+        'participante__usuario', 'participante__alumno', 'participante__tutor')
+    for miembro in miembros:
+        _enviar(miembro.participante_id, {'type': 'mensaje.editado', 'datos': datos_de_mensaje(mensaje, miembro.participante)})
+
+
+def avisar_escribiendo(conversacion_id, autor_id, nombre):
+    """A la otra persona de la conversación: «Fulano está escribiendo…». No se guarda nada."""
+    for participante_id in Miembro.objects.filter(conversacion=conversacion_id).exclude(participante=autor_id).values_list('participante_id', flat=True):
+        _enviar(participante_id, {'type': 'mensaje.escribiendo', 'datos': {'conversacion': conversacion_id, 'nombre': nombre}})

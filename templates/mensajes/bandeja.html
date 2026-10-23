@@ -116,6 +116,7 @@
           <div class="chat__hilo-quien">
             <h2 class="chat__hilo-nombre">{{ otro.nombre }}</h2>
             <p class="chat__hilo-detalle">{{ descripcion_otro }}</p>
+            <p class="chat__escribiendo" aria-live="polite" data-chat-escribiendo hidden>{{ otro.nombre }} está escribiendo…</p>
           </div>
         </header>
 
@@ -125,7 +126,14 @@
           {% endif %}
           {% for mensaje in mensajes %}
             {% ifchanged mensaje.dia %}<p class="chat__dia" data-chat-dia="{{ mensaje.creado|date:'Y-m-d' }}"><span>{{ mensaje.dia }}</span></p>{% endifchanged %}
-            <div class="burbuja{% if mensaje.mio %} burbuja--mia{% endif %}{% if mensaje.pk == destacado %} is-destacado{% endif %}" id="mensaje-{{ mensaje.pk }}" data-mensaje="{{ mensaje.pk }}">
+            <div class="burbuja{% if mensaje.mio %} burbuja--mia{% endif %}{% if mensaje.pk == destacado %} is-destacado{% endif %}" id="mensaje-{{ mensaje.pk }}" data-mensaje="{{ mensaje.pk }}"
+                 data-autor="{{ mensaje.autor.nombre }}"{% if mensaje.editable_hasta %} data-editable-hasta="{{ mensaje.editable_hasta }}" data-url-editar="{% url espacio|add:':editar' mensaje.pk %}"{% endif %}>
+              {% if mensaje.cita %}
+                <a class="burbuja__cita" href="#mensaje-{{ mensaje.cita.id }}" data-chat-ir-a="{{ mensaje.cita.id }}">
+                  <span class="burbuja__cita-autor">{{ mensaje.cita.autor }}</span>
+                  <span class="burbuja__cita-texto">{{ mensaje.cita.texto }}</span>
+                </a>
+              {% endif %}
               {% if mensaje.html_visible %}
                 {# Con formato: HTML limpio en el servidor (Mensajes/enriquecido.py) #}
                 <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
@@ -135,6 +143,7 @@
               {% if mensaje.documentos %}{% include "mensajes/_documentos.html" with documentos=mensaje.documentos %}{% endif %}
               <p class="burbuja__pie">
                 <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|time:"H:i" }}</time>
+                {% if mensaje.editado %}<span class="burbuja__editado" data-tooltip="Corregido a las {{ mensaje.editado|time:'H:i' }}">editado</span>{% endif %}
                 {% if mensaje.mio %}
                   {% if mensaje.leido %}
                     {# La hora de lectura: a la vista en el último leído; en los demás, al pasar el puntero #}
@@ -163,6 +172,15 @@
             <label class="visually-hidden" for="texto-mensaje">Mensaje para {{ otro.nombre }}</label>
             {# Los documentos PDF que se van subiendo (static/js/mensajes.js); se envían con el mensaje #}
             <ul class="chat__adjuntos" aria-label="Documentos por enviar" data-chat-adjuntos hidden></ul>
+            {# Respondiendo a un mensaje (static/js/mensajes.js): se envía con su id #}
+            <div class="chat__respuesta" data-chat-respuesta hidden>
+              <div class="chat__respuesta-texto">
+                <span class="chat__respuesta-autor" data-chat-respuesta-autor></span>
+                <span class="chat__respuesta-cita" data-chat-respuesta-cita></span>
+              </div>
+              <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="No responder a ese mensaje" data-chat-respuesta-quitar>{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+              <input type="hidden" name="responde_a" value="" data-chat-responde-a>
+            </div>
             <input type="file" accept="{{ acepta_documentos }},application/pdf" multiple hidden data-chat-adjuntar-archivo
                    data-url="{{ url_documentos }}" data-maximo-mb="{{ maximo_imagen_mb }}" data-maximo="{{ documentos_por_mensaje }}">
             <div class="chat__caja" data-chat-caja>

@@ -1179,3 +1179,188 @@
     min-height: 2rem;
   }
 }
+
+/* ==========================================================================
+   Citas, correcciones y «escribiendo…» (2026-10-23)
+   ========================================================================== */
+
+/* Quién es cada familia, bajo el nombre en la lista («Tutor de Ana López (3° B)») */
+.chat-item__quien {
+  display: block;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* «Fulano está escribiendo…», en lugar de la descripción mientras dura */
+.chat__escribiendo {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+.chat__hilo-quien:has(.chat__escribiendo:not([hidden])) .chat__hilo-detalle {
+  display: none;
+}
+
+/* El mensaje citado, arriba del texto: una franja con el autor y el principio del mensaje; lleva a él */
+.burbuja__cita {
+  display: grid;
+  gap: 0.05rem;
+  margin: 0.1rem 0 0.3rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: inherit;
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
+.burbuja--mia .burbuja__cita {
+  border-left-color: var(--color-on-primary);
+  background: color-mix(in srgb, var(--color-on-primary) 16%, transparent);
+}
+
+.burbuja__cita-autor {
+  font-weight: var(--weight-semibold);
+}
+
+.burbuja__cita-texto {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.burbuja__editado {
+  font-style: italic;
+}
+
+/* Responder y corregir: aparecen al pasar el puntero o al enfocar el mensaje; en pantallas táctiles, siempre */
+.burbuja {
+  position: relative;
+}
+
+.burbuja__acciones {
+  position: absolute;
+  top: -0.85rem;
+  right: 0.4rem;
+  display: flex;
+  gap: 0.15rem;
+  padding: 0.1rem;
+  border: var(--border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.burbuja--mia .burbuja__acciones {
+  right: auto;
+  left: 0.4rem;
+}
+
+.burbuja:hover .burbuja__acciones,
+.burbuja:focus-within .burbuja__acciones {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .burbuja__acciones {
+    position: static;
+    justify-content: flex-end;
+    margin-top: 0.15rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.burbuja__accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-soft);
+  cursor: pointer;
+}
+
+.burbuja__accion:hover,
+.burbuja__accion:focus-visible {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.burbuja__accion .icon {
+  --size: 0.95rem;
+}
+
+/* Corregir en el lugar: el texto en un campo, con Guardar y Cancelar */
+.burbuja__edicion {
+  display: grid;
+  gap: var(--space-1);
+  min-width: min(18rem, 60vw);
+}
+
+.burbuja__edicion textarea {
+  width: 100%;
+  min-height: 3.5rem;
+  resize: vertical;
+  color: var(--color-text);
+}
+
+.burbuja__edicion-botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+/* Respondiendo a un mensaje: la cita arriba de la caja, con la X para quitarla */
+.chat__respuesta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0.35rem 0.35rem 0.35rem 0.6rem;
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+}
+
+.chat__respuesta[hidden] {
+  display: none;
+}
+
+.chat__respuesta-texto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+}
+
+.chat__respuesta-autor {
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.chat__respuesta-cita {
+  overflow: hidden;
+  color: var(--color-text-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

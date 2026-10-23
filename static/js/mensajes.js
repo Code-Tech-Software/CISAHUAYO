@@ -17,6 +17,10 @@
      vista previa del mensaje anterior (o sin la conversación, si ya no tiene mensajes).
    - Búsqueda: filtra las conversaciones, busca personas a las que se puede escribir y busca en el texto de los mensajes
      (y en los nombres de los documentos); «Ver más conversaciones» trae las siguientes sin recargar.
+   - Citas, correcciones y «escribiendo…» (2026-10-23): cada mensaje tiene «Responder» (la cita queda arriba de la caja y
+     se envía con su id) y, los propios en sus primeros 2 minutos, «Corregir» (en el lugar; queda «editado» para los
+     dos). Mientras se escribe se avisa a la otra persona, a lo más cada 3 segundos, por el WebSocket de avisos.js; su
+     «está escribiendo…» se quita a los 5 segundos sin avisos o cuando llega su mensaje.
    Sin JavaScript la pantalla funciona con formularios normales.
 */
 (() => {
@@ -170,6 +174,170 @@
     return contenedor;
   };
 
+  /* ------------------------------------------------------------------ citas y correcciones */
+  const citaDe = (cita) => {
+    const enlace = elemento('a', 'burbuja__cita');
+    enlace.href = `#mensaje-${cita.id}`;
+    enlace.dataset.chatIrA = String(cita.id);
+    enlace.append(elemento('span', 'burbuja__cita-autor', cita.autor), elemento('span', 'burbuja__cita-texto', cita.texto));
+    return enlace;
+  };
+
+  const editableHasta = (burbuja) => Date.parse(burbuja.dataset.editableHasta || '') || 0;
+
+  /* «Responder» en todos (si se puede escribir) y «Corregir» en los propios mientras dure el plazo */
+  const ponerAcciones = (burbuja) => {
+    if (!formulario || burbuja.querySelector('.burbuja__acciones')) return;
+    const acciones = elemento('div', 'burbuja__acciones');
+    const boton = (nombre, etiqueta, accion) => {
+      const nodo = elemento('button', 'burbuja__accion');
+      nodo.type = 'button';
+      nodo.dataset.chatAccion = accion;
+      nodo.setAttribute('aria-label', etiqueta);
+      nodo.dataset.tooltip = etiqueta;
+      nodo.append(icono(nombre));
+      return nodo;
+    };
+    acciones.append(boton('reply', 'Responder', 'responder'));
+    const restante = editableHasta(burbuja) - Date.now();
+    if (restante > 0) {
+      const corregir = boton('pencil', 'Corregir', 'corregir');
+      acciones.append(corregir);
+      window.setTimeout(() => corregir.remove(), restante);
+    }
+    burbuja.append(acciones);
+  };
+
+  /* El texto nuevo de un mensaje corregido (aquí, en otra pestaña o por la otra persona) */
+  const ponerCorreccion = (datos) => {
+    const burbuja = document.getElementById(`mensaje-${datos.id}`);
+    if (!burbuja) return;
+    burbuja.querySelector('.burbuja__edicion')?.remove();
+    burbuja.querySelectorAll('.burbuja__texto').forEach((nodo) => nodo.remove());
+    const texto = elemento('p', 'burbuja__texto', datos.texto);
+    const cita = burbuja.querySelector('.burbuja__cita');
+    if (cita) cita.after(texto);
+    else burbuja.prepend(texto);
+    const pie = burbuja.querySelector('.burbuja__pie');
+    if (pie && !pie.querySelector('.burbuja__editado')) pie.querySelector('time')?.after(elemento('span', 'burbuja__editado', 'editado'));
+    /* Si es el último de la conversación, también cambia la vista previa de la lista */
+    const fila = conversaciones?.querySelector(`[data-conversacion-item="${datos.conversacion}"]`);
+    const todas = mensajes?.querySelectorAll('.burbuja');
+    if (fila && todas?.length && todas[todas.length - 1] === burbuja) {
+      fila.querySelector('[data-chat-item-vista]').textContent = `${datos.mio ? 'Tú: ' : ''}${datos.vista_previa}`;
+    }
+  };
+
+  const corregir = (burbuja) => {
+    if (burbuja.querySelector('.burbuja__edicion')) return;
+    const original = burbuja.querySelector('.burbuja__texto');
+    const forma = elemento('form', 'burbuja__edicion');
+    const area = elemento('textarea', 'field__control');
+    area.value = original ? original.innerText.trim() : '';
+    area.maxLength = Number(campo?.maxLength) > 0 ? Number(campo.maxLength) : 2000;
+    area.setAttribute('aria-label', 'Corregir el mensaje');
+    const botones = elemento('div', 'burbuja__edicion-botones');
+    const cancelar = elemento('button', 'btn btn--ghost btn--sm', 'Cancelar');
+    cancelar.type = 'button';
+    const guardar = elemento('button', 'btn btn--sm', 'Guardar');
+    guardar.type = 'submit';
+    botones.append(cancelar, guardar);
+    forma.append(area, botones);
+    if (original) original.hidden = true;
+    (original || burbuja.querySelector('.burbuja__pie')).before(forma);
+    area.focus();
+    const cerrar = () => {
+      forma.remove();
+      if (original) original.hidden = false;
+    };
+    cancelar.addEventListener('click', cerrar);
+    area.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Escape') cerrar();
+      if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
+        evento.preventDefault();
+        forma.requestSubmit();
+      }
+    });
+    forma.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      if (!area.value.trim()) return;
+      guardar.disabled = true;
+      try {
+        const cuerpo = new FormData();
+        cuerpo.append('texto', area.value);
+        const respuesta = await post(burbuja.dataset.urlEditar, cuerpo);
+        const datos = await respuesta.json().catch(() => ({}));
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo corregir el mensaje.');
+        ponerCorreccion(datos);
+      } catch (problema) {
+        mostrarError(problema.message);
+        cerrar();
+      }
+    });
+  };
+
+  /* Respondiendo a un mensaje: su cita arriba de la caja, hasta enviar o quitarla */
+  const barraRespuesta = chat.querySelector('[data-chat-respuesta]');
+  const respondeA = chat.querySelector('[data-chat-responde-a]');
+  const quitarRespuesta = () => {
+    if (!barraRespuesta) return;
+    barraRespuesta.hidden = true;
+    respondeA.value = '';
+  };
+  const responder = (burbuja) => {
+    if (!barraRespuesta) return;
+    const texto = (burbuja.querySelector('.burbuja__texto') || burbuja.querySelector('.burbuja__documentos'))?.innerText.trim() || '';
+    respondeA.value = burbuja.dataset.mensaje;
+    barraRespuesta.querySelector('[data-chat-respuesta-autor]').textContent = burbuja.classList.contains('burbuja--mia') ? 'Tú' : (burbuja.dataset.autor || '');
+    barraRespuesta.querySelector('[data-chat-respuesta-cita]').textContent = texto.length > 120 ? `${texto.slice(0, 119)}…` : texto;
+    barraRespuesta.hidden = false;
+    if (editor) editor.enfocar();
+    else campo?.focus();
+  };
+  chat.querySelector('[data-chat-respuesta-quitar]')?.addEventListener('click', quitarRespuesta);
+
+  mensajes?.addEventListener('click', (evento) => {
+    const accion = evento.target.closest('[data-chat-accion]');
+    if (accion) {
+      const burbuja = accion.closest('.burbuja');
+      if (accion.dataset.chatAccion === 'responder') responder(burbuja);
+      else if (editableHasta(burbuja) > Date.now()) corregir(burbuja);
+      else accion.remove();
+      return;
+    }
+    const cita = evento.target.closest('[data-chat-ir-a]');
+    const citado = cita && document.getElementById(`mensaje-${cita.dataset.chatIrA}`);
+    if (citado) {   /* si no está cargado, el enlace abre la conversación en ese mensaje */
+      evento.preventDefault();
+      citado.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      citado.classList.add('is-destacado');
+      window.setTimeout(() => citado.classList.remove('is-destacado'), 1600);
+    }
+  });
+
+  /* Los mensajes que ya vienen en la página */
+  mensajes?.querySelectorAll('.burbuja').forEach((burbuja) => ponerAcciones(burbuja));
+
+  /* ------------------------------------------------------------------ «escribiendo…» */
+  const escribiendo = chat.querySelector('[data-chat-escribiendo]');
+  let finEscribiendo = null;
+  const ocultarEscribiendo = () => {
+    if (escribiendo) escribiendo.hidden = true;
+    window.clearTimeout(finEscribiendo);
+  };
+  const mostrarEscribiendo = () => {
+    if (!escribiendo) return;
+    escribiendo.hidden = false;
+    window.clearTimeout(finEscribiendo);
+    finEscribiendo = window.setTimeout(ocultarEscribiendo, 5000);
+  };
+  let ultimoAviso = 0;
+  const avisarQueEscribo = () => {
+    if (!conversacion || Date.now() - ultimoAviso < 3000) return;
+    ultimoAviso = Date.now();
+    document.dispatchEvent(new CustomEvent('mensajeria:enviar', { detail: { evento: 'escribiendo', conversacion } }));
+  };
+
   const agregar = (datos) => {
     if (!mensajes || document.getElementById(`mensaje-${datos.id}`)) return;
     const seguir = datos.mio || cercaDelFinal();
@@ -185,6 +353,12 @@
     const burbuja = elemento('div', `burbuja is-nueva${datos.mio ? ' burbuja--mia' : ''}`);
     burbuja.id = `mensaje-${datos.id}`;
     burbuja.dataset.mensaje = String(datos.id);
+    burbuja.dataset.autor = datos.autor;
+    if (datos.editable_hasta) {
+      burbuja.dataset.editableHasta = datos.editable_hasta;
+      burbuja.dataset.urlEditar = datos.url_editar;
+    }
+    if (datos.cita) burbuja.append(citaDe(datos.cita));
     if (datos.html) {
       /* Ya limpio en el servidor (Mensajes/enriquecido.py) */
       const contenido = elemento('div', 'burbuja__texto burbuja__texto--rico');
@@ -197,9 +371,12 @@
     const pie = elemento('p', 'burbuja__pie');
     const hora = elemento('time', '', datos.hora);
     pie.append(hora);
+    if (datos.editado) pie.append(elemento('span', 'burbuja__editado', 'editado'));
     if (datos.mio) pie.append(estado(false));
     burbuja.append(pie);
+    ponerAcciones(burbuja);
     mensajes.append(burbuja);
+    if (!datos.mio) ocultarEscribiendo();
     if (seguir) alFinal();
   };
 
@@ -372,6 +549,10 @@
         if (document.visibilityState === 'visible') marcarLeida();
         else porLeer = true;
       }
+    } else if (datos.evento === 'editado') {
+      if (datos.conversacion === conversacion) ponerCorreccion(datos);
+    } else if (datos.evento === 'escribiendo') {
+      if (datos.conversacion === conversacion) mostrarEscribiendo();
     } else if (datos.evento === 'retirado') {
       quitarMensaje(datos);
       retirarDeLaLista(datos);
@@ -497,7 +678,10 @@
   if (raizEditor && window.EditorEnriquecido && campo) {
     editor = new window.EditorEnriquecido(raizEditor, {
       alEnviar: enviarAhora,
-      alCambiar: () => actualizarCaja(),
+      alCambiar: () => {
+        actualizarCaja();
+        if (!editor?.vacio()) avisarQueEscribo();
+      },
     });
     campo.hidden = true;
     campo.required = false;
@@ -510,7 +694,10 @@
     campo.style.height = 'auto';
     campo.style.height = `${Math.min(campo.scrollHeight + 2, 144)}px`;
   };
-  campo?.addEventListener('input', ajustarAltura);
+  campo?.addEventListener('input', () => {
+    ajustarAltura();
+    if (campo.value.trim()) avisarQueEscribo();
+  });
   campo?.addEventListener('keydown', (evento) => {
     if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
       evento.preventDefault();
@@ -554,6 +741,8 @@
       }
       agregar(datos);
       actualizarItem(datos);
+      quitarRespuesta();
+      ultimoAviso = 0;
       campo.value = '';
       if (campoHtml) campoHtml.value = '';
       editor?.vaciar();

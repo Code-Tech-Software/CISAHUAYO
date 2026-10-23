@@ -86,7 +86,7 @@ def descripcion(participante):
     if participante.tipo == Participante.ESTUDIANTE:
         inscripcion = participante.alumno.inscripciones.filter(activa=True, ciclo__activo=True).select_related('grupo__grado', 'grupo__nombre').first()
         return f'Estudiante · {inscripcion.grupo}' if inscripcion else 'Estudiante'
-    return 'Tutor'
+    return reglas.familias_de([participante.tutor]).get(participante.tutor_id) or 'Tutor'
 
 
 def _dia(fecha, hoy):
@@ -165,6 +165,9 @@ def conversacion(request, pk):
             mensaje.texto_leido = reglas.texto_de_lectura(mensaje.leido_en)
             ultimo_leido_mio = mensaje.pk
         mensaje.dia = _dia(timezone.localtime(mensaje.creado).date(), hoy)
+        mensaje.cita = reglas.cita_de(mensaje)
+        if reglas.se_puede_editar(mensaje, participante):
+            mensaje.editable_hasta = (mensaje.creado + timedelta(minutes=reglas.MINUTOS_PARA_EDITAR)).isoformat()
         # Con formato: el HTML limpio otra vez al mostrarlo (Mensajes/enriquecido.py), con las imágenes de su espacio
         mensaje.html_visible = mark_safe(reglas.html_visible(mensaje, participante)) if mensaje.html else ''
     otro = reglas.el_otro(conversacion, participante)
@@ -202,7 +205,7 @@ def enviar(request, pk):
     conversacion = _conversacion(cuenta, pk)
     try:
         mensaje = reglas.enviar(conversacion, cuenta.participante, request.POST.get('texto', ''), request.POST.get('html', ''),
-                                documentos=request.POST.getlist('documentos'))
+                                documentos=request.POST.getlist('documentos'), responde_a=request.POST.get('responde_a'))
     except reglas.MensajeRechazado as rechazo:
         if _quiere_json(request):
             return JsonResponse({'error': str(rechazo)}, status=400)
@@ -211,6 +214,21 @@ def enviar(request, pk):
     if _quiere_json(request):
         return JsonResponse(datos_de_mensaje(mensaje, cuenta.participante))
     return redirect(f"{cuenta.url('conversacion', conversacion.pk)}#mensaje-{mensaje.pk}")
+
+
+@require_POST
+def editar(request, pk):
+    """Corrige el texto de un mensaje propio en sus primeros minutos (reglas.editar). Responde con el mensaje."""
+    cuenta = request.mensajeria
+    mensaje = Mensaje.objects.select_related('conversacion', 'autor').filter(
+        pk=pk, conversacion__miembros__participante=cuenta.participante).first()
+    if mensaje is None:
+        raise Http404('No existe ese mensaje.')
+    try:
+        reglas.editar(mensaje, cuenta.participante, request.POST.get('texto', ''))
+    except reglas.MensajeRechazado as rechazo:
+        return JsonResponse({'error': str(rechazo)}, status=400)
+    return JsonResponse(datos_de_mensaje(mensaje, cuenta.participante))
 
 
 def _subir(request, pk, campo, documento):

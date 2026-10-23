@@ -319,13 +319,16 @@ def preparar_contenido(conversacion, autor, texto, html='', documentos=()):
     return texto, html, imagenes, [documento.pk for documento in adjuntos], sin_texto
 
 
-def enviar(conversacion, autor, texto, html='', documentos=()):
+def enviar(conversacion, autor, texto, html='', documentos=(), responde_a=None):
     texto, html, imagenes, documentos, sin_texto = preparar_contenido(conversacion, autor, texto, html, documentos)
     if not puede_escribir_en(conversacion, autor):
         raise MensajeRechazado('Ya no puedes escribir en esta conversación.')
+    # La cita solo vale con un mensaje de la misma conversación (si no, se envía sin cita)
+    citado = conversacion.mensajes.filter(pk=responde_a).first() if str(responde_a or '').isdigit() else None
     from . import tiempo_real
     with transaction.atomic():
-        mensaje = Mensaje.objects.create(conversacion=conversacion, autor=autor, texto=texto, html=html, sin_texto=sin_texto)
+        mensaje = Mensaje.objects.create(conversacion=conversacion, autor=autor, texto=texto, html=html, sin_texto=sin_texto,
+                                         responde_a=citado)
         if imagenes or documentos:
             _pendientes(conversacion, autor).filter(pk__in=[*imagenes, *documentos]).update(mensaje=mensaje)
         Conversacion.objects.filter(pk=conversacion.pk).update(actualizada=mensaje.creado, ultimo_mensaje=mensaje)
@@ -337,6 +340,78 @@ def enviar(conversacion, autor, texto, html='', documentos=()):
         if leidos:
             transaction.on_commit(lambda: tiempo_real.avisar_lectura(conversacion, autor, mensaje.pk, ahora))
     return mensaje
+
+
+# ---------------------------------------------------------------------------
+# Corregir un mensaje propio (2026-10-23)
+# ---------------------------------------------------------------------------
+MINUTOS_PARA_EDITAR = 2
+
+
+def se_puede_editar(mensaje, participante, ahora=None):
+    """Su autor, en los primeros minutos, con texto escrito y sin imágenes dentro (los documentos se conservan)."""
+    ahora = ahora or timezone.now()
+    return (
+        mensaje.autor_id == participante.pk and not mensaje.sin_texto
+        and ahora - mensaje.creado <= timedelta(minutes=MINUTOS_PARA_EDITAR)
+        and 'data-imagen' not in (mensaje.html or '')
+    )
+
+
+def editar(mensaje, participante, texto):
+    """Cambia el texto del mensaje (queda como texto, sin formato) y lo marca «editado». MensajeRechazado si ya no se
+    puede o si queda vacío o demasiado largo."""
+    if not puede_escribir_en(mensaje.conversacion, participante):
+        raise MensajeRechazado('Ya no puedes escribir en esta conversación.')
+    if not se_puede_editar(mensaje, participante):
+        raise MensajeRechazado(f'Solo puedes corregir tus mensajes de texto en los primeros {MINUTOS_PARA_EDITAR} minutos.')
+    texto = (texto or '').strip()
+    if not texto:
+        raise MensajeRechazado('Escribe un mensaje.')
+    if len(texto) > Mensaje.MAXIMO:
+        raise MensajeRechazado(f'El mensaje es muy largo (máximo {Mensaje.MAXIMO} caracteres).')
+    from . import tiempo_real
+    with transaction.atomic():
+        mensaje.texto, mensaje.html, mensaje.editado = texto, '', timezone.now()
+        mensaje.save(update_fields=['texto', 'html', 'editado'])
+        transaction.on_commit(lambda: tiempo_real.avisar_edicion(mensaje))
+    return mensaje
+
+
+def cita_de(mensaje):
+    """Lo que se muestra del mensaje citado: {id, autor, texto} o None."""
+    citado = mensaje.responde_a
+    if citado is None:
+        return None
+    return {'id': citado.pk, 'autor': citado.autor.nombre, 'texto': vista_previa(citado.texto)}
+
+
+# ---------------------------------------------------------------------------
+# Quién es cada persona (bajo su nombre en la lista y en la conversación)
+# ---------------------------------------------------------------------------
+def familias_de(tutores):
+    """{tutor_id: «Tutor de Ana López (3° B) y Luis López (1° A)»} con sus estudiantes de vínculo activo y su grupo del
+    ciclo actual; en una sola consulta."""
+    ids = [t.pk for t in tutores]
+    if not ids:
+        return {}
+    ciclo = ciclo_actual()
+    estudiantes = {}
+    for vinculo in (TutorAlumno.objects.filter(tutor_id__in=ids, alumno__estatus='ACTIVO').select_related('alumno')
+                    .order_by('-tutor_principal', 'alumno__nombre')):
+        estudiantes.setdefault(vinculo.tutor_id, []).append(vinculo.alumno)
+    grupos = {}
+    if ciclo is not None:
+        for inscripcion in (Inscripcion.objects.filter(activa=True, ciclo=ciclo, alumno__in=[a for lista in estudiantes.values() for a in lista])
+                            .select_related('grupo__grado', 'grupo__nombre')):
+            grupos[inscripcion.alumno_id] = inscripcion.grupo
+    textos = {}
+    for tutor_id, lista in estudiantes.items():
+        nombres = [f'{a.nombre_completo} ({grupos[a.pk]})' if a.pk in grupos else a.nombre_completo for a in lista[:3]]
+        if len(lista) > 3:
+            nombres[-1] += f' y {len(lista) - 3} más'
+        textos[tutor_id] = 'Tutor de ' + (', '.join(nombres[:-1]) + ' y ' + nombres[-1] if len(nombres) > 1 else nombres[0])
+    return textos
 
 
 def html_visible(mensaje, participante):
@@ -431,8 +506,11 @@ def bandeja(participante, limite=60, despues=None):
         Miembro.objects.filter(conversacion__in=conversaciones).exclude(participante=participante).select_related(
             'participante__usuario', 'participante__alumno', 'participante__tutor')
     }
+    familias = familias_de([p.tutor for p in otros.values() if p.tipo == Participante.TUTOR])
     for conversacion in conversaciones:
         conversacion.otro = otros.get(conversacion.pk)
+        if conversacion.otro is not None and conversacion.otro.tipo == Participante.TUTOR:
+            conversacion.otro.quien = familias.get(conversacion.otro.tutor_id, '')
         conversacion.no_leidos = pendientes.get(conversacion.pk, 0)
         conversacion.mio = conversacion.ultimo_mensaje.autor_id == participante.pk
     return [c for c in conversaciones if c.otro is not None]
@@ -465,7 +543,7 @@ def avisos(participante, limite=6):
 
 def historial(conversacion, antes=None, cantidad=50):
     """(mensajes en orden, hay_anteriores): los últimos `cantidad`, o los anteriores al id `antes`."""
-    consulta = conversacion.mensajes.select_related('autor')
+    consulta = conversacion.mensajes.select_related('autor', 'responde_a__autor__usuario', 'responde_a__autor__alumno', 'responde_a__autor__tutor')
     if antes:
         consulta = consulta.filter(pk__lt=antes)
     mensajes = list(consulta.order_by('-pk')[:cantidad + 1])
@@ -479,7 +557,7 @@ CON_CUENTA = ('autor__usuario', 'autor__alumno', 'autor__tutor')
 def ventana(conversacion, alrededor, cantidad=50):
     """(mensajes en orden, hay_anteriores, hay_posteriores): los que están antes y después del mensaje `alrededor` (un
     id), para abrir la conversación en un mensaje encontrado."""
-    base = conversacion.mensajes.select_related(*CON_CUENTA)
+    base = conversacion.mensajes.select_related(*CON_CUENTA, 'responde_a__autor__usuario', 'responde_a__autor__alumno', 'responde_a__autor__tutor')
     mitad = cantidad // 2
     previos = list(base.filter(pk__lt=alrededor).order_by('-pk')[:mitad + 1])
     siguientes = list(base.filter(pk__gte=alrededor).order_by('pk')[:mitad + 1])

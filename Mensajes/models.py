@@ -140,6 +140,10 @@ class Mensaje(models.Model):
     creado = models.DateTimeField(auto_now_add=True)
     # Cuándo lo leyó la otra persona (vacío: sin leer, o leído antes del 2026-10-20, cuando no se guardaba la hora)
     leido_en = models.DateTimeField(null=True, blank=True)
+    # El mensaje al que responde citándolo (2026-10-23); si ese se retira, la cita desaparece
+    responde_a = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    # Cuándo lo corrigió su autor (solo se puede en los primeros minutos: reglas.MINUTOS_PARA_EDITAR); vacío si nunca
+    editado = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Mensaje'

@@ -1,6 +1,6 @@
 """El canal de avisos de cada pestaña abierta (WebSocket en /ws/mensajes/).
 
-Solo envía (del servidor a la pestaña): mensajes nuevos, mensajes retirados por moderación, lecturas y el total sin leer. Escribir y marcar como leído van
+Envía (del servidor a la pestaña): mensajes nuevos, corregidos y retirados por moderación, lecturas, «escribiendo…» y el total sin leer. Escribir y marcar como leído van
 por peticiones normales (Mensajes/views.py), que guardan en la base de datos y luego avisan aquí.
 
 La cuenta se toma de la sesión, igual que en las páginas: un usuario del sistema con la mensajería o la sesión de un
@@ -23,9 +23,13 @@ registro = logging.getLogger(__name__)
 
 class AvisosConsumer(AsyncJsonWebsocketConsumer):
     grupos = ()
+    participante_id = None
+    nombre = ''
+    conversaciones_propias = None   # las conversaciones en que es miembro (para «escribiendo…»), al primer aviso
 
     async def connect(self):
         participante_id, de_comunicados, de_retiros, de_reuniones = await self._participante()
+        self.participante_id = participante_id
         if participante_id is None and not de_comunicados and not de_retiros and not de_reuniones:
             await self.close(code=4403)
             return
@@ -48,9 +52,30 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
                 registro.exception('No se pudo quitar al participante de sus avisos')
 
     async def receive_json(self, contenido, **kwargs):
-        """Nada que recibir: solo responde al «ping» con el que la pestaña comprueba que la conexión sigue viva."""
-        if isinstance(contenido, dict) and contenido.get('evento') == 'ping':
+        """Responde al «ping» con el que la pestaña comprueba que la conexión sigue viva y reenvía «escribiendo…» a la
+        otra persona de la conversación (solo si quien escribe es miembro de ella; no se guarda nada)."""
+        if not isinstance(contenido, dict):
+            return
+        if contenido.get('evento') == 'ping':
             await self.send_json({'evento': 'pong'})
+        elif contenido.get('evento') == 'escribiendo' and self.participante_id is not None:
+            conversacion = contenido.get('conversacion')
+            if isinstance(conversacion, int):
+                await self._avisar_escribiendo(conversacion)
+
+    @database_sync_to_async
+    def _avisar_escribiendo(self, conversacion):
+        from .models import Miembro, Participante
+        from .tiempo_real import avisar_escribiendo
+        if self.conversaciones_propias is None:
+            self.conversaciones_propias = set(Miembro.objects.filter(participante=self.participante_id).values_list('conversacion_id', flat=True))
+            self.nombre = Participante.objects.select_related('usuario', 'alumno', 'tutor').get(pk=self.participante_id).nombre
+        if conversacion not in self.conversaciones_propias:
+            # Una conversación recién empezada en otra pestaña: se vuelve a consultar una sola vez
+            if not Miembro.objects.filter(participante=self.participante_id, conversacion=conversacion).exists():
+                return
+            self.conversaciones_propias.add(conversacion)
+        avisar_escribiendo(conversacion, self.participante_id, self.nombre)
 
     # --- eventos del grupo (Mensajes/tiempo_real.py) ---------------------------------------------------------------
     async def mensaje_nuevo(self, evento):
@@ -58,6 +83,12 @@ class AvisosConsumer(AsyncJsonWebsocketConsumer):
 
     async def mensaje_retirado(self, evento):
         await self.send_json({'evento': 'retirado', **evento['datos']})
+
+    async def mensaje_editado(self, evento):
+        await self.send_json({'evento': 'editado', **evento['datos']})
+
+    async def mensaje_escribiendo(self, evento):
+        await self.send_json({'evento': 'escribiendo', **evento['datos']})
 
     async def mensaje_leido(self, evento):
         await self.send_json({'evento': 'leido', **evento['datos']})

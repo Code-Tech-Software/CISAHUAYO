@@ -259,6 +259,12 @@
   let espera = 1000;
   let latido = null;
   let reconexion = false;
+  let abierto = null;   /* el socket abierto, para lo que manda la pantalla de mensajes («escribiendo…») */
+
+  /* La pantalla de mensajes avisa que se está escribiendo; si no hay conexión, simplemente no se avisa */
+  document.addEventListener('mensajeria:enviar', ({ detail }) => {
+    if (abierto?.readyState === WebSocket.OPEN) abierto.send(JSON.stringify(detail));
+  });
 
   const conectar = () => {
     let socket;
@@ -268,6 +274,7 @@
       return;
     }
     socket.addEventListener('open', () => {
+      abierto = socket;
       espera = 1000;
       if (reconexion) ponerseAlDia();
       latido = window.setInterval(() => {
@@ -282,6 +289,7 @@
       }
     });
     socket.addEventListener('close', (evento) => {
+      if (abierto === socket) abierto = null;
       window.clearInterval(latido);
       if (evento.code === 4403) return;   /* la sesión ya no tiene mensajería: no insistir */
       reconexion = true;

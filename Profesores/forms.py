@@ -38,6 +38,7 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
         fields = [
             'fotografia', 'nombre', 'apellido_paterno', 'apellido_materno', 'curp', 'fecha_nacimiento',
             'telefono', 'telefono_alternativo', 'correo_electronico',
+            'emergencia_nombre', 'emergencia_parentesco', 'emergencia_telefono',
             'domicilio', 'colonia', 'ciudad', 'estado', 'cp',
             'profesion', 'cedula_profesional', 'especialidad', 'fecha_ingreso', 'horas_maximas',
             'observaciones',
@@ -53,6 +54,9 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'telefono': forms.TextInput(attrs={'inputmode': 'tel', 'autocomplete': 'off', 'placeholder': '10 dígitos', 'data-phone': ''}),
             'telefono_alternativo': forms.TextInput(attrs={'inputmode': 'tel', 'autocomplete': 'off', 'placeholder': 'Opcional', 'data-phone': ''}),
+            'emergencia_nombre': forms.TextInput(attrs={'autocomplete': 'off', 'placeholder': 'Opcional'}),
+            'emergencia_parentesco': forms.TextInput(attrs={'autocomplete': 'off', 'placeholder': 'Esposa, hermano, madre…'}),
+            'emergencia_telefono': forms.TextInput(attrs={'inputmode': 'tel', 'autocomplete': 'off', 'placeholder': 'Opcional', 'data-phone': ''}),
             'correo_electronico': forms.EmailInput(attrs={'autocomplete': 'off', 'placeholder': 'Opcional'}),
             'domicilio': forms.TextInput(attrs={'autocomplete': 'street-address', 'placeholder': 'Calle y número'}),
             'colonia': forms.TextInput(attrs={'autocomplete': 'off'}),
@@ -153,6 +157,16 @@ class ProfesorForm(EstiloCamposMixin, forms.ModelForm):
     def clean_telefono_alternativo(self):
         telefono = self.cleaned_data.get('telefono_alternativo')
         return validar_telefono(telefono) if telefono else ''
+
+    def clean_emergencia_telefono(self):
+        telefono = self.cleaned_data.get('emergencia_telefono')
+        return validar_telefono(telefono) if telefono else ''
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get('emergencia_telefono') and not compactar_espacios(datos.get('emergencia_nombre') or ''):
+            self.add_error('emergencia_nombre', 'Escribe a quién corresponde el teléfono de emergencia.')
+        return datos
 
     def clean_correo_electronico(self):
         correo = (self.cleaned_data.get('correo_electronico') or '').strip().lower()

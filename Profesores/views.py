@@ -30,7 +30,7 @@ from Usuarios.docentes import desvincular, puede_desactivar_su_cuenta
 from Usuarios.seguridad import ACCION_ALTA, ACCION_BAJA, ACCION_CAMBIO, puede_gestionar, registrar, rol_de
 from Usuarios.views import SESION_CREDENCIALES, guardar_credenciales
 
-from . import tabla
+from . import tabla, vista360
 from .forms import FiltroProfesoresForm, ProfesorForm
 
 
@@ -269,6 +269,7 @@ def profesor_detalle(request, pk):
 
     return render(request, 'profesores/detalle.html', {
         'profesor': profesor,
+        **vista360.contexto(profesor, ciclo),
         'cuenta': cuenta,
         'rol_cuenta': rol_de(cuenta) if cuenta else None,
         'puede_dar_acceso': puede_dar_acceso,
@@ -395,6 +396,23 @@ def profesor_horario_imprimir(request, pk):
     return render(request, 'profesores/horario_hoja.html', {
         'profesor': profesor, 'ciclo': ciclo, 'asignaciones': asignaciones, 'cuadricula': cuadricula(bloques),
         'horas_semanales': formatear_duracion(minutos) if minutos else '', 'grupos': len({a.grupo_id for a in asignaciones}),
+        'generado': timezone.localtime(), 'usuario': request.user.get_full_name() or request.user.get_username(),
+        'imprimir_al_abrir': request.GET.get('pdf') == '1', 'volver': volver,
+    })
+
+
+@requiere_permisos('Alumnos.view_profesor')
+def profesor_expediente(request, pk):
+    """El expediente del profesor (datos, contacto de emergencia, materias y pendientes de la vista 360) en hoja de
+    reporte, para imprimir o guardar en PDF desde el navegador (con ?pdf=1 se abre solo el diálogo de impresión)."""
+    profesor = get_object_or_404(Profesor, pk=pk)
+    ciclo = elegir_ciclo(request.GET.get('ciclo', ''), list(CicloEscolar.objects.all()))
+    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo)
+    volver = f"{reverse('profesores:detalle', args=[profesor.pk])}{f'?ciclo={ciclo.pk}' if ciclo else ''}"
+    return render(request, 'profesores/expediente_hoja.html', {
+        'profesor': profesor, 'ciclo': ciclo, 'asignaciones': asignaciones, **vista360.contexto(profesor, ciclo),
+        'horas_semanales': formatear_duracion(minutos) if minutos else '',
+        'cuenta': profesor.usuario if profesor.usuario_id else None,
         'generado': timezone.localtime(), 'usuario': request.user.get_full_name() or request.user.get_username(),
         'imprimir_al_abrir': request.GET.get('pdf') == '1', 'volver': volver,
     })

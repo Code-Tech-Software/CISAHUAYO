@@ -15,14 +15,14 @@
   background: var(--color-bg);
 }
 
-/* Filete del borde superior: zafiro, Wind Weaver y Blackwater, en franjas lisas */
+/* Filete del borde superior: la franja tricolor institucional de app.css, la misma del menú en todos los temas */
 .access::before {
   content: "";
   position: fixed;
   inset: 0 0 auto;
   z-index: 5;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-stripe) 0 45%, var(--t-accent) 45% 72%, var(--t-sidebar) 72% 100%);
+  background: var(--franja-institucional);
 }
 
 .access {

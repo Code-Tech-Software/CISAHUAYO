@@ -1,0 +1,102 @@
+{% load static alumnos_extras %}<!DOCTYPE html>
+{% comment %}
+  Expediente del profesor con el formato de los reportes: datos personales y de contacto (con el de emergencia), datos
+  profesionales, materias del ciclo y los pendientes de la vista 360. Para imprimir o guardar en PDF desde el navegador
+  (hoja vertical, tema claro). Con ?pdf=1 abre solo el diálogo de impresión.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expediente de {{ profesor }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <style>@page { size: A4 portrait; margin: 12mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver al profesor</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Expediente del profesor</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Profesor</dt><dd>{{ profesor }}</dd></div>
+        <div><dt>Estatus</dt><dd>{{ profesor.get_estatus_display }}</dd></div>
+        <div><dt>Ciclo escolar</dt><dd>{{ ciclo|default:"—" }}</dd></div>
+        <div><dt>Generado</dt><dd>{{ generado|date:"j \d\e F \d\e Y, H:i"|lower }} · {{ usuario }}</dd></div>
+      </dl>
+    </header>
+
+    <section class="reporte__seccion" aria-labelledby="titulo-datos">
+      <h2 class="reporte__subtitulo" id="titulo-datos">Datos generales</h2>
+      <table class="reporte__tabla">
+        <tbody>
+          <tr><th scope="row">CURP</th><td>{{ profesor.curp|default:"—" }}</td><th scope="row">Nacimiento</th><td>{{ profesor.fecha_nacimiento|date:"j \d\e F \d\e Y"|default:"—" }}</td></tr>
+          <tr><th scope="row">Teléfono</th><td>{{ profesor.telefono|telefono|default:"—" }}</td><th scope="row">Teléfono alternativo</th><td>{{ profesor.telefono_alternativo|telefono|default:"—" }}</td></tr>
+          <tr><th scope="row">Correo</th><td colspan="3">{{ profesor.correo_electronico|default:"—" }}</td></tr>
+          <tr><th scope="row">Domicilio</th><td colspan="3">{{ profesor.domicilio|default:"—" }}{% if profesor.colonia %}, {{ profesor.colonia }}{% endif %}{% if profesor.ciudad %}, {{ profesor.ciudad }}{% endif %}{% if profesor.estado %}, {{ profesor.estado }}{% endif %}{% if profesor.cp %} · C.P. {{ profesor.cp }}{% endif %}</td></tr>
+          <tr><th scope="row">Contacto de emergencia</th><td>{{ profesor.emergencia_nombre|default:"No registrado" }}{% if profesor.emergencia_parentesco %} ({{ profesor.emergencia_parentesco }}){% endif %}</td><th scope="row">Teléfono de emergencia</th><td>{{ profesor.emergencia_telefono|telefono|default:"—" }}</td></tr>
+          <tr><th scope="row">Profesión</th><td>{{ profesor.profesion|default:"—" }}</td><th scope="row">Cédula</th><td>{{ profesor.cedula_profesional|default:"—" }}</td></tr>
+          <tr><th scope="row">Niveles</th><td>{{ profesor.niveles_texto|default:"—" }}</td><th scope="row">Ingreso</th><td>{{ profesor.fecha_ingreso|date:"j \d\e F \d\e Y"|default:"—" }}</td></tr>
+          <tr><th scope="row">Cuenta de acceso</th><td>{% if cuenta %}{{ cuenta.username }}{% if not cuenta.is_active %} (desactivada){% endif %}{% else %}Sin cuenta{% endif %}</td><th scope="row">Carga semanal</th><td>{{ horas_semanales|default:"Sin horario" }}{% if profesor.horas_maximas %} de {{ profesor.horas_maximas }} h{% endif %}</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="reporte__seccion" aria-labelledby="titulo-materias">
+      <h2 class="reporte__subtitulo" id="titulo-materias">Materias del ciclo</h2>
+      {% if asignaciones %}
+        <table class="reporte__tabla">
+          <thead><tr><th scope="col">Materia</th><th scope="col">Grupo</th><th scope="col">Horas por semana</th></tr></thead>
+          <tbody>
+            {% for asignacion in asignaciones %}
+              <tr><th scope="row">{{ asignacion.materia }}</th><td>{{ asignacion.grupo.nombre_equivalente }}</td><td>{{ asignacion.duracion|default:"—" }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-muted">No tiene materias en este ciclo.</p>
+      {% endif %}
+    </section>
+
+    <section class="reporte__seccion" aria-labelledby="titulo-pendientes">
+      <h2 class="reporte__subtitulo" id="titulo-pendientes">Pendientes</h2>
+      <table class="reporte__tabla">
+        <thead><tr><th scope="col">Tipo</th><th scope="col">Materia y grupo</th><th scope="col">Detalle</th></tr></thead>
+        <tbody>
+          {% for p in asistencias_pendientes %}
+            <tr><th scope="row">Asistencia por capturar</th><td>{{ p.asignacion.materia }} · {{ p.asignacion.grupo.nombre_equivalente }}</td><td>{{ p.dias }} día{{ p.dias|pluralize }} sin lista en {{ p.periodo.nombre }}</td></tr>
+          {% endfor %}
+          {% for p in actas_pendientes %}
+            <tr><th scope="row">Calificaciones por cerrar</th><td>{{ p.asignacion.materia }} · {{ p.asignacion.grupo.nombre_equivalente }}</td><td>{{ p.periodo.nombre }}: {{ p.estado|lower }}{% if p.vencido %}, periodo terminado{% endif %}</td></tr>
+          {% endfor %}
+          {% for reunion in reuniones.abiertas %}
+            <tr><th scope="row">Reunión</th><td>{{ reunion.tutor }}</td><td>{{ reunion.motivo }} · {{ reunion.get_estado_display }}{% if reunion.fecha %} · {{ reunion.fecha|date:"j M Y" }}{% endif %}</td></tr>
+          {% endfor %}
+          {% if not asistencias_pendientes and not actas_pendientes and not reuniones.abiertas %}
+            <tr><td colspan="3" class="text-muted">Sin pendientes.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+      {% if bitacoras %}<p class="text-muted">Entradas de bitácora en el ciclo: {{ bitacoras.total }}.</p>{% endif %}
+    </section>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

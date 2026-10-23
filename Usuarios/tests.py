@@ -969,3 +969,28 @@ class SistemaSinMigrarTests(BaseUsuariosTestCase):
                     respuesta = self.client.get(reverse(nombre))
                     self.assertEqual(respuesta.status_code, 200)
                     self.assertContains(respuesta, 'menu__subtitle')
+
+
+@PRUEBAS
+class BitacoraDeCambiosTests(BaseTestCase):
+    """La pantalla de la bitácora (2026-10-23): solo para quien tiene admin.view_logentry; filtra y busca sin acentos."""
+
+    def setUp(self):
+        from django.contrib.admin.models import ADDITION, LogEntry
+        from django.contrib.contenttypes.models import ContentType
+        Usuario = get_user_model()
+        self.admin = Usuario.objects.create_superuser('jefa', 'jefa@example.com', 'x-Clave-123')
+        self.otro = Usuario.objects.create_user('otro', password='x-Clave-123')
+        LogEntry.objects.create(user_id=self.admin.pk, content_type=ContentType.objects.get_for_model(Usuario),
+                                object_id=str(self.otro.pk), object_repr='otro', action_flag=ADDITION,
+                                change_message='Se creó la cuenta para la excursión.')
+
+    def test_solo_el_administrador(self):
+        self.client.force_login(self.otro)
+        self.assertNotEqual(self.client.get(reverse('usuarios:bitacora')).status_code, 200)
+
+    def test_lista_y_busca_sin_acentos(self):
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse('usuarios:bitacora'), {'q': 'excursion'})
+        self.assertContains(respuesta, 'Se creó la cuenta')
+        self.assertNotContains(self.client.get(reverse('usuarios:bitacora'), {'q': 'zzz'}), 'Se creó la cuenta')

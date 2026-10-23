@@ -5,6 +5,7 @@
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+  <link rel="stylesheet" href="{% static 'css/vista360.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -104,6 +105,9 @@
         Puede impartir <span class="tabs__count">{{ habilitadas|length }}</span>
       </button>
       <button type="button" class="tabs__tab" role="tab" id="tab-horario" aria-controls="horario" aria-selected="false">Horario</button>
+      <button type="button" class="tabs__tab" role="tab" id="tab-vista360" aria-controls="vista360" aria-selected="false">
+        Vista 360{% if pendientes_360 %} <span class="tabs__count">{{ pendientes_360 }}</span>{% endif %}
+      </button>
     </div>
 
     {# --- Resumen ---------------------------------------------------------- #}
@@ -128,6 +132,9 @@
             {% include "alumnos/_dato.html" with etiqueta="Teléfono" valor=profesor.telefono|telefono %}
             {% include "alumnos/_dato.html" with etiqueta="Teléfono alternativo" valor=profesor.telefono_alternativo|telefono %}
             {% include "alumnos/_dato.html" with etiqueta="Correo electrónico" valor=profesor.correo_electronico ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="Contacto de emergencia" valor=profesor.emergencia_nombre ancho=True %}
+            {% include "alumnos/_dato.html" with etiqueta="Parentesco" valor=profesor.emergencia_parentesco %}
+            {% include "alumnos/_dato.html" with etiqueta="Teléfono de emergencia" valor=profesor.emergencia_telefono|telefono %}
           </dl>
         </article>
 
@@ -428,6 +435,11 @@
           </div>
         </div>
       {% endif %}
+    </section>
+
+    {# --- Vista 360: pendientes y actividad reciente en otros módulos -------------------- #}
+    <section class="tabs__panel" role="tabpanel" id="vista360" aria-labelledby="tab-vista360">
+      {% include "profesores/_vista360.html" %}
     </section>
   </div>
 

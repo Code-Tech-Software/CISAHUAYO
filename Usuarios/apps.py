@@ -9,7 +9,12 @@ class UsuariosConfig(AppConfig):
     def ready(self):
         from django.contrib.auth.signals import user_logged_in
 
+        from CISAHUAYO import sin_acentos
+
         from . import contrasenas, signals
+
+        # Los buscadores (icontains) ignoran los acentos: «excursion» encuentra «excursión»
+        sin_acentos.instalar()
 
         user_logged_in.connect(signals.recordar_cambio_de_contrasena, dispatch_uid='usuarios.cambio_de_contrasena')
         # Si la contraseña de una cuenta cambia por otro camino, su copia consultable se borra (Usuarios/contrasenas.py)

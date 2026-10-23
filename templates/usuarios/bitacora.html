@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Bitácora de cambios | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/seguridad.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Bitácora de cambios</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Bitácora de cambios</h1>
+      <p class="page-header__description">Quién hizo qué y cuándo: altas, cambios y bajas que el sistema fue anotando en cuentas, roles, asignaciones y demás secciones. Solo consulta.</p>
+    </div>
+  </header>
+
+  <form class="filters filters--compact" method="get" role="search" aria-label="Buscar y filtrar la bitácora" data-autosubmit>
+    {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
+    <div class="filters__search">
+      <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar en la bitácora</label>
+      {% include "partials/icon.html" with name="search" icon_class="filters__icon" %}
+      {{ filtro.q }}
+    </div>
+    {% for campo in filtro %}{% if campo.name != 'q' %}
+      <div class="filters__field">
+        <label class="{% if campo.name == 'desde' or campo.name == 'hasta' %}field__label{% else %}visually-hidden{% endif %}" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+      </div>
+    {% endif %}{% endfor %}
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
+      {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% url 'usuarios:bitacora' %}">Limpiar</a>{% endif %}
+    </div>
+  </form>
+
+  {% if entradas %}
+    <p class="results-summary" role="status">{{ pagina.paginator.count }} movimiento{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}</p>
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Bitácora de cambios del sistema</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Cuándo</th>
+            <th class="table__th" scope="col">Quién</th>
+            <th class="table__th" scope="col">Acción</th>
+            <th class="table__th" scope="col">Sección</th>
+            <th class="table__th" scope="col">Qué cambió</th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for entrada in entradas %}
+            <tr class="table__row">
+              <td class="table__cell" data-label="Cuándo">
+                <span class="cell-stack">
+                  <span class="cell-stack__main">{{ entrada.cuando|date:"j \d\e F \d\e Y" }}</span>
+                  <span class="cell-stack__sub">{{ entrada.cuando|date:"H:i" }}</span>
+                </span>
+              </td>
+              <td class="table__cell" data-label="Quién">{{ entrada.quien }}</td>
+              <td class="table__cell" data-label="Acción"><span class="tag tag--{{ entrada.accion.1 }}">{{ entrada.accion.0 }}</span></td>
+              <td class="table__cell" data-label="Sección">{{ entrada.seccion }}</td>
+              <td class="table__cell table__cell--main" data-label="Qué cambió">
+                <span class="cell-stack">
+                  <span class="cell-stack__main">{{ entrada.sobre }}</span>
+                  <span class="cell-stack__sub">{{ entrada.texto }}</span>
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="movimientos" por_pagina=por_pagina opciones=opciones_por_pagina %}
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clock" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{% if filtros_activos %}Nada con esos filtros{% else %}Todavía no hay movimientos{% endif %}</p>
+        <p class="empty-state__text">Cada alta, cambio o baja que el sistema registre aparecerá aquí.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

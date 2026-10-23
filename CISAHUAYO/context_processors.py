@@ -177,6 +177,7 @@ NAVEGACION = (
         'elementos': (
             {'etiqueta': 'Usuarios', 'icono': 'user', 'ruta': 'usuarios:lista', 'permiso': 'auth.view_user'},
             {'etiqueta': 'Roles y permisos', 'icono': 'shield-check', 'ruta': 'roles:lista', 'permiso': 'Usuarios.view_rol'},
+            {'etiqueta': 'Bitácora de cambios', 'icono': 'clock', 'ruta': 'usuarios:bitacora', 'permiso': 'admin.view_logentry'},
             # Sin permiso: cada quien elige cómo ve el sistema; con permiso, ahí están los ajustes de asistencia y conducta
             {'etiqueta': 'Ajustes', 'icono': 'settings', 'ruta': 'ajustes:inicio'},
         ),

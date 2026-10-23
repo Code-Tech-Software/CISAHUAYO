@@ -12,7 +12,9 @@ from django.utils.formats import date_format
 from Alumnos.models import Grado
 
 COLEGIO = 'COLEGIO'
-ALCANCES = [*Grado.NIVEL_CHOICES, (COLEGIO, 'Todo el colegio')]
+# En la agenda el bachillerato se llama así y los eventos generales son de «Todos los niveles» (pedido del 2026-10-23)
+ALCANCES = [*((clave, 'Bachillerato' if clave == 'PREPARATORIA' else nombre) for clave, nombre in Grado.NIVEL_CHOICES),
+            (COLEGIO, 'Todos los niveles')]
 NOMBRE_DE_ALCANCE = dict(ALCANCES)
 
 # (fondo, texto): los colores de cada nivel que usa el colegio (pedido del 2026-10-20) y, encima, el texto que alcanza

@@ -386,6 +386,9 @@ MODULOS = (
             'editar': 'Cambiar los permisos de un rol: llega a todos los usuarios que lo tienen.',
             'baja': 'Desactivar roles (no se borran).',
         }),
+        Funcion('Bitácora de cambios', {'ver': 'admin.view_logentry'}, reservado={'ver': ADMINISTRADOR}, ayuda={
+            'ver': 'Consultar quién hizo qué y cuándo en todo el sistema (solo consulta).',
+        }),
     )),
 )
 

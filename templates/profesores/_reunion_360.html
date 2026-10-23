@@ -1,0 +1,8 @@
+<li class="v360-lista__item">
+  <div class="v360-lista__fila">
+    <span class="v360-lista__fecha">{% if reunion.fecha %}{{ reunion.fecha|date:"j M" }}{% else %}Sin fecha{% endif %}</span>
+    <a class="link-subtle" href="{% url 'reuniones:detalle' reunion.pk %}">{{ reunion.motivo }}</a>
+    <span class="tag">{{ reunion.get_estado_display }}</span>
+  </div>
+  <p class="v360-lista__texto text-muted">{{ reunion.tutor }}</p>
+</li>

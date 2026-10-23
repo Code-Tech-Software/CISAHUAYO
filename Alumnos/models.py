@@ -1166,6 +1166,10 @@ class Profesor(models.Model):
         max_length=5, blank=True, verbose_name='Código postal',
         validators=[RegexValidator(regex=r'^\d{5}$', message='El código postal debe contener exactamente 5 dígitos.')],
     )
+    # A quién llamar si al profesor le pasa algo en el colegio (vista 360 del docente, 2026-10-23)
+    emergencia_nombre = models.CharField(max_length=150, blank=True, verbose_name='Contacto de emergencia')
+    emergencia_parentesco = models.CharField(max_length=60, blank=True, verbose_name='Parentesco o relación')
+    emergencia_telefono = models.CharField(max_length=20, blank=True, verbose_name='Teléfono de emergencia')
     profesion = models.CharField(max_length=150, blank=True, verbose_name='Profesión o título')
     cedula_profesional = models.CharField(max_length=20, blank=True, verbose_name='Cédula profesional')
     especialidad = models.CharField(max_length=150, blank=True, verbose_name='Especialidad o áreas que imparte')

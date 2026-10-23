@@ -1,11 +1,12 @@
 from django.urls import path
 
-from . import views
+from . import views, views_bitacora
 
 app_name = 'usuarios'
 
 urlpatterns = [
     path('', views.usuario_lista, name='lista'),
+    path('bitacora/', views_bitacora.bitacora, name='bitacora'),
     path('nuevo/', views.usuario_crear, name='crear'),
     path('<int:pk>/', views.usuario_detalle, name='detalle'),
     path('<int:pk>/editar/', views.usuario_editar, name='editar'),

@@ -1,0 +1,98 @@
+{# Vista 360 del docente: lo pendiente y lo reciente en otros módulos (Profesores/vista360.py). Solo consulta. #}
+<div class="panel-actions">
+  <a class="btn btn--sm" href="{% url 'profesores:expediente' profesor.pk %}{% if ciclo %}?ciclo={{ ciclo.pk }}&amp;{% else %}?{% endif %}pdf=1" target="_blank" rel="noopener">
+    {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Expediente en PDF
+  </a>
+</div>
+
+<div class="info-grid">
+  <article class="card">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="user-check" %}<h2 class="card__title">Asistencias por capturar</h2>
+    </header>
+    <div class="card__body">
+      {% if asistencias_pendientes %}
+        <ul class="v360-lista">
+          {% for p in asistencias_pendientes %}
+            <li class="v360-lista__item">
+              <div class="v360-lista__fila">
+                <strong>{{ p.asignacion.materia }}</strong>
+                <span class="text-muted">{{ p.asignacion.grupo.nombre_equivalente }}</span>
+                <span class="tag tag--warning">{{ p.dias }} día{{ p.dias|pluralize }} sin lista</span>
+              </div>
+              <p class="v360-lista__texto text-muted">{{ p.periodo.nombre }} · el más reciente: {{ p.ultimo|date:"D j M" }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">Nada pendiente: ha pasado lista en todos sus días de clase del periodo abierto.</p>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="card">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title">Calificaciones por cerrar</h2>
+    </header>
+    <div class="card__body">
+      {% if actas_pendientes %}
+        <ul class="v360-lista">
+          {% for p in actas_pendientes %}
+            <li class="v360-lista__item">
+              <div class="v360-lista__fila">
+                <strong>{{ p.asignacion.materia }}</strong>
+                <span class="text-muted">{{ p.asignacion.grupo.nombre_equivalente }} · {{ p.periodo.nombre }}</span>
+                <span class="tag tag--{% if p.vencido %}danger{% else %}info{% endif %}">{{ p.estado }}{% if p.vencido %} · periodo terminado{% endif %}</span>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">Todas sus actas de los periodos ya iniciados están cerradas.</p>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="card">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title">Bitácoras{% if bitacoras %} <span class="tabs__count">{{ bitacoras.total }}</span>{% endif %}</h2>
+    </header>
+    <div class="card__body">
+      {% if bitacoras is None %}
+        <p class="text-muted">Sin cuenta de acceso: no puede escribir en las bitácoras.</p>
+      {% elif bitacoras.recientes %}
+        <ul class="v360-lista">
+          {% for entrada in bitacoras.recientes %}
+            <li class="v360-lista__item">
+              <div class="v360-lista__fila">
+                <span class="v360-lista__fecha">{{ entrada.fecha|date:"j M" }}</span>
+                <a class="link-subtle" href="{% url 'bitacoras:detalle' entrada.pk %}">{{ entrada.titulo }}</a>
+              </div>
+              <p class="v360-lista__texto text-muted">{{ entrada.grupo_texto }} · {{ entrada.materia_nombre }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">No ha escrito entradas en este ciclo.</p>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="card">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title">Reuniones con familias</h2>
+    </header>
+    <div class="card__body">
+      {% if reuniones is None %}
+        <p class="text-muted">Sin cuenta de acceso: no se le asignan reuniones.</p>
+      {% elif reuniones.abiertas or reuniones.recientes %}
+        <ul class="v360-lista">
+          {% for reunion in reuniones.abiertas %}{% include "profesores/_reunion_360.html" %}{% endfor %}
+          {% for reunion in reuniones.recientes %}{% include "profesores/_reunion_360.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">No es responsable de ninguna reunión abierta ni reciente.</p>
+      {% endif %}
+    </div>
+  </article>
+</div>

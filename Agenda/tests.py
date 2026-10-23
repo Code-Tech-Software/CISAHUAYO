@@ -124,7 +124,7 @@ class EventoTests(BaseTestCase):
             uno = evento(clave, clave)
             self.assertEqual(uno.color, color)
             self.assertGreaterEqual(contraste(uno.color, uno.color_texto), 4.5, clave)   # el texto se lee sobre el color
-        self.assertEqual(evento('General', COLEGIO).nombre_alcance, 'Todo el colegio')
+        self.assertEqual(evento('General', COLEGIO).nombre_alcance, 'Todos los niveles')
 
     def test_fechas_y_horario_en_texto(self):
         uno = evento('Junta', inicio=date(2026, 10, 12), horas=(time(17), time(18, 30)))
@@ -234,7 +234,7 @@ class GestionTests(BaseTestCase):
         self.assertContains(respuesta, 'Nuevo evento')
         self.assertContains(respuesta, f'{NUEVO}?fecha=2026-10-14')                    # cada día abre el registro
         self.assertEqual([nombre for _, nombre, _, _ in respuesta.context['leyenda']],
-                         ['Preescolar', 'Primaria', 'Secundaria', 'Preparatoria', 'Todo el colegio'])
+                         ['Preescolar', 'Primaria', 'Secundaria', 'Bachillerato', 'Todos los niveles'])
         self.assertTrue(all('editar' in dato and 'eliminar' in dato for dato in respuesta.context['datos_eventos']))
 
     def test_navegar_entre_meses_conserva_el_nivel(self):
@@ -334,7 +334,7 @@ class VisibilidadTests(BaseTestCase):
         self.personal('recepcion', niveles_retiros=['PRIMARIA'])
         self.assertEqual(self.client.get(f'{CALENDARIO}?evento={self.eventos["PREESCOLAR"].pk}').status_code, 404)
         respuesta = self.client.get(f'{CALENDARIO}?evento={self.eventos[COLEGIO].pk}')
-        self.assertContains(respuesta, 'Todo el colegio')
+        self.assertContains(respuesta, 'Todos los niveles')
         self.assertNotContains(respuesta, reverse('agenda:editar', args=[self.eventos[COLEGIO].pk]))
 
     def test_sin_sesion_se_pide_iniciar_sesion(self):

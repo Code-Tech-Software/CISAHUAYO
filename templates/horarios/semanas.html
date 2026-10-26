@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Semanas A y B | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'horarios:lista' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">Horarios</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Semanas A y B</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Semanas A y B</h1>
+      <p class="page-header__description">Preescolar y primaria pueden alternar dos horarios: una semana el A y la siguiente el B, con las mismas materias y profesores. Las semanas van de lunes a domingo y la secuencia es la misma para todos los grupos del nivel.</p>
+    </div>
+  </header>
+
+  {% if ciclos|length > 1 %}
+    <form class="toolbar" method="get" data-autosubmit>
+      <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
+      <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
+        {% for c in ciclos %}
+          <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--sm" data-autosubmit-fallback>Ver</button>
+    </form>
+  {% endif %}
+
+  {% if not ciclo %}
+    <div class="card"><div class="empty-state"><p class="empty-state__title">Aún no hay ciclos escolares</p></div></div>
+  {% else %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p>Las vacaciones y las semanas sin clases siguen la alternancia; los días festivos y las suspensiones solo son días sin clases. Para que la secuencia cambie a partir de una semana, agrega una excepción: cambiar la fecha de referencia recalcula todas las semanas del ciclo.</p>
+      </div>
+    </div>
+
+    {% for tarjeta in niveles %}
+      <section class="card semanas-nivel" id="nivel-{{ tarjeta.nivel|lower }}" aria-labelledby="titulo-{{ tarjeta.nivel|lower }}">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="calendar-range" %}
+          <h2 class="card__title" id="titulo-{{ tarjeta.nivel|lower }}">{{ tarjeta.nombre }}</h2>
+          <span class="tag{% if tarjeta.alternado %} tag--primary{% endif %}">{% if tarjeta.alternado %}Semanas A y B{% else %}Horario fijo{% endif %}</span>
+        </header>
+
+        <div class="card__body">
+          {% if tarjeta.alternado %}
+            <p class="semanas-hoy">Esta semana, del {{ tarjeta.hoy.rango }}, es la <strong class="semana-letra semana-letra--{{ tarjeta.hoy.tipo|lower }}">{{ tarjeta.hoy.nombre }}</strong>.</p>
+            <ol class="semanas-proximas" aria-label="Próximas semanas de {{ tarjeta.nombre|lower }}">
+              {% for semana in tarjeta.proximas %}
+                <li class="semanas-proximas__item"><span class="semana-letra semana-letra--{{ semana.tipo|lower }}">{{ semana.tipo }}</span> {{ semana.rango }}</li>
+              {% endfor %}
+            </ol>
+          {% elif not tarjeta.alternable %}
+            <p class="text-muted">Horario fijo: este nivel tiene el mismo horario todas las semanas.</p>
+          {% else %}
+            <p class="text-muted">Horario fijo: el mismo horario todas las semanas.</p>
+          {% endif %}
+
+          {% if tarjeta.alternable and editable %}
+            <form class="semanas-form" method="post" action="{% url 'horarios:modalidad' %}?ciclo={{ ciclo.pk }}" novalidate>
+              {% csrf_token %}
+              <input type="hidden" name="nivel" value="{{ tarjeta.nivel }}">
+              <div class="form-grid">
+                {% include "partials/field.html" with campo=tarjeta.form.modalidad clase="form-grid__full" %}
+                {% include "partials/field.html" with campo=tarjeta.form.fecha_referencia %}
+                {% include "partials/field.html" with campo=tarjeta.form.semana_referencia %}
+              </div>
+              <p class="field__hint">
+                {% if tarjeta.alternado %}Si vuelves al horario fijo, la semana A de cada grupo queda como su horario de todas las semanas y se quita la B.{% else %}Al activar las semanas A y B, el horario que ya tiene cada grupo queda como semana A y se copia igual a la B; después ajustas lo que cambie.{% endif %}
+              </p>
+              <div class="semanas-form__acciones">
+                <button type="submit" class="btn btn--primary btn--sm">Guardar {{ tarjeta.nombre|lower }}</button>
+              </div>
+            </form>
+          {% elif tarjeta.alternable and tarjeta.configuracion %}
+            <p class="text-muted">{% if tarjeta.alternado %}Referencia: la semana del {{ tarjeta.configuracion.fecha_referencia|date:"j \d\e F \d\e Y" }} es la {{ tarjeta.configuracion.semana_referencia }}.{% endif %}</p>
+          {% endif %}
+          {% if tarjeta.configuracion.modificado_por %}
+            <p class="record-meta text-muted">Último cambio: {{ tarjeta.configuracion.modificado|date:"j \d\e F \d\e Y, H:i" }} · {{ tarjeta.configuracion.modificado_por.get_full_name|default:tarjeta.configuracion.modificado_por.username }}</p>
+          {% endif %}
+        </div>
+
+        {% if tarjeta.alternado %}
+          <div class="card__body semanas-excepciones">
+            <h3 class="semanas-subtitulo">Excepciones</h3>
+            {% if tarjeta.excepciones %}
+              <div class="table-card">
+                <table class="table">
+                  <caption class="visually-hidden">Excepciones de semana de {{ tarjeta.nombre|lower }}</caption>
+                  <thead class="table__head">
+                    <tr>
+                      <th class="table__th" scope="col">Semana del</th>
+                      <th class="table__th" scope="col">Será la</th>
+                      <th class="table__th" scope="col">Tipo</th>
+                      <th class="table__th" scope="col">Motivo</th>
+                      <th class="table__th" scope="col">Registró</th>
+                      {% if editable %}<th class="table__th" scope="col"><span class="visually-hidden">Acciones</span></th>{% endif %}
+                    </tr>
+                  </thead>
+                  <tbody class="table__body">
+                    {% for excepcion in tarjeta.excepciones %}
+                      <tr class="table__row">
+                        <td class="table__cell" data-label="Semana del">{{ excepcion.lunes|date:"j \d\e F \d\e Y" }}</td>
+                        <td class="table__cell" data-label="Será la"><span class="semana-letra semana-letra--{{ excepcion.semana|lower }}">{{ excepcion.semana }}</span></td>
+                        <td class="table__cell" data-label="Tipo">{{ excepcion.get_tipo_display }}</td>
+                        <td class="table__cell" data-label="Motivo">{{ excepcion.motivo|default:"—" }}</td>
+                        <td class="table__cell" data-label="Registró">{{ excepcion.creado_por.get_full_name|default:excepcion.creado_por.username|default:"—" }} · {{ excepcion.creado|date:"j/m/Y H:i" }}</td>
+                        {% if editable %}
+                          <td class="table__cell">
+                            <form method="post" action="{% url 'horarios:excepcion_eliminar' excepcion.pk %}?ciclo={{ ciclo.pk }}">
+                              {% csrf_token %}
+                              <button type="submit" class="btn btn--ghost btn--sm btn--danger-text">Quitar</button>
+                            </form>
+                          </td>
+                        {% endif %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted">Ninguna: todas las semanas siguen la alternancia.</p>
+            {% endif %}
+
+            {% if editable %}
+              {% with form=tarjeta.excepcion_form %}
+                <form class="semanas-form" method="post" action="{% url 'horarios:excepcion' %}?ciclo={{ ciclo.pk }}" novalidate>
+                  {% csrf_token %}
+                  <input type="hidden" name="nivel" value="{{ tarjeta.nivel }}">
+                  <h4 class="semanas-subtitulo">Agregar una excepción</h4>
+                  <div class="form-grid">
+                    {% include "partials/field.html" with campo=form.fecha %}
+                    {% include "partials/field.html" with campo=form.semana %}
+                    {% include "partials/choices.html" with campo=form.tipo clase="form-grid__full" %}
+                    {% include "partials/field.html" with campo=form.motivo clase="form-grid__full" %}
+                  </div>
+
+                  {% if tarjeta.vista_previa %}
+                    <div class="semanas-vista-previa" role="region" aria-label="Vista previa de las semanas siguientes">
+                      <p><strong>Vista previa:</strong> {% if tarjeta.vista_previa.cambios %}cambia{{ tarjeta.vista_previa.cambios|pluralize:"n" }} {{ tarjeta.vista_previa.cambios }} de las {{ tarjeta.vista_previa.semanas|length }} semanas desde la del {{ tarjeta.vista_previa.lunes|date:"j \d\e F" }}.{% else %}ninguna de las semanas siguientes cambia.{% endif %} Todavía no se guarda nada.</p>
+                      <div class="table-card">
+                        <table class="table">
+                          <thead class="table__head">
+                            <tr><th class="table__th" scope="col">Semana</th><th class="table__th" scope="col">Ahora</th><th class="table__th" scope="col">Con la excepción</th></tr>
+                          </thead>
+                          <tbody class="table__body">
+                            {% for fila in tarjeta.vista_previa.semanas %}
+                              <tr class="table__row{% if fila.cambia %} semanas-vista-previa__cambia{% endif %}">
+                                <td class="table__cell" data-label="Semana">{{ fila.antes.rango }}</td>
+                                <td class="table__cell" data-label="Ahora"><span class="semana-letra semana-letra--{{ fila.antes.tipo|lower }}">{{ fila.antes.tipo }}</span></td>
+                                <td class="table__cell" data-label="Con la excepción"><span class="semana-letra semana-letra--{{ fila.despues.tipo|lower }}">{{ fila.despues.tipo }}</span>{% if fila.cambia %} <span class="tag tag--warning">Cambia</span>{% endif %}</td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  {% endif %}
+
+                  <div class="semanas-form__acciones">
+                    <button type="submit" class="btn btn--sm">Ver vista previa</button>
+                    {% if tarjeta.vista_previa %}
+                      <button type="submit" class="btn btn--primary btn--sm" name="guardar" value="1">Guardar excepción</button>
+                    {% endif %}
+                  </div>
+                </form>
+              {% endwith %}
+            {% endif %}
+          </div>
+        {% endif %}
+      </section>
+    {% endfor %}
+  {% endif %}
+{% endblock %}

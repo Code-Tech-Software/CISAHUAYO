@@ -184,9 +184,7 @@ def motivo_sin_clases(fecha, ciclo=None, exigir_actual=False, nivel=None):
         motivo = ', '.join(dict.fromkeys(sin_clases[n] for n in NIVELES if n in sin_clases)) if _de_todo_el_colegio(sin_clases) else None
     if motivo:
         return f'Día sin clases: {motivo}.'
-    if fecha.weekday() >= 5 and not HorarioMateria.objects.filter(
-        materia_grado__ciclo=ciclo, materia_grado__activa=True, dia_semana=fecha.weekday(),
-    ).exists():
+    if fecha.weekday() >= 5 and not _bloques_de_fecha(fecha, ciclo).exists():
         return 'No hay clases en fin de semana.'
     return None
 
@@ -239,12 +237,16 @@ def inscripciones_del_dia(fecha, ciclo=None, grado=None, grupo=None):
     return inscripciones
 
 
+def _bloques_de_fecha(fecha, ciclo, **filtros):
+    """Los bloques de ese día: los de su semana (A o B) en los niveles alternados y la versión del horario de entonces
+    (Alumnos/semanas.py, el criterio de todo el sistema)."""
+    from .semanas import bloques_de_fecha
+    return bloques_de_fecha(fecha, ciclo, **filtros)
+
+
 def _bloques_del_dia(ciclo, fecha, **filtros):
     return (
-        HorarioMateria.objects.filter(
-            materia_grado__ciclo=ciclo, materia_grado__activa=True, materia_grado__materia__activa=True,
-            dia_semana=fecha.weekday(), **filtros,
-        )
+        _bloques_de_fecha(fecha, ciclo, materia_grado__materia__activa=True, **filtros)
         .select_related('materia_grado__materia', 'materia_grado__profesor', 'materia_grado__grado', 'materia_grado__grupo__nombre', 'materia_grado__grupo__grado')
         .order_by('hora_inicio')
     )

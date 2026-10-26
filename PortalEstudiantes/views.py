@@ -6,6 +6,7 @@ se muestra lo arma `resumen.py`, que también usa el portal de tutores.
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
 
+from Alumnos.semanas import fecha_de
 from CISAHUAYO import portales
 
 from .resumen import resumen
@@ -15,7 +16,9 @@ TIPO = portales.ESTUDIANTE
 
 @portales.portal_requerido(TIPO)
 def inicio(request):
-    return render(request, 'portales/estudiantes/inicio.html', {**portales.contexto(request), **resumen(request.cuenta_portal)})
+    return render(request, 'portales/estudiantes/inicio.html', {
+        **portales.contexto(request), **resumen(request.cuenta_portal, semana=fecha_de(request.GET.get('semana'))),
+    })
 
 
 @require_POST

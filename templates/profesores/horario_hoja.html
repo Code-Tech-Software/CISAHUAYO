@@ -45,7 +45,7 @@
     <section class="reporte__seccion" aria-labelledby="titulo-semana">
       <h2 class="reporte__subtitulo" id="titulo-semana">Horario semanal</h2>
       {% if cuadricula.filas %}
-        {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta="Horario semanal de "|add:profesor.nombre_completo modo="profesor" %}
+        {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta="Horario semanal de "|add:profesor.nombre_completo modo="profesor" mostrar_semana=True %}
       {% else %}
         <p class="text-muted">{{ profesor }} todavía no tiene horario en este ciclo.</p>
       {% endif %}

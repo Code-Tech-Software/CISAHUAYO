@@ -86,9 +86,11 @@ def _clase_actual(alcance):
     """El bloque del docente que está en curso (o el último que terminó hoy): la captura arranca con esa clase."""
     if alcance.profesor is None:
         return None
+    from Alumnos.semanas import bloques_de_fecha
     ahora = timezone.localtime()
-    bloques = list(HorarioMateria.objects.filter(
-        materia_grado__in=alcance.asignaciones().filter(profesor=alcance.profesor), dia_semana=ahora.weekday(),
+    # Los de hoy: su semana A/B y la versión del horario en vigor (Alumnos/semanas.py)
+    bloques = list(bloques_de_fecha(
+        ahora.date(), materia_grado__in=alcance.asignaciones().filter(profesor=alcance.profesor),
     ).select_related('materia_grado').order_by('hora_inicio'))
     hora = ahora.time()
     en_curso = next((b for b in bloques if b.hora_inicio <= hora < b.hora_fin), None)
@@ -246,12 +248,20 @@ def opciones(request):
     asignaciones = [a for a in alcance.asignaciones() if str(a.grupo_id) == request.GET.get('grupo', '')]
     if not asignaciones:
         return JsonResponse({'materias': [], 'alumnos': []})
+    from Alumnos.semanas import Calendario, mapa_de_semanas
     bloques = {}
-    for bloque in HorarioMateria.objects.filter(materia_grado__in=asignaciones).order_by('dia_semana', 'hora_inicio'):
-        bloques.setdefault(bloque.materia_grado_id, []).append({'id': bloque.pk, 'dia': bloque.dia_semana, 'texto': texto_de_bloque(bloque)})
+    for bloque in HorarioMateria.historial.filter(materia_grado__in=asignaciones).order_by('dia_semana', 'hora_inicio', 'semana'):
+        bloques.setdefault(bloque.materia_grado_id, []).append({
+            'id': bloque.pk, 'dia': bloque.dia_semana, 'texto': texto_de_bloque(bloque), 'semana': bloque.semana,
+            'desde': bloque.vigente_desde.isoformat() if bloque.vigente_desde else '',
+            'hasta': bloque.vigente_hasta.isoformat() if bloque.vigente_hasta else '',
+        })
     grupo, ciclo = asignaciones[0].grupo, asignaciones[0].ciclo
+    nivel = grupo.grado.nivel
     from Alumnos.templatetags.alumnos_extras import tono
     return JsonResponse({
+        # Semanas A y B del nivel ({lunes: letra}), para ofrecer los bloques de la fecha elegida
+        'nivel': nivel, 'semanas': mapa_de_semanas(Calendario(ciclo), nivel),
         'materias': [{'id': a.pk, 'nombre': a.materia.nombre, 'bloques': bloques.get(a.pk, [])} for a in asignaciones],
         'alumnos': [{'id': i.alumno_id, 'nombre': str(i.alumno), 'referencia': i.alumno.referencia, 'iniciales': i.alumno.iniciales,
                      'tono': tono(i.alumno_id)} for i in reglas.inscripciones_del_grupo(grupo, ciclo)],

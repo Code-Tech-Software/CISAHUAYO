@@ -45,7 +45,7 @@
       </div>
     </div>
   {% else %}
-    <form class="form-page bitacora-form" method="post" novalidate data-bitacora-form data-opciones-url="{{ url_opciones }}"{% if es_edicion %} data-edicion{% endif %}>
+    <form class="form-page bitacora-form" method="post" novalidate data-bitacora-form data-opciones-url="{{ url_opciones }}" data-semanas="{{ form.semanas_json }}"{% if es_edicion %} data-edicion{% endif %}>
       {% csrf_token %}
       {{ form.clave_envio }}
       <input type="hidden" name="volver" value="{{ volver }}">
@@ -105,10 +105,10 @@
             <select class="field__control field__control--select" name="{{ form.bloque.html_name }}" id="{{ form.bloque.id_for_label }}" data-bitacora-bloque>
               <option value="">Sin bloque</option>
               {% for bloque in form.fields.bloque.queryset %}
-                <option value="{{ bloque.pk }}" data-materia="{{ bloque.materia_grado_id }}" data-dia="{{ bloque.dia_semana }}"{% if form.bloque.value|stringformat:"s" == bloque.pk|stringformat:"s" %} selected{% endif %}>{{ bloque.get_dia_semana_display }} {{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}</option>
+                <option value="{{ bloque.pk }}" data-materia="{{ bloque.materia_grado_id }}" data-dia="{{ bloque.dia_semana }}" data-semana="{{ bloque.semana }}" data-nivel="{{ bloque.materia_grado.grado.nivel }}" data-desde="{{ bloque.vigente_desde|date:'Y-m-d' }}" data-hasta="{{ bloque.vigente_hasta|date:'Y-m-d' }}"{% if form.bloque.value|stringformat:"s" == bloque.pk|stringformat:"s" %} selected{% endif %}>{{ bloque.get_dia_semana_display }} {{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}{% if bloque.semana %} · Semana {{ bloque.semana }}{% endif %}</option>
               {% endfor %}
             </select>
-            <p class="field__hint">Los de esa materia en el día de la fecha. El periodo se toma de la fecha.</p>
+            <p class="field__hint">Los de esa materia en el día de la fecha (y su semana A o B). El periodo se toma de la fecha.</p>
             {% for error in form.bloque.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
           </div>
         </div>

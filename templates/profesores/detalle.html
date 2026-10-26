@@ -420,11 +420,32 @@
             {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir
           </a>
         </div>
+        {% if con_semanas %}
+          {# Semanas A y B: lo que de verdad le toca en una semana del calendario (cada nivel con la suya) #}
+          <section class="card" aria-labelledby="titulo-semana-profesor">
+            <header class="card__header card__header--icon">
+              {% include "partials/icon.html" with name="calendar-range" %}<h2 class="card__title" id="titulo-semana-profesor">Semana del {{ semana_vista.rango }}</h2>
+            </header>
+            <div class="card__body">
+              <div class="semana-nav" role="group" aria-label="Elegir la semana">
+                <a class="btn btn--ghost btn--icon btn--sm" href="?ciclo={{ ciclo.pk }}&amp;semana={{ semana_vista.anterior|date:'Y-m-d' }}#horario" aria-label="Semana anterior" data-tooltip="Semana anterior">{% include "partials/icon.html" with name="chevron-left" %}</a>
+                <p class="semana-nav__actual">{% for nombre, semana in semanas_por_nivel %}{{ nombre }}: <strong class="semana-letra semana-letra--{{ semana.tipo|lower }}">{{ semana.nombre }}</strong>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+                <a class="btn btn--ghost btn--icon btn--sm" href="?ciclo={{ ciclo.pk }}&amp;semana={{ semana_vista.siguiente|date:'Y-m-d' }}#horario" aria-label="Semana siguiente" data-tooltip="Semana siguiente">{% include "partials/icon.html" with name="chevron-right" %}</a>
+              </div>
+            </div>
+            {% if cuadricula_semana.filas %}
+              {% include "horarios/_cuadricula.html" with cuadricula=cuadricula_semana etiqueta="Horario de "|add:profesor.nombre_completo|add:" de la semana del "|add:semana_vista.rango modo="profesor" mostrar_semana=True %}
+            {% else %}
+              <div class="card__body"><p class="text-muted">No tiene clases esa semana.</p></div>
+            {% endif %}
+          </section>
+        {% endif %}
+
         <section class="card print-area" aria-labelledby="titulo-horario">
           <header class="card__header card__header--icon">
-            {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">{{ profesor }} · Ciclo {{ ciclo }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}</h2>
+            {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">{{ profesor }} · Ciclo {{ ciclo }}{% if con_semanas %} · Plantillas de las semanas A y B{% endif %}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}</h2>
           </header>
-          {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta="Horario semanal de "|add:profesor.nombre_completo modo="profesor" %}
+          {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta="Horario semanal de "|add:profesor.nombre_completo modo="profesor" mostrar_semana=con_semanas %}
         </section>
       {% else %}
         <div class="card">

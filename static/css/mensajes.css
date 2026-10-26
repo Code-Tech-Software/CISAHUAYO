@@ -800,11 +800,8 @@
   transition: opacity var(--transition-fast), transform var(--transition-fast), background-color var(--transition-fast);
 }
 
-/* Sin texto, el botón se atenúa (sigue siendo el mismo botón); al enviar, gira el indicador en lugar del icono */
-.chat__caja:has(.chat__campo:placeholder-shown) .chat__enviar:not(:disabled) {
-  opacity: 0.55;
-}
-
+/* Siempre en el color del sistema (pedido del 2026-10-26: atenuado parecía deshabilitado); al enviar, gira el
+   indicador en lugar del icono */
 .chat__enviar:not(:disabled):active {
   transform: scale(0.94);
 }
@@ -1283,6 +1280,11 @@
     box-shadow: none;
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* Sin la cápsula blanca, sobre el color de los mensajes propios */
+  .burbuja--mia .burbuja__accion {
+    color: var(--color-on-primary);
   }
 }
 

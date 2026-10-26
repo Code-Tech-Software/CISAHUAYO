@@ -111,6 +111,15 @@
         {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">Horario de {{ inscripcion.grupo }}</h2>
       </header>
       <div class="card__body">
+        {% if semana %}
+          {# Semanas A y B: cuál se muestra, con sus fechas, y las de al lado #}
+          <div class="semana-nav" role="group" aria-label="Elegir la semana">
+            {% if puede_anterior %}<a class="btn btn--ghost btn--icon btn--sm" href="?semana={{ semana.anterior|date:'Y-m-d' }}#titulo-horario" aria-label="Semana anterior" data-tooltip="Semana anterior">{% include "partials/icon.html" with name="chevron-left" %}</a>{% endif %}
+            <p class="semana-nav__actual"><strong class="semana-letra semana-letra--{{ semana.tipo|lower }}">{{ semana.nombre }}</strong> <span>{{ semana.rango }}</span>{% if es_esta_semana %} <span class="tag">Esta semana</span>{% endif %}</p>
+            {% if puede_siguiente %}<a class="btn btn--ghost btn--icon btn--sm" href="?semana={{ semana.siguiente|date:'Y-m-d' }}#titulo-horario" aria-label="Semana siguiente" data-tooltip="Semana siguiente">{% include "partials/icon.html" with name="chevron-right" %}</a>{% endif %}
+            {% if not es_esta_semana %}<a class="btn btn--ghost btn--sm" href="?#titulo-horario">Ir a esta semana</a>{% endif %}
+          </div>
+        {% endif %}
         {% if cuadricula.filas %}
           {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta=etiqueta_horario modo="grado" editable=False %}
         {% else %}

@@ -12,7 +12,8 @@ from django.utils import timezone
 
 from Alumnos.asistencias import con_justificada_general, conteos, motivo_sin_clases, porcentaje, sin_dias_suspendidos
 from Alumnos.horarios import cuadricula, recreos_del_grupo
-from Alumnos.models import AsistenciaGeneral, HorarioMateria, MateriaGrado, Periodo
+from Alumnos.models import AsistenciaGeneral, MateriaGrado, Periodo
+from Alumnos.semanas import Calendario, bloques_de_semana
 
 INCIDENCIAS_RECIENTES = 6
 
@@ -46,11 +47,12 @@ class ClaseDeHoy:
     momento: str   # 'pasada', 'ahora' o 'proxima'
 
 
-def _horario(inscripcion):
+def _horario(inscripcion, fecha, calendario):
+    """El horario del grupo en la semana de esa fecha: con semanas A y B, el de la que le toca; y la versión del
+    horario en vigor cada día (Alumnos/semanas.py)."""
     bloques = list(
-        HorarioMateria.objects.filter(
-            materia_grado__grupo=inscripcion.grupo, materia_grado__ciclo=inscripcion.ciclo, materia_grado__activa=True,
-        ).select_related('materia_grado__materia', 'materia_grado__profesor')
+        bloques_de_semana(fecha, inscripcion.ciclo, calendario, materia_grado__grupo=inscripcion.grupo)
+        .select_related('materia_grado__materia', 'materia_grado__profesor')
     )
     return bloques + list(recreos_del_grupo(inscripcion.grupo, inscripcion.ciclo))
 
@@ -154,15 +156,17 @@ def promedio(valores):
 # ---------------------------------------------------------------------------
 # Todo junto
 # ---------------------------------------------------------------------------
-def resumen(alumno, completo=True):
+def resumen(alumno, completo=True, semana=None):
     """Lo que muestra el portal de un estudiante. Con completo=False (las tarjetas del portal de tutores) no arma el
-    horario ni la tabla de calificaciones, solo los totales."""
+    horario ni la tabla de calificaciones, solo los totales. `semana`: una fecha de la semana cuyo horario se muestra
+    (por omisión, la de hoy)."""
     ahora = timezone.localtime()
     inscripcion = inscripcion_actual(alumno)
     datos = {'alumno': alumno, 'inscripcion': inscripcion, 'hoy': ahora.date()}
     if inscripcion is None:
         return datos
-    bloques = _horario(inscripcion)
+    calendario = Calendario(inscripcion.ciclo)
+    bloques = _horario(inscripcion, ahora.date(), calendario)
     clases_hoy, sin_clases_hoy = _clases_de_hoy(inscripcion, bloques, ahora)
     calificaciones = _calificaciones(inscripcion)
     datos.update({
@@ -173,8 +177,18 @@ def resumen(alumno, completo=True):
         'calificaciones': calificaciones,
     })
     if completo:
+        ciclo, nivel = inscripcion.ciclo, inscripcion.grado.nivel
+        fecha = min(max(semana or ahora.date(), ciclo.fecha_inicio), ciclo.fecha_fin)
+        info = calendario.info(fecha, nivel)
+        de_la_semana = bloques if info.lunes == calendario.info(ahora.date(), nivel).lunes else _horario(inscripcion, fecha, calendario)
         datos.update({
-            'cuadricula': cuadricula(bloques),
-            'etiqueta_horario': f'Horario semanal de {inscripcion.grupo} en el ciclo {inscripcion.ciclo}',
+            'cuadricula': cuadricula(de_la_semana),
+            'etiqueta_horario': (f'Horario de {inscripcion.grupo}, {info.nombre.lower()}, del {info.rango}' if info.alternada
+                                 else f'Horario semanal de {inscripcion.grupo} en el ciclo {ciclo}'),
+            # Semanas A y B: la que se muestra, con sus fechas, y las de al lado para navegar
+            'semana': info if info.alternada else None,
+            'es_esta_semana': info.lunes == calendario.info(ahora.date(), nivel).lunes,
+            'puede_anterior': info.lunes > ciclo.fecha_inicio,
+            'puede_siguiente': info.siguiente <= ciclo.fecha_fin,
         })
     return datos

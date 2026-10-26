@@ -336,7 +336,8 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
     fechas = dias_habiles(desde, hasta)
 
     suspensiones = dict(DiaNoLectivo.objects.filter(fecha__range=(desde, hasta), nivel=asignacion.grado.nivel).values_list('fecha', 'motivo'))
-    dias_con_clase = set(HorarioMateria.objects.filter(materia_grado=asignacion).values_list('dia_semana', flat=True))
+    from .semanas import fechas_con_clase
+    con_clase = fechas_con_clase(asignacion, fechas)   # su semana A/B y la versión del horario de cada fecha
     inscripciones = list(inscripciones_de(asignacion))
     registros = {
         (registro.inscripcion_id, registro.fecha): registro
@@ -354,7 +355,7 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
             meses.append({'nombre': f'{MESES_LARGOS[fecha.month - 1]} {fecha.year}', 'columnas': 0, 'par': len(meses) % 2 == 1})
         meses[-1]['columnas'] += 1
         suspension = suspensiones.get(fecha)
-        sin_clase = fecha.weekday() not in dias_con_clase
+        sin_clase = fecha not in con_clase
         columnas.append({
             'fecha': fecha, 'hoy': fecha == hoy, 'suspension': suspension, 'sin_clase': sin_clase,
             'bloqueada': suspension is not None or fecha > hoy or sin_clase,
@@ -380,7 +381,7 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
         filas.append({'inscripcion': inscripcion, 'alumno': inscripcion.alumno, 'celdas': celdas})
     return {
         'periodo': periodo, 'limites': limites, 'desde': desde, 'hasta': hasta, 'completo': (desde, hasta) == limites,
-        'columnas': columnas, 'meses': meses, 'filas': filas, 'sin_horario': not dias_con_clase,
+        'columnas': columnas, 'meses': meses, 'filas': filas, 'sin_horario': not HorarioMateria.historial.filter(materia_grado=asignacion).exists(),
     }
 
 
@@ -443,7 +444,8 @@ def celda_de(asignacion, inscripcion, fecha, usuario=None, hoy=None, puede_justi
     hoy = hoy or timezone.localdate()
     registro = AsistenciaMateria.objects.filter(materia_grado=asignacion, inscripcion=inscripcion, fecha=fecha).first()
     suspension = DiaNoLectivo.objects.filter(fecha=fecha, nivel=asignacion.grado.nivel).values_list('motivo', flat=True).first()
-    con_clase = HorarioMateria.objects.filter(materia_grado=asignacion, dia_semana=fecha.weekday()).exists()
+    from .semanas import fechas_con_clase
+    con_clase = fecha in fechas_con_clase(asignacion, [fecha])
     justificacion = _justificaciones(asignacion, [inscripcion], fecha, fecha).get((inscripcion.pk, fecha))
     suspendido = _suspensiones_de([inscripcion], fecha, fecha).get((inscripcion.pk, fecha))
     return _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion, asignacion.materia,

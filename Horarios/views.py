@@ -1,9 +1,13 @@
+from collections import defaultdict
+from datetime import timedelta
 from itertools import groupby
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from Alumnos.academico import ciclo_editable, elegir_ciclo
@@ -11,6 +15,7 @@ from Alumnos.horarios import (
     DIAS,
     DIAS_CORTOS,
     DIAS_HABILES,
+    bloques_del_profesor_empalmados,
     con_resumen_de_horario,
     cuadricula,
     formatear_duracion,
@@ -19,14 +24,33 @@ from Alumnos.horarios import (
     recreos_del_grupo,
     resumen_horario,
 )
-from Alumnos.models import CicloEscolar, Grado, Grupo, HorarioMateria, MateriaGrado, Profesor, Recreo
+from Alumnos.models import CicloEscolar, DiaNoLectivo, Grado, Grupo, HorarioMateria, MateriaGrado, Profesor, Recreo
+from Alumnos.semanas import A, B, Calendario, bloques_de_semana, fecha_de
 from CISAHUAYO.permisos import requiere_permisos
 
-from .forms import HorarioCrearForm, HorarioEditarForm, RecreoCrearForm, RecreoEditarForm
+from . import cambios
+from .forms import HorarioCrearForm, HorarioEditarForm, RecreoCrearForm, RecreoEditarForm, mensaje_de_empalme_profesor
 
 
-def _url_del_grupo(grupo_id, ciclo_id):
-    return f"{reverse('horarios:grupo', args=[grupo_id])}?ciclo={ciclo_id}"
+def _url_del_grupo(grupo_id, ciclo_id, vista=''):
+    url = f"{reverse('horarios:grupo', args=[grupo_id])}?ciclo={ciclo_id}"
+    return f'{url}&vista={vista}' if vista else url
+
+
+def fecha_en_ciclo(fecha, ciclo):
+    """La fecha pedida (o hoy) llevada a las fechas del ciclo."""
+    fecha = fecha or timezone.localdate()
+    if ciclo is None:
+        return fecha
+    return min(max(fecha, ciclo.fecha_inicio), ciclo.fecha_fin)
+
+
+def semana_pedida(request, calendario, nivel):
+    """La semana A o B que se captura (la de ?semana=, o A); '' si el nivel tiene horario fijo."""
+    if not calendario.alternado(nivel):
+        return ''
+    valor = (request.POST.get('semana') or request.GET.get('semana') or '').upper()
+    return valor if valor in (A, B) else A
 
 
 def _ciclo_de(request):
@@ -53,10 +77,13 @@ def horario_lista(request):
         for grupo_id, materias in con_horario:
             estadisticas[grupo_id]['sin_horario'] -= materias
         bloques = HorarioMateria.objects.filter(materia_grado__ciclo=ciclo, materia_grado__activa=True)
-        for grupo_id, inicio, fin in bloques.values_list('materia_grado__grupo_id', 'hora_inicio', 'hora_fin'):
+        por_grupo = defaultdict(list)
+        for bloque in bloques.select_related('materia_grado').only('semana', 'hora_inicio', 'hora_fin', 'dia_semana', 'materia_grado__grupo_id'):
+            por_grupo[bloque.materia_grado.grupo_id].append(bloque)
+        for grupo_id, del_grupo in por_grupo.items():
             datos = estadisticas[grupo_id]
-            datos['bloques'] += 1
-            datos['minutos'] += (fin.hour * 60 + fin.minute) - (inicio.hour * 60 + inicio.minute)
+            datos['bloques'] = len(del_grupo)
+            datos['minutos'] = minutos_semanales(del_grupo)   # con semanas A y B, la más cargada
 
     # El receso de cada grupo, resumido («Lun, Mar, Mié, Jue, Vie · 10:30–11:00»)
     recesos = {}
@@ -91,9 +118,16 @@ def horario_lista(request):
         for profesor in profesores:
             profesor.duracion = formatear_duracion(minutos[profesor.pk]) if minutos[profesor.pk] else ''
 
+    # Los niveles con semanas A y B, con la semana en que va cada uno
+    calendario = Calendario(ciclo)
+    alternados = [
+        {'nombre': nombre, 'semana': calendario.info(fecha_en_ciclo(None, ciclo), nivel)}
+        for nivel, nombre in Grado.NIVEL_CHOICES if calendario.alternado(nivel)
+    ]
     return render(request, 'horarios/lista.html', {
         'ciclos': ciclos,
         'ciclo': ciclo,
+        'alternados': alternados,
         'niveles': niveles,
         'profesores': profesores,
         'editable': ciclo_editable(ciclo),
@@ -103,10 +137,51 @@ def horario_lista(request):
 # ---------------------------------------------------------------------------
 # Horario semanal de un grupo
 # ---------------------------------------------------------------------------
+def comparar_semanas(asignaciones):
+    """Lo que cambia entre la semana A y la B de cada materia: sesiones y minutos. Las materias son las mismas (son las
+    del grupo); la diferencia que importa es que una no tenga clases en alguna de las dos, o tenga distinta carga."""
+    filas, diferencias = [], 0
+    for asignacion in asignaciones:
+        bloques = list(asignacion.horarios.all())
+        semana = {s: [b for b in bloques if b.semana in ('', s)] for s in (A, B)}
+        fila = {
+            'asignacion': asignacion,
+            'sesiones_a': len(semana[A]), 'sesiones_b': len(semana[B]),
+            'minutos_a': minutos_semanales(semana[A]), 'minutos_b': minutos_semanales(semana[B]),
+        }
+        fila['duracion_a'] = formatear_duracion(fila['minutos_a']) if fila['minutos_a'] else '—'
+        fila['duracion_b'] = formatear_duracion(fila['minutos_b']) if fila['minutos_b'] else '—'
+        fila['falta'] = 'A' if not semana[A] and semana[B] else ('B' if semana[A] and not semana[B] else '')
+        fila['distinta'] = fila['sesiones_a'] != fila['sesiones_b'] or fila['minutos_a'] != fila['minutos_b']
+        diferencias += fila['distinta']
+        filas.append(fila)
+    return {'filas': filas, 'diferencias': diferencias, 'faltan': [f for f in filas if f['falta']]}
+
+
+def _dias_sin_clases(semana, nivel):
+    """Los días sin clases (festivos, suspensiones, vacaciones) de esa semana para el nivel: {fecha: motivo}. No mueven
+    la alternancia: la semana sigue siendo la que le toca."""
+    dias = DiaNoLectivo.objects.filter(fecha__range=(semana.lunes, semana.domingo), nivel=nivel).order_by('fecha')
+    return dict(dias.values_list('fecha', 'motivo'))
+
+
 @requiere_permisos('Alumnos.view_horariomateria')
 def horario_grupo(request, grupo_pk):
+    """El horario de un grupo. Con horario fijo, su horario semanal. Con semanas A y B: las dos plantillas (pestañas
+    «Semana A» y «Semana B», donde se captura) y, aparte, el horario de una semana concreta del calendario («Por
+    fecha»), con las versiones que estaban en vigor y los días sin clases. Abre en la plantilla de la semana de hoy."""
     grupo = get_object_or_404(Grupo.objects.select_related('grado', 'nombre'), pk=grupo_pk)
     ciclos, ciclo = _ciclo_de(request)
+    calendario = Calendario(ciclo)
+    nivel = grupo.grado.nivel
+    alternado = calendario.alternado(nivel)
+    fecha = fecha_en_ciclo(fecha_de(request.GET.get('fecha')), ciclo)
+    semana = calendario.info(fecha, nivel)
+    hoy = calendario.info(fecha_en_ciclo(None, ciclo), nivel)
+
+    vista = request.GET.get('vista', '')
+    if vista != 'fecha':
+        vista = (vista.upper() if vista.upper() in (A, B) else (hoy.tipo or A)) if alternado else ''
 
     asignaciones = []
     if ciclo:
@@ -114,10 +189,22 @@ def horario_grupo(request, grupo_pk):
             MateriaGrado.objects.filter(grupo=grupo, ciclo=ciclo, activa=True)
             .select_related('materia', 'profesor').prefetch_related('horarios').order_by('materia__nombre')
         )
-    # Cada bloque ya trae su asignación (y la materia) gracias al prefetch: sin consultas por celda
-    bloques = [bloque for asignacion in asignaciones for bloque in asignacion.horarios.all()]
-    minutos = minutos_semanales(bloques)
     recesos = list(recreos_del_grupo(grupo, ciclo))
+    # Cada bloque ya trae su asignación (y la materia) gracias al prefetch: sin consultas por celda
+    todos = [bloque for asignacion in asignaciones for bloque in asignacion.horarios.all()]
+    sin_clases = {}
+    if vista == 'fecha':
+        bloques = list(
+            bloques_de_semana(fecha, ciclo, calendario, materia_grado__grupo=grupo)
+            .select_related('materia_grado__materia', 'materia_grado__profesor')
+        ) if ciclo else []
+        sin_clases = _dias_sin_clases(semana, nivel) if ciclo else {}
+    elif vista in (A, B):
+        bloques = [bloque for bloque in todos if bloque.semana in ('', vista)]
+    else:
+        bloques = todos
+    minutos = minutos_semanales(bloques)
+    editable = ciclo_editable(ciclo)
 
     return render(request, 'horarios/grupo.html', {
         'grupo': grupo,
@@ -131,13 +218,26 @@ def horario_grupo(request, grupo_pk):
         'asignaciones': asignaciones,
         'sin_horario': [a for a in asignaciones if not a.bloques],
         'sin_profesor': [a for a in asignaciones if not a.profesor_id],
-        'etiqueta_horario': f'Horario semanal de {grupo} en el ciclo {ciclo}' if ciclo else '',
+        'etiqueta_horario': (
+            f'Horario de {grupo}, {semana.nombre.lower()}, del {semana.rango}' if vista == 'fecha'
+            else f'Horario de {grupo}, plantilla de la semana {vista}, ciclo {ciclo}' if vista
+            else f'Horario semanal de {grupo} en el ciclo {ciclo}'
+        ) if ciclo else '',
         'cuadricula': cuadricula(bloques + recesos),
         'recesos': recesos,
         'resumen_recesos': resumen_horario(recesos),
         'total_bloques': len(bloques),
         'horas_semanales': formatear_duracion(minutos) if minutos else '',
-        'editable': ciclo_editable(ciclo),
+        # En la consulta por fecha no se edita: puede mostrar versiones anteriores del horario
+        'editable': editable,
+        'editable_aqui': editable and vista != 'fecha',
+        'alternado': alternado,
+        'vista': vista,
+        'semana': semana,
+        'semana_de_hoy': hoy,
+        'sin_clases': sin_clases,
+        'comparacion': comparar_semanas(asignaciones) if alternado else None,
+        'vigencia_inicial': cambios.vigencia_inicial(ciclo),
     })
 
 
@@ -168,24 +268,26 @@ def horario_crear(request, grupo_pk):
     if not ciclo_editable(ciclo):
         return _ciclo_cerrado(request, grupo.pk, ciclo)
 
+    semana = semana_pedida(request, Calendario(ciclo), grupo.grado.nivel)
     if request.method == 'POST':
-        form = HorarioCrearForm(request.POST, grupo=grupo, ciclo=ciclo)
+        form = HorarioCrearForm(request.POST, grupo=grupo, ciclo=ciclo, semana=semana)
         if form.is_valid():
             bloques = form.guardar()
             dias = ', '.join(f'{DIAS_CORTOS[b.dia_semana]} {b.hora_inicio:%H:%M}–{b.hora_fin:%H:%M}' for b in bloques)
-            messages.success(request, f'Se agregó el horario de {form.cleaned_data["materia_grado"].materia}: {dias}.')
-            return redirect(_url_del_grupo(grupo.pk, ciclo.pk))
+            en_semana = f' en la semana {semana}' if semana else ''
+            messages.success(request, f'Se agregó el horario de {form.cleaned_data["materia_grado"].materia}{en_semana}: {dias}.')
+            return redirect(_url_del_grupo(grupo.pk, ciclo.pk, semana))
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     else:
-        inicial = {}
+        inicial = {'vigencia': cambios.vigencia_inicial(ciclo)}
         if request.GET.get('materia', '').isdigit():
             inicial['materia_grado'] = int(request.GET['materia'])
         if request.GET.get('dia', '').isdigit() and int(request.GET['dia']) in DIAS:
             inicial['dias'] = [int(request.GET['dia'])]
-        form = HorarioCrearForm(grupo=grupo, ciclo=ciclo, initial=inicial)
+        form = HorarioCrearForm(grupo=grupo, ciclo=ciclo, semana=semana, initial=inicial)
 
     return render(request, 'horarios/form.html', {
-        'form': form, 'grupo': grupo, 'ciclo': ciclo, 'es_edicion': False,
+        'form': form, 'grupo': grupo, 'ciclo': ciclo, 'es_edicion': False, 'semana': semana,
         'sin_materias': not form.fields['materia_grado'].queryset.exists(),
     })
 
@@ -206,34 +308,95 @@ def horario_editar(request, pk):
     if not ciclo_editable(ciclo):
         return _ciclo_cerrado(request, grupo.pk, ciclo)
 
-    form = HorarioEditarForm(request.POST if request.method == 'POST' else None, instance=bloque)
+    alternado = Calendario(ciclo).alternado(grupo.grado.nivel)
+    form = HorarioEditarForm(request.POST if request.method == 'POST' else None, instance=bloque, alternado=alternado,
+                             initial={'vigencia': cambios.vigencia_inicial(ciclo)})
     if request.method == 'POST':
         if form.is_valid():
             bloque = form.save()
-            messages.success(request, f'Se actualizó el horario de {bloque.materia_grado.materia} ({DIAS[bloque.dia_semana].lower()}).')
-            return redirect(_url_del_grupo(grupo.pk, ciclo.pk))
+            desde = f' a partir del {bloque.vigente_desde:%d/%m/%Y}' if bloque.vigente_desde else ''
+            messages.success(request, f'Se actualizó el horario de {bloque.materia_grado.materia} ({DIAS[bloque.dia_semana].lower()}){desde}.')
+            return redirect(_url_del_grupo(grupo.pk, ciclo.pk, bloque.semana))
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
 
     return render(request, 'horarios/form.html', {
         'form': form, 'grupo': grupo, 'ciclo': ciclo, 'es_edicion': True, 'bloque': bloque, 'sin_materias': False,
+        'semana': bloque.semana,
     })
 
 
 @require_POST
 @requiere_permisos('Alumnos.delete_horariomateria')
 def horario_eliminar(request, pk):
-    """Quita un bloque del horario. Es un dato de configuración: nada depende de él (la asistencia por materia
-    se registra por materia y fecha, no por bloque), así que se borra en lugar de dejarlo oculto."""
+    """Quita un bloque del horario. Sin fecha es una corrección y se borra; con «A partir de», o si una bitácora ya lo
+    usó, se conserva cerrado para que el horario de las fechas anteriores no cambie (Horarios/cambios.py)."""
     bloque = _bloque_vigente(pk)
     grupo, ciclo = bloque.materia_grado.grupo, bloque.materia_grado.ciclo
     if not ciclo_editable(ciclo):
         return _ciclo_cerrado(request, grupo.pk, ciclo)
 
-    materia, dia = bloque.materia_grado.materia, DIAS[bloque.dia_semana].lower()
+    materia, dia, semana = bloque.materia_grado.materia, DIAS[bloque.dia_semana].lower(), bloque.semana
     texto = f'{bloque.hora_inicio:%H:%M}–{bloque.hora_fin:%H:%M}'
-    bloque.delete()
-    messages.success(request, f'Se quitó {materia} del horario ({dia} {texto}).')
-    return redirect(_url_del_grupo(grupo.pk, ciclo.pk))
+    desde = fecha_de(request.POST.get('vigencia'))
+    if desde and not ciclo.fecha_inicio <= desde <= ciclo.fecha_fin:
+        messages.error(request, f'Elige una fecha dentro del ciclo {ciclo}.')
+        return redirect(_url_del_grupo(grupo.pk, ciclo.pk, semana))
+    borrado = cambios.retirar(bloque, desde)
+    cuando = '' if borrado else f' a partir del {bloque.vigente_hasta + timedelta(days=1):%d/%m/%Y}; las fechas anteriores lo conservan'
+    messages.success(request, f'Se quitó {materia} del horario ({dia} {texto}){cuando}.')
+    return redirect(_url_del_grupo(grupo.pk, ciclo.pk, semana))
+
+
+@require_POST
+@requiere_permisos('Alumnos.add_horariomateria', 'Alumnos.delete_horariomateria')
+def copiar_semana(request, grupo_pk):
+    """«Copiar semana A a semana B»: la semana B del grupo queda igual que la A (para luego ajustar lo que cambie).
+    Los bloques que tenía la B se quitan desde la fecha indicada; si algún bloque copiado empalmaría a un profesor con
+    otra clase suya, no se copia nada."""
+    grupo = get_object_or_404(Grupo.objects.select_related('grado', 'nombre'), pk=grupo_pk)
+    _, ciclo = _ciclo_de(request)
+    if ciclo is None:
+        return redirect('horarios:lista')
+    if not ciclo_editable(ciclo):
+        return _ciclo_cerrado(request, grupo.pk, ciclo)
+    calendario = Calendario(ciclo)
+    if not calendario.alternado(grupo.grado.nivel):
+        messages.error(request, f'{grupo.grado.get_nivel_display()} tiene horario fijo en el ciclo {ciclo}: no hay semana A ni B.')
+        return redirect(_url_del_grupo(grupo.pk, ciclo.pk))
+    desde = fecha_de(request.POST.get('vigencia'))
+    if desde and not ciclo.fecha_inicio <= desde <= ciclo.fecha_fin:
+        messages.error(request, f'Elige una fecha dentro del ciclo {ciclo}.')
+        return redirect(_url_del_grupo(grupo.pk, ciclo.pk, B))
+
+    actuales = list(HorarioMateria.objects.filter(materia_grado__grupo=grupo, materia_grado__ciclo=ciclo, materia_grado__activa=True)
+                    .select_related('materia_grado__profesor', 'materia_grado__materia'))
+    de_a = [b for b in actuales if b.semana == A]
+    if not de_a:
+        messages.error(request, 'La semana A todavía no tiene horario: no hay nada que copiar.')
+        return redirect(_url_del_grupo(grupo.pk, ciclo.pk, A))
+    problemas = []
+    for bloque in de_a:
+        profesor = bloque.materia_grado.profesor
+        if profesor is None:
+            continue
+        ajenos = bloques_del_profesor_empalmados(
+            profesor, ciclo, bloque.dia_semana, bloque.hora_inicio, bloque.hora_fin, excluir_grupo=grupo,
+            semana=B, nivel=grupo.grado.nivel, desde=desde,
+        )
+        if ajenos:
+            problemas.append(mensaje_de_empalme_profesor(profesor, ajenos))
+    if problemas:
+        messages.error(request, 'No se copió la semana A: ' + ' '.join(dict.fromkeys(problemas)))
+        return redirect(_url_del_grupo(grupo.pk, ciclo.pk, B))
+
+    with transaction.atomic():
+        for bloque in [b for b in actuales if b.semana == B]:
+            cambios.retirar(bloque, desde)
+        for bloque in de_a:
+            cambios.crear(bloque.materia_grado, bloque.dia_semana, bloque.hora_inicio, bloque.hora_fin, semana=B, desde=desde)
+    cuando = f' a partir del {desde:%d/%m/%Y}' if cambios.normalizar(desde, ciclo) else ''
+    messages.success(request, f'La semana B de {grupo} quedó igual que la A{cuando} ({len(de_a)} bloque{"s" if len(de_a) != 1 else ""}). Ajusta lo que cambie.')
+    return redirect(_url_del_grupo(grupo.pk, ciclo.pk, B))
 
 
 # ---------------------------------------------------------------------------

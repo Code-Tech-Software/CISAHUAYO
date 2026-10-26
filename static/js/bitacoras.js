@@ -1,7 +1,8 @@
 /* CISAHUAYO · captura de una entrada de bitácora (templates/bitacoras/form.html)
 
    - Al elegir el grupo trae sus materias (con sus bloques) y sus estudiantes (Bitacoras/views.opciones).
-   - El bloque solo ofrece los de la materia elegida en el día de la semana de la fecha.
+   - El bloque solo ofrece los de la materia elegida en el día de la semana de la fecha y, con semanas A y B, los de la
+     semana que le toca a esa fecha y la versión del horario en vigor ese día (data-semanas: {nivel: {lunes: letra}}).
    - «Observación general del grupo» oculta la lista de estudiantes (no se atribuye a nadie).
    - Búsqueda en la lista de estudiantes (sin importar acentos ni mayúsculas) y conteo de elegidos.
    El servidor vuelve a validar todo: esto solo hace la captura más rápida.
@@ -24,12 +25,33 @@
   const vacio = form.querySelector('[data-bitacora-vacio]');
   const nada = form.querySelector('[data-bitacora-nada]');
   const url = form.dataset.opcionesUrl;
+  let semanas = {};
+  let nivelDelGrupo = '';
+  try { semanas = JSON.parse(form.dataset.semanas || '{}'); } catch (error) { semanas = {}; }
 
   const normal = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const diaDe = (valor) => {
     if (!valor) return null;
     const [a, m, d] = valor.split('-').map(Number);
     return (new Date(a, m - 1, d).getDay() + 6) % 7;   /* lunes = 0, como el horario */
+  };
+
+  /* El lunes (AAAA-MM-DD) de la semana de una fecha */
+  const lunesDe = (valor) => {
+    const [a, m, d] = valor.split('-').map(Number);
+    const dia = new Date(a, m - 1, d);
+    dia.setDate(dia.getDate() - ((dia.getDay() + 6) % 7));
+    return `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+  };
+  /* Semana A/B y vigencia del bloque en esa fecha (sin fecha, todo vale) */
+  const correspondeALaFecha = (opcion, valor) => {
+    if (!valor) return true;
+    if (opcion.dataset.desde && valor < opcion.dataset.desde) return false;
+    if (opcion.dataset.hasta && valor > opcion.dataset.hasta) return false;
+    const letra = opcion.dataset.semana;
+    if (!letra) return true;
+    const delNivel = semanas[opcion.dataset.nivel];
+    return !delNivel || !delNivel[lunesDe(valor)] || delNivel[lunesDe(valor)] === letra;
   };
 
   /* ------------------------------------------------------------------ bloques de la materia en ese día */
@@ -39,7 +61,8 @@
     let elegidoVisible = false;
     [...bloque.options].forEach((opcion) => {
       if (!opcion.value) return;
-      const visible = opcion.dataset.materia === materia.value && (dia === null || Number(opcion.dataset.dia) === dia);
+      const visible = opcion.dataset.materia === materia.value && (dia === null || Number(opcion.dataset.dia) === dia)
+        && correspondeALaFecha(opcion, fecha?.value);
       opcion.hidden = !visible;
       opcion.disabled = !visible;
       if (visible && opcion.selected) elegidoVisible = true;
@@ -136,6 +159,10 @@
         const opcion = new Option(b.texto, String(b.id));
         opcion.dataset.materia = String(m.id);
         opcion.dataset.dia = String(b.dia);
+        opcion.dataset.semana = b.semana || '';
+        opcion.dataset.nivel = nivelDelGrupo;
+        opcion.dataset.desde = b.desde || '';
+        opcion.dataset.hasta = b.hasta || '';
         bloques.push(opcion);
       }));
       bloque.replaceChildren(...bloques);
@@ -160,6 +187,8 @@
       });
       if (!respuesta.ok) throw new Error(String(respuesta.status));
       const datos = await respuesta.json();
+      nivelDelGrupo = datos.nivel || '';
+      if (datos.semanas && Object.keys(datos.semanas).length) semanas[nivelDelGrupo] = datos.semanas;
       pintarMaterias(datos.materias);
       lista.querySelectorAll('input:checked').forEach((c) => { c.checked = false; });   /* otro grupo: otros estudiantes */
       pintarAlumnos(datos.alumnos);

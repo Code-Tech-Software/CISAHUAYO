@@ -457,7 +457,7 @@ class EditarTests(BaseTestCase):
     def test_formulario_precargado(self):
         respuesta = self.client.get(self.url)
         form = respuesta.context['form']
-        self.assertEqual(list(form.fields), ['materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin'])
+        self.assertEqual(list(form.fields), ['materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin', 'vigencia'])   # «Aplica desde»: versiones
         self.assertEqual(form.initial['dia_semana'], 0)
         self.assertContains(respuesta, 'Quitar del horario')
         self.assertContains(respuesta, 'js/hora.js')                      # también al editar, el selector de hora

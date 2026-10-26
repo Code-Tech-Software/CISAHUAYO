@@ -15,7 +15,8 @@ from datetime import timedelta
 from django.utils import timezone
 
 from Alumnos.asistencias import fechas_sin_clases
-from Alumnos.models import AsistenciaMateria, MateriaGrado, Periodo
+from Alumnos.models import AsistenciaMateria, HorarioMateria, MateriaGrado, Periodo
+from Alumnos.semanas import Calendario
 
 RECIENTES = 5
 
@@ -44,6 +45,10 @@ def asistencias_por_capturar(asignaciones, hoy=None):
     desde = min(p.fecha_inicio for p in periodos.values())
     sin_clases = {nivel: fechas_sin_clases(p.fecha_inicio, min(hoy, p.fecha_fin), nivel)
                   | fechas_sin_clases(p.fecha_inicio, min(hoy, p.fecha_fin)) for nivel, p in periodos.items()}
+    calendario = Calendario(asignaciones[0].ciclo)
+    historial = defaultdict(list)
+    for bloque in HorarioMateria.historial.filter(materia_grado__in=asignaciones):
+        historial[bloque.materia_grado_id].append(bloque)
     capturados = defaultdict(set)
     for asignacion_id, fecha in (AsistenciaMateria.objects.filter(materia_grado__in=asignaciones, fecha__range=(desde, hoy))
                                  .values_list('materia_grado_id', 'fecha').distinct()):
@@ -51,13 +56,15 @@ def asistencias_por_capturar(asignaciones, hoy=None):
     pendientes = []
     for asignacion in asignaciones:
         periodo = periodos.get(asignacion.grado.nivel)
-        dias_de_clase = {h.dia_semana for h in asignacion.horarios.all()}
-        if periodo is None or not dias_de_clase:
+        if periodo is None or not asignacion.horarios.all():
             continue
         hasta = min(hoy, periodo.fecha_fin)
+        # Días con clase según su semana A/B y la versión del horario de cada fecha (Alumnos/semanas.py)
+        fechas = [periodo.fecha_inicio + timedelta(dias) for dias in range((hasta - periodo.fecha_inicio).days + 1)]
+        con_clase = {f for f in fechas if any(calendario.aplica(b, f, periodo.nivel) for b in historial[asignacion.pk])}
         faltan = [
-            fecha for fecha in (periodo.fecha_inicio + timedelta(dias) for dias in range((hasta - periodo.fecha_inicio).days + 1))
-            if fecha.weekday() in dias_de_clase and fecha not in sin_clases[periodo.nivel] and fecha not in capturados[asignacion.pk]
+            fecha for fecha in fechas
+            if fecha in con_clase and fecha not in sin_clases[periodo.nivel] and fecha not in capturados[asignacion.pk]
         ]
         if faltan:
             pendientes.append({'asignacion': asignacion, 'periodo': periodo, 'dias': len(faltan), 'ultimo': faltan[-1]})

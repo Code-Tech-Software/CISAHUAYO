@@ -19,6 +19,12 @@
       <p class="page-header__description">El horario semanal de cada grupo, que es el de su salón: una materia no puede empalmarse con otra ni con un receso del grupo.</p>
     </div>
     <div class="page-header__actions">
+      {% if ciclo %}
+        <a class="btn" href="{% url 'horarios:semanas' %}?ciclo={{ ciclo.pk }}">
+          {% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %}
+          Semanas A y B
+        </a>
+      {% endif %}
       {% if perms.Alumnos.add_materiagrado %}
         <a class="btn" href="{% url 'materias:copiar' %}{% if ciclo %}?destino={{ ciclo.pk }}{% endif %}">
           {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
@@ -51,6 +57,13 @@
       {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
       <p class="alert__body">El ciclo {{ ciclo }} está cerrado: sus horarios se conservan tal como quedaron y ya no se modifican.</p>
     </div>
+  {% endif %}
+
+  {% if alternados %}
+    <p class="semanas-hoy semanas-hoy--banda">
+      {% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %}
+      <span>Esta semana: {% for nivel in alternados %}{{ nivel.nombre }}, <strong class="semana-letra semana-letra--{{ nivel.semana.tipo|lower }}">{{ nivel.semana.nombre }}</strong>{% if not forloop.last %} · {% endif %}{% endfor %} ({{ alternados.0.semana.rango }}).</span>
+    </p>
   {% endif %}
 
   {% if not ciclo %}

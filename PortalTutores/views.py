@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
 from Alumnos.models import TutorAlumno
+from Alumnos.semanas import fecha_de
 from CISAHUAYO import portales
 from PortalEstudiantes.resumen import resumen
 
@@ -31,7 +32,7 @@ def estudiante(request, pk):
     """Horario, asistencia y calificaciones de uno de sus estudiantes (404 si no está vinculado con él)."""
     vinculo = get_object_or_404(_vinculos(request.cuenta_portal), alumno_id=pk)
     return render(request, 'portales/tutores/estudiante.html', {
-        **portales.contexto(request), **resumen(vinculo.alumno), 'vinculo': vinculo,
+        **portales.contexto(request), **resumen(vinculo.alumno, semana=fecha_de(request.GET.get('semana'))), 'vinculo': vinculo,
     })
 
 

@@ -518,6 +518,13 @@ class MateriaGrado(models.Model):
             models.UniqueConstraint(fields=['ciclo', 'grupo', 'materia'], name='materia_grupo_ciclo_unica'),
         ]
 
+class HorarioActualManager(models.Manager):
+    """Los bloques de la versión actual del horario (los que no se han cerrado con una fecha de fin)."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(vigente_hasta__isnull=True)
+
+
 class HorarioMateria(models.Model):
 
     DIA_CHOICES = [
@@ -530,10 +537,25 @@ class HorarioMateria(models.Model):
         (6, 'Domingo'),
     ]
 
+    # Semanas A y B (pedido del 2026-10-26): en los niveles con horario alternado cada bloque es de la semana A o de la
+    # B; en los de horario fijo, de todas las semanas (''). Qué semana es una fecha: Alumnos/semanas.py
+    TODAS, SEMANA_A, SEMANA_B = '', 'A', 'B'
+    SEMANA_CHOICES = [(TODAS, 'Todas las semanas'), (SEMANA_A, 'Semana A'), (SEMANA_B, 'Semana B')]
+
     materia_grado = models.ForeignKey(MateriaGrado, on_delete=models.CASCADE, related_name='horarios')
     dia_semana = models.PositiveSmallIntegerField(choices=DIA_CHOICES, verbose_name='Día')
     hora_inicio = models.TimeField(verbose_name='Hora de inicio')
     hora_fin = models.TimeField(verbose_name='Hora de fin')
+    semana = models.CharField(max_length=1, choices=SEMANA_CHOICES, default=TODAS, blank=True, verbose_name='Semana')
+    # Versiones: un cambio con fecha de entrada en vigor cierra el bloque anterior (vigente_hasta) y crea otro desde esa
+    # fecha, así el horario de cualquier fecha pasada se sigue consultando igual. Vacío = desde el inicio / sin fin.
+    vigente_desde = models.DateField(null=True, blank=True, verbose_name='En vigor desde')
+    vigente_hasta = models.DateField(null=True, blank=True, verbose_name='En vigor hasta')
+
+    # `objects` (y `materia.horarios`) dan la versión actual de cada bloque: la que no se ha cerrado. Para el horario
+    # de una fecha concreta, con las versiones de entonces, `historial` y Alumnos/semanas.py
+    objects = HorarioActualManager()
+    historial = models.Manager()
 
     def clean(self):
 
@@ -553,6 +575,14 @@ class HorarioMateria(models.Model):
             f"{self.hora_inicio} - {self.hora_fin}"
         )
 
+    @property
+    def etiqueta_semana(self):
+        """«Semana A», «Semana B» o '' (horario fijo)."""
+        return self.get_semana_display() if self.semana else ''
+
+    def vigente_en(self, fecha):
+        return (self.vigente_desde is None or self.vigente_desde <= fecha) and (self.vigente_hasta is None or fecha <= self.vigente_hasta)
+
     class Meta:
         verbose_name = 'Horario de materia'
         verbose_name_plural = 'Horarios de materias'
@@ -561,16 +591,76 @@ class HorarioMateria(models.Model):
             'hora_inicio'
         ]
         constraints = [
+            # Solo entre los bloques actuales: las versiones cerradas pueden repetir día y hora. El mismo bloque puede
+            # estar en la semana A y en la B
             models.UniqueConstraint(
                 fields=[
                     'materia_grado',
+                    'semana',
                     'dia_semana',
                     'hora_inicio',
                     'hora_fin'
                 ],
+                condition=models.Q(vigente_hasta__isnull=True),
                 name='horario_materia_unico'
             )
         ]
+
+
+class ConfiguracionHorario(models.Model):
+    """Cómo se reparte el horario de un nivel en un ciclo: fijo (todas las semanas igual) o alternado A/B. Sin registro,
+    el nivel tiene horario fijo. La secuencia es del nivel: todos sus grupos están en la misma semana."""
+
+    FIJO, ALTERNADO = 'FIJO', 'ALTERNADO'
+    MODALIDAD_CHOICES = [(FIJO, 'Horario fijo'), (ALTERNADO, 'Alternado: semana A y semana B')]
+    # El horario alternado es para estos niveles (pedido del 2026-10-26); los demás siguen con horario fijo
+    NIVELES_ALTERNABLES = ('PREESCOLAR', 'PRIMARIA')
+
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.CASCADE, related_name='configuraciones_horario', verbose_name='Ciclo escolar')
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, verbose_name='Nivel')
+    modalidad = models.CharField(max_length=10, choices=MODALIDAD_CHOICES, default=FIJO, verbose_name='Modalidad')
+    # La semana (de lunes a domingo) de esta fecha es la de `semana_referencia`; de ahí se alternan las demás
+    fecha_referencia = models.DateField(null=True, blank=True, verbose_name='Fecha de referencia')
+    semana_referencia = models.CharField(max_length=1, choices=HorarioMateria.SEMANA_CHOICES[1:], default=HorarioMateria.SEMANA_A,
+                                         verbose_name='Esa semana es la')
+    modificado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    modificado = models.DateTimeField(auto_now=True)
+
+    @property
+    def alternado(self):
+        return self.modalidad == self.ALTERNADO and self.fecha_referencia is not None
+
+    def __str__(self):
+        return f'{self.get_nivel_display()} · {self.ciclo} · {self.get_modalidad_display()}'
+
+    class Meta:
+        verbose_name = 'Configuración de horario'
+        verbose_name_plural = 'Configuraciones de horario'
+        constraints = [models.UniqueConstraint(fields=['ciclo', 'nivel'], name='configuracion_horario_unica')]
+
+
+class ExcepcionSemana(models.Model):
+    """Una semana que no sigue la alternancia: solo esa semana cambia, o la alternancia vuelve a empezar desde ella."""
+
+    SOLO_ESTA, REINICIO = 'SOLO_ESTA', 'REINICIO'
+    TIPO_CHOICES = [(SOLO_ESTA, 'Cambiar solo esta semana'), (REINICIO, 'Reiniciar la alternancia desde esta semana')]
+
+    configuracion = models.ForeignKey(ConfiguracionHorario, on_delete=models.CASCADE, related_name='excepciones')
+    lunes = models.DateField(verbose_name='Semana del')
+    semana = models.CharField(max_length=1, choices=HorarioMateria.SEMANA_CHOICES[1:], verbose_name='Será la')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default=SOLO_ESTA, verbose_name='Tipo de cambio')
+    motivo = models.CharField(max_length=200, blank=True, verbose_name='Motivo')
+    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Semana del {self.lunes:%d/%m/%Y}: {self.get_semana_display()} ({self.get_tipo_display().lower()})'
+
+    class Meta:
+        verbose_name = 'Excepción de semana'
+        verbose_name_plural = 'Excepciones de semana'
+        ordering = ['lunes']
+        constraints = [models.UniqueConstraint(fields=['configuracion', 'lunes'], name='excepcion_semana_unica')]
 
 
 class Recreo(models.Model):

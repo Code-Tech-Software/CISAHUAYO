@@ -21,7 +21,7 @@ from Alumnos.horarios import (
     minutos_por_profesor,
     minutos_semanales,
 )
-from Alumnos.models import CicloEscolar, Materia, MateriaGrado, Profesor, ProfesorMateria, orden_de_nivel
+from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Profesor, ProfesorMateria, orden_de_nivel
 from Alumnos.utils import ESTADOS_MX, proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
@@ -217,6 +217,27 @@ def _horario_del_profesor(profesor, ciclo):
     return asignaciones, bloques, minutos_semanales(bloques)
 
 
+def _semana_del_profesor(request, profesor, ciclo, bloques):
+    """Con semanas A y B (en preescolar o primaria), el horario de una semana concreta (?semana=fecha, por omisión la
+    actual): cada nivel con la semana que le toca y la versión del horario en vigor (Alumnos/semanas.py)."""
+    from Alumnos.semanas import Calendario, Semana, bloques_de_semana, fecha_de, lunes_de
+    if ciclo is None or not any(bloque.semana for bloque in bloques):
+        return {'con_semanas': False}
+    calendario = Calendario(ciclo)
+    fecha = min(max(fecha_de(request.GET.get('semana')) or timezone.localdate(), ciclo.fecha_inicio), ciclo.fecha_fin)
+    de_la_semana = list(
+        bloques_de_semana(fecha, ciclo, calendario, materia_grado__profesor=profesor)
+        .select_related('materia_grado__materia', 'materia_grado__grado', 'materia_grado__grupo__nombre', 'materia_grado__grupo__grado')
+    )
+    niveles = sorted({b.materia_grado.grado.nivel for b in bloques if b.semana})
+    return {
+        'con_semanas': True,
+        'semana_vista': Semana('', lunes_de(fecha)),
+        'semanas_por_nivel': [(dict(Grado.NIVEL_CHOICES)[n], calendario.info(fecha, n)) for n in niveles],
+        'cuadricula_semana': cuadricula(de_la_semana),
+    }
+
+
 @requiere_permisos('Alumnos.view_profesor')
 def profesor_detalle(request, pk):
     profesor = get_object_or_404(Profesor, pk=pk)
@@ -288,6 +309,7 @@ def profesor_detalle(request, pk):
         'total_bloques': len(bloques),
         'horas_semanales': formatear_duracion(minutos) if minutos else '',
         'cuadricula': cuadricula(bloques),
+        **_semana_del_profesor(request, profesor, ciclo, bloques),
         'editable': editable,
         'ciclo_abierto': ciclo_editable(ciclo),
         'pendientes': pendientes,

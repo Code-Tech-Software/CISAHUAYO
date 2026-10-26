@@ -20,6 +20,7 @@ from Alumnos.academico import (
 from Alumnos.docentes import asignar_profesor, descripcion_del_cambio, deshabilitar, habilitar, profesores_por_nivel
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion, se_empalman
 from Alumnos.models import CicloEscolar, Grado, HorarioMateria, Materia, MateriaGrado, Profesor, orden_de_nivel
+from Alumnos.semanas import Calendario
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
@@ -481,6 +482,19 @@ def _profesor_vigente(asignacion):
     return None
 
 
+def _bloques_a_copiar(asignacion, calendario):
+    """[(día, inicio, fin, semana)] de su horario actual para el ciclo de destino. Si allá el nivel tiene semanas A y B,
+    se copian las dos; si tiene horario fijo, la semana A (o el horario fijo) queda como el de todas las semanas."""
+    alternado = calendario.alternado(asignacion.grado.nivel)
+    bloques = []
+    for h in asignacion.horarios.all():
+        if alternado or not h.semana:
+            bloques.append((h.dia_semana, h.hora_inicio, h.hora_fin, h.semana if alternado else ''))
+        elif h.semana == HorarioMateria.SEMANA_A:
+            bloques.append((h.dia_semana, h.hora_inicio, h.hora_fin, ''))
+    return bloques
+
+
 def _profesores_que_se_conservan(por_copiar, destino, con_horarios):
     """Quién seguiría dando cada materia copiada: ({pk de la asignación de origen: profesor}, cuántas quedan sin él).
 
@@ -497,9 +511,10 @@ def _profesores_que_se_conservan(por_copiar, destino, con_horarios):
             ocupados[profesor_id].append((dia, inicio, fin))
 
     conservados, perdidos = {}, 0
+    calendario = Calendario(destino)
     for asignacion in candidatos:
         profesor = _profesor_vigente(asignacion)
-        bloques = [(h.dia_semana, h.hora_inicio, h.hora_fin) for h in asignacion.horarios.all()] if con_horarios else []
+        bloques = [b[:3] for b in _bloques_a_copiar(asignacion, calendario)] if con_horarios else []
         agenda = ocupados[asignacion.profesor_id]
         if profesor is None or any(se_empalman(nuevo, previo) for nuevo in bloques for previo in agenda):
             perdidos += 1
@@ -584,12 +599,13 @@ def _ejecutar_copia(request):
             bloques = []
             if con_horarios:
                 ids = {(m.materia_id, m.grupo_id): m.pk for m in MateriaGrado.objects.filter(ciclo=destino)}
+                calendario = Calendario(destino)
                 bloques = [
                     HorarioMateria(
                         materia_grado_id=ids[(a.materia_id, a.grupo_id)],
-                        dia_semana=h.dia_semana, hora_inicio=h.hora_inicio, hora_fin=h.hora_fin,
+                        dia_semana=dia, hora_inicio=inicio, hora_fin=fin, semana=semana,
                     )
-                    for a in por_copiar for h in a.horarios.all()
+                    for a in por_copiar for dia, inicio, fin, semana in _bloques_a_copiar(a, calendario)
                 ]
                 HorarioMateria.objects.bulk_create(bloques)
     except IntegrityError:  # alguien asignó una de esas materias mientras tanto

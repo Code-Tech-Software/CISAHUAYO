@@ -75,9 +75,9 @@ def clases(fecha, inicio, fin, usuarios):
     ciclo = ciclo_actual()
     if not usuarios or ciclo is None:
         return []
-    horarios = (HorarioMateria.objects
-                .filter(materia_grado__profesor__usuario__in=usuarios, materia_grado__ciclo=ciclo, materia_grado__activa=True,
-                        dia_semana=fecha.weekday(), hora_inicio__lt=fin, hora_fin__gt=inicio)
+    from Alumnos.semanas import bloques_de_fecha
+    # Las de esa fecha: su semana A/B y la versión del horario (Alumnos/semanas.py)
+    horarios = (bloques_de_fecha(fecha, ciclo, materia_grado__profesor__usuario__in=usuarios, hora_inicio__lt=fin, hora_fin__gt=inicio)
                 .select_related('materia_grado__profesor__usuario', 'materia_grado__materia', 'materia_grado__grupo__grado',
                                 'materia_grado__grupo__nombre')
                 .order_by('hora_inicio'))

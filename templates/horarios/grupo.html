@@ -18,7 +18,7 @@
     <div>
       <h1 class="page-header__title">Horario de {{ grupo }}</h1>
       <p class="page-header__description">
-        {% if ciclo %}Ciclo {{ ciclo }} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}.{% if resumen_recesos %} Receso: {{ resumen_recesos|join:"; " }}.{% endif %}{% else %}Aún no hay ciclos escolares.{% endif %}
+        {% if ciclo %}Ciclo {{ ciclo }} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}.{% if resumen_recesos %} Receso: {{ resumen_recesos|join:"; " }}.{% endif %}{% if alternado %} Horario alternado: semana A y semana B.{% endif %}{% else %}Aún no hay ciclos escolares.{% endif %}
       </p>
     </div>
     <div class="page-header__actions">
@@ -40,10 +40,16 @@
           Agregar receso
         </a>
       {% endif %}
-      {% if perms.Alumnos.add_horariomateria and editable and asignaciones %}
-        <a class="btn btn--primary" href="{% url 'horarios:crear' grupo.pk %}?ciclo={{ ciclo.pk }}" data-modal-form>
+      {% if alternado and editable_aqui and perms.Alumnos.add_horariomateria and perms.Alumnos.delete_horariomateria %}
+        <button type="button" class="btn" data-modal-open="modal-copiar-semana">
+          {% include "partials/icon.html" with name="copy" icon_class="icon--sm" %}
+          Copiar semana A a semana B
+        </button>
+      {% endif %}
+      {% if perms.Alumnos.add_horariomateria and editable_aqui and asignaciones %}
+        <a class="btn btn--primary" href="{% url 'horarios:crear' grupo.pk %}?ciclo={{ ciclo.pk }}{% if vista %}&amp;semana={{ vista }}{% endif %}" data-modal-form>
           {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}
-          Agregar horario
+          Agregar horario{% if vista %} a la semana {{ vista }}{% endif %}
         </a>
       {% endif %}
     </div>
@@ -76,7 +82,50 @@
     </div>
   {% endif %}
 
-  {% if asignaciones %}
+  {% if ciclo and asignaciones %}
+    {% if alternado %}
+      <p class="semanas-hoy semanas-hoy--banda">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %}
+        <span>Esta semana, del {{ semana_de_hoy.rango }}, es la <strong class="semana-letra semana-letra--{{ semana_de_hoy.tipo|lower }}">{{ semana_de_hoy.nombre }}</strong> en {{ grado.get_nivel_display|lower }}.{% if perms.Alumnos.view_horariomateria %} <a href="{% url 'horarios:semanas' %}?ciclo={{ ciclo.pk }}#nivel-{{ grado.nivel|lower }}">Secuencia y excepciones</a>{% endif %}</span>
+      </p>
+    {% endif %}
+    <nav class="pills" aria-label="Qué horario ver">
+      {% if alternado %}
+        <a class="pill{% if vista == 'A' %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}&amp;vista=A"{% if vista == 'A' %} aria-current="page"{% endif %}>Semana A{% if semana_de_hoy.tipo == 'A' %} · esta semana{% endif %}</a>
+        <a class="pill{% if vista == 'B' %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}&amp;vista=B"{% if vista == 'B' %} aria-current="page"{% endif %}>Semana B{% if semana_de_hoy.tipo == 'B' %} · esta semana{% endif %}</a>
+      {% else %}
+        <a class="pill{% if vista == '' %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}"{% if vista == '' %} aria-current="page"{% endif %}>Horario semanal</a>
+      {% endif %}
+      <a class="pill{% if vista == 'fecha' %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}&amp;vista=fecha"{% if vista == 'fecha' %} aria-current="page"{% endif %}>Por fecha</a>
+    </nav>
+
+    {% if vista == 'fecha' %}
+      {# El horario de una semana concreta del calendario: con las versiones de entonces; aquí no se edita #}
+      <div class="semana-nav" role="group" aria-label="Elegir la semana">
+        <a class="btn btn--ghost btn--icon btn--sm" href="?ciclo={{ ciclo.pk }}&amp;vista=fecha&amp;fecha={{ semana.anterior|date:'Y-m-d' }}" aria-label="Semana anterior" data-tooltip="Semana anterior">{% include "partials/icon.html" with name="chevron-left" %}</a>
+        <p class="semana-nav__actual">
+          {% if semana.alternada %}<strong class="semana-letra semana-letra--{{ semana.tipo|lower }}">{{ semana.nombre }}</strong>{% else %}<strong>Horario fijo</strong>{% endif %}
+          <span>{{ semana.rango }}</span>
+        </p>
+        <a class="btn btn--ghost btn--icon btn--sm" href="?ciclo={{ ciclo.pk }}&amp;vista=fecha&amp;fecha={{ semana.siguiente|date:'Y-m-d' }}" aria-label="Semana siguiente" data-tooltip="Semana siguiente">{% include "partials/icon.html" with name="chevron-right" %}</a>
+        <form class="semana-nav__ir" method="get">
+          <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+          <input type="hidden" name="vista" value="fecha">
+          <label class="visually-hidden" for="semana-fecha">Ir a la semana de</label>
+          <input class="field__control" type="date" id="semana-fecha" name="fecha" value="{{ semana.lunes|date:'Y-m-d' }}" min="{{ ciclo.fecha_inicio|date:'Y-m-d' }}" max="{{ ciclo.fecha_fin|date:'Y-m-d' }}">
+          <button type="submit" class="btn btn--sm">Ir</button>
+          {% if semana.lunes != semana_de_hoy.lunes %}<a class="btn btn--ghost btn--sm" href="?ciclo={{ ciclo.pk }}&amp;vista=fecha">Esta semana</a>{% endif %}
+        </form>
+      </div>
+      {% if sin_clases %}
+        <ul class="semana-sin-clases" aria-label="Días sin clases de esta semana">
+          {% for fecha, motivo in sin_clases.items %}
+            <li>{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} {{ fecha|date:"l j" }}: sin clases ({{ motivo }})</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endif %}
+
     <div class="stat-grid">
       <div class="stat">
         <p class="stat__label">Materias</p>
@@ -109,23 +158,61 @@
 
     <section class="card print-area" aria-labelledby="titulo-horario">
       <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">{{ grupo }} · Ciclo {{ ciclo }}</h2>
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">{{ grupo }} · {% if vista == 'fecha' %}{{ semana.nombre }} · {{ semana.rango }}{% elif vista %}Plantilla de la semana {{ vista }}{% else %}Ciclo {{ ciclo }}{% endif %}</h2>
       </header>
 
       {% if cuadricula.filas %}
-        {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta=etiqueta_horario modo="grado" editable=editable %}
+        {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta=etiqueta_horario modo="grado" editable=editable_aqui %}
       {% else %}
         <div class="card__body">
           <div class="empty-state empty-state--inline">
-            <p class="empty-state__title">Todavía no hay horario</p>
-            <p class="empty-state__text">Agrega los días y las horas de cada materia para armar el horario semanal del grupo.</p>
-            {% if perms.Alumnos.add_horariomateria and editable %}
-              <a class="btn btn--primary btn--sm" href="{% url 'horarios:crear' grupo.pk %}?ciclo={{ ciclo.pk }}" data-modal-form>Agregar horario</a>
+            <p class="empty-state__title">{% if vista == 'fecha' %}No hay clases esta semana{% elif vista %}La semana {{ vista }} todavía no tiene horario{% else %}Todavía no hay horario{% endif %}</p>
+            <p class="empty-state__text">{% if vista == 'fecha' %}En estas fechas el grupo no tiene bloques de horario en vigor.{% elif vista == 'B' %}Agrega sus bloques o copia la semana A y ajusta lo que cambie.{% else %}Agrega los días y las horas de cada materia para armar el horario semanal del grupo.{% endif %}</p>
+            {% if perms.Alumnos.add_horariomateria and editable_aqui %}
+              <a class="btn btn--primary btn--sm" href="{% url 'horarios:crear' grupo.pk %}?ciclo={{ ciclo.pk }}{% if vista %}&amp;semana={{ vista }}{% endif %}" data-modal-form>Agregar horario</a>
             {% endif %}
           </div>
         </div>
       {% endif %}
     </section>
+
+    {% if comparacion %}
+      <section class="card" aria-labelledby="titulo-comparacion">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="bar-chart" %}<h2 class="card__title" id="titulo-comparacion">Semana A y semana B</h2>
+          {% if comparacion.diferencias %}<span class="tag tag--warning">{{ comparacion.diferencias }} materia{{ comparacion.diferencias|pluralize }} con distinta carga</span>{% else %}<span class="tag tag--success">Misma carga en las dos</span>{% endif %}
+        </header>
+        {% if comparacion.faltan %}
+          <div class="card__body">
+            <div class="alert alert--warning" role="note">
+              {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+              <p class="alert__body">{% for fila in comparacion.faltan %}{{ fila.asignacion.materia.nombre }} no tiene clases en la semana {{ fila.falta }}{% if not forloop.last %}; {% endif %}{% endfor %}. Las dos semanas deberían tener las mismas materias.</p>
+            </div>
+          </div>
+        {% endif %}
+        <div class="table-card">
+          <table class="table">
+            <caption class="visually-hidden">Sesiones y horas de cada materia en la semana A y en la B</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Materia</th>
+                <th class="table__th" scope="col">Semana A</th>
+                <th class="table__th" scope="col">Semana B</th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for fila in comparacion.filas %}
+                <tr class="table__row{% if fila.distinta %} semanas-comparacion__distinta{% endif %}">
+                  <th class="table__cell table__cell--main" scope="row">{{ fila.asignacion.materia.nombre }}{% if fila.distinta %} <span class="tag tag--warning">Distinta</span>{% endif %}</th>
+                  <td class="table__cell" data-label="Semana A">{{ fila.sesiones_a }} sesi{{ fila.sesiones_a|pluralize:"ón,ones" }} · {{ fila.duracion_a }}</td>
+                  <td class="table__cell" data-label="Semana B">{{ fila.sesiones_b }} sesi{{ fila.sesiones_b|pluralize:"ón,ones" }} · {{ fila.duracion_b }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
 
     {% if sin_horario %}
       <section class="card" aria-labelledby="titulo-sin-horario">
@@ -135,8 +222,8 @@
         <ul class="shortcuts card__body">
           {% for asignacion in sin_horario %}
             <li>
-              {% if perms.Alumnos.add_horariomateria and editable %}
-                <a class="shortcut" href="{% url 'horarios:crear' grupo.pk %}?ciclo={{ ciclo.pk }}&amp;materia={{ asignacion.pk }}" data-modal-form>
+              {% if perms.Alumnos.add_horariomateria and editable_aqui %}
+                <a class="shortcut" href="{% url 'horarios:crear' grupo.pk %}?ciclo={{ ciclo.pk }}&amp;materia={{ asignacion.pk }}{% if vista and vista != 'fecha' %}&amp;semana={{ vista }}{% endif %}" data-modal-form>
                   <span class="shortcut__icon">{% include "partials/icon.html" with name="plus" %}</span>
                   <span class="shortcut__text"><span class="shortcut__title">{{ asignacion.materia.nombre }}</span><span class="shortcut__hint">Agregar sus días y horas</span></span>
                 </a>
@@ -183,6 +270,11 @@
         <div class="modal__body">
           <p><strong data-eliminar-materia>La materia</strong> dejará de darse el <strong data-eliminar-detalle>ese día</strong>.</p>
           <p class="text-muted">Solo se quita ese bloque del horario. La materia sigue en el plan del grupo y su asistencia no cambia.</p>
+          <label class="field">
+            <span class="field__label">A partir de</span>
+            <input class="field__control" type="date" name="vigencia" value="{{ vigencia_inicial|date:'Y-m-d' }}" min="{{ ciclo.fecha_inicio|date:'Y-m-d' }}" max="{{ ciclo.fecha_fin|date:'Y-m-d' }}">
+            <span class="field__hint">Las fechas anteriores conservan el bloque. Déjalo vacío para quitarlo de todo el ciclo.</span>
+          </label>
         </div>
         <footer class="modal__footer">
           <button type="button" class="btn" data-modal-close>Cancelar</button>
@@ -190,6 +282,30 @@
         </footer>
       </form>
     </dialog>
+
+    {% if alternado %}
+      <dialog class="modal" id="modal-copiar-semana" aria-labelledby="modal-copiar-semana-titulo" data-modal>
+        <form class="modal__panel" method="post" action="{% url 'horarios:copiar_semana' grupo.pk %}?ciclo={{ ciclo.pk }}">
+          {% csrf_token %}
+          <header class="modal__header">
+            <h2 class="modal__title" id="modal-copiar-semana-titulo">Copiar semana A a semana B</h2>
+            <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          </header>
+          <div class="modal__body">
+            <p>La semana B de <strong>{{ grupo }}</strong> quedará igual que la A: sus bloques actuales se reemplazan por una copia de los de la A. Después ajustas los que cambien.</p>
+            <label class="field">
+              <span class="field__label">A partir de</span>
+              <input class="field__control" type="date" name="vigencia" value="{{ vigencia_inicial|date:'Y-m-d' }}" min="{{ ciclo.fecha_inicio|date:'Y-m-d' }}" max="{{ ciclo.fecha_fin|date:'Y-m-d' }}">
+              <span class="field__hint">Las semanas B anteriores conservan su horario. Déjalo vacío para aplicarlo a todo el ciclo.</span>
+            </label>
+          </div>
+          <footer class="modal__footer">
+            <button type="button" class="btn" data-modal-close>Cancelar</button>
+            <button type="submit" class="btn btn--primary">Copiar</button>
+          </footer>
+        </form>
+      </dialog>
+    {% endif %}
 
     <dialog class="modal" id="modal-eliminar-recreo" aria-labelledby="modal-eliminar-recreo-titulo" data-modal>
       <form class="modal__panel" method="post" action="" data-eliminar-form>

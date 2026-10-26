@@ -24,14 +24,77 @@
   bottom: 0.3rem;
 }
 
-.chat__caja--editor.is-vacia .chat__enviar:not(:disabled) {
-  opacity: 0.55;
-}
-
 .editor {
+  /* Lo que ocupan a la derecha, abajo, los botones de formato, emojis y adjuntar más el de enviar */
+  --editor-reserva: 10rem;
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* Oculta hasta que se pide con «Mostrar opciones de formato» */
+.editor__barra[hidden] {
+  display: none;
+}
+
+/* --- Formato, emojis y adjuntar: abajo a la derecha, junto al botón de enviar (como en Teams) ------------------- */
+.editor__acciones {
+  position: absolute;
+  right: 2.9rem;   /* a la izquierda del botón de enviar (2.25rem, a 0.3rem de la orilla) */
+  bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  height: 2.25rem;
+  padding-right: 0.4rem;
+}
+
+/* Un separador corto entre estos botones y el de enviar */
+.editor__acciones::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: var(--border-width);
+  height: 1.25rem;
+  background: var(--color-border);
+  transform: translateY(-50%);
+}
+
+.editor__accion {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-soft);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.editor__accion .icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.editor__accion:hover,
+.editor__accion.is-abierto {
+  background: var(--color-surface-hover);
+  color: var(--color-primary-text);
+}
+
+.editor__accion:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+/* Formato a la vista: el icono en el color del sistema, como el de Teams */
+.editor__accion[aria-pressed="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
 
 .editor[hidden] {
@@ -245,7 +308,7 @@
   min-height: 2.75rem;   /* lo que ocupa el botón de enviar, que va dentro, abajo a la derecha */
   max-height: 14rem;
   max-height: min(14rem, max(6rem, 33dvh));
-  padding: 0.5rem 3rem 0.5rem var(--space-3);
+  padding: 0.5rem var(--editor-reserva) 0.5rem var(--space-3);
   overflow-y: auto;
   overscroll-behavior: contain;
   color: var(--color-text);
@@ -267,7 +330,7 @@
 
 .editor__estado {
   margin: 0;
-  padding: 0 3rem var(--space-1) var(--space-3);
+  padding: 0 var(--editor-reserva) var(--space-1) var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
 }
@@ -823,6 +886,11 @@
   .editor__barra {
     --editor-boton: 2.375rem;
   }
+
+  .editor__accion {
+    width: 2.375rem;
+    height: 2.375rem;
+  }
 }
 
 @media (max-width: 48rem) {
@@ -830,10 +898,27 @@
     padding: 0.25rem;
   }
 
+  /* En el teléfono el texto usa todo el ancho: los botones van en un renglón debajo, con el de enviar a la derecha */
+  .editor {
+    --editor-reserva: var(--space-3);
+  }
+
   .editor__area {
     max-height: 10rem;
     max-height: min(10rem, max(5rem, 28dvh));
     padding-left: var(--space-3);
+  }
+
+  .editor__acciones {
+    position: static;
+    min-height: 2.375rem;
+    height: auto;
+    margin: 0 3rem 0.3rem 0.3rem;   /* el botón de enviar ocupa la esquina de este renglón */
+    padding-right: 0;
+  }
+
+  .editor__acciones::after {
+    display: none;
   }
 
   .editor__area.is-vacio::before {

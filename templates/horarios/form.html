@@ -19,7 +19,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
       <p class="page-header__description">
-        {{ grupo }} · Ciclo {{ ciclo }}.
+        {{ grupo }} · Ciclo {{ ciclo }}{% if semana and not es_edicion %} · <strong>Semana {{ semana }}</strong>{% endif %}.
         {% if es_edicion %}Cambia la materia, el día o la hora de este bloque.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}
       </p>
     </div>
@@ -39,6 +39,7 @@
   {% else %}
     <form class="form-page" method="post" novalidate>
       {% csrf_token %}
+      {% if semana and not es_edicion %}<input type="hidden" name="semana" value="{{ semana }}">{% endif %}
 
       {% if form.non_field_errors %}
         <div class="alert alert--error" role="alert">
@@ -53,6 +54,7 @@
         </header>
         <div class="card__body form-grid">
           {% include "partials/field.html" with campo=form.materia_grado clase="form-grid__full" %}
+          {% if form.semana %}{% include "partials/field.html" with campo=form.semana clase="form-grid__full" %}{% endif %}
 
           {% if es_edicion %}
             {% include "partials/field.html" with campo=form.dia_semana clase="form-grid__full" %}
@@ -64,12 +66,13 @@
             {% include "partials/field.html" with campo=form.hora_inicio %}
             {% include "partials/field.html" with campo=form.hora_fin %}
           {% endif %}
+          {% include "partials/field.html" with campo=form.vigencia clase="form-grid__full" %}
         </div>
       </section>
 
       <footer class="action-bar">
         <span class="action-bar__start">
-          <a class="btn btn--ghost" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">Cancelar</a>
+          <a class="btn btn--ghost" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}{% if semana %}&amp;vista={{ semana }}{% endif %}">Cancelar</a>
           {% if es_edicion and perms.Alumnos.delete_horariomateria %}
             <button type="button" class="btn btn--ghost btn--danger-text" data-modal-open="modal-eliminar">
               {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Quitar del horario

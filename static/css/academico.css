@@ -876,3 +876,155 @@ a.slot__name:hover {
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
+
+/* ==========================================================================
+   Semanas A y B (pedido del 2026-10-26): la letra de la semana, la banda «esta semana», la navegación por semanas,
+   la configuración por nivel y la comparación entre las dos plantillas. La A va en el color del sistema y la B en el
+   de acento, en todos los temas.
+   ========================================================================== */
+.semana-letra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-strong);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.semana-letra--a {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.semana-letra--b {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.semanas-hoy {
+  margin: 0 0 var(--space-3);
+}
+
+/* La semana de hoy, arriba del horario: siempre a la vista */
+.semanas-hoy--banda {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.semanas-proximas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.semanas-proximas__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.2rem 0.6rem 0.2rem 0.2rem;
+  border: var(--border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+}
+
+.semanas-nivel {
+  scroll-margin-top: var(--space-8);
+}
+
+.semanas-form {
+  margin-top: var(--space-3);
+}
+
+.semanas-form__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.semanas-excepciones {
+  border-top: var(--border);
+}
+
+.semanas-subtitulo {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.semanas-vista-previa {
+  margin-top: var(--space-3);
+}
+
+.semanas-vista-previa__cambia,
+.semanas-comparacion__distinta {
+  background: var(--color-warning-bg);
+}
+
+/* Navegación entre semanas (horario por fecha) */
+.semana-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.semana-nav__actual {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.semana-nav__ir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.semana-nav__ir .field__control {
+  width: auto;
+}
+
+.semana-sin-clases {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--color-text-strong);
+  font-size: var(--text-sm);
+  list-style: none;
+}
+
+/* La letra de la semana dentro de un bloque (horario del profesor, con las dos plantillas juntas) */
+.slot__semana {
+  margin-left: 0.2rem;
+  font-weight: var(--weight-bold);
+}
+
+@media (max-width: 40rem) {
+  .semana-nav__ir {
+    width: 100%;
+    margin-left: 0;
+  }
+}

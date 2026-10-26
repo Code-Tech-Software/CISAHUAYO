@@ -87,6 +87,8 @@
       this.filaPrincipal = qs('[data-editor-fila="principal"]', raiz);
       this.filaExtra = qs('[data-editor-fila="extra"]', raiz);
       this.botonMas = qs('[data-editor-mas]', raiz);
+      this.acciones = qs('[data-editor-acciones]', raiz);
+      this.botonFormato = qs('[data-editor-formato]', raiz);
       this.archivo = qs('[data-editor-archivo]', raiz);
       this.estado = qs('[data-editor-estado]', raiz);
       this.selects = { fuente: qs('[data-editor-fuente]', raiz), tamano: qs('[data-editor-tamano]', raiz), parrafo: qs('[data-editor-parrafo]', raiz) };
@@ -109,12 +111,14 @@
 
       document.execCommand('defaultParagraphSeparator', false, 'p');
       this.area.innerHTML = '<p><br></p>';
+      this.area.classList.add('is-vacio');   /* el texto de ayuda («Escribe un mensaje…») desde que se abre */
       this.guardarEstado();
       this.prepararPaneles();
       this.caracteres = this.prepararCaracteres();
       this.escuchar();
       this.raiz.hidden = false;
       this.reacomodar();
+      this.ponerFormato(false);
       this.ponerMas(leerAlmacen(LLAVE_MAS) === null ? window.matchMedia('(min-width: 64rem)').matches : leerAlmacen(LLAVE_MAS) === '1');
       this.actualizarBarra();
     }
@@ -388,7 +392,12 @@
       if (nombre === 'rehacer') return this.rehacer();
       if (nombre === 'imagen') return this.elegirImagen();
       if (nombre === 'caracteres') return this.abrirCaracteres();
-      if (nombre === 'enlace') return this.abrirPanel('enlace', qs('[data-comando="enlace"]', this.barra));
+      if (nombre === 'enlace') {
+        /* Con Ctrl+K su botón puede no estar a la vista (barra de formato oculta o en la fila de «Más»): el panel se
+           pone junto al cuadro de texto */
+        const boton = qs('[data-comando="enlace"]', this.barra);
+        return this.abrirPanel('enlace', boton, boton.offsetParent ? boton : this.area);
+      }
       if (nombre === 'color' || nombre === 'resaltado') {
         return this.abrirPanel(nombre, qs(`[data-panel="${nombre}"]`, this.barra));
       }
@@ -699,6 +708,19 @@
       return '';
     }
 
+    /* «Mostrar opciones de formato» (como en Teams): la barra empieza oculta; al mostrarla se reparten de nuevo sus
+       grupos, porque oculta no tiene ancho que medir */
+    ponerFormato(visible) {
+      if (!visible) this.cerrarPanel(false);
+      this.barra.hidden = !visible;
+      if (visible) this.reacomodar();
+      if (!this.botonFormato) return;
+      const texto = visible ? 'Ocultar opciones de formato' : 'Mostrar opciones de formato';
+      this.botonFormato.setAttribute('aria-pressed', String(visible));
+      this.botonFormato.setAttribute('aria-label', texto);
+      this.botonFormato.dataset.tooltip = `${texto} (Ctrl+Mayús+F)`;
+    }
+
     /* «Más herramientas»: muestra u oculta la fila de abajo */
     ponerMas(abierta) {
       this.filaExtra.hidden = !abierta;
@@ -793,7 +815,7 @@
       mostrar(Object.keys(EMOJIS)[0]);
     }
 
-    abrirPanel(nombre, boton) {
+    abrirPanel(nombre, boton, ancla = boton) {
       const panel = this.paneles[nombre];
       if (!panel) return;
       if (this.panelAbierto?.nombre === nombre) {
@@ -804,10 +826,10 @@
       this.guardarRango();
       this.prepararPanel(nombre);
       if (!panel.matches(':popover-open')) panel.showPopover();
-      if (window.CISAHUAYO?.pickers?.place) window.CISAHUAYO.pickers.place(panel, boton);
+      if (window.CISAHUAYO?.pickers?.place) window.CISAHUAYO.pickers.place(panel, ancla);
       boton?.setAttribute('aria-expanded', 'true');
       boton?.classList.add('is-abierto');
-      this.panelAbierto = { nombre, boton, panel };
+      this.panelAbierto = { nombre, boton, panel, ancla };
       const visibles = (selector) => qsa(selector, panel).filter((nodo) => nodo.offsetParent !== null);
       const primero = nombre === 'enlace'
         ? qs(qs('[data-enlace-texto]', panel).value ? '[data-enlace-url]' : '[data-enlace-texto]', panel)
@@ -1483,13 +1505,15 @@
         if (this.archivo.files.length) this.subirImagenes(this.archivo.files);
       });
 
-      /* La barra: no le quita el foco al área (la selección no se pierde) */
-      this.barra.addEventListener('mousedown', (evento) => {
-        if (evento.target.closest('button')) evento.preventDefault();
-      });
-      this.barra.addEventListener('click', (evento) => {
+      /* La barra y los botones de abajo (formato, emojis, adjuntar): no le quitan el foco al área (la selección no se
+         pierde). Adjuntar lo maneja static/js/mensajes.js */
+      const alPulsar = (evento) => {
         const boton = evento.target.closest('button');
         if (!boton || boton.disabled) return;
+        if (boton === this.botonFormato) {
+          this.ponerFormato(this.barra.hidden);
+          return;
+        }
         if (boton === this.botonMas) {
           const abrir = this.filaExtra.hidden;
           this.ponerMas(abrir);
@@ -1501,6 +1525,12 @@
           return;
         }
         if (boton.dataset.comando) this.comando(boton.dataset.comando);
+      };
+      [this.barra, this.acciones].filter(Boolean).forEach((zona) => {
+        zona.addEventListener('mousedown', (evento) => {
+          if (evento.target.closest('button')) evento.preventDefault();
+        });
+        zona.addEventListener('click', alPulsar);
       });
       this.selects.fuente.addEventListener('change', () => this.ponerFuente(this.selects.fuente.value));
       this.selects.tamano.addEventListener('change', () => this.ponerTamano(this.selects.tamano.value));
@@ -1515,7 +1545,8 @@
         panel.addEventListener('keydown', (evento) => {
           if (evento.key === 'Escape') {
             evento.preventDefault();
-            const boton = this.panelAbierto?.boton;
+            /* Vuelve a su botón; si no está a la vista (Ctrl+K con la barra oculta), al texto */
+            const boton = this.panelAbierto?.boton?.offsetParent ? this.panelAbierto.boton : null;
             this.cerrarPanel(!boton);
             boton?.focus();
           }
@@ -1586,7 +1617,7 @@
       window.addEventListener('resize', () => {
         this.reacomodar();
         const abierto = this.panelAbierto;
-        if (abierto && window.CISAHUAYO?.pickers?.place) window.CISAHUAYO.pickers.place(abierto.panel, abierto.boton || this.imagenElegida);
+        if (abierto && window.CISAHUAYO?.pickers?.place) window.CISAHUAYO.pickers.place(abierto.panel, abierto.ancla || abierto.boton || this.imagenElegida);
       });
       if ('ResizeObserver' in window) {
         let ancho = 0;
@@ -1632,6 +1663,7 @@
         else if (tecla === 'u') atajo = () => this.comando('subrayado');
         else if (tecla === 'x' && evento.shiftKey) atajo = () => this.comando('tachado');
         else if (tecla === 'k') atajo = () => this.comando('enlace');
+        else if (tecla === 'f' && evento.shiftKey) atajo = () => this.ponerFormato(this.barra.hidden);
         else if (tecla === '\\') atajo = () => this.comando('limpiar');
         else if (evento.shiftKey && evento.code === 'Digit7') atajo = () => this.comando('numerada');
         else if (evento.shiftKey && evento.code === 'Digit8') atajo = () => this.comando('vinetas');

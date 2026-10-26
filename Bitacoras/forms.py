@@ -1,4 +1,5 @@
 """Formularios de la bitácora: la entrada de una clase y los filtros del historial."""
+import json
 import uuid
 
 from django import forms
@@ -17,7 +18,8 @@ DIAS = dict(HorarioMateria.DIA_CHOICES)
 
 
 def texto_de_bloque(bloque):
-    return f'{DIAS[bloque.dia_semana]} {bloque.hora_inicio:%H:%M}–{bloque.hora_fin:%H:%M}'
+    semana = f' · Semana {bloque.semana}' if bloque.semana else ''
+    return f'{DIAS[bloque.dia_semana]} {bloque.hora_inicio:%H:%M}–{bloque.hora_fin:%H:%M}{semana}'
 
 
 class _Asignacion(forms.ModelChoiceField):
@@ -70,7 +72,14 @@ class EntradaForm(EstiloCamposMixin, forms.Form):
         grupos = {a.grupo_id for a in self.asignaciones} | ({entrada.grupo_id} if entrada else set())
         self.fields['grupo'].queryset = (Grupo.objects.filter(pk__in=grupos).select_related('grado', 'nombre')
                                          .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre'))
-        self.fields['bloque'].queryset = HorarioMateria.objects.filter(materia_grado__in=self.asignaciones).order_by('dia_semana', 'hora_inicio')
+        # Todas las versiones (una clase pasada pudo darse con un horario anterior); la pantalla ofrece las que
+        # corresponden a la fecha (día, semana A/B y vigencia) y aquí se vuelve a revisar
+        self.fields['bloque'].queryset = (HorarioMateria.historial.filter(materia_grado__in=self.asignaciones)
+                                          .select_related('materia_grado__grado').order_by('dia_semana', 'hora_inicio', 'semana'))
+        from Alumnos.semanas import Calendario, mapa_de_semanas
+        self.calendario = Calendario(ciclo)
+        niveles = {a.grado.nivel for a in self.asignaciones}
+        self.semanas_json = json.dumps({nivel: mapa_de_semanas(self.calendario, nivel) for nivel in niveles if self.calendario.alternado(nivel)})
         self.fields['alumnos'].queryset = Alumno.objects.all()
         if entrada is not None:
             self.initial.update({
@@ -133,8 +142,12 @@ class EntradaForm(EstiloCamposMixin, forms.Form):
         if bloque is not None and asignacion is not None:
             if bloque.materia_grado_id != asignacion.pk:
                 self.add_error('bloque', 'Ese bloque es de otra materia.')
-            elif fecha is not None and bloque.dia_semana != fecha.weekday():
-                self.add_error('bloque', f'Ese bloque es del {DIAS[bloque.dia_semana].lower()} y la clase fue en {DIAS[fecha.weekday()].lower()}.')
+            elif fecha is not None:
+                from Alumnos.semanas import Calendario, explicar
+                calendario = self.calendario if self.calendario.ciclo == asignacion.ciclo else Calendario(asignacion.ciclo)
+                problema = explicar(bloque, fecha, calendario, asignacion.grado.nivel)
+                if problema:
+                    self.add_error('bloque', problema)
         if datos.get('general'):
             datos['alumnos'] = []
         else:

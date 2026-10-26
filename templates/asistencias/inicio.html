@@ -73,7 +73,7 @@
         {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
         <p class="empty-state__title">No hay clases este día</p>
         <p class="empty-state__text">{{ motivo }}</p>
-        {% if perms.Alumnos.view_cicloescolar %}<a class="btn btn--sm" href="{% url 'ciclos:lista' %}#dias-sin-clases">Ver días sin clases</a>{% endif %}
+        {% if perms.Alumnos.view_cicloescolar %}<a class="btn btn--sm" href="{% url 'ciclos:dias_sin_clases' %}">Ver días sin clases</a>{% endif %}
       </div>
     </div>
   {% elif not total.inscritos %}

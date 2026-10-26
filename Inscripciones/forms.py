@@ -149,9 +149,7 @@ class PromocionForm(EstiloCamposMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Se reinscribe hacia el ciclo actual o hacia uno próximo, nunca hacia uno cerrado.
-        self.fields['destino'].queryset = CicloEscolar.objects.filter(
-            Q(activo=True) | Q(fecha_inicio__gt=timezone.localdate())
-        )
+        self.fields['destino'].queryset = CicloEscolar.objects.vigentes()
         self.aplicar_estilo()
 
     def clean_fecha(self):

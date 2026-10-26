@@ -88,18 +88,19 @@ MODULOS = (
         }),
     )),
     Modulo('ciclos', 'Ciclos escolares', 'calendar-range', 'Los periodos del colegio. Solo hay un ciclo actual.', (
-        Funcion('Ciclos escolares', _permisos('cicloescolar', ('ver', 'crear', 'editar')), ayuda={
+        Funcion('Ciclos escolares', _permisos('cicloescolar'), etiquetas={'baja': 'Borrar'}, ayuda={
             'ver': 'Consultar los ciclos y su avance.',
             'crear': 'Crear ciclos escolares nuevos.',
-            'editar': 'Editar un ciclo, marcarlo como actual o cerrarlo.',
+            'editar': 'Editar un ciclo, marcarlo como actual o cerrarlo, y ver el aviso del cambio de ciclo en el Panel.',
+            'baja': 'Borrar un ciclo creado por error, mientras no tenga nada ligado.',
         }),
         Funcion('Días sin clases', {'crear': 'Alumnos.add_dianolectivo', 'baja': 'Alumnos.delete_dianolectivo'}, etiquetas={'baja': 'Quitar'},
                 requiere=('Alumnos.view_cicloescolar',), ayuda={
-            'crear': 'Registrar días sin clases (puentes, consejos técnicos, vacaciones) de los niveles elegidos, en Ciclos escolares.',
+            'crear': 'Registrar días sin clases (puentes, consejos técnicos, vacaciones) de los niveles elegidos, en el detalle de cada ciclo.',
             'baja': 'Quitar un día sin clases.',
         }),
     )),
-    Modulo('grados', 'Grados', 'layers', 'Los grados del colegio (hay un solo grupo por grado).', (
+    Modulo('grados', 'Grados', 'layers', 'Los grados del colegio; cada uno tiene uno o varios grupos.', (
         Funcion('Grados', _permisos('grado'), ayuda={
             'ver': 'Consultar los grados, sus estudiantes y materias, y exportar la lista.',
             'crear': 'Crear grados.',

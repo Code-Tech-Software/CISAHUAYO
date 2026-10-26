@@ -111,7 +111,9 @@ class DependenciasTests(SimpleTestCase):
     def test_el_resumen_deja_celdas_vacias_donde_la_funcion_no_tiene_la_accion(self):
         resumen = catalogo.resumen(set())
         ciclos = next(m for m in resumen if m['modulo'].clave == 'ciclos')
-        self.assertIsNone(ciclos['filas'][0]['celdas'][3])   # los ciclos no se dan de baja
+        dias = next(f for f in ciclos['filas'] if f['funcion'].nombre == 'Días sin clases')
+        self.assertIsNone(dias['celdas'][0])   # los días sin clases no tienen «Ver» propio (los ve quien ve los ciclos)
+        self.assertEqual(ciclos['filas'][0]['celdas'][3]['nombre'], 'Borrar')   # un ciclo creado por error
 
 
 class CatalogoContraLaBaseTests(TestCase):

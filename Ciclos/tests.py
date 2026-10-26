@@ -18,10 +18,11 @@ from CISAHUAYO.pruebas import (
 
 
 def datos_ciclo(**cambios):
+    # Un ciclo futuro y normal: el nombre coincide con los años y dura unos 11 meses (si no, el formulario avisa)
     datos = {
         'nombre': '2030-2031',
-        'fecha_inicio': (hoy() + timedelta(days=2000)).isoformat(),
-        'fecha_fin': (hoy() + timedelta(days=2300)).isoformat(),
+        'fecha_inicio': '2030-08-26',
+        'fecha_fin': '2031-07-11',
     }
     datos.update(cambios)
     return datos
@@ -153,10 +154,10 @@ class CrearTests(BaseTestCase):
         form = self.client.get(self.url).context['form']
         self.assertEqual(form.initial['nombre'], '2027-2028')
         self.assertEqual(str(form.initial['fecha_inicio']), '2027-08-31')
-        self.assertFalse(form.initial['activo'])         # ya hay uno actual
+        self.assertFalse(form.initial['es_actual'])      # ya hay uno actual
 
     def test_el_primer_ciclo_se_propone_como_actual(self):
-        self.assertTrue(self.client.get(self.url).context['form'].initial['activo'])
+        self.assertTrue(self.client.get(self.url).context['form'].initial['es_actual'])
 
     def test_registra_y_redirige_al_listado_con_mensaje(self):
         respuesta = self.client.post(self.url, datos_ciclo(), follow=True)
@@ -167,10 +168,12 @@ class CrearTests(BaseTestCase):
 
     def test_marcarlo_como_actual_quita_la_marca_al_anterior(self):
         anterior = ciclo_actual_de_prueba()
-        respuesta = self.client.post(self.url, {**datos_ciclo(), 'activo': 'on'}, follow=True)
+        respuesta = self.client.post(self.url, {**datos_ciclo(), 'es_actual': 'on'}, follow=True)
         self.assertContains(respuesta, 'y es el ciclo actual')
         anterior.refresh_from_db()
         self.assertFalse(anterior.activo)
+        self.assertEqual(anterior.estado, 'CERRADO')     # ya había empezado: queda cerrado, con quién y cuándo
+        self.assertEqual(anterior.cerrado_por, self.admin)
         self.assertTrue(CicloEscolar.objects.get(nombre='2030-2031').activo)
         self.assertEqual(CicloEscolar.objects.filter(activo=True).count(), 1)
 
@@ -203,9 +206,9 @@ class CrearTests(BaseTestCase):
 
     def test_ciclos_contiguos_si_se_permiten(self):
         existente = ciclo_actual_de_prueba('2026-2027')
+        inicio, fin = existente.fecha_fin + timedelta(days=1), existente.fecha_fin + timedelta(days=300)
         respuesta = self.client.post(self.url, datos_ciclo(
-            fecha_inicio=(existente.fecha_fin + timedelta(days=1)).isoformat(),
-            fecha_fin=(existente.fecha_fin + timedelta(days=300)).isoformat(),
+            nombre=f'{inicio.year}-{fin.year}', fecha_inicio=inicio.isoformat(), fecha_fin=fin.isoformat(),
         ))
         self.assertEqual(respuesta.status_code, 302)
 
@@ -229,7 +232,7 @@ class EditarTests(BaseTestCase):
     def datos(self, **cambios):
         datos = {
             'nombre': self.ciclo.nombre, 'fecha_inicio': self.ciclo.fecha_inicio.isoformat(),
-            'fecha_fin': self.ciclo.fecha_fin.isoformat(), 'activo': 'on',
+            'fecha_fin': self.ciclo.fecha_fin.isoformat(), 'confirmar': '1',
         }
         datos.update(cambios)
         return datos
@@ -237,7 +240,9 @@ class EditarTests(BaseTestCase):
     def test_formulario_precargado(self):
         respuesta = self.client.get(self.url)
         self.assertContains(respuesta, 'value="2026-2027"')
-        self.assertTrue(respuesta.context['form'].initial['activo'])
+        # Marcarlo como actual o cerrarlo, solo con sus botones (con confirmación)
+        self.assertNotIn('es_actual', respuesta.context['form'].fields)
+        self.assertContains(respuesta, 'usa sus botones en el detalle del ciclo')
 
     def test_actualiza_y_redirige_al_listado(self):
         respuesta = self.client.post(self.url, self.datos(nombre='2026-2027 B'), follow=True)
@@ -259,24 +264,22 @@ class EditarTests(BaseTestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn('fecha_inicio', respuesta.context['form'].errors)
 
-    def test_desmarcar_el_ciclo_actual_lo_cierra(self):
-        datos = self.datos()
-        datos.pop('activo')
-        self.client.post(self.url, datos)
+    def test_editar_no_cierra_el_ciclo_actual(self):
+        self.assertEqual(self.client.post(self.url, self.datos()).status_code, 302)   # sin la casilla
         self.ciclo.refresh_from_db()
-        self.assertFalse(self.ciclo.activo)
+        self.assertTrue(self.ciclo.activo)
 
-    def test_marcar_otro_como_actual_desde_su_edicion(self):
+    def test_editar_no_marca_otro_como_actual(self):
         proximo = ciclo_proximo_de_prueba()
         datos = {
             'nombre': proximo.nombre, 'fecha_inicio': proximo.fecha_inicio.isoformat(),
-            'fecha_fin': proximo.fecha_fin.isoformat(), 'activo': 'on',
+            'fecha_fin': proximo.fecha_fin.isoformat(), 'activo': 'on', 'es_actual': 'on', 'confirmar': '1',
         }
-        self.client.post(reverse('ciclos:editar', args=[proximo.pk]), datos)
+        self.assertEqual(self.client.post(reverse('ciclos:editar', args=[proximo.pk]), datos).status_code, 302)
         self.ciclo.refresh_from_db()
         proximo.refresh_from_db()
-        self.assertTrue(proximo.activo)
-        self.assertFalse(self.ciclo.activo)
+        self.assertFalse(proximo.activo)
+        self.assertTrue(self.ciclo.activo)
 
     def test_ciclo_inexistente_da_404(self):
         self.assertEqual(self.client.get(reverse('ciclos:editar', args=[9999])).status_code, 404)
@@ -385,7 +388,7 @@ class AccionesTests(BaseTestCase):
 
     def test_establecer_como_actual(self):
         respuesta = self.client.post(reverse('ciclos:establecer_actual', args=[self.proximo.pk]), follow=True)
-        self.assertRedirects(respuesta, reverse('ciclos:lista'))
+        self.assertRedirects(respuesta, self.proximo.get_absolute_url())   # vuelve al detalle
         self.assertContains(respuesta, 'es ahora el ciclo actual')
         self.assertContains(respuesta, 'El ciclo 2026-2027 dejó de ser el actual')
         self.actual.refresh_from_db()
@@ -401,7 +404,7 @@ class AccionesTests(BaseTestCase):
         grado = crear_grado()
         inscripcion = inscribir(crear_alumno(), self.actual, grado)
         respuesta = self.client.post(reverse('ciclos:cerrar', args=[self.actual.pk]), follow=True)
-        self.assertRedirects(respuesta, reverse('ciclos:lista'))
+        self.assertRedirects(respuesta, self.actual.get_absolute_url())   # vuelve al detalle
         self.assertContains(respuesta, 'se cerró')
         self.actual.refresh_from_db()
         self.assertFalse(self.actual.activo)

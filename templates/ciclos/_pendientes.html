@@ -1,0 +1,12 @@
+{% comment %}
+  Lo que conviene resolver antes de cerrar el ciclo (Ciclos.reglas.pendientes_de_cierre): en la tarjeta del detalle y en
+  la ventana de «Cerrar el ciclo». Solo avisa; no impide cerrar. Parámetro: pendientes.
+{% endcomment %}
+<ul class="ciclo-pendientes">
+  {% for pendiente in pendientes %}
+    <li class="ciclo-pendientes__item">
+      <span class="ciclo-pendientes__cantidad">{{ pendiente.cantidad }}</span>
+      {% if pendiente.url %}<a class="link-subtle" href="{{ pendiente.url }}">{{ pendiente.texto }}</a>{% else %}<span>{{ pendiente.texto }}</span>{% endif %}
+    </li>
+  {% endfor %}
+</ul>

@@ -9,11 +9,13 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from Alumnos import asistencias as reglas
-from Alumnos.models import AsistenciaGeneral, CicloEscolar, CierreDia, ConfiguracionAsistencia, DiaNoLectivo
+from Alumnos.models import AsistenciaGeneral, CierreDia, ConfiguracionAsistencia, DiaNoLectivo
 from Asistencias.tests import entrar, url
 from CISAHUAYO.pruebas import (
     PRUEBAS,
     BaseAsistenciaTestCase,
+    ciclo_cerrado_de_prueba,
+    ciclo_proximo_de_prueba,
     crear_alumno,
     inscribir_antes,
     lunes,
@@ -91,12 +93,14 @@ class ReglasDeLaEntradaTests(BaseAsistenciaTestCase):
         self.assertEqual(ConfiguracionAsistencia.cargar().tolerancia_minutos, 10)
 
 
-CICLOS = reverse('ciclos:lista')   # la tarjeta de días sin clases está en Ciclos escolares (2026-10-14)
-
-
 @PRUEBAS
 class DiasSinClasesTests(BaseAsistenciaTestCase):
+    """La tarjeta de días sin clases está en el detalle de cada ciclo (2026-10-26; antes en la lista de ciclos)."""
     hora = (10, 30)
+
+    @property
+    def CICLOS(self):   # noqa: N802
+        return self.ciclo.get_absolute_url()
 
     def crear(self, **cambios):
         datos = {'desde': (lunes() + timedelta(days=7)).isoformat(), 'hasta': '', 'motivo': 'Consejo técnico', 'niveles': ['TODOS']}
@@ -105,7 +109,7 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
 
     def test_registra_un_dia(self):
         respuesta = self.crear()
-        self.assertRedirects(respuesta, f'{CICLOS}#dias-sin-clases')
+        self.assertRedirects(respuesta, f'{self.CICLOS}#dias-sin-clases')
         self.assertContains(respuesta, 'Se registró 1 día sin clases para todos los niveles')
         # «Todos los niveles» lo registra en los cuatro
         self.assertEqual(
@@ -128,7 +132,7 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
     def test_la_lista_agrupa_los_niveles_de_cada_dia(self):
         self.crear()
         self.crear(desde=(lunes() + timedelta(days=8)).isoformat(), niveles=['PREPARATORIA', 'PREESCOLAR'], motivo='Junta')
-        respuesta = self.client.get(CICLOS)
+        respuesta = self.client.get(self.CICLOS)
         dias = respuesta.context['dias_sin_clases']
         self.assertEqual([(d.motivo, d.todos, d.nombres) for d in dias],
                          [('Junta', False, ['Preescolar', 'Preparatoria']), ('Consejo técnico', True, ['Preescolar', 'Primaria', 'Secundaria', 'Preparatoria'])])
@@ -183,13 +187,14 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
     def test_la_lista_va_del_mas_reciente_al_mas_antiguo_y_marca_los_proximos(self):
         DiaNoLectivo.registrar(fecha=lunes() - timedelta(days=14), motivo='Pasado')
         DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=14), motivo='Futuro')
-        respuesta = self.client.get(CICLOS)
+        respuesta = self.client.get(self.CICLOS)
         self.assertEqual([d.motivo for d in respuesta.context['dias_sin_clases']], ['Futuro', 'Pasado'])
         self.assertContains(respuesta, '<span class="tag tag--info">Próximo</span>', count=1)   # solo el futuro
 
-    def test_la_tarjeta_esta_en_ciclos_y_no_en_ajustes_de_asistencia(self):
+    def test_la_tarjeta_esta_en_el_detalle_del_ciclo_y_no_en_la_lista_ni_en_ajustes(self):
         DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=7), motivo='Puente')
-        ciclos = self.client.get(CICLOS)
+        self.assertNotContains(self.client.get(reverse('ciclos:lista')), 'id="dias-sin-clases"')
+        ciclos = self.client.get(self.CICLOS)
         self.assertContains(ciclos, 'id="dias-sin-clases"')
         self.assertContains(ciclos, url('dia_sin_clases_crear'))
         self.assertContains(ciclos, 'js/dias-sin-clases.js')
@@ -197,25 +202,48 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
         self.assertNotContains(ajustes, 'Días sin clases</h2>')
         self.assertNotContains(ajustes, url('dia_sin_clases_crear'))
 
-    def test_sin_ciclo_actual_no_se_agregan_dias_sin_clases(self):
-        DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=14), motivo='Puente')
-        CicloEscolar.objects.update(activo=False)
-        respuesta = self.crear()
-        self.assertContains(respuesta, 'No se registró: No hay un ciclo escolar actual')
-        self.assertEqual(list(DiaNoLectivo.objects.values_list('motivo', flat=True).distinct()), ['Puente'])
-        # La tarjeta avisa en lugar de mostrar el formulario; lo ya registrado se puede seguir quitando
-        ciclos = self.client.get(CICLOS)
-        self.assertContains(ciclos, 'No se pueden agregar días sin clases')
-        self.assertNotContains(ciclos, url('dia_sin_clases_crear'))
-        self.assertContains(ciclos, 'Quitar el día sin clases')
-        # Con un ciclo actual otra vez, se agregan como siempre
-        CicloEscolar.objects.update(activo=True)
-        self.assertContains(self.crear(), 'Se registró 1 día sin clases')
+    def test_sin_ciclo_actual_se_carga_el_calendario_del_ciclo_que_viene(self):
+        # En vacaciones: el ciclo anterior ya se cerró y el nuevo todavía no es el actual
+        siguiente = ciclo_proximo_de_prueba()
+        self.client.post(reverse('ciclos:cerrar', args=[self.ciclo.pk]))
+        fecha = siguiente.fecha_inicio + timedelta(days=20)
+        respuesta = self.crear(desde=fecha.isoformat(), ciclo=siguiente.pk, motivo='Consejo técnico')
+        self.assertRedirects(respuesta, f'{siguiente.get_absolute_url()}#dias-sin-clases')
+        self.assertContains(respuesta, 'Se registró 1 día sin clases')
+        self.assertEqual(respuesta.context['dias_sin_clases'][0].fecha, fecha)
+
+    def test_solo_en_el_ciclo_actual_o_en_uno_proximo_y_dentro_de_sus_fechas(self):
+        cerrado = ciclo_cerrado_de_prueba()
+        respuesta = self.crear(desde=(cerrado.fecha_inicio + timedelta(days=10)).isoformat())
+        self.assertContains(respuesta, 'ya está cerrado')
+        respuesta = self.crear(desde=(cerrado.fecha_fin + timedelta(days=1)).isoformat())   # entre dos ciclos
+        self.assertContains(respuesta, 'fuera de las fechas de cualquier ciclo')
+        respuesta = self.crear(desde=(self.ciclo.fecha_fin - timedelta(days=1)).isoformat(),
+                               hasta=(self.ciclo.fecha_fin + timedelta(days=2)).isoformat())
+        self.assertContains(respuesta, f'deben quedar dentro del ciclo {self.ciclo}')
+        respuesta = self.crear(ciclo=cerrado.pk)   # el ciclo del detalle manda
+        self.assertContains(respuesta, 'ya está cerrado')
+        self.assertFalse(DiaNoLectivo.objects.exists())
+        # El detalle de un ciclo cerrado no ofrece el formulario; lo registrado se puede seguir quitando
+        DiaNoLectivo.registrar(fecha=cerrado.fecha_inicio + timedelta(days=10), motivo='Puente')
+        detalle = self.client.get(cerrado.get_absolute_url())
+        self.assertContains(detalle, 'El ciclo está cerrado')
+        self.assertNotContains(detalle, url('dia_sin_clases_crear'))
+        self.assertContains(detalle, 'Quitar el día sin clases')
+
+    def test_cada_ciclo_muestra_solo_sus_dias(self):
+        proximo = ciclo_proximo_de_prueba()
+        DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=7), motivo='De este ciclo')
+        DiaNoLectivo.registrar(fecha=proximo.fecha_inicio + timedelta(days=7), motivo='Del que viene')
+        self.assertEqual([d.motivo for d in self.client.get(self.CICLOS).context['dias_sin_clases']], ['De este ciclo'])
+        self.assertEqual([d.motivo for d in self.client.get(proximo.get_absolute_url()).context['dias_sin_clases']], ['Del que viene'])
+        # El enlace fijo («Ver días sin clases» de Asistencia) lleva al del ciclo actual
+        self.assertRedirects(self.client.get(reverse('ciclos:dias_sin_clases')), f'{self.CICLOS}#dias-sin-clases')
 
     def test_sin_permiso_para_agregar_o_quitar_no_hay_controles(self):
         DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=7), motivo='Puente')
         self.con_permisos('view_cicloescolar')
-        respuesta = self.client.get(CICLOS)
+        respuesta = self.client.get(self.CICLOS)
         self.assertContains(respuesta, 'Puente')   # la lista sí la ve quien ve los ciclos
         self.assertNotContains(respuesta, url('dia_sin_clases_crear'))
         self.assertNotContains(respuesta, 'Quitar el día sin clases')
@@ -229,11 +257,11 @@ class DiasSinClasesTests(BaseAsistenciaTestCase):
 
     def test_consultas_constantes(self):
         with CaptureQueriesContext(connection) as pocas:
-            self.client.get(CICLOS)
+            self.client.get(self.CICLOS)
         for i in range(20):
             DiaNoLectivo.registrar(fecha=lunes() + timedelta(days=i + 1), motivo=f'Día {i}')
         with CaptureQueriesContext(connection) as muchas:
-            self.client.get(CICLOS)
+            self.client.get(self.CICLOS)
         self.assertEqual(len(muchas), len(pocas))
 
 

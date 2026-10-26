@@ -24,6 +24,7 @@
           <h1 class="identity__name" id="perfil-nombre">{{ ciclo }}</h1>
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ ciclo.estado_display }}</span>
+            {% if ciclo.por_activar %}<span class="tag tag--warning">Ya empezó: falta marcarlo como actual</span>{% endif %}
             <span>{{ ciclo.fecha_inicio|date:"j M Y" }} – {{ ciclo.fecha_fin|date:"j M Y" }}</span>
             <span class="text-muted">{{ total_activas }} estudiante{{ total_activas|pluralize }} inscrito{{ total_activas|pluralize }}</span>
           </p>
@@ -34,22 +35,33 @@
             <a class="btn btn--primary" href="{% url 'ciclos:editar' ciclo.pk %}" data-modal-form>
               {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar
             </a>
+          {% endif %}
+          {% if perms.Alumnos.change_cicloescolar or impide_borrar is not None %}
             <div class="menu" data-menu>
               <button type="button" class="btn btn--icon menu__trigger" data-menu-trigger aria-expanded="false" aria-controls="menu-acciones" aria-label="Más acciones">
                 {% include "partials/icon.html" with name="more-horizontal" %}
               </button>
               <div class="menu__panel" id="menu-acciones" data-menu-panel hidden>
                 <ul class="menu__list">
-                  {% if ciclo.activo %}
+                  {% if perms.Alumnos.change_cicloescolar %}
+                    {% if ciclo.activo %}
+                      <li>
+                        <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-cerrar">
+                          {% include "partials/icon.html" with name="lock" %} Cerrar el ciclo
+                        </button>
+                      </li>
+                    {% else %}
+                      <li>
+                        <button type="button" class="menu__item" data-modal-open="modal-actual">
+                          {% include "partials/icon.html" with name="circle-check" %} Establecer como ciclo actual
+                        </button>
+                      </li>
+                    {% endif %}
+                  {% endif %}
+                  {% if impide_borrar is not None and not ciclo.activo %}
                     <li>
-                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-cerrar">
-                        {% include "partials/icon.html" with name="lock" %} Cerrar el ciclo
-                      </button>
-                    </li>
-                  {% else %}
-                    <li>
-                      <button type="button" class="menu__item" data-modal-open="modal-actual">
-                        {% include "partials/icon.html" with name="circle-check" %} Establecer como ciclo actual
+                      <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-borrar">
+                        {% include "partials/icon.html" with name="trash" %} Borrar el ciclo
                       </button>
                     </li>
                   {% endif %}
@@ -63,9 +75,14 @@
       <dl class="identity__facts">
         <div class="identity__fact"><dt>Inicio</dt><dd>{{ ciclo.fecha_inicio|date:"j \d\e M \d\e Y" }}</dd></div>
         <div class="identity__fact"><dt>Fin</dt><dd>{{ ciclo.fecha_fin|date:"j \d\e M \d\e Y" }}</dd></div>
-        <div class="identity__fact"><dt>Duración</dt><dd>{{ ciclo.duracion_dias }} días</dd></div>
+        <div class="identity__fact"><dt>Duración</dt><dd>{{ ciclo.duracion_dias }} días naturales</dd></div>
         <div class="identity__fact"><dt>Transcurrido</dt><dd>{{ ciclo.avance }}%</dd></div>
         <div class="identity__fact"><dt>Estado</dt><dd>{{ ciclo.estado_display }}</dd></div>
+        {% if ciclo.activo and ciclo.activado_en %}
+          <div class="identity__fact"><dt>Actual desde</dt><dd>{{ ciclo.activado_en|date:"j \d\e M \d\e Y, H:i" }}{% if ciclo.activado_por %} · {{ ciclo.activado_por.get_full_name|default:ciclo.activado_por.get_username }}{% endif %}</dd></div>
+        {% elif ciclo.cerrado_en %}
+          <div class="identity__fact"><dt>Cerrado el</dt><dd>{{ ciclo.cerrado_en|date:"j \d\e M \d\e Y, H:i" }}{% if ciclo.cerrado_por %} · {{ ciclo.cerrado_por.get_full_name|default:ciclo.cerrado_por.get_username }}{% endif %}</dd></div>
+        {% endif %}
       </dl>
     </section>
   {% endwith %}
@@ -74,6 +91,14 @@
     <div class="alert alert--warning alert--spaced" role="note">
       {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
       <p class="alert__body">Este es el ciclo actual, pero hoy queda fuera de sus fechas. Revisa las fechas o marca otro ciclo como actual.</p>
+    </div>
+  {% elif ciclo.por_activar %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Este ciclo empezó el {{ ciclo.fecha_inicio|date:"j \d\e F"|lower }} y todavía no es el actual.</strong> Mientras no lo marques, se sigue inscribiendo y tomando asistencia en {% if otro_actual %}el ciclo {{ otro_actual }}{% else %}ningún ciclo{% endif %}.</p>
+        {% if perms.Alumnos.change_cicloescolar %}<p><button type="button" class="btn btn--sm" data-modal-open="modal-actual">Establecer como ciclo actual</button></p>{% endif %}
+      </div>
     </div>
   {% endif %}
 
@@ -96,17 +121,50 @@
   </div>
 
   <div class="info-grid">
+    {% if pendientes %}
+      <article class="card info-grid__wide" aria-labelledby="titulo-pendientes">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="circle-alert" %}<h2 class="card__title" id="titulo-pendientes">Antes de cerrar el ciclo</h2>
+        </header>
+        <div class="card__body">
+          <p class="text-muted">Conviene resolverlo antes de cerrar; no impide cerrar el ciclo.</p>
+          {% include "ciclos/_pendientes.html" %}
+        </div>
+      </article>
+    {% endif %}
+
+    {% if preparacion %}
+      <article class="card info-grid__wide" aria-labelledby="titulo-preparacion">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="titulo-preparacion">Preparación del ciclo</h2>
+        </header>
+        <ul class="ciclo-pasos">
+          {% for paso in preparacion %}
+            <li class="ciclo-pasos__item{% if paso.listo %} is-listo{% endif %}">
+              <span class="ciclo-pasos__marca" aria-hidden="true">{% if paso.listo %}{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}{% endif %}</span>
+              <span class="ciclo-pasos__texto">
+                <span class="ciclo-pasos__titulo">{{ paso.titulo }} <span class="tag tag--{% if paso.listo %}success{% else %}warning{% endif %}">{% if paso.listo %}Listo{% else %}Pendiente{% endif %}</span></span>
+                <span class="ciclo-pasos__detalle">{{ paso.detalle }}</span>
+              </span>
+              {% if paso.url %}<a class="btn btn--sm btn--ghost" href="{{ paso.url }}">{{ paso.enlace }}<span class="visually-hidden">: {{ paso.titulo|lower }}</span></a>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </article>
+    {% endif %}
+
     <article class="card info-grid__wide">
       <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title">Estudiantes por grado</h2>
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title">Estudiantes por grado y grupo</h2>
       </header>
       {% if filas %}
         <div class="table-card table-card--flush">
           <table class="table">
-            <caption class="visually-hidden">Estudiantes inscritos en cada grado del ciclo {{ ciclo }}</caption>
+            <caption class="visually-hidden">Estudiantes inscritos en cada grado y grupo del ciclo {{ ciclo }}</caption>
             <thead class="table__head">
               <tr>
                 <th class="table__th" scope="col">Grado</th>
+                <th class="table__th" scope="col">Grupos</th>
                 <th class="table__th" scope="col">Proporción</th>
                 <th class="table__th" scope="col">Inscritos</th>
                 <th class="table__th" scope="col">Bajas</th>
@@ -120,6 +178,15 @@
                       <a class="link-subtle" href="{{ fila.grado.get_absolute_url }}?ciclo={{ ciclo.pk }}">{{ fila.grado }}</a>
                     {% else %}{{ fila.grado }}{% endif %}
                     {% if not fila.grado.activo %}<span class="tag">Grado dado de baja</span>{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Grupos">
+                    {% if fila.grupos %}
+                      <span class="tag-list">
+                        {% for g in fila.grupos %}
+                          {% if perms.Alumnos.view_grupo %}<a class="tag ciclo-grupo" href="{{ g.grupo.get_absolute_url }}?ciclo={{ ciclo.pk }}" aria-label="Grupo {{ g.grupo.nombre }}: {{ g.activas }} inscrito{{ g.activas|pluralize }}">{{ g.grupo.nombre }} · {{ g.activas }}</a>{% else %}<span class="tag">{{ g.grupo.nombre }} · {{ g.activas }}</span>{% endif %}
+                        {% endfor %}
+                      </span>
+                    {% else %}—{% endif %}
                   </td>
                   <td class="table__cell" data-label="Proporción">
                     <progress class="meter" max="100" value="{{ fila.porcentaje }}" aria-label="Proporción de estudiantes en {{ fila.grado }}">{{ fila.porcentaje }}%</progress>
@@ -141,12 +208,55 @@
       {% endif %}
     </article>
 
+    {% if dias_de_clase %}
+      <article class="card" aria-labelledby="titulo-dias-clase">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="titulo-dias-clase">Días de clase</h2>
+        </header>
+        <ul class="ciclo-dias card__body">
+          {% for nivel in dias_de_clase %}
+            <li class="ciclo-dias__item">
+              <p class="ciclo-dias__texto"><strong>{{ nivel.nivel }}</strong>: {{ nivel.total }} día{{ nivel.total|pluralize }} de clase{% if nivel.van %}, van {{ nivel.van }}{% endif %}</p>
+              <progress class="meter" max="100" value="{{ nivel.porcentaje }}" aria-label="Días de clase transcurridos en {{ nivel.nivel|lower }}">{{ nivel.porcentaje }}%</progress>
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="card__body ciclo-dias__nota text-muted">Sin fines de semana ni días sin clases de cada nivel.</p>
+      </article>
+    {% endif %}
+
+    {% if comparacion %}
+      <article class="card" aria-labelledby="titulo-comparacion">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="bar-chart" %}<h2 class="card__title" id="titulo-comparacion">Comparado con {{ comparacion.anterior }}</h2>
+        </header>
+        <dl class="ciclo-comparacion card__body">
+          <div class="ciclo-comparacion__fila">
+            <dt>Inscritos</dt>
+            <dd>{{ comparacion.inscritos }} <span class="text-muted">contra {{ comparacion.inscritos_antes }}{% if comparacion.diferencia %} ({% if comparacion.diferencia > 0 %}+{% endif %}{{ comparacion.diferencia }}){% endif %}</span></dd>
+          </div>
+          <div class="ciclo-comparacion__fila">
+            <dt>Se reinscribieron</dt>
+            <dd>{{ comparacion.reinscritos }} <span class="text-muted">de {{ comparacion.inscritos_antes }} ({{ comparacion.porcentaje_reinscritos }}%)</span></dd>
+          </div>
+          <div class="ciclo-comparacion__fila">
+            <dt>Nuevos en este ciclo</dt>
+            <dd>{{ comparacion.nuevos }}</dd>
+          </div>
+          <div class="ciclo-comparacion__fila">
+            <dt>Bajas</dt>
+            <dd>{{ comparacion.bajas }} <span class="text-muted">contra {{ comparacion.bajas_antes }}</span></dd>
+          </div>
+        </dl>
+      </article>
+    {% endif %}
+
     <article class="card info-grid__wide">
       <header class="card__header card__header--icon">
         {% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title">Siguientes pasos</h2>
       </header>
       <ul class="shortcuts card__body">
-        {% if perms.Alumnos.add_inscripcion %}
+        {% if perms.Alumnos.add_inscripcion and ciclo.estado != 'CERRADO' %}
           <li><a class="shortcut" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}" data-modal-form>
             <span class="shortcut__icon">{% include "partials/icon.html" with name="user-plus" %}</span>
             <span class="shortcut__text"><span class="shortcut__title">Inscribir a un estudiante</span><span class="shortcut__hint">Elige el grado y la fecha de inscripción.</span></span>
@@ -167,7 +277,7 @@
         {% if perms.Alumnos.view_horariomateria %}
           <li><a class="shortcut" href="{% url 'horarios:lista' %}?ciclo={{ ciclo.pk }}">
             <span class="shortcut__icon">{% include "partials/icon.html" with name="clock" %}</span>
-            <span class="shortcut__text"><span class="shortcut__title">Ver los horarios</span><span class="shortcut__hint">{{ materias_del_ciclo }} materia{{ materias_del_ciclo|pluralize }} asignada{{ materias_del_ciclo|pluralize }} a los grados de este ciclo.</span></span>
+            <span class="shortcut__text"><span class="shortcut__title">Ver los horarios</span><span class="shortcut__hint">{{ materias_del_ciclo }} materia{{ materias_del_ciclo|pluralize }} asignada{{ materias_del_ciclo|pluralize }} a los grupos de este ciclo.</span></span>
           </a></li>
         {% endif %}
         {% if perms.Alumnos.view_inscripcion %}
@@ -179,6 +289,8 @@
       </ul>
     </article>
   </div>
+
+  {% include "ciclos/_dias_sin_clases.html" %}
 
   {# --- Ventanas modales -------------------------------------------------------- #}
   {% if perms.Alumnos.change_cicloescolar %}
@@ -192,6 +304,15 @@
           </header>
           <div class="modal__body">
             <p>El ciclo <strong>{{ ciclo }}</strong> dejará de ser el ciclo actual.</p>
+            {% if pendientes %}
+              <div class="alert alert--warning" role="note">
+                {% include "partials/icon.html" with name="circle-alert" icon_class="alert__icon" %}
+                <div class="alert__body">
+                  <p><strong>Todavía hay pendientes</strong> (no impiden cerrar):</p>
+                  {% include "ciclos/_pendientes.html" %}
+                </div>
+              </div>
+            {% endif %}
             <div class="alert alert--warning" role="note">
               {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
               <p class="alert__body">Mientras no haya un ciclo actual, los estudiantes aparecerán sin inscripción actual y no se podrá tomar asistencia. Marca otro ciclo como actual cuando comience.</p>
@@ -214,6 +335,19 @@
           </header>
           <div class="modal__body">
             <p>A partir de ahora las inscripciones, la asistencia y el grado que se muestra de cada estudiante serán los del ciclo <strong>{{ ciclo }}</strong>.</p>
+            {% if al_activar.fuera_de_fechas or al_activar.sin_inscribir or al_activar.reabre %}
+              <div class="alert alert--warning" role="note">
+                {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+                <div class="alert__body">
+                  <ul class="ciclo-avisos">
+                    {% if al_activar.todavia_no_empieza %}<li>Hoy queda fuera de sus fechas: el ciclo empieza el {{ ciclo.fecha_inicio|date:"j \d\e F \d\e Y"|lower }}.</li>{% endif %}
+                    {% if al_activar.ya_termino %}<li>Hoy queda fuera de sus fechas: el ciclo terminó el {{ ciclo.fecha_fin|date:"j \d\e F \d\e Y"|lower }}.</li>{% endif %}
+                    {% if al_activar.sin_inscribir %}<li>{{ al_activar.sin_inscribir }} estudiante{{ al_activar.sin_inscribir|pluralize }} activo{{ al_activar.sin_inscribir|pluralize }} quedará{{ al_activar.sin_inscribir|pluralize:"n" }} sin inscripción actual.{% if origen_sugerido and perms.Alumnos.add_inscripcion %} Puedes <a href="{% url 'inscripciones:promocion' %}?origen={{ origen_sugerido.pk }}&amp;destino={{ ciclo.pk }}">reinscribirlos desde {{ origen_sugerido }}</a> antes.{% endif %}</li>{% endif %}
+                    {% if al_activar.reabre %}<li>El ciclo está cerrado: se volverá a abrir.</li>{% endif %}
+                  </ul>
+                </div>
+              </div>
+            {% endif %}
             {% if otro_actual %}
               <p class="text-muted">El ciclo {{ otro_actual }} dejará de ser el actual; sus inscripciones y su historial se conservan.</p>
             {% endif %}
@@ -226,4 +360,34 @@
       </dialog>
     {% endif %}
   {% endif %}
+
+  {% if impide_borrar is not None and not ciclo.activo %}
+    <dialog class="modal" id="modal-borrar" aria-labelledby="modal-borrar-titulo" data-modal>
+      <form class="modal__panel" method="post" action="{% url 'ciclos:eliminar' ciclo.pk %}">
+        {% csrf_token %}
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-borrar-titulo">Borrar el ciclo {{ ciclo }}</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          {% if impide_borrar %}
+            <p>Este ciclo no se puede borrar porque ya tiene información ligada:</p>
+            <ul class="ciclo-avisos">{% for texto in impide_borrar %}<li>{{ texto }}</li>{% endfor %}</ul>
+            <p class="text-muted">Solo se borra un ciclo creado por error, mientras no tenga nada ligado. Si ya terminó, basta con que esté cerrado.</p>
+          {% else %}
+            <p>El ciclo <strong>{{ ciclo }}</strong> ({{ ciclo.fecha_inicio|date:"j M Y" }} – {{ ciclo.fecha_fin|date:"j M Y" }}) se borrará. Todavía no tiene nada ligado.</p>
+            <p class="text-muted">Queda anotado en la bitácora de cambios. No se puede deshacer.</p>
+          {% endif %}
+        </div>
+        <footer class="modal__footer">
+          <button type="button" class="btn" data-modal-close>{% if impide_borrar %}Entendido{% else %}Cancelar{% endif %}</button>
+          {% if not impide_borrar %}<button type="submit" class="btn btn--danger">Borrar ciclo</button>{% endif %}
+        </footer>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/dias-sin-clases.js' %}" defer></script>
 {% endblock %}

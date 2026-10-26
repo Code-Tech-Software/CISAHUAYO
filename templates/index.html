@@ -6,6 +6,8 @@
   {% now "G" as hora %}
   {% now "l, j \d\e F \d\e Y" as fecha %}
 
+  {% include "ciclos/_aviso_cambio.html" %}
+
   <section class="hero" aria-labelledby="titulo-bienvenida">
     <div class="hero__content">
       <p class="hero__eyebrow">{{ fecha|capfirst }}</p>

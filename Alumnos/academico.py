@@ -11,7 +11,7 @@ from django.db import transaction
 from django.db.models import Max, Prefetch, Q
 from django.utils import timezone
 
-from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Materia, MateriaGrado
+from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Materia, MateriaGrado, q_ciclo
 
 # Número máximo de grado por nivel (en preparatoria caben semestres o años).
 LIMITE_GRADOS = {'PREESCOLAR': 3, 'PRIMARIA': 6, 'SECUNDARIA': 3, 'PREPARATORIA': 6}
@@ -50,8 +50,8 @@ _NOMBRE_DE_CICLO = re.compile(r'^\s*(\d{4})\s*-\s*(\d{4})\s*$')
 
 
 def ciclo_actual():
-    """El ciclo marcado como actual (si por error hubiera varios, el más reciente)."""
-    return CicloEscolar.objects.filter(activo=True).order_by('-fecha_inicio').first()
+    """El ciclo marcado como actual (la base no permite más de uno)."""
+    return CicloEscolar.objects.actuales().first()
 
 
 def elegir_ciclo(pedido, ciclos):
@@ -90,7 +90,7 @@ def grados_por_asignar(materia, ciclo):
 def grados_vigentes_fuera_de(materia, grado):
     """Los grados distintos de `grado` en cuyo plan sigue la materia, en el ciclo actual o en uno próximo (mientras
     siga ahí no se le puede dar otro grado). En orden escolar."""
-    vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+    vigentes = q_ciclo('VIGENTE', 'ciclo__')
     en_el_plan = MateriaGrado.objects.filter(vigentes, materia=materia, activa=True).values('grado_id')
     return list(Grado.objects.filter(pk__in=en_el_plan).exclude(pk=grado.pk).academicos())
 
@@ -132,7 +132,7 @@ def asegurar_en_el_plan(materia, ciclo=None):
 def extender_plan_al_grupo(grupo):
     """Un grupo nuevo (o reactivado) toma el plan de su grado en el ciclo actual y en los próximos: cada materia que
     el grado ya imparte ahí también queda en el grupo, todavía sin profesor ni horario. Devuelve cuántas agregó."""
-    vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+    vigentes = q_ciclo('VIGENTE', 'ciclo__')
     plan = set(
         MateriaGrado.objects.filter(vigentes, grado=grupo.grado, activa=True, materia__activa=True)
         .values_list('ciclo_id', 'materia_id')
@@ -148,7 +148,7 @@ def extender_plan_al_grupo(grupo):
 
 def _vigentes_en_otros_grados(materia, grado):
     """Las asignaciones activas de la materia en otro grado, en el ciclo actual o en uno próximo."""
-    vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+    vigentes = q_ciclo('VIGENTE', 'ciclo__')
     return MateriaGrado.objects.filter(vigentes, materia=materia, activa=True).exclude(grado=grado)
 
 
@@ -233,13 +233,50 @@ def alumnos_sin_inscribir(ciclo):
     return Alumno.objects.filter(estatus='ACTIVO').exclude(inscripciones__ciclo=ciclo)
 
 
-def activar_ciclo(ciclo):
-    """Marca el ciclo como actual y quita la marca a los demás: solo hay un ciclo actual."""
+def _anotar(usuario, ciclo, mensaje):
+    """Lo deja en la bitácora de cambios (si lo hizo una persona)."""
+    if usuario is not None and usuario.pk:
+        from Usuarios.seguridad import ACCION_CAMBIO, registrar
+        registrar(usuario, ciclo, ACCION_CAMBIO, mensaje)
+
+
+def _quitar_marca(ciclo, usuario, ahora, cerrar):
+    """El ciclo deja de ser el actual. Si `cerrar`, queda cerrado (con quién y cuándo); si no, vuelve a próximo."""
+    ciclo.activo = False
+    ciclo.cerrado_en, ciclo.cerrado_por = (ahora, usuario) if cerrar else (None, None)
+    ciclo.save(update_fields=['activo', 'cerrado_en', 'cerrado_por'])
+
+
+def activar_ciclo(ciclo, usuario=None):
+    """Marca el ciclo como actual (con quién y cuándo) y quita la marca al que lo era: solo hay un ciclo actual.
+
+    El que era actual queda cerrado si ya había empezado; si todavía no empezaba (se marcó por adelantado), vuelve a
+    próximo. Devuelve el ciclo que era actual (o None).
+    """
+    ahora, hoy = timezone.now(), timezone.localdate()
+    usuario = usuario if usuario is not None and usuario.pk else None
     with transaction.atomic():
-        CicloEscolar.objects.filter(activo=True).exclude(pk=ciclo.pk).update(activo=False)
+        anterior = CicloEscolar.objects.select_for_update().filter(activo=True).exclude(pk=ciclo.pk).first()
+        if anterior is not None:
+            cerrar = anterior.fecha_inicio <= hoy
+            _quitar_marca(anterior, usuario, ahora, cerrar)
+            _anotar(usuario, anterior, f'Dejó de ser el ciclo actual al marcar {ciclo} como actual'
+                                       f'{" (quedó cerrado)" if cerrar else " (vuelve a próximo)"}.')
         if not ciclo.activo:
-            ciclo.activo = True
-            ciclo.save(update_fields=['activo'])
+            reabierto = ciclo.cerrado_en is not None
+            ciclo.activo, ciclo.activado_en, ciclo.activado_por = True, ahora, usuario
+            ciclo.cerrado_en = ciclo.cerrado_por = None
+            ciclo.save(update_fields=['activo', 'activado_en', 'activado_por', 'cerrado_en', 'cerrado_por'])
+            _anotar(usuario, ciclo, 'Lo marcó como ciclo actual (estaba cerrado).' if reabierto else 'Lo marcó como ciclo actual.')
+    return anterior
+
+
+def cerrar_ciclo(ciclo, usuario=None):
+    """El ciclo deja de ser el actual y queda cerrado (con quién y cuándo). Es lógico: conserva sus inscripciones y su
+    historial, y se puede volver a marcar como actual."""
+    with transaction.atomic():
+        _quitar_marca(ciclo, usuario if usuario is not None and usuario.pk else None, timezone.now(), cerrar=True)
+        _anotar(usuario, ciclo, 'Cerró el ciclo.')
 
 
 def _un_anio_despues(fecha):
@@ -307,7 +344,7 @@ def siguiente_grado(grado, grados):
 
 def inscripciones_vigentes(alumno):
     """Sus inscripciones del ciclo actual y de los próximos (las de ciclos ya cerrados son historia y no se tocan)."""
-    return Inscripcion.objects.filter(alumno=alumno).filter(Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate()))
+    return Inscripcion.objects.filter(alumno=alumno).filter(q_ciclo('VIGENTE', 'ciclo__'))
 
 
 def suspender_inscripciones(alumno):

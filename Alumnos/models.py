@@ -126,12 +126,61 @@ class Alumno(models.Model):
         db_table = 'alumnos'
 
 
+CICLO_ACTUAL, CICLO_PROXIMO, CICLO_CERRADO = 'ACTUAL', 'PROXIMO', 'CERRADO'
+NOMBRES_DE_ESTADO_DE_CICLO = {CICLO_ACTUAL: 'Actual', CICLO_PROXIMO: 'Próximo', CICLO_CERRADO: 'Cerrado'}
+
+
+def q_ciclo(estado, campo='', hoy=None):
+    """La regla del estado de un ciclo, en un solo lugar (la usan la propiedad `estado`, los filtros y los conteos).
+
+    - ACTUAL: el marcado como actual (solo hay uno).
+    - CERRADO: el que se cerró (`cerrado_en`) o el que terminó sin haberse marcado nunca como actual.
+    - PROXIMO: los demás, aunque ya haya llegado su fecha de inicio: todavía no se activan (`por_activar`).
+    - VIGENTE: el actual y los próximos (en ellos se inscribe y se arma el plan).
+
+    `campo` es la ruta al ciclo desde otro modelo, por ejemplo 'ciclo__' desde una inscripción.
+    """
+    hoy = hoy or timezone.localdate()
+    actual = models.Q(**{f'{campo}activo': True})
+    proximo = models.Q(**{f'{campo}activo': False, f'{campo}cerrado_en__isnull': True, f'{campo}fecha_fin__gte': hoy})
+    reglas = {CICLO_ACTUAL: actual, CICLO_PROXIMO: proximo, 'VIGENTE': actual | proximo}
+    return reglas[estado] if estado in reglas else ~(actual | proximo)
+
+
+class CicloQuerySet(models.QuerySet):
+    def actuales(self):
+        return self.filter(q_ciclo(CICLO_ACTUAL))
+
+    def proximos(self):
+        return self.filter(q_ciclo(CICLO_PROXIMO))
+
+    def cerrados(self):
+        return self.filter(q_ciclo(CICLO_CERRADO))
+
+    def vigentes(self):
+        """El actual y los próximos: en ellos se inscribe y se cambian el plan de materias y los horarios."""
+        return self.filter(q_ciclo('VIGENTE'))
+
+
 class CicloEscolar(models.Model):
+    """Un ciclo escolar. Se marca como actual y se cierra con sus botones (Ciclos escolares), que guardan quién y
+    cuándo; solo puede haber un ciclo actual (restricción en la base)."""
 
     nombre = models.CharField(max_length=30, unique=True, verbose_name='Ciclo escolar')
     fecha_inicio = models.DateField(verbose_name='Fecha de inicio')
     fecha_fin = models.DateField(verbose_name='Fecha de fin')
-    activo = models.BooleanField(default=True, verbose_name='Activo')
+    activo = models.BooleanField(default=False, verbose_name='Es el ciclo actual')
+    activado_en = models.DateTimeField(null=True, blank=True, verbose_name='Marcado como actual el')
+    activado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+        verbose_name='Marcado como actual por',
+    )
+    cerrado_en = models.DateTimeField(null=True, blank=True, verbose_name='Cerrado el')
+    cerrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+', verbose_name='Cerrado por',
+    )
+
+    objects = CicloQuerySet.as_manager()
 
     def clean(self):
         if (
@@ -142,6 +191,20 @@ class CicloEscolar(models.Model):
             raise ValidationError(
                 'La fecha de inicio debe ser anterior a la fecha de fin.'
             )
+        otros = CicloEscolar.objects.exclude(pk=self.pk)
+        if self.fecha_inicio and self.fecha_fin:
+            otro = otros.filter(fecha_inicio__lte=self.fecha_fin, fecha_fin__gte=self.fecha_inicio).order_by('fecha_inicio').first()
+            if otro:
+                raise ValidationError({'fecha_inicio': (
+                    f'Las fechas se empalman con el ciclo {otro.nombre} '
+                    f'({otro.fecha_inicio:%d/%m/%Y} al {otro.fecha_fin:%d/%m/%Y}).'
+                )})
+        if self.activo:
+            otro = otros.filter(activo=True).first()
+            if otro:
+                raise ValidationError(
+                    f'El ciclo {otro} ya es el ciclo actual: solo puede haber uno. Usa «Establecer como ciclo actual».'
+                )
 
     def __str__(self):
         return self.nombre
@@ -151,14 +214,21 @@ class CicloEscolar(models.Model):
 
     @property
     def estado(self):
-        """ACTUAL (el ciclo en curso), PROXIMO (todavía no empieza) o CERRADO."""
+        """ACTUAL, PROXIMO o CERRADO (la regla está en `q_ciclo`)."""
         if self.activo:
-            return 'ACTUAL'
-        return 'PROXIMO' if self.fecha_inicio > timezone.localdate() else 'CERRADO'
+            return CICLO_ACTUAL
+        if self.cerrado_en is not None or self.fecha_fin < timezone.localdate():
+            return CICLO_CERRADO
+        return CICLO_PROXIMO
 
     @property
     def estado_display(self):
-        return {'ACTUAL': 'Actual', 'PROXIMO': 'Próximo', 'CERRADO': 'Cerrado'}[self.estado]
+        return NOMBRES_DE_ESTADO_DE_CICLO[self.estado]
+
+    @property
+    def por_activar(self):
+        """Ya llegó su fecha de inicio pero nadie lo ha marcado como actual (sigue como próximo)."""
+        return self.estado == CICLO_PROXIMO and self.fecha_inicio <= timezone.localdate()
 
     @property
     def duracion_dias(self):
@@ -184,6 +254,9 @@ class CicloEscolar(models.Model):
         verbose_name = 'Ciclo escolar'
         verbose_name_plural = 'Ciclos escolares'
         ordering = ['-fecha_inicio']
+        constraints = [
+            models.UniqueConstraint(fields=['activo'], condition=models.Q(activo=True), name='un_solo_ciclo_actual'),
+        ]
 
 
 ORDEN_NIVELES = ('PREESCOLAR', 'PRIMARIA', 'SECUNDARIA', 'PREPARATORIA')

@@ -11,4 +11,6 @@ urlpatterns = [
     path('<int:pk>/editar/', views.ciclo_editar, name='editar'),
     path('<int:pk>/actual/', views.ciclo_establecer_actual, name='establecer_actual'),
     path('<int:pk>/cerrar/', views.ciclo_cerrar, name='cerrar'),
+    path('<int:pk>/borrar/', views.ciclo_eliminar, name='eliminar'),
+    path('dias-sin-clases/', views.dias_sin_clases, name='dias_sin_clases'),
 ]

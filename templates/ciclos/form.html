@@ -49,22 +49,44 @@
       </div>
     </section>
 
-    <section class="card" aria-labelledby="seccion-actual">
-      <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="check" %}<h2 class="card__title" id="seccion-actual">Ciclo en curso</h2>
-      </header>
-      <div class="card__body">
-        <div class="choice-group">{% include "partials/chip.html" with campo=form.activo %}</div>
-        <p class="field__hint">{{ form.activo.help_text }}</p>
+    {% if form.es_actual %}
+      <section class="card" aria-labelledby="seccion-actual">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="check" %}<h2 class="card__title" id="seccion-actual">Ciclo en curso</h2>
+        </header>
+        <div class="card__body">
+          <div class="choice-group">{% include "partials/chip.html" with campo=form.es_actual %}</div>
+          <p class="field__hint">{{ form.es_actual.help_text }}</p>
+        </div>
+      </section>
+    {% elif es_edicion %}
+      <p class="text-muted">Para marcar este ciclo como actual o cerrarlo, usa sus botones en el detalle del ciclo: piden confirmación.</p>
+    {% endif %}
+
+    {% if form.avisos %}
+      <div class="alert alert--warning" role="alert">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <div class="alert__body">
+          <p><strong>Revisa antes de guardar:</strong></p>
+          <ul class="ciclo-avisos">{% for aviso in form.avisos %}<li>{{ aviso }}</li>{% endfor %}</ul>
+          <p>Si es correcto, pulsa «Guardar así».</p>
+        </div>
       </div>
-    </section>
+    {% endif %}
 
     <footer class="action-bar">
       <a class="btn btn--ghost" href="{% if es_edicion %}{{ ciclo.get_absolute_url }}{% else %}{% url 'ciclos:lista' %}{% endif %}">Cancelar</a>
-      <button type="submit" class="btn btn--primary">
-        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
-        {% if es_edicion %}Guardar cambios{% else %}Crear ciclo{% endif %}
-      </button>
+      {% if form.avisos %}
+        <button type="submit" class="btn">Volver a revisar</button>
+        <button type="submit" class="btn btn--primary" name="confirmar" value="1">
+          {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar así
+        </button>
+      {% else %}
+        <button type="submit" class="btn btn--primary">
+          {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+          {% if es_edicion %}Guardar cambios{% else %}Crear ciclo{% endif %}
+        </button>
+      {% endif %}
     </footer>
   </form>
 {% endblock %}

@@ -5,10 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 
-from Alumnos.academico import ciclo_actual
 from Alumnos.asistencias import NIVELES, ciclo_de_fecha, dias_de_clases
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import (
+    CICLO_CERRADO,
     Alumno,
     AsistenciaGeneral,
     CicloEscolar,
@@ -30,8 +30,7 @@ TAMANO_MAXIMO_MB = 5
 DIAS_MAXIMOS_JUSTIFICACION = 60
 DIAS_MAXIMOS_SIN_CLASES = 120
 TODOS_LOS_NIVELES = 'TODOS'
-# Los días sin clases son del calendario del ciclo en curso: sin un ciclo actual no se agregan (pedido del 2026-10-16)
-SIN_CICLO_ACTUAL = 'No hay un ciclo escolar actual: marca uno como actual en Ciclos escolares antes de agregar días sin clases.'
+# Los días sin clases son del ciclo que cubre sus fechas y solo se agregan al actual o a uno próximo (2026-10-26)
 
 
 def _activos(formulario):
@@ -482,6 +481,8 @@ class DiaNoLectivoForm(EstiloCamposMixin, forms.Form):
         widget=forms.CheckboxSelectMultiple(attrs={'class': 'choice__input'}),
         error_messages={'required': 'Elige qué niveles no tendrán clases (o «Todos los niveles»).', 'invalid_choice': 'Elige niveles de la lista.'},
     )
+    # El ciclo en cuyo detalle se agrega (sin él, el de la fecha): solo el actual o uno próximo
+    ciclo = forms.ModelChoiceField(CicloEscolar.objects.all(), required=False, widget=forms.HiddenInput)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -496,16 +497,24 @@ class DiaNoLectivoForm(EstiloCamposMixin, forms.Form):
 
     def clean(self):
         datos = super().clean()
-        if ciclo_actual() is None:
-            raise ValidationError(SIN_CICLO_ACTUAL, code='sin_ciclo_actual')
         desde, hasta = datos.get('desde'), datos.get('hasta')
         if not desde:
             return datos
         hasta = hasta or desde
+        ciclo = datos.get('ciclo') or ciclo_de_fecha(desde)
+        datos['ciclo'] = ciclo
         if hasta < desde:
             self.add_error('hasta', 'La fecha final no puede ser anterior a la inicial.')
         elif (hasta - desde).days >= DIAS_MAXIMOS_SIN_CLASES:
             self.add_error('hasta', f'Registra como máximo {DIAS_MAXIMOS_SIN_CLASES} días a la vez.')
+        elif ciclo is None:
+            self.add_error('desde', 'Esa fecha queda fuera de las fechas de cualquier ciclo escolar.')
+        elif ciclo.estado == CICLO_CERRADO:
+            self.add_error('desde', f'El ciclo {ciclo} ya está cerrado: los días sin clases se agregan al ciclo actual o a uno próximo.')
+        elif desde < ciclo.fecha_inicio or hasta > ciclo.fecha_fin:
+            self.add_error('desde', (
+                f'Las fechas deben quedar dentro del ciclo {ciclo} ({ciclo.fecha_inicio:%d/%m/%Y} al {ciclo.fecha_fin:%d/%m/%Y}).'
+            ))
         elif datos.get('niveles'):
             # Lo que ya estaba registrado (esa fecha en ese nivel) se respeta con su motivo
             existentes = set(DiaNoLectivo.objects.filter(fecha__range=(desde, hasta)).values_list('fecha', 'nivel'))

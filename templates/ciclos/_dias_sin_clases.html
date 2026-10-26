@@ -1,24 +1,27 @@
 {% comment %}
-  Días sin clases (en Ciclos escolares desde el 2026-10-14; antes en Ajustes › Asistencia): asuetos, consejos técnicos,
-  vacaciones… de los niveles elegidos. Agregar y quitar piden sus permisos; la lista la ve quien ve los ciclos.
-  Sin un ciclo actual no se pueden agregar (el formulario se cambia por un aviso y el servidor también lo rechaza:
-  Asistencias.forms.DiaNoLectivoForm); los ya registrados se pueden seguir quitando.
-  Parámetros: dias_sin_clases (Alumnos.asistencias.dias_sin_clases_registrados), dia_form, hay_ciclo_actual y hoy.
+  Días sin clases de un ciclo (en el detalle de cada ciclo desde el 2026-10-26; antes en la lista de ciclos y antes en
+  Ajustes › Asistencia): asuetos, consejos técnicos, vacaciones… de los niveles elegidos, dentro de las fechas del
+  ciclo. Se agregan solo al ciclo actual o a uno próximo (el servidor también lo valida: Asistencias.forms.
+  DiaNoLectivoForm), así que en vacaciones ya se puede cargar el calendario del ciclo que viene. Agregar y quitar piden
+  sus permisos; la lista la ve quien ve los ciclos.
+  Parámetros: ciclo, dias_sin_clases (Alumnos.asistencias.dias_sin_clases_registrados), dia_form (None si no se puede
+  agregar) y hoy.
 {% endcomment %}
 <section class="card dias-sin-clases" id="dias-sin-clases" aria-labelledby="titulo-dias">
   <header class="card__header card__header--icon">
     {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="titulo-dias">Días sin clases</h2>
   </header>
   <div class="card__body">
-    <p class="text-muted">En estos días los estudiantes de los niveles elegidos no registran entrada y no se les generan faltas: asuetos, consejos técnicos, vacaciones, suspensiones. Los demás niveles tienen clases normalmente.</p>
-    {% if perms.Alumnos.add_dianolectivo and not hay_ciclo_actual %}
-      <div class="alert alert--warning" role="status">
-        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-        <div class="alert__body"><p><strong>No se pueden agregar días sin clases.</strong> Primero marca un ciclo escolar como actual: los días sin clases son del calendario del ciclo en curso.</p></div>
+    <p class="text-muted">Del {{ ciclo.fecha_inicio|date:"j \d\e F \d\e Y"|lower }} al {{ ciclo.fecha_fin|date:"j \d\e F \d\e Y"|lower }}. En estos días los estudiantes de los niveles elegidos no registran entrada y no se les generan faltas: asuetos, consejos técnicos, vacaciones, suspensiones. Los demás niveles tienen clases normalmente.</p>
+    {% if perms.Alumnos.add_dianolectivo and ciclo.estado == 'CERRADO' %}
+      <div class="alert" role="note">
+        {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+        <p class="alert__body">El ciclo está cerrado: los días sin clases se agregan al ciclo actual o a uno próximo.</p>
       </div>
-    {% elif perms.Alumnos.add_dianolectivo %}
+    {% elif dia_form %}
       <form class="dias-sin-clases__form" method="post" action="{% url 'asistencias:dia_sin_clases_crear' %}" novalidate>
         {% csrf_token %}
+        {{ dia_form.ciclo }}
         {% include "partials/field.html" with campo=dia_form.desde %}
         {% include "partials/field.html" with campo=dia_form.hasta %}
         {% include "partials/field.html" with campo=dia_form.motivo %}
@@ -39,7 +42,7 @@
   {% if dias_sin_clases %}
     <div class="table-card table-card--flush">
       <table class="table table--people">
-        <caption class="visually-hidden">Días sin clases registrados</caption>
+        <caption class="visually-hidden">Días sin clases del ciclo {{ ciclo }}</caption>
         <thead class="table__head">
           <tr>
             <th class="table__th" scope="col">Día</th>
@@ -77,7 +80,7 @@
     </div>
   {% else %}
     <div class="empty-state empty-state--inline">
-      <p class="empty-state__title">Aún no hay días sin clases</p>
+      <p class="empty-state__title">Este ciclo todavía no tiene días sin clases</p>
       <p class="empty-state__text">Los fines de semana sin horario ya se omiten solos; aquí registras los demás.</p>
     </div>
   {% endif %}

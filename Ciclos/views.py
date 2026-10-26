@@ -1,18 +1,27 @@
+"""Ciclos escolares: lista, alta, edición, detalle y las acciones de marcar como actual, cerrar y borrar.
+
+Marcar como actual y cerrar pasan siempre por su ventana de confirmación y guardan quién y cuándo (2026-10-26). Los
+días sin clases están en el detalle de cada ciclo (los de sus fechas).
+"""
 from django.contrib import messages
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from Alumnos.academico import activar_ciclo, alumnos_sin_inscribir, ciclo_actual
+from Alumnos.academico import activar_ciclo, alumnos_sin_inscribir, cerrar_ciclo, ciclo_actual
 from Alumnos.asistencias import dias_sin_clases_registrados
-from Alumnos.models import CicloEscolar, Grado, Inscripcion, MateriaGrado
+from Alumnos.models import CICLO_ACTUAL, CICLO_CERRADO, CICLO_PROXIMO, CicloEscolar, MateriaGrado, q_ciclo
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 
 from Asistencias.forms import DiaNoLectivoForm
 
+from . import resumen
 from .forms import CicloForm, FiltroCiclosForm
+from .reglas import avisos_al_activar, ligado, pendientes_de_cierre
+
+CAMPOS = {'nombre': 'el nombre', 'fecha_inicio': 'la fecha de inicio', 'fecha_fin': 'la fecha de fin'}
 
 
 def _con_conteos(queryset):
@@ -36,14 +45,14 @@ def ciclo_lista(request):
     hoy = timezone.localdate()
     conteos = CicloEscolar.objects.aggregate(
         total=Count('pk'),
-        actual=Count('pk', filter=Q(activo=True)),
-        proximo=Count('pk', filter=Q(activo=False, fecha_inicio__gt=hoy)),
-        cerrado=Count('pk', filter=Q(activo=False, fecha_inicio__lte=hoy)),
+        actual=Count('pk', filter=q_ciclo(CICLO_ACTUAL)),
+        proximo=Count('pk', filter=q_ciclo(CICLO_PROXIMO)),
+        cerrado=Count('pk', filter=q_ciclo(CICLO_CERRADO)),
     )
     # La tarjeta del ciclo en curso solo acompaña a la vista completa
     actual = None
     if not estado:
-        actual = _con_conteos(CicloEscolar.objects.filter(activo=True)).order_by('-fecha_inicio').first()
+        actual = _con_conteos(CicloEscolar.objects.actuales()).first()
 
     return render(request, 'ciclos/lista.html', {
         'pagina': pagina,
@@ -54,10 +63,8 @@ def ciclo_lista(request):
         'estado': estado,
         'conteos': conteos,
         'actual': actual,
-        # Días sin clases (antes en Ajustes › Asistencia)
-        'dias_sin_clases': dias_sin_clases_registrados(),
-        'dia_form': DiaNoLectivoForm() if request.user.has_perm('Alumnos.add_dianolectivo') else None,
-        'hay_ciclo_actual': conteos['actual'] > 0,   # sin ciclo actual no se agregan días sin clases
+        # Un ciclo que ya empezó y nadie ha marcado como actual
+        'por_activar': CicloEscolar.objects.proximos().filter(fecha_inicio__lte=hoy).order_by('fecha_inicio').first(),
         'hoy': hoy,
     })
 
@@ -71,85 +78,93 @@ def _formulario(request, form, ciclo=None):
 
 @requiere_permisos('Alumnos.add_cicloescolar')
 def ciclo_crear(request):
-    form = CicloForm(request.POST if request.method == 'POST' else None)
+    form = CicloForm(request.POST if request.method == 'POST' else None, usuario=request.user)
     if request.method == 'POST':
         if form.is_valid():
             ciclo = form.save()
             messages.success(request, f'El ciclo {ciclo} fue registrado{" y es el ciclo actual" if ciclo.activo else ""}.')
             return redirect('ciclos:lista')
-        messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
+        if not form.pide_confirmacion:
+            messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     return _formulario(request, form)
 
 
 @requiere_permisos('Alumnos.change_cicloescolar')
 def ciclo_editar(request, pk):
     ciclo = get_object_or_404(CicloEscolar, pk=pk)
-    form = CicloForm(request.POST if request.method == 'POST' else None, instance=ciclo)
+    form = CicloForm(request.POST if request.method == 'POST' else None, instance=ciclo, usuario=request.user)
     if request.method == 'POST':
         if form.is_valid():
+            cambios = [CAMPOS[campo] for campo in CAMPOS if campo in form.changed_data]
             form.save()
+            if cambios:
+                from Usuarios.seguridad import ACCION_CAMBIO, registrar
+                registrar(request.user, ciclo, ACCION_CAMBIO,
+                          f'Cambió {", ".join(cambios)}: {ciclo.nombre}, {ciclo.fecha_inicio:%d/%m/%Y} al {ciclo.fecha_fin:%d/%m/%Y}.')
             messages.success(request, f'El ciclo {ciclo} se actualizó.')
             return redirect('ciclos:lista')
-        messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
+        if not form.pide_confirmacion:
+            messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
+        ciclo = CicloEscolar.objects.get(pk=pk)   # el título y las migas, con lo guardado (no con lo que se escribió)
     return _formulario(request, form, ciclo)
 
 
 # ---------------------------------------------------------------------------
 # Detalle
 # ---------------------------------------------------------------------------
-def _resumen_por_grado(ciclo):
-    """Alumnos inscritos en cada grado del ciclo (un solo grupo por grado), en orden escolar."""
-    conteos = {
-        fila['grado_id']: fila
-        for fila in (
-            Inscripcion.objects.filter(ciclo=ciclo).values('grado_id')
-            .annotate(activas=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False)))
-        )
-    }
-    grados = Grado.objects.filter(Q(activo=True) | Q(pk__in=conteos)).academicos()
-    filas = [
-        {
-            'grado': grado,
-            'activas': conteos.get(grado.pk, {}).get('activas', 0),
-            'bajas': conteos.get(grado.pk, {}).get('bajas', 0),
-        }
-        for grado in grados
-    ]
-    maximo = max((fila['activas'] for fila in filas), default=0)
-    for fila in filas:
-        fila['porcentaje'] = round(fila['activas'] * 100 / maximo) if maximo else 0
-    return filas
-
-
 @requiere_permisos('Alumnos.view_cicloescolar')
 def ciclo_detalle(request, pk):
-    ciclo = get_object_or_404(CicloEscolar, pk=pk)
-    filas = _resumen_por_grado(ciclo)
+    ciclo = get_object_or_404(CicloEscolar.objects.select_related('activado_por', 'cerrado_por'), pk=pk)
+    filas = resumen.por_grado_y_grupo(ciclo)
     total_activas = sum(fila['activas'] for fila in filas)
     total_bajas = sum(fila['bajas'] for fila in filas)
-
-    # Alumnos activos que todavía no tienen inscripción (de ningún tipo) en este ciclo
-    sin_inscribir = alumnos_sin_inscribir(ciclo).count()
+    vigente = ciclo.estado != CICLO_CERRADO
 
     # Ciclo anterior con alumnos inscritos (de ahí se reinscribe a los que siguen) y ciclo anterior con plan de
     # materias (de ahí se copian las materias y los horarios)
     origen = origen_plan = None
-    if ciclo.estado != 'CERRADO':
+    if vigente:
         anteriores = CicloEscolar.objects.filter(fecha_inicio__lt=ciclo.fecha_inicio).distinct().order_by('-fecha_inicio')
         origen = anteriores.filter(inscripciones__activa=True).first()
         origen_plan = anteriores.filter(materias_grado__activa=True).first()
 
+    usuario = request.user
+    puede_cambiar = usuario.has_perm('Alumnos.change_cicloescolar')
     return render(request, 'ciclos/detalle.html', {
         'ciclo': ciclo,
         'filas': filas,
         'total_activas': total_activas,
         'total_bajas': total_bajas,
-        'sin_inscribir': sin_inscribir,
+        # Alumnos activos que todavía no tienen inscripción (de ningún tipo) en este ciclo
+        'sin_inscribir': alumnos_sin_inscribir(ciclo).count(),
         'origen_sugerido': origen,
         'origen_plan': origen_plan,
         'materias_del_ciclo': MateriaGrado.objects.filter(ciclo=ciclo, activa=True).count(),
         'otro_actual': ciclo_actual() if not ciclo.activo else None,
+        'dias_de_clase': resumen.dias_de_clase_por_nivel(ciclo),
+        'comparacion': resumen.comparacion_con_anterior(ciclo),
+        'preparacion': resumen.preparacion(ciclo, usuario, origen_plan) if vigente else [],
+        'pendientes': pendientes_de_cierre(ciclo, usuario) if puede_cambiar and ciclo.activo else [],
+        'al_activar': avisos_al_activar(ciclo) if puede_cambiar and not ciclo.activo else None,
+        'impide_borrar': ligado(ciclo) if usuario.has_perm('Alumnos.delete_cicloescolar') else None,
+        # Días sin clases de las fechas del ciclo; se agregan solo al actual o a uno próximo
+        'dias_sin_clases': dias_sin_clases_registrados(ciclo=ciclo),
+        'dia_form': DiaNoLectivoForm(initial={'ciclo': ciclo}) if vigente and usuario.has_perm('Alumnos.add_dianolectivo') else None,
+        'hoy': timezone.localdate(),
     })
+
+
+@requiere_permisos('Alumnos.view_cicloescolar')
+def dias_sin_clases(request):
+    """Los días sin clases del ciclo actual (o del que sigue, o del más reciente): enlace fijo para otras pantallas."""
+    ciclo = (
+        ciclo_actual()
+        or CicloEscolar.objects.proximos().order_by('fecha_inicio').first()
+        or CicloEscolar.objects.order_by('-fecha_inicio').first()
+    )
+    if ciclo is None:
+        return redirect('ciclos:lista')
+    return redirect(f'{ciclo.get_absolute_url()}#dias-sin-clases')
 
 
 # ---------------------------------------------------------------------------
@@ -161,13 +176,12 @@ def ciclo_establecer_actual(request, pk):
     ciclo = get_object_or_404(CicloEscolar, pk=pk)
     if ciclo.activo:
         messages.info(request, f'El ciclo {ciclo} ya es el ciclo actual.')
-        return redirect('ciclos:lista')
+        return redirect(ciclo)
 
-    anterior = ciclo_actual()
-    activar_ciclo(ciclo)
+    anterior = activar_ciclo(ciclo, request.user)
     aviso = f' El ciclo {anterior} dejó de ser el actual.' if anterior else ''
     messages.success(request, f'El ciclo {ciclo} es ahora el ciclo actual.{aviso}')
-    return redirect('ciclos:lista')
+    return redirect(ciclo)
 
 
 @require_POST
@@ -177,12 +191,28 @@ def ciclo_cerrar(request, pk):
     ciclo = get_object_or_404(CicloEscolar, pk=pk)
     if not ciclo.activo:
         messages.info(request, f'El ciclo {ciclo} no es el ciclo actual.')
-        return redirect('ciclos:lista')
+        return redirect(ciclo)
 
-    ciclo.activo = False
-    ciclo.save(update_fields=['activo'])
+    cerrar_ciclo(ciclo, request.user)
     messages.success(
         request,
         f'El ciclo {ciclo} se cerró. Sus inscripciones y su historial se conservan; marca otro ciclo como actual para seguir inscribiendo.',
     )
+    return redirect(ciclo)
+
+
+@require_POST
+@requiere_permisos('Alumnos.delete_cicloescolar')
+def ciclo_eliminar(request, pk):
+    """Borra un ciclo creado por error: solo si todavía no tiene nada ligado (y no es el actual)."""
+    ciclo = get_object_or_404(CicloEscolar, pk=pk)
+    impide = ligado(ciclo)
+    if impide:
+        messages.error(request, f'El ciclo {ciclo} no se puede borrar: {", ".join(impide)}.')
+        return redirect(ciclo)
+    from Usuarios.seguridad import ACCION_BAJA, registrar
+    nombre = str(ciclo)
+    registrar(request.user, ciclo, ACCION_BAJA, f'Borró el ciclo {nombre} ({ciclo.fecha_inicio:%d/%m/%Y} al {ciclo.fecha_fin:%d/%m/%Y}).')
+    ciclo.delete()
+    messages.success(request, f'Se borró el ciclo {nombre}.')
     return redirect('ciclos:lista')

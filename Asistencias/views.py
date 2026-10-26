@@ -805,8 +805,12 @@ def ajustes(request):
     })
 
 
-def URL_DIAS_SIN_CLASES():   # noqa: N802 (la tarjeta está en Ciclos escolares desde el 2026-10-14)
-    return f"{reverse('ciclos:lista')}#dias-sin-clases"
+def URL_DIAS_SIN_CLASES(ciclo=None):   # noqa: N802
+    """La tarjeta de días sin clases está en el detalle de cada ciclo (desde el 2026-10-26; antes en la lista de
+    ciclos y antes en Ajustes › Asistencia). Sin ciclo, la del ciclo actual o el que sigue."""
+    if ciclo is None:
+        return reverse('ciclos:dias_sin_clases')
+    return f"{ciclo.get_absolute_url()}#dias-sin-clases"
 
 
 @require_POST
@@ -821,7 +825,8 @@ def dia_sin_clases_crear(request):
                                   f'para {texto_de_niveles(datos["niveles"])}: {datos["motivo"]}.')
     else:
         messages.error(request, 'No se registró: ' + ' '.join(error for errores in form.errors.values() for error in errores))
-    return redirect(URL_DIAS_SIN_CLASES())
+    ciclo = form.cleaned_data.get('ciclo') if hasattr(form, 'cleaned_data') else None
+    return redirect(URL_DIAS_SIN_CLASES(ciclo))
 
 
 @require_POST
@@ -834,4 +839,4 @@ def dia_sin_clases_eliminar(request, pk):
     niveles = list(registros.values_list('nivel', flat=True))
     registros.delete()
     messages.success(request, f'Se quitó el día sin clases del {_texto_de_fecha(dia.fecha)} ({texto_de_niveles(niveles)}).')
-    return redirect(URL_DIAS_SIN_CLASES())
+    return redirect(URL_DIAS_SIN_CLASES(ciclo_de_fecha(dia.fecha)))

@@ -1028,3 +1028,182 @@ a.slot__name:hover {
     margin-left: 0;
   }
 }
+
+
+/* ==========================================================================
+   Detalle del ciclo (2026-10-26): preparación, pendientes antes de cerrar, días de clase y comparación
+   ========================================================================== */
+/* La lista de preparación: cada paso con su marca (listo o pendiente), su detalle y su acceso */
+.ciclo-pasos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ciclo-pasos__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border);
+}
+
+.ciclo-pasos__item:first-child {
+  border-top: 0;
+}
+
+.ciclo-pasos__marca {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--color-warning-border);
+  border-radius: var(--radius-full);
+  color: var(--color-success);
+}
+
+.ciclo-pasos__item.is-listo .ciclo-pasos__marca {
+  border-color: var(--color-success-border);
+  background: var(--color-success-bg);
+}
+
+.ciclo-pasos__texto {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.ciclo-pasos__titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.ciclo-pasos__detalle {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Lo pendiente antes de cerrar (tarjeta y ventana) */
+.ciclo-pendientes {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ciclo-pendientes__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ciclo-pendientes__cantidad {
+  min-width: 2rem;
+  padding: 0.125rem var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-warning-bg);
+  color: var(--color-text-strong);
+  font-weight: var(--weight-bold);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ciclo-avisos {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.1rem;
+}
+
+.ciclo-avisos li + li {
+  margin-top: var(--space-1);
+}
+
+/* Días de clase por nivel */
+.ciclo-dias {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  list-style: none;
+}
+
+.ciclo-dias__item {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ciclo-dias__texto {
+  margin: 0;
+}
+
+.ciclo-dias__nota {
+  padding-top: 0;
+  font-size: var(--text-sm);
+}
+
+/* Comparación con el ciclo anterior */
+.ciclo-comparacion {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.ciclo-comparacion__fila {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border);
+}
+
+.ciclo-comparacion__fila:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.ciclo-comparacion dt {
+  color: var(--color-text-muted);
+}
+
+.ciclo-comparacion dd {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ciclo-comparacion dd .text-muted {
+  font-weight: var(--weight-regular);
+}
+
+/* Los grupos de cada grado, con sus inscritos */
+a.ciclo-grupo {
+  text-decoration: none;
+}
+
+a.ciclo-grupo:hover {
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-soft);
+}
+
+.ciclos-nota {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 40rem) {
+  .ciclo-pasos__item {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding-inline: var(--space-4);
+  }
+
+  .ciclo-pasos__item > .btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

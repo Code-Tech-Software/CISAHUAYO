@@ -303,8 +303,8 @@ class CambiosTests(BaseBitacoraTestCase):
         self.assertEqual(list(self.client.get(LISTA, {'grupo': self.grupo_a.pk}).context['pagina']), [entrada])
         self.assertEqual(list(self.client.get(LISTA, {'grupo': self.grupo_b.pk}).context['pagina']), [])
         # Cuando el ciclo se cierra, la entrada se conserva y ya no se edita
-        self.ciclo.activo = False
-        self.ciclo.save()
+        from Alumnos.academico import cerrar_ciclo
+        cerrar_ciclo(self.ciclo)
         self.assertEqual(self.client.get(reverse('bitacoras:editar', args=[entrada.pk])).status_code, 403)
         self.assertEqual(list(self.client.get(LISTA, {'ciclo': ''}).context['pagina']), [entrada])
 

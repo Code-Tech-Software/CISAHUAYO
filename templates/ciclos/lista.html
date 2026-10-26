@@ -54,14 +54,14 @@
       {% if actual.fuera_de_fechas %}
         <div class="alert alert--warning cycle-now__alert" role="note">
           {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-          <p class="alert__body">Hoy queda fuera de las fechas de este ciclo. Revisa sus fechas o marca otro ciclo como actual.</p>
+          <p class="alert__body">Hoy queda fuera de las fechas de este ciclo.{% if por_activar %} El ciclo <a href="{{ por_activar.get_absolute_url }}">{{ por_activar }}</a> ya empezó: márcalo como actual.{% else %} Revisa sus fechas o marca otro ciclo como actual.{% endif %}</p>
         </div>
       {% endif %}
     </section>
   {% elif conteos.total and not estado %}
     <div class="alert alert--warning alert--spaced" role="note">
       {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-      <p class="alert__body"><strong>No hay un ciclo actual.</strong> Mientras no marques uno, no se puede saber en qué ciclo está cada estudiante. Elige uno de la lista y márcalo como actual.</p>
+      <p class="alert__body"><strong>No hay un ciclo actual.</strong> Mientras no marques uno, no se puede saber en qué ciclo está cada estudiante.{% if por_activar %} El ciclo <a href="{{ por_activar.get_absolute_url }}">{{ por_activar }}</a> empezó el {{ por_activar.fecha_inicio|date:"j \d\e F"|lower }}: ábrelo y márcalo como actual.{% else %} Elige uno de la lista y márcalo como actual.{% endif %}</p>
     </div>
   {% endif %}
 
@@ -108,7 +108,8 @@
               <td class="table__cell" data-label="Periodo">
                 <span class="cell-stack">
                   <span class="cell-stack__main">{{ ciclo.fecha_inicio|date:"j M Y" }} – {{ ciclo.fecha_fin|date:"j M Y" }}</span>
-                  {% if ciclo.fuera_de_fechas %}<span class="cell-stack__sub"><span class="tag tag--warning">Hoy queda fuera de sus fechas</span></span>{% endif %}
+                  {% if ciclo.fuera_de_fechas %}<span class="cell-stack__sub"><span class="tag tag--warning">Hoy queda fuera de sus fechas</span></span>
+                  {% elif ciclo.por_activar %}<span class="cell-stack__sub"><span class="tag tag--warning">Ya empezó: falta marcarlo como actual</span></span>{% endif %}
                 </span>
               </td>
               <td class="table__cell" data-label="Inscritos">
@@ -159,9 +160,5 @@
     </div>
   {% endif %}
 
-  {% include "ciclos/_dias_sin_clases.html" %}
-{% endblock %}
-
-{% block extra_js %}
-  <script src="{% static 'js/dias-sin-clases.js' %}" defer></script>
+  <p class="text-muted ciclos-nota">Los días sin clases están en el detalle de cada ciclo.</p>
 {% endblock %}

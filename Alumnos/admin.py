@@ -54,11 +54,16 @@ class AlumnoAdmin(admin.ModelAdmin):
 
 @admin.register(CicloEscolar)
 class CicloEscolarAdmin(admin.ModelAdmin):
+    # Marcarlo como actual o cerrarlo, solo desde Ciclos escolares (con su confirmación y quién y cuándo). Las fechas
+    # empalmadas y un segundo ciclo actual los rechaza el modelo (clean y restricción en la base).
+    readonly_fields = ('activo', 'activado_en', 'activado_por', 'cerrado_en', 'cerrado_por')
+
     list_display = (
         'nombre',
         'fecha_inicio',
         'fecha_fin',
         'activo',
+        'cerrado_en',
     )
 
     list_filter = (

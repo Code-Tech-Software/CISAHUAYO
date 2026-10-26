@@ -155,10 +155,14 @@ class DiaSinClases:
         return [NOMBRES_DE_NIVEL[nivel] for nivel in NIVELES if nivel in self.niveles]
 
 
-def dias_sin_clases_registrados(limite=120):
-    """Los días sin clases, del más reciente al más antiguo, uno por fecha y motivo con sus niveles."""
+def dias_sin_clases_registrados(limite=120, ciclo=None):
+    """Los días sin clases (los de las fechas del ciclo, si se indica), del más reciente al más antiguo, uno por fecha
+    y motivo con sus niveles."""
     dias = {}
-    for registro in DiaNoLectivo.objects.order_by('-fecha', 'motivo', 'pk')[:limite * len(NIVELES)]:
+    registros = DiaNoLectivo.objects.all()
+    if ciclo is not None:
+        registros = registros.filter(fecha__range=(ciclo.fecha_inicio, ciclo.fecha_fin))
+    for registro in registros.order_by('-fecha', 'motivo', 'pk')[:limite * len(NIVELES)]:
         dia = dias.setdefault((registro.fecha, registro.motivo), DiaSinClases(registro.pk, registro.fecha, registro.motivo, []))
         dia.niveles.append(registro.nivel)
     return list(dias.values())[:limite]

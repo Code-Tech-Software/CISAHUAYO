@@ -3,7 +3,6 @@ from django import forms
 import json
 
 from django.db.models import Q
-from django.utils import timezone
 
 from Alumnos.academico import (
     BASE_DE_EQUIVALENCIA,
@@ -16,7 +15,7 @@ from Alumnos.academico import (
     normalizar_equivalencia,
 )
 from Alumnos.forms import EstiloCamposMixin
-from Alumnos.models import Grado, Grupo, Inscripcion, NombreGrupo
+from Alumnos.models import Grado, Grupo, Inscripcion, NombreGrupo, q_ciclo
 
 
 class GradoForm(EstiloCamposMixin, forms.ModelForm):
@@ -74,7 +73,7 @@ class GradoForm(EstiloCamposMixin, forms.ModelForm):
             elegidos = [NombreGrupo.inicial()]   # todo grado tiene al menos un grupo
         if self.instance.pk:
             # Un grupo con estudiantes inscritos (ciclo actual o próximo) no se puede quitar
-            vigentes = Q(ciclo__activo=True) | Q(ciclo__fecha_inicio__gt=timezone.localdate())
+            vigentes = q_ciclo('VIGENTE', 'ciclo__')
             for grupo in self.instance.grupos.filter(activo=True).exclude(nombre__in=elegidos).select_related('grado', 'nombre'):
                 inscritos = Inscripcion.objects.filter(vigentes, grupo=grupo, activa=True).count()
                 if inscritos:

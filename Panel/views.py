@@ -119,12 +119,15 @@ def inicio(request):
     if 'restablecer' in request.GET:
         request.session.pop(SESION, None)
         return redirect('inicio')
+    from Ciclos.reglas import aviso_del_cambio_de_ciclo
     p = permisos_de(request.user)
+    aviso_ciclo = _seguro(aviso_del_cambio_de_ciclo, request.user)
+    aviso_ciclo = None if isinstance(aviso_ciclo, dict) and aviso_ciclo.get('error') else aviso_ciclo
     if not any(p[c] for c in ('estudiantes', 'asistencia', 'calificaciones', 'conducta', 'retiros', 'comunicados')):
-        return render(request, 'index.html')
+        return render(request, 'index.html', {'aviso_ciclo': aviso_ciclo})
 
     filtros = _filtros(request)
-    datos = {'filtros': filtros, 'p': p, 'generado': timezone.localtime()}
+    datos = {'filtros': filtros, 'p': p, 'generado': timezone.localtime(), 'aviso_ciclo': aviso_ciclo}
     if filtros.ciclo is not None:
         evaluaciones = academico.evaluaciones(filtros) if p['calificaciones'] or p['asistencia'] else {}
         if p['estudiantes']:

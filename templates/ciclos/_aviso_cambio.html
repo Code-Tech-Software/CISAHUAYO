@@ -1,0 +1,13 @@
+{% comment %}
+  Aviso del cambio de ciclo en el Panel de control (2026-10-26), solo para quien puede editar ciclos: no hay ciclo
+  actual, o hoy queda fuera de las fechas del actual. Parámetro: aviso_ciclo (Ciclos.reglas.aviso_del_cambio_de_ciclo).
+{% endcomment %}
+{% if aviso_ciclo %}
+  <div class="alert alert--warning alert--spaced" role="note">
+    {% include "partials/icon.html" with name="calendar-range" icon_class="alert__icon" %}
+    <div class="alert__body">
+      <p><strong>{{ aviso_ciclo.titulo }}</strong> {{ aviso_ciclo.texto }}</p>
+      <p><a class="btn btn--sm" href="{{ aviso_ciclo.url }}">{{ aviso_ciclo.boton }}</a></p>
+    </div>
+  </div>
+{% endif %}

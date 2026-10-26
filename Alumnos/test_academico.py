@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 
 from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 
 from CISAHUAYO.pruebas import (
     PRUEBAS,
@@ -42,8 +43,18 @@ class EstadoDelCicloTests(TestCase):
         self.assertEqual(ciclo_proximo_de_prueba().estado_display, 'Próximo')
         self.assertEqual(ciclo_cerrado_de_prueba().estado_display, 'Cerrado')
 
-    def test_un_ciclo_sin_marcar_que_ya_empezo_esta_cerrado(self):
-        self.assertEqual(crear_ciclo('Sin marca', -10, 100).estado, 'CERRADO')
+    def test_un_ciclo_sin_marcar_que_ya_empezo_sigue_como_proximo(self):
+        # Antes se veía «Cerrado» en cuanto llegaba su fecha de inicio; ahora espera a que lo marquen como actual
+        ciclo = crear_ciclo('Sin marca', -10, 100)
+        self.assertEqual(ciclo.estado, 'PROXIMO')
+        self.assertTrue(ciclo.por_activar)
+        self.assertFalse(ciclo_proximo_de_prueba().por_activar)
+
+    def test_cerrado_es_el_que_se_cerro_o_el_que_termino_sin_activarse(self):
+        cerrado = crear_ciclo('Cerrado', -10, 100)
+        cerrado.cerrado_en = timezone.now()
+        self.assertEqual(cerrado.estado, 'CERRADO')
+        self.assertEqual(crear_ciclo('Viejo', -400, -100).estado, 'CERRADO')
 
     def test_duracion_y_avance(self):
         ciclo = crear_ciclo('A', -50, 49, activo=True)       # 100 días, van 50
@@ -54,7 +65,9 @@ class EstadoDelCicloTests(TestCase):
 
     def test_fuera_de_fechas_solo_aplica_al_ciclo_actual(self):
         self.assertFalse(ciclo_actual_de_prueba().fuera_de_fechas)
+        CicloEscolar.objects.update(activo=False)   # solo puede haber un ciclo actual a la vez
         self.assertTrue(crear_ciclo('Vencido', -100, -1, activo=True).fuera_de_fechas)
+        CicloEscolar.objects.update(activo=False)
         self.assertTrue(crear_ciclo('Futuro', 5, 100, activo=True).fuera_de_fechas)
         self.assertFalse(ciclo_cerrado_de_prueba().fuera_de_fechas)
 

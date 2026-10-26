@@ -108,7 +108,7 @@ class CalculoDelFormatoTests(SimpleTestCase):
 # Base: una materia de secundaria con su docente, su periodo abierto y dos estudiantes
 # ---------------------------------------------------------------------------
 class BaseCalificacionesTestCase(BaseAsistenciaTestCase):
-    """Marta da Matemáticas en 4° Primaria (la base de asistencia) con la configuración de referencia; el periodo
+    """Marta da Matemáticas en 4.º Primaria (la base de asistencia) con la configuración de referencia; el periodo
     abierto va del lunes de hace dos semanas al viernes de la próxima. Dos estudiantes: Luis (el de la base) y Zoe."""
 
     hora = (9, 0)

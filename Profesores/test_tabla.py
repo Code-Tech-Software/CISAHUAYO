@@ -25,7 +25,7 @@ class Base(BaseTestCase):
         super().setUp()
         self.client.force_login(self.admin)
         self.ciclo = ciclo_actual_de_prueba()
-        self.secundaria = crear_grado('SECUNDARIA', 1)   # su equivalencia habitual: 7°
+        self.secundaria = crear_grado('SECUNDARIA', 1)   # su equivalencia habitual: 7.º
         self.mat, self.esp = crear_materia('MAT', 'Matemáticas'), crear_materia('ESP', 'Español')
         # Marta: 3 h de 4 h (75 %); Beto: 2 h sin tope; Ceci: 5 h de 4 h (rebasa)
         self.marta = crear_profesor(nombre='Marta', apellido_paterno='Rangel', horas_maximas=4, niveles=['SECUNDARIA'])
@@ -118,18 +118,18 @@ class EquivalenciaTests(Base):
     def test_en_el_perfil_el_horario_y_el_csv(self):
         grupo = Grupo.principal_de(self.secundaria)
         perfil = self.client.get(reverse('profesores:detalle', args=[self.marta.pk]))
-        self.assertContains(perfil, f'data-tooltip="{grupo.nombre_de_nivel}">7° {grupo.nombre}</a>')
-        self.assertContains(perfil, f'<span class="slot__code" title="{grupo.nombre_de_nivel}">7° {grupo.nombre}</span>', html=True)
+        self.assertContains(perfil, f'data-tooltip="{grupo.nombre_de_nivel}">7.º {grupo.nombre}</a>')
+        self.assertContains(perfil, f'<span class="slot__code" title="{grupo.nombre_de_nivel}">7.º {grupo.nombre}</span>', html=True)
         hoja = self.client.get(reverse('profesores:horario_imprimir', args=[self.marta.pk]))
-        self.assertContains(hoja, f'<td>7° {grupo.nombre}</td>', html=True)
+        self.assertContains(hoja, f'<td>7.º {grupo.nombre}</td>', html=True)
         contenido = self.client.get(reverse('profesores:exportar')).content.decode('utf-8').lstrip('﻿')
-        self.assertIn(f'Matemáticas (7° {grupo.nombre})', contenido)
+        self.assertIn(f'Matemáticas (7.º {grupo.nombre})', contenido)
 
     def test_al_asignar_materias(self):
         libre = asignar(self.esp, self.secundaria, self.ciclo)
         perfil = self.client.get(reverse('profesores:detalle', args=[self.marta.pk]))
         self.assertContains(perfil, f'value="{libre.pk}"')
-        self.assertContains(perfil, f'7° {libre.grupo.nombre} <span class="text-muted">· {libre.grupo.nombre_de_nivel}</span>', html=True)
+        self.assertContains(perfil, f'7.º {libre.grupo.nombre} <span class="text-muted">· {libre.grupo.nombre_de_nivel}</span>', html=True)
 
 
 # ---------------------------------------------------------------------------

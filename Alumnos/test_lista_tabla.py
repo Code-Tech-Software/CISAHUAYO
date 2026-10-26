@@ -72,10 +72,10 @@ class TablaDeEstudiantesTests(BaseTestCase):
 
     def test_muestra_la_equivalencia_del_grado(self):
         respuesta = self.client.get(LISTA)
-        self.assertContains(respuesta, '>7° A</span>')
+        self.assertContains(respuesta, '>7.º A</span>')
         self.assertContains(respuesta, '>K2 A</span>')
-        self.assertContains(respuesta, '>3° A</span>')                         # 3° de primaria: la habitual
-        self.assertContains(respuesta, 'data-tooltip="1° A Secundaria"')       # el grado de su nivel, al pasar el cursor
+        self.assertContains(respuesta, '>3.º A</span>')                         # 3.º de primaria: la habitual
+        self.assertContains(respuesta, 'data-tooltip="1.º A Secundaria"')       # el grado de su nivel, al pasar el cursor
 
     def test_senales_solo_las_que_aplican(self):
         filas = {a.apellido_paterno: [s['clave'] for s in a.senales] for a in self.client.get(LISTA).context['pagina']}
@@ -165,9 +165,9 @@ class TablaDeEstudiantesTests(BaseTestCase):
 
     def test_el_filtro_de_grados_usa_la_equivalencia(self):
         html = self.client.get(LISTA).content.decode()
-        self.assertIn(f'<option value="{self.secundaria.pk}">7°</option>', html)
+        self.assertIn(f'<option value="{self.secundaria.pk}">7.º</option>', html)
         self.assertIn(f'<option value="{self.preescolar.pk}">K2</option>', html)
-        self.assertIn(f'<option value="{self.primaria.pk}">3°</option>', html)   # sin equivalencia guardada: la habitual
+        self.assertIn(f'<option value="{self.primaria.pk}">3.º</option>', html)   # sin equivalencia guardada: la habitual
         self.assertIn('<optgroup label="Secundaria">', html)                      # siguen agrupados por nivel
         self.assertEqual(self.apellidos(grado=self.secundaria.pk), ['Zamora'])
 
@@ -175,12 +175,12 @@ class TablaDeEstudiantesTests(BaseTestCase):
         contenido = self.client.get(reverse('alumnos:exportar')).content.decode('utf-8').lstrip('\ufeff')
         filas = list(csv.DictReader(io.StringIO(contenido)))
         grados = {fila['Apellido paterno']: fila['Grado'] for fila in filas}
-        self.assertEqual(grados, {'Zamora': '7° A', 'Alba': 'K2 A', 'Mora': '3° A', 'Luna': ''})
+        self.assertEqual(grados, {'Zamora': '7.º A', 'Alba': 'K2 A', 'Mora': '3.º A', 'Luna': ''})
 
     def test_la_importacion_reconoce_el_grado_exportado(self):
         grados = importacion._Grados()
-        self.assertEqual(grados.buscar('7° A'), grupo_de(self.secundaria))
+        self.assertEqual(grados.buscar('7.º A'), grupo_de(self.secundaria))
         self.assertEqual(grados.buscar('K2 A'), grupo_de(self.preescolar))
-        self.assertEqual(grados.buscar('3° A'), grupo_de(self.primaria))
-        self.assertEqual(grados.buscar('1° A Secundaria'), grupo_de(self.secundaria))   # lo de siempre sigue valiendo
+        self.assertEqual(grados.buscar('3.º A'), grupo_de(self.primaria))
+        self.assertEqual(grados.buscar('1.º A Secundaria'), grupo_de(self.secundaria))   # lo de siempre sigue valiendo
         self.assertEqual(grados.buscar('7'), grupo_de(self.secundaria))

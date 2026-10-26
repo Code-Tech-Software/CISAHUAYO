@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Agregar un nivel completo | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'grados:lista' %}">Grados</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Nivel completo</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Agregar un nivel completo</h1>
+      <p class="page-header__description">Crea de una vez los grados de un nivel, por ejemplo primaria del 1.º al 6.º, cada uno con su equivalencia habitual y sus grupos. Los que ya existen se dejan como están.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="seccion-nivel">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-nivel">Nivel y grados</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nivel %}
+        {% include "partials/field.html" with campo=form.hasta %}
+        <fieldset class="field form-grid__full{% if form.grupos.errors %} is-invalid{% endif %}">
+          <legend class="field__label">{{ form.grupos.label }}</legend>
+          <div class="choice-group">
+            {% for casilla in form.grupos %}
+              <label class="choice choice--check" for="{{ casilla.id_for_label }}">
+                {{ casilla.tag }}
+                <span class="choice__box">{{ casilla.choice_label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <p class="field__hint">{{ form.grupos.help_text }}</p>
+          {% for error in form.grupos.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+        </fieldset>
+      </div>
+    </section>
+
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% url 'grados:lista' %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">
+        {% include "partials/icon.html" with name="check" icon_class="icon--sm" %}
+        Crear los grados
+      </button>
+    </footer>
+  </form>
+{% endblock %}

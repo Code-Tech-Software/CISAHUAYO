@@ -272,7 +272,7 @@
                     <code class="code">{{ item.materia.clave }}</code>
                   </td>
                   <td class="table__cell" data-label="Grado">
-                    {# La equivalencia en la continuidad escolar (7° A); el grupo de su nivel, en la descripción emergente #}
+                    {# La equivalencia en la continuidad escolar (7.º A); el grupo de su nivel, en la descripción emergente #}
                     {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ item.grupo.get_absolute_url }}?ciclo={{ ciclo.pk }}" data-tooltip="{{ item.grupo.nombre_de_nivel }}">{{ item.grupo.nombre_equivalente }}</a>{% else %}<span data-tooltip="{{ item.grupo.nombre_de_nivel }}">{{ item.grupo.nombre_equivalente }}</span>{% endif %}
                   </td>
                   <td class="table__cell" data-label="Horario">

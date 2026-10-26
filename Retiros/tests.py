@@ -31,7 +31,7 @@ def entrar_al_portal(cliente, tutor):
 
 
 class Colegio:
-    """2° de primaria (Lucía y Leo, hermanos) y 1° de secundaria (Zoe). Clases de 8:00 a 13:00 el lunes y el martes.
+    """2.º de primaria (Lucía y Leo, hermanos) y 1.º de secundaria (Zoe). Clases de 8:00 a 13:00 el lunes y el martes.
     Ana es tutora principal de los tres y puede recogerlos; el abuelo Ernesto solo está autorizado para recoger a Lucía;
     Rosa es tía de Leo, sin permiso para gestionar sus retiros. El reloj se detiene el lunes a las 7:00."""
 
@@ -99,7 +99,7 @@ class AvisoDelTutorTests(Colegio, BaseTestCase):
     def test_avisa_desde_su_portal_y_ve_el_resumen(self):
         pantalla = self.tutor.get(NUEVO)
         self.assertContains(pantalla, 'Lucía')
-        self.assertContains(pantalla, '2° A · Primaria')   # el grupo con su equivalencia y el nivel
+        self.assertContains(pantalla, '2.º A · Primaria')   # el grupo con su equivalencia y el nivel
         self.assertContains(pantalla, 'Yo (Ana Campos')
         respuesta = self.tutor.post(NUEVO, {
             'alumnos': [self.lucia.pk, self.leo.pk], 'fecha': lunes().isoformat(), 'hora': '11:30', 'motivo': self.cita.pk,

@@ -26,8 +26,8 @@ CREAR = reverse('bitacoras:crear')
 
 @override_settings(MEDIA_ROOT=CARPETA)
 class BaseBitacoraTestCase(BaseConductaTestCase):
-    """4° A de primaria con Ana y Beto (Matemáticas de la docente Marta, los lunes de 8 a 9; Español de otro docente),
-    4° B con Ciro (Matemáticas de Marta) y 1° de secundaria con Zoe (Historia)."""
+    """4.º A de primaria con Ana y Beto (Matemáticas de la docente Marta, los lunes de 8 a 9; Español de otro docente),
+    4.º B con Ciro (Matemáticas de Marta) y 1.º de secundaria con Zoe (Historia)."""
 
     def setUp(self):
         super().setUp()
@@ -293,7 +293,7 @@ class CambiosTests(BaseBitacoraTestCase):
     def test_se_conserva_el_grupo_de_entonces_y_los_ciclos_cerrados_son_de_solo_lectura(self):
         self.crear(self.docente)
         entrada = self.ultima()
-        # Ana cambia de grupo: la entrada sigue siendo de 4° A y sigue en su historial
+        # Ana cambia de grupo: la entrada sigue siendo de 4.º A y sigue en su historial
         self.inscripcion.grupo = self.grupo_b
         self.inscripcion.save()
         self.client.force_login(self.admin)

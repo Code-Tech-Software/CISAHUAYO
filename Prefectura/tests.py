@@ -39,7 +39,7 @@ def tearDownModule():
 @PRUEBAS
 @override_settings(MEDIA_ROOT=CARPETA)
 class BasePrefecturaTestCase(BaseConductaTestCase):
-    """Primaria 4° A (Ana) y 4° B (Leo), secundaria 1° A (Zoe). Una cuenta de prefectura y una de Dirección."""
+    """Primaria 4.º A (Ana) y 4.º B (Leo), secundaria 1.º A (Zoe). Una cuenta de prefectura y una de Dirección."""
 
     def setUp(self):
         super().setUp()

@@ -30,7 +30,7 @@ def dia(desplazamiento):
 
 
 class BaseDocenteTestCase(BaseAsistenciaTestCase):
-    """Marta da Matemáticas (los lunes de 8:00 a 9:00) en 4° Primaria; el periodo abierto va del lunes de hace dos
+    """Marta da Matemáticas (los lunes de 8:00 a 9:00) en 4.º Primaria; el periodo abierto va del lunes de hace dos
     semanas al viernes de la próxima. «Hoy» es el lunes de prueba a las 9:00."""
 
     hora = (9, 0)
@@ -84,7 +84,7 @@ class AccesoTests(BaseDocenteTestCase):
         respuesta = self.client.get(URL)
         self.assertEqual(respuesta.context['asignaciones'], [self.mat])
         self.assertEqual(respuesta.context['asignacion'], self.mat)
-        self.assertContains(respuesta, 'Mat · 4° A')
+        self.assertContains(respuesta, 'Mat · 4.º A')
 
     def test_una_materia_ajena_no_se_abre_ni_se_guarda(self):
         self.assertEqual(self.client.get(URL, {'materia': self.esp.pk}).status_code, 403)

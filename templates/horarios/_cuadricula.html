@@ -54,7 +54,7 @@
                         {% else %}
                           <span class="slot__name">{{ materia.nombre }}</span>
                         {% endif %}
-                        {# En el horario del profesor, el grupo con su equivalencia (7° A) #}
+                        {# En el horario del profesor, el grupo con su equivalencia (7.º A) #}
                         <span class="slot__code" title="{{ asignacion.grupo.nombre_de_nivel }}">{{ asignacion.grupo.nombre_equivalente }}{% if bloque.semana and mostrar_semana %}<span class="slot__semana" title="Semana {{ bloque.semana }}">· Sem. {{ bloque.semana }}</span>{% endif %}</span>
                       {% else %}
                         {% if editable and perms.Alumnos.change_horariomateria %}

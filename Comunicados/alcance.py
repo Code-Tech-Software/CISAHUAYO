@@ -82,7 +82,7 @@ def _lista(nombres, maximo):
 
 
 def _grupo_corto(grupo):
-    return grupo.corto   # «7° A»: la equivalencia del grado
+    return grupo.corto   # «7.º A»: la equivalencia del grado
 
 
 # ---------------------------------------------------------------------------

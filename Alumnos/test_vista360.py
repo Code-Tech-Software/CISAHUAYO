@@ -20,7 +20,7 @@ from .models import AsistenciaGeneral, AsistenciaMateria, Justificacion
 
 @PRUEBAS
 class Vista360Tests(BaseConductaTestCase):
-    """Ana (4° de primaria) con el «Primer bimestre» abierto hoy; inicia sesión el administrador."""
+    """Ana (4.º de primaria) con el «Primer bimestre» abierto hoy; inicia sesión el administrador."""
 
     def setUp(self):
         super().setUp()

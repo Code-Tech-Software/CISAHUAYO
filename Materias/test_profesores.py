@@ -71,7 +71,7 @@ class DetalleConProfesorTests(BaseTestCase):
             'asignacion': self.a1.pk, 'profesor': self.profesor.pk, 'next': self.materia.get_absolute_url(),
         }, follow=True)
         self.assertRedirects(respuesta, self.materia.get_absolute_url())
-        self.assertContains(respuesta, 'imparte ahora Matemáticas en 1°')
+        self.assertContains(respuesta, 'imparte ahora Matemáticas en 1.º')
         self.assertEqual(respuesta.context['clases'][0].profesor, self.profesor)
 
 

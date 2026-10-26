@@ -38,7 +38,7 @@ def entrar_al_portal(cliente, tutor):
 
 
 class Colegio:
-    """Lucía (2° de primaria) y Zoe (1° de secundaria) son hijas de Ana; Leo (2° de primaria) es hijo de Rosa.
+    """Lucía (2.º de primaria) y Zoe (1.º de secundaria) son hijas de Ana; Leo (2.º de primaria) es hijo de Rosa.
     La directora dirige primaria y el subdirector, secundaria; el coordinador coordina los dos niveles. Recepción
     atiende las llamadas. Marta y Pedro son docentes; Marta da clase al grupo de Lucía los lunes de 8:00 a 9:00."""
 
@@ -142,8 +142,8 @@ class RegistroTests(Colegio, BaseTestCase):
     def test_el_formulario_trae_el_telefono_y_los_estudiantes_con_su_nivel(self):
         respuesta = self.client.get(reverse('reuniones:nueva'), {'tutor': self.ana.pk})
         self.assertContains(respuesta, 'value="3531112233"')
-        self.assertContains(respuesta, 'Primaria, 2° A')
-        self.assertContains(respuesta, 'Secundaria, 7° A')   # el grupo con la equivalencia del grado
+        self.assertContains(respuesta, 'Primaria, 2.º A')
+        self.assertContains(respuesta, 'Secundaria, 7.º A')   # el grupo con la equivalencia del grado
         busqueda = self.client.get(reverse('reuniones:nueva'), {'q': 'Campos'})
         self.assertContains(busqueda, f'?tutor={self.ana.pk}')
         self.assertNotContains(busqueda, f'?tutor={self.rosa.pk}')

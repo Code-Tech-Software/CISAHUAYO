@@ -23,7 +23,7 @@ from CISAHUAYO.pruebas import (
 
 
 class BaseReporteTests(BaseAsistenciaTestCase):
-    """Tres alumnos de 4° con tres lunes de asistencia: A siempre presente; B presente, retardo y falta; C falta
+    """Tres alumnos de 4.º con tres lunes de asistencia: A siempre presente; B presente, retardo y falta; C falta
     justificada, falta y presente."""
 
     hora = (10, 30)
@@ -173,7 +173,7 @@ class ExportarReporteTests(BaseReporteTests):
 
     def test_exporta_el_resumen(self):
         filas = self.filas()
-        self.assertIn('4°', filas[0][0])
+        self.assertIn('4.º', filas[0][0])
         self.assertEqual(filas[1][:3], ['Estudiante', 'Referencia', 'Días registrados'])
         self.assertEqual([f[0] for f in filas[2:]], [str(self.b.alumno), str(self.c.alumno), str(self.alumno)])
         self.assertEqual(filas[3][2:], ['3', '1', '0', '2', '1', '33'])

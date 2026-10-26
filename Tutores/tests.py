@@ -398,7 +398,7 @@ class PerfilTests(BaseTestCase):
     def test_detalle(self):
         respuesta = self.client.get(self.tutor.get_absolute_url())
         self.assertEqual(respuesta.status_code, 200)
-        for texto in ('Rosa Mora', '353 111 2233', 'rosa@example.com', 'Contadora', 'Prefiere llamadas', 'Ana Zamora Mora', '4° A'):
+        for texto in ('Rosa Mora', '353 111 2233', 'rosa@example.com', 'Contadora', 'Prefiere llamadas', 'Ana Zamora Mora', '4.º A'):
             self.assertContains(respuesta, texto)
         self.assertEqual(respuesta.context['total_vigentes'], 1)
         self.assertEqual(len(respuesta.context['vinculos']), 2)

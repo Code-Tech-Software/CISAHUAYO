@@ -13,11 +13,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlencode
-from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from Alumnos.academico import ciclo_actual
 from Alumnos.models import Grado
+from Alumnos.utils import slug
 from CISAHUAYO.permisos import requiere_alguno
 from CISAHUAYO.xlsx import ENCABEZADO, SECCION, TITULO, Celda, Hoja, libro
 from Usuarios.docentes import profesor_de
@@ -428,7 +428,7 @@ def concentrado_excel(request, pk):
         filas.append([f['numero'], f['nombre'], final, ''])
     filas += [[], [], ['Firma del profesor', '', 'Vo.Bo. Coordinación', 'Vo.Bo. Dirección'], [c['docente']]]
     datos = libro([Hoja('Concentrado', filas, anchos=[8, 42, 20, 28])])
-    nombre = slugify(f"concentrado-{c['materia']}-{c['grupo']}-{c['periodo']}") + '.xlsx'
+    nombre = slug(f"concentrado-{c['materia']}-{c['grupo']}-{c['periodo']}") + '.xlsx'
     respuesta = HttpResponse(datos, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
     return respuesta

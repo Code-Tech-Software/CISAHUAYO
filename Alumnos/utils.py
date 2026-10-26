@@ -74,6 +74,13 @@ def generar_contrasena(longitud=8):
     return get_random_string(longitud, ALFABETO_CONTRASENA)
 
 
+def slug(texto):
+    """Para nombres de archivo: como `slugify`, pero sin el indicador ordinal de los grados («4.º A» → «4-a»; slugify
+    lo convertiría en una «o»)."""
+    from django.utils.text import slugify
+    return slugify(str(texto).replace('.º', ' ').replace('º', ' ').replace('ª', ' '))
+
+
 def sin_acentos(texto):
     """'Católica' -> 'Catolica'."""
     return ''.join(c for c in unicodedata.normalize('NFD', texto or '') if unicodedata.category(c) != 'Mn')

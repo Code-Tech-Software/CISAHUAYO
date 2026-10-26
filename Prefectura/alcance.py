@@ -93,7 +93,7 @@ class Alcance:
         return [(clave, nombre) for clave, nombre in NIVELES if clave in presentes]
 
     def descripcion(self):
-        """El alcance en palabras («Todo el colegio», «Secundaria completa · 1° A de Primaria»…)."""
+        """El alcance en palabras («Todo el colegio», «Secundaria completa · 1.º A de Primaria»…)."""
         if not self.restringido:
             return 'Sin restricción (no es una cuenta de prefectura)'
         if self.todo:

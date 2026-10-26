@@ -40,7 +40,7 @@ class MateriasTests(BaseTestCase):
         boton = boton_de_baja(html, reverse('materias:baja', args=[self.en_plan.pk]))
         self.assertIsNotNone(boton)
         self.assertIn('data-modal-open="modal-baja"', boton)
-        self.assertIn('data-opcion-plan="También quitarla del plan del ciclo 2026-2027 (2°)"', boton)
+        self.assertIn('data-opcion-plan="También quitarla del plan del ciclo 2026-2027 (2.º)"', boton)
         self.assertIn('data-opcion-plan=""', boton_de_baja(html, reverse('materias:baja', args=[self.sin_plan.pk])))
         self.assertEqual(html.count('id="modal-baja"'), 1)
         self.assertIn('data-baja-opcion="plan"', html)
@@ -75,8 +75,9 @@ class GradosTests(BaseTestCase):
         acciones = re.search(rf'<div class="grade-card__actions">.*?{re.escape(reverse("grados:baja", args=[self.primero.pk]))}.*?</div>', html, re.S).group(0)
         self.assertIn(reverse('grados:editar', args=[self.primero.pk]), acciones)
         boton = boton_de_baja(html, reverse('grados:baja', args=[self.primero.pk]))
-        self.assertIn('data-aviso="Tiene 1 estudiante inscrito en el ciclo actual.', boton)
-        self.assertIn('data-aviso=""', boton_de_baja(html, reverse('grados:baja', args=[self.segundo.pk])))
+        # Con estudiantes en el ciclo actual la baja no se permite: la ventana dice por qué y no ofrece confirmar
+        self.assertIn('data-bloqueo="Tiene 1 estudiante inscrito en el ciclo actual o en uno próximo.', boton)
+        self.assertIn('data-bloqueo=""', boton_de_baja(html, reverse('grados:baja', args=[self.segundo.pk])))
         self.assertEqual(html.count('id="modal-baja"'), 1)
 
     def test_la_baja_funciona_desde_ahi(self):

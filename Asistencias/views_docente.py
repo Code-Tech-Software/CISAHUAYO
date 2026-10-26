@@ -19,7 +19,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.http import urlencode
-from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from Alumnos.academico import ciclo_actual
@@ -40,7 +39,7 @@ from Alumnos.asistencia_docente import (
 )
 from Alumnos.models import Inscripcion
 from Alumnos.periodos import meses_si_es_muy_largo
-from Alumnos.utils import proteger_celda_csv
+from Alumnos.utils import proteger_celda_csv, slug
 from CISAHUAYO.permisos import requiere_permisos
 from Usuarios.docentes import profesor_de
 
@@ -208,7 +207,7 @@ def respuesta_de_reporte(request, asignacion, profesor, url_matriz):
 def _reporte_csv(asignacion, profesor, datos, contenido):
     """El reporte en CSV para Excel: encabezado, la matriz con los totales por estudiante y las observaciones."""
     desde, hasta = datos['desde'], datos['hasta']
-    nombre = f'asistencia-{slugify(asignacion.materia.nombre)}-{slugify(asignacion.grupo.corto)}-{desde:%Y%m%d}-{hasta:%Y%m%d}.csv'
+    nombre = f'asistencia-{slug(asignacion.materia.nombre)}-{slug(asignacion.grupo.corto)}-{desde:%Y%m%d}-{hasta:%Y%m%d}.csv'
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
     respuesta.write('\ufeff')   # para que Excel reconozca los acentos

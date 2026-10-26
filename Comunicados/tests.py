@@ -54,7 +54,7 @@ def pdf(nombre='circular.pdf'):
 
 
 class Colegio:
-    """Primaria: 2° A (Lucía y Paula; Matemáticas de Laura) y 2° B (Hugo); Secundaria: 1° A (Zoe, hermana de Lucía; Álgebra
+    """Primaria: 2.º A (Lucía y Paula; Matemáticas de Laura) y 2.º B (Hugo); Secundaria: 1.º A (Zoe, hermana de Lucía; Álgebra
     de Carmen). Ana es tutora de Lucía y de Zoe (un nivel cada una); Rubén, de Paula; Óscar, de Hugo pero sin recibir
     notificaciones. Laura envía comunicados (docente de primaria); Carmen solo recibe; Dirección de secundaria envía por los
     niveles asignados en su cuenta."""
@@ -132,7 +132,7 @@ class AlcanceTests(Colegio, BaseTestCase):
         self.assertTrue(alcance_de(self.admin).total)
 
     def test_un_docente_llega_a_su_nivel_completo_y_no_solo_a_sus_materias(self):
-        # Laura da Matemáticas en 2° A, pero su alcance es Primaria: también 2° B; nunca Secundaria
+        # Laura da Matemáticas en 2.º A, pero su alcance es Primaria: también 2.º B; nunca Secundaria
         self.assertEqual(self.ids(self.laura, Destinatario.ESTUDIANTE), {self.lucia.pk, self.paula.pk, self.hugo.pk})
         self.assertEqual(self.ids(self.laura, Destinatario.PROFESOR), set())   # ella misma no; Carmen es de secundaria
         self.assertEqual(alcance_de(self.laura).niveles, frozenset({'PRIMARIA'}))
@@ -169,7 +169,7 @@ class AlcanceTests(Colegio, BaseTestCase):
         arbol = alcance_de(self.laura).universo()['arbol']
         self.assertEqual([n['clave'] for n in arbol], ['PRIMARIA'])
         grupos = arbol[0]['grados'][0]['grupos']
-        self.assertEqual([g['nombre'] for g in grupos], ['2° A', '2° B'])
+        self.assertEqual([g['nombre'] for g in grupos], ['2.º A', '2.º B'])
         self.assertEqual([m['id'] for m in grupos[0]['materias']], [self.mat.pk])
 
     def test_la_seleccion_fuera_del_alcance_se_rechaza_aunque_se_altere_la_peticion(self):
@@ -206,7 +206,7 @@ class EnvioTests(Colegio, BaseTestCase):
         self.assertEqual(comunicado.destinatarios.count(), 4)
         ana = comunicado.destinatarios.get(tutor=self.ana)
         self.assertEqual(ana.detalle, 'Tutor de Lucía Herrera Campos')   # sin Zoe, fuera del alcance de Laura
-        self.assertEqual(comunicado.destinatarios.get(alumno=self.lucia).detalle, '2° A · Primaria')
+        self.assertEqual(comunicado.destinatarios.get(alumno=self.lucia).detalle, '2.º A · Primaria')
         self.assertEqual(comunicado.rol_autor, 'Docente que envía')
         self.assertTrue(LogEntry.objects.filter(object_id=str(comunicado.pk)).exists())
 

@@ -327,7 +327,7 @@ class ListaTests(BaseTestCase):
     def test_muestra_grado_tutor_y_conteos(self):
         respuesta = self.client.get(reverse('alumnos:lista'))
         html = respuesta.content.decode()
-        self.assertIn('data-tooltip="1° A Primaria">1° A</span>', html)   # la equivalencia; el grado de su nivel, al pasar el cursor
+        self.assertIn('data-tooltip="1.º A Primaria">1.º A</span>', html)   # la equivalencia; el grado de su nivel, al pasar el cursor
         self.assertIn('Rosa Quintero', html)
         self.assertIn('Sin tutor', html)
         self.assertEqual(respuesta.context['total_alumnos'], 2)   # las bajas no cuentan como alumnos
@@ -598,7 +598,7 @@ class CrearTests(BaseTestCase):
         alumno = Alumno.objects.get()
         self.assertEqual(alumno.inscripciones.get().grado, grado)
         self.assertRedirects(respuesta, reverse('alumnos:lista'))
-        self.assertContains(self.client.get(alumno.get_absolute_url()), '3°')
+        self.assertContains(self.client.get(alumno.get_absolute_url()), '3.º')
 
     def test_sin_inscribir_no_crea_inscripcion(self):
         self.publicar(**{'insc-ciclo': '', 'insc-grado': ''})
@@ -785,7 +785,7 @@ class PerfilTests(BaseTestCase):
         asistencia = respuesta.context['asistencia']
         self.assertEqual((asistencia['presentes'], asistencia['retardos'], asistencia['faltas']), (2, 1, 1))
         self.assertEqual(asistencia['porcentaje'], 75)
-        self.assertContains(respuesta, '4°')
+        self.assertContains(respuesta, '4.º')
 
     def test_cambia_el_estatus(self):
         respuesta = self.client.post(reverse('alumnos:estatus', args=[self.alumno.pk]), {'estatus': 'SUSPENDIDO'})

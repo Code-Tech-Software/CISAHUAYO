@@ -249,7 +249,7 @@ class AsignarProfesorTests(BaseTestCase):
 
     def test_descripcion_del_cambio(self):
         texto = descripcion_del_cambio(self.mat, None)
-        self.assertIn('Matemáticas de 1°', texto)
+        self.assertIn('Matemáticas de 1.º', texto)
         self.assertIn('sin profesor → sin profesor', texto)
         self.mat.profesor = self.marta
         self.assertIn('sin profesor → Marta Rangel Soto', descripcion_del_cambio(self.mat, None))

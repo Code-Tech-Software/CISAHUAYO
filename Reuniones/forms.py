@@ -69,7 +69,7 @@ def docentes_con_cuenta():
 
 
 def materias_por_docente(grupos):
-    """{id de cuenta: «Matemáticas (2° A) · Español (2° A)»} de los docentes que dan clase a esos grupos este ciclo."""
+    """{id de cuenta: «Matemáticas (2.º A) · Español (2.º A)»} de los docentes que dan clase a esos grupos este ciclo."""
     ciclo = ciclo_actual()
     if ciclo is None or not grupos:
         return {}

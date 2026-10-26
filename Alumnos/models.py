@@ -293,35 +293,98 @@ class Grado(models.Model):
     activo = models.BooleanField(default=True, verbose_name='Activo')
     equivalencia = models.CharField(
         max_length=8, blank=True, default='', verbose_name='Equivalencia',
-        help_text='Cómo se nombra el grado en la continuidad escolar, sin importar el nivel: un número (1.° de secundaria '
-                  'equivale al 7.°) o un código con letras (K1 para 1.° de preescolar).',
+        help_text='Cómo se nombra el grado en la continuidad escolar, sin importar el nivel: un número (1.º de secundaria '
+                  'equivale al 7.º) o un código con letras (K1 para 1.º de preescolar).',
     )
 
     objects = GradoQuerySet.as_manager()
 
     def __str__(self):
-        """Su nombre en todo el sitio: la equivalencia en la continuidad escolar («7°», «K1»; pedido del 2026-10-20). Sin
-        ninguna, el de su nivel («1° Secundaria»)."""
+        """Su nombre en todo el sitio: la equivalencia en la continuidad escolar («7.º», «K1»; pedido del 2026-10-20). Sin
+        ninguna, el de su nivel («1.º Secundaria»)."""
         return self.nombre_equivalente
 
     @property
+    def tiene_historial(self):
+        """Ya tiene inscripciones o un plan de materias (de cualquier ciclo): su nivel y su número ya no se cambian."""
+        return self.pk is not None and (self.inscripciones.exists() or self.materias_grado.exists())
+
+    def clean(self):
+        """Las reglas del grado, también para el admin de Django (2026-10-26):
+
+        - el número dentro del límite de su nivel y sin repetir el grado;
+        - el nivel y el número no cambian si ya tiene historial (moverían inscripciones, periodos, días sin clases,
+          habilitaciones, alcances y la promoción): solo se corrigen mientras esté vacío;
+        - la equivalencia: sin escribir, la habitual; con formato válido y sin repetirse entre los grados activos (la
+          efectiva: la guardada o la habitual).
+
+        Los errores van en su campo; así la validación de las restricciones de la base no los repite.
+        """
+        from .academico import FORMATO_EQUIVALENCIA, LIMITE_GRADOS, equivalencia_sugerida, normalizar_equivalencia
+        errores = {}
+        nombre = dict(self.NIVEL_CHOICES).get(self.nivel, '')
+        if self.nivel and self.numero is not None:   # el 0 también debe validarse
+            limite = LIMITE_GRADOS[self.nivel]
+            if not 1 <= self.numero <= limite:
+                errores['numero'] = f'En {nombre.lower()} los grados van del 1.º al {limite}.º.'
+            elif Grado.objects.filter(nivel=self.nivel, numero=self.numero).exclude(pk=self.pk).exists():
+                errores['numero'] = f'Ya existe el grado {self.numero}.º {nombre}.'
+        if self.pk is not None and 'numero' not in errores:
+            guardado = Grado.objects.filter(pk=self.pk).values('nivel', 'numero').first()
+            if guardado and (guardado['nivel'], guardado['numero']) != (self.nivel, self.numero) and self.tiene_historial:
+                errores['nivel'] = (
+                    'El nivel y el número ya no se pueden cambiar: el grado tiene inscripciones o un plan de materias, y '
+                    'cambiarlos movería todo su historial. Si se registró mal, da de baja este grado y crea el correcto.'
+                )
+
+        self.equivalencia = normalizar_equivalencia(self.equivalencia) or equivalencia_sugerida(self.nivel, self.numero)
+        if self.equivalencia and not FORMATO_EQUIVALENCIA.match(self.equivalencia):
+            errores['equivalencia'] = 'Usa solo letras y números, sin símbolos (7, 10, K1).'
+        elif self.equivalencia and self.activo and 'numero' not in errores:   # un grado repetido ya tiene su aviso
+            otro = next(
+                (g for g in Grado.objects.filter(activo=True).exclude(pk=self.pk) if g.equivalencia_efectiva == self.equivalencia),
+                None,
+            )
+            if otro is not None:
+                texto = Grado(equivalencia=self.equivalencia).equivalencia_texto
+                errores['equivalencia'] = f'La equivalencia {texto} ya la tiene {otro.nombre_de_nivel}: cada grado tiene la suya.'
+        if errores:
+            raise ValidationError(errores)
+
+    def save(self, *args, **kwargs):
+        # La equivalencia siempre queda guardada (sin escribir, la habitual): la que se ve es la que se valida
+        if not self.equivalencia and self.nivel and self.numero:
+            from .academico import equivalencia_sugerida
+            self.equivalencia = equivalencia_sugerida(self.nivel, self.numero)
+            if kwargs.get('update_fields') is not None:
+                kwargs['update_fields'] = {*kwargs['update_fields'], 'equivalencia'}
+        super().save(*args, **kwargs)
+
+    @property
     def nombre_de_nivel(self):
-        """«1° Secundaria»: el grado dentro de su nivel. Lo usan Grados (donde se configura la equivalencia) y las
+        """«1.º Secundaria»: el grado dentro de su nivel. Lo usan Grados (donde se configura la equivalencia) y las
         descripciones emergentes junto a la equivalencia."""
-        return f"{self.numero}° {self.get_nivel_display()}"
+        return f"{self.numero}.º {self.get_nivel_display()}"
+
+    @property
+    def numero_ordinal(self):
+        """«1.º»: el número del grado con el indicador ordinal."""
+        return f'{self.numero}.º'
 
     @property
     def equivalencia_numero(self):
-        """La equivalencia como número (7); None si no tiene o es un código con letras (K1)."""
-        valor = str(self.equivalencia or '')
+        """La equivalencia (efectiva) como número (7); None si no tiene o es un código con letras (K1)."""
+        valor = str(self.equivalencia_efectiva or '')
         return int(valor) if valor.isdigit() else None
 
     @property
     def equivalencia_texto(self):
-        """«7°» si la equivalencia es un número, el código tal cual («K1») si lleva letras; vacío si no tiene."""
-        if not self.equivalencia:
+        """«7.º» si la equivalencia (efectiva) es un número, el código tal cual («K1») si lleva letras; vacío si no
+        tiene ninguna."""
+        codigo = self.equivalencia_efectiva
+        if not codigo:
             return ''
-        return f'{self.equivalencia_numero}°' if self.equivalencia_numero is not None else self.equivalencia
+        return f'{self.equivalencia_numero}.º' if self.equivalencia_numero is not None else str(codigo)
 
     @property
     def equivalencia_efectiva(self):
@@ -331,17 +394,17 @@ class Grado(models.Model):
 
     @property
     def nombre_equivalente(self):
-        """Cómo se nombra en la continuidad escolar: «7°» o «K1» (la equivalencia efectiva); sin ninguna, el de su nivel
-        («1° Secundaria»)."""
+        """Cómo se nombra en la continuidad escolar: «7.º» o «K1» (la equivalencia efectiva); sin ninguna, el de su nivel
+        («1.º Secundaria»)."""
         codigo = str(self.equivalencia_efectiva)
         if not codigo:
             return self.nombre_de_nivel
-        return f'{codigo}°' if codigo.isdigit() else codigo
+        return f'{codigo}.º' if codigo.isdigit() else codigo
 
     @property
     def equivalencia_frase(self):
-        """«Equivale al 7°» o «Equivale a K1»; vacío si no tiene equivalencia."""
-        if not self.equivalencia:
+        """«Equivale al 7.º» o «Equivale a K1» (la equivalencia efectiva); vacío si no tiene ninguna."""
+        if not self.equivalencia_texto:
             return ''
         return f'Equivale al {self.equivalencia_texto}' if self.equivalencia_numero is not None else f'Equivale a {self.equivalencia_texto}'
 
@@ -362,12 +425,17 @@ class Grado(models.Model):
                     'numero'
                 ],
                 name='grado_nivel_numero_unico'
-            )
+            ),
+            # Dos grados activos no se nombran igual («7.º» junto a otro «7.º»)
+            models.UniqueConstraint(
+                fields=['equivalencia'], condition=models.Q(activo=True) & ~models.Q(equivalencia=''),
+                name='equivalencia_unica_entre_grados_activos',
+            ),
         ]
 
 
 # ---------------------------------------------------------------------------
-# Grupos: cada grado tiene uno o varios (1° A, 1° B)
+# Grupos: cada grado tiene uno o varios (1.º A, 1.º B)
 # ---------------------------------------------------------------------------
 class NombreGrupo(models.Model):
     """El catálogo de nombres de grupo que usa el colegio («A», «B», «Matutino»…). Renombrar uno renombra los grupos que
@@ -404,7 +472,7 @@ class GrupoQuerySet(models.QuerySet):
 
 
 class Grupo(models.Model):
-    """Un grupo de un grado (1° A, 1° B): su salón. Los estudiantes se inscriben en un grupo; el plan de materias es del
+    """Un grupo de un grado (1.º A, 1.º B): su salón. Los estudiantes se inscriben en un grupo; el plan de materias es del
     grado y lo comparten sus grupos, pero cada grupo tiene su profesor en cada materia, su horario y sus recesos."""
 
     grado = models.ForeignKey(Grado, on_delete=models.CASCADE, related_name='grupos', verbose_name='Grado')
@@ -414,25 +482,25 @@ class Grupo(models.Model):
     objects = GrupoQuerySet.as_manager()
 
     def __str__(self):
-        """Su nombre en todo el sitio: «7° A» o «K3 B», con la equivalencia del grado (pedido del 2026-10-20)."""
+        """Su nombre en todo el sitio: «7.º A» o «K3 B», con la equivalencia del grado (pedido del 2026-10-20)."""
         return self.nombre_equivalente
 
     @property
     def nombre_de_nivel(self):
-        """«1° A Secundaria»: el grupo dentro de su nivel (para las descripciones emergentes junto a la equivalencia)."""
-        return f'{self.grado.numero}° {self.nombre} {self.grado.get_nivel_display()}'
+        """«1.º A Secundaria»: el grupo dentro de su nivel (para las descripciones emergentes junto a la equivalencia)."""
+        return f'{self.grado.numero}.º {self.nombre} {self.grado.get_nivel_display()}'
 
     @property
     def corto(self):
-        """Sin el nivel: «7° A» (o, si el grado no tiene equivalencia, «1° A»)."""
+        """Sin el nivel: «7.º A» (o, si el grado no tiene equivalencia, «1.º A»)."""
         if not self.grado.equivalencia_efectiva:
-            return f'{self.grado.numero}° {self.nombre}'
+            return f'{self.grado.numero}.º {self.nombre}'
         return self.nombre_equivalente
 
     @property
     def nombre_equivalente(self):
-        """«7° A» o «K3 B»: la equivalencia del grado en la continuidad escolar con el grupo; sin equivalencia, el de su
-        nivel («1° A Secundaria»)."""
+        """«7.º A» o «K3 B»: la equivalencia del grado en la continuidad escolar con el grupo; sin equivalencia, el de su
+        nivel («1.º A Secundaria»)."""
         if not self.grado.equivalencia_efectiva:
             return self.nombre_de_nivel
         return f'{self.grado.nombre_equivalente} {self.nombre}'
@@ -566,6 +634,9 @@ class MateriaGrado(models.Model):
         verbose_name='Profesor',
     )
     activa = models.BooleanField(default=True, verbose_name='Activa')
+    # Se desactivó porque se quitó su grupo o se dio de baja su grado: vuelve (con su profesor y su horario) si el
+    # grupo o el grado se reactivan mientras el ciclo siga vigente
+    suspendida = models.BooleanField(default=False, verbose_name='Quitada con su grupo o su grado')
 
     def __str__(self):
         return (

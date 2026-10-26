@@ -384,6 +384,10 @@ def asignacion_quitar(request, pk):
         MateriaGrado.objects.filter(
             ciclo=asignacion.ciclo, grado=asignacion.grado, materia=asignacion.materia, activa=True,
         ).update(activa=False)
+        # Las de grupos quitados tampoco vuelven si después se reactiva el grupo: se quitó del plan del grado
+        MateriaGrado.objects.filter(
+            ciclo=asignacion.ciclo, grado=asignacion.grado, materia=asignacion.materia, suspendida=True,
+        ).update(suspendida=False)
         messages.success(
             request,
             f'{asignacion.materia} se quitó de {asignacion.grado} ({asignacion.ciclo}). Su horario y su asistencia se conservan; puedes volver a asignarla.',

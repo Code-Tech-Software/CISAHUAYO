@@ -340,12 +340,12 @@ class EdicionDeUsuariosTests(BaseUsuariosTestCase):
 
     def test_guarda_los_cambios_y_vuelve_al_listado(self):
         respuesta = self.client.post(
-            reverse('usuarios:editar', args=[self.usuario.pk]), self.datos(first_name='Guadalupe', cargo='Maestra de 3°', telefono='3535550000'),
+            reverse('usuarios:editar', args=[self.usuario.pk]), self.datos(first_name='Guadalupe', cargo='Maestra de 3.º', telefono='3535550000'),
         )
         self.assertRedirects(respuesta, reverse('usuarios:lista'), fetch_redirect_response=False)
         self.usuario.refresh_from_db()
         self.assertEqual(self.usuario.first_name, 'Guadalupe')
-        self.assertEqual(self.usuario.perfil.cargo, 'Maestra de 3°')
+        self.assertEqual(self.usuario.perfil.cargo, 'Maestra de 3.º')
         self.assertEqual(self.usuario.perfil.telefono, '3535550000')
         self.assertIn('Datos modificados', bitacora(self.usuario, CHANGE).get().change_message)
 

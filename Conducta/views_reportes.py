@@ -3,8 +3,8 @@ los mismos filtros y el mismo contenido (Conducta/reportes.py)."""
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.utils.text import slugify
 
+from Alumnos.utils import slug
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.xlsx import libro
 from Prefectura.alcance import alcance_de
@@ -50,7 +50,7 @@ def reporte_imprimir(request):
 def reporte_excel(request):
     _, contenido = _contenido(request)
     datos = libro(reportes.hojas(contenido))
-    nombre = f"conducta-{slugify(contenido['subtitulo'])}-{contenido['generado']:%Y%m%d-%H%M}.xlsx"
+    nombre = f"conducta-{slug(contenido['subtitulo'])}-{contenido['generado']:%Y%m%d-%H%M}.xlsx"
     respuesta = HttpResponse(datos, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
     return respuesta

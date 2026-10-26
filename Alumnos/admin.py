@@ -4,6 +4,7 @@ from .models import (
     Alumno,
     CicloEscolar,
     Grado,
+    Grupo,
     Inscripcion,
     Materia,
     MateriaGrado,
@@ -93,6 +94,12 @@ class GradoAdmin(admin.ModelAdmin):
         'nivel',
         'numero',
     )
+
+    # Las reglas del grado (límite del nivel, sin repetir, equivalencia, nivel y número fijos con historial) están en
+    # Grado.clean, que el admin también aplica. Aquí: todo grado tiene al menos un grupo.
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        Grupo.principal_de(obj)
 
 
 @admin.register(Inscripcion)

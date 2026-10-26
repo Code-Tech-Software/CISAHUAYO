@@ -390,7 +390,7 @@ def cita_de(mensaje):
 # Quién es cada persona (bajo su nombre en la lista y en la conversación)
 # ---------------------------------------------------------------------------
 def familias_de(tutores):
-    """{tutor_id: «Tutor de Ana López (3° B) y Luis López (1° A)»} con sus estudiantes de vínculo activo y su grupo del
+    """{tutor_id: «Tutor de Ana López (3.º B) y Luis López (1.º A)»} con sus estudiantes de vínculo activo y su grupo del
     ciclo actual; en una sola consulta."""
     ids = [t.pk for t in tutores]
     if not ids:

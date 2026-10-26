@@ -1,6 +1,6 @@
 """La clave que se propone para una materia nueva: sus iniciales y, si se sabe, el grado en el que se imparte.
 
-«Matemáticas» en 1° de primaria → «MAT-1P»; «Educación Física» en 3° de secundaria → «EF-3S»; en varios grados del mismo
+«Matemáticas» en 1.º de primaria → «MAT-1P»; «Educación Física» en 3.º de secundaria → «EF-3S»; en varios grados del mismo
 nivel solo va la letra del nivel («EF-P»), y en grados de niveles distintos, solo las iniciales («EF»). Si ya existe, se le
 agrega un número («MAT-1P-2»). Es solo una ayuda: la clave se puede cambiar.
 """

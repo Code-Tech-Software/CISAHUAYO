@@ -58,7 +58,7 @@ COLUMNAS = (
     Columna('fecha_ingreso', 'Fecha de ingreso', 'AAAA-MM-DD o DD/MM/AAAA. Si falta se usa la de hoy.'),
     Columna('escuela_procedencia', 'Escuela de procedencia', ''),
     Columna('estatus', 'Estatus', 'Activo, Egresado o Suspendido. Si falta queda Activo.'),
-    Columna('grado', 'Grado', 'Para inscribirlo en el ciclo actual: «1° Primaria», «3 Secundaria»… o su equivalencia (7, K1). Si el grado tiene varios grupos, con el grupo: «1° A Primaria» o «7° A».'),
+    Columna('grado', 'Grado', 'Para inscribirlo en el ciclo actual: «1.º Primaria», «3 Secundaria»… o su equivalencia (7, K1). Si el grado tiene varios grupos, con el grupo: «1.º A Primaria» o «7.º A».'),
     Columna('contrasena', 'Contraseña', 'La que se le asigna (4 caracteres o más). Si falta se genera una.'),
     Columna('tutor_nombre', 'Nombre del tutor', 'Si lo escribes, también hacen falta su apellido paterno, su teléfono y su parentesco.', ('Nombre del tutor principal',)),
     Columna('tutor_apellido_paterno', 'Apellido paterno del tutor', ''),
@@ -162,8 +162,8 @@ def _clave_de_grado(texto):
 
 
 class _Grados:
-    """Los grados y grupos activos, para reconocer «1° Primaria», «1° A Primaria», «primero de secundaria» o una
-    equivalencia («7», «K1»), también con el grupo («7° A», «K1 B»: como lo exporta la tabla de estudiantes). La
+    """Los grados y grupos activos, para reconocer «1.º Primaria», «1.º A Primaria», «primero de secundaria» o una
+    equivalencia («7», «K1»), también con el grupo («7.º A», «K1 B»: como lo exporta la tabla de estudiantes). La
     equivalencia es la guardada en Grados o, si no tiene, la habitual de su nivel. Devuelve el grupo: el que se escribió
     o, si el grado tiene uno solo, ese."""
 
@@ -191,7 +191,7 @@ class _Grados:
     def buscar(self, texto):
         encontrado = self.indice.get(_clave_de_grado(texto))
         if encontrado is None:
-            raise ErrorDeCelda(f'Grado: «{texto}» no existe o está dado de baja. Escríbelo como «7° A», «1° Primaria» o «1° A Primaria».')
+            raise ErrorDeCelda(f'Grado: «{texto}» no existe o está dado de baja. Escríbelo como «7.º A», «1.º Primaria» o «1.º A Primaria».')
         if isinstance(encontrado, Grupo):
             return encontrado
         grupos = list(encontrado.grupos.filter(activo=True).select_related('grado', 'nombre').order_by('nombre__orden', 'nombre__nombre'))

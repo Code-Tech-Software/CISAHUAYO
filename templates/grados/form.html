@@ -23,7 +23,7 @@
     <div>
       <h1 class="page-header__title">{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
       <p class="page-header__description">
-        {% if es_edicion %}Corrige el nivel o el grado de {{ grado.nombre_de_nivel }}, o cambia sus grupos.{% else %}Elige el nivel, el grado y sus grupos. Después podrás inscribir estudiantes en cada grupo.{% endif %}
+        {% if es_edicion %}Cambia los grupos o la equivalencia de {{ grado.nombre_de_nivel }}{% if not form.bloqueado %}, o corrige su nivel o su número{% endif %}.{% else %}Elige el nivel, el grado y sus grupos. Después podrás inscribir estudiantes en cada grupo.{% endif %}
       </p>
     </div>
   </header>
@@ -38,10 +38,10 @@
       </div>
     {% endif %}
 
-    {% if es_edicion and total_inscripciones %}
-      <div class="alert alert--warning" role="note">
-        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-        <p class="alert__body">Este grado tiene {{ total_inscripciones }} inscripci{{ total_inscripciones|pluralize:"ón,ones" }} en su historial. Si cambias el nivel o el número, así aparecerá en todas ellas. Úsalo solo para corregir un error.</p>
+    {% if es_edicion and form.bloqueado %}
+      <div class="alert" role="note">
+        {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+        <p class="alert__body">El nivel y el número ya no se pueden cambiar: este grado tiene {% if total_inscripciones %}{{ total_inscripciones }} inscripci{{ total_inscripciones|pluralize:"ón,ones" }}{% else %}un plan de materias{% endif %} en su historial, y cambiarlos movería todo lo que depende del nivel (periodos, días sin clases, profesores, alcances y a qué grado pasan). Si se registró mal, dalo de baja y crea el correcto. Los grupos y la equivalencia sí se pueden cambiar.</p>
       </div>
     {% endif %}
 

@@ -257,7 +257,7 @@ def _conducta_de(request, alumno):
 # Acciones sobre un alumno
 # ---------------------------------------------------------------------------
 def _texto_de_inscripciones(suspendidas, restauradas):
-    """« Su inscripción en 2° Primaria (2026-2027) quedó desactivada.» (o reactivada; vacío si no había)."""
+    """« Su inscripción en 2.º Primaria (2026-2027) quedó desactivada.» (o reactivada; vacío si no había)."""
     partes = []
     for inscripciones, verbo in ((suspendidas, 'desactivada'), (restauradas, 'reactivada')):
         if inscripciones:
@@ -372,7 +372,7 @@ def alumno_inscribir(request, pk):
 # Exportación y búsquedas (JSON)
 # ---------------------------------------------------------------------------
 def _grado_equivalente(inscripcion):
-    """«7° A»: como se ve en la tabla (y como lo reconoce la importación al volver a subir el archivo)."""
+    """«7.º A»: como se ve en la tabla (y como lo reconoce la importación al volver a subir el archivo)."""
     if inscripcion is None:
         return ''
     return inscripcion.grupo.nombre_equivalente if inscripcion.grupo_id else inscripcion.grado.nombre_equivalente

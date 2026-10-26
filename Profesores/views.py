@@ -563,7 +563,7 @@ def profesor_exportar(request):
             .select_related('materia', 'grado', 'grupo__grado', 'grupo__nombre')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'materia__nombre')
         )
-        for asignacion in asignaciones:   # con la equivalencia del grupo, como se ve en el perfil: «Matemáticas (7° A)»
+        for asignacion in asignaciones:   # con la equivalencia del grupo, como se ve en el perfil: «Matemáticas (7.º A)»
             grupo = asignacion.grupo.nombre_equivalente if asignacion.grupo_id else asignacion.grado.nombre_equivalente
             materias[asignacion.profesor_id].append(f'{asignacion.materia} ({grupo})')
 

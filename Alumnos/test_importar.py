@@ -171,7 +171,7 @@ class ImportarEstudiantesTests(BaseTestCase):
         ]
         resultado = importar([[
             'Ana', 'García', 'López', CURP_ANA, 'Femenino', '15/03/2015', 'católico', 'o positivo', 'Calle Hidalgo 123', 'Centro',
-            'Sahuayo', 'Michoacán', '59000', 'Ana@Example.com', '4° Primaria', 'sol123', 'María', 'López', 'Ruiz',
+            'Sahuayo', 'Michoacán', '59000', 'Ana@Example.com', '4.º Primaria', 'sol123', 'María', 'López', 'Ruiz',
             '353 123 4567', 'Mamá', 'maria@example.com',
         ]], encabezados)
         self.assertEqual((len(resultado.creados), resultado.errores), (1, []))
@@ -263,7 +263,7 @@ class ImportarEstudiantesTests(BaseTestCase):
         """El tutor no se crea si el grado de la misma fila no existe."""
         ciclo_actual_de_prueba()
         encabezados = BASICAS + ['Grado', 'Nombre del tutor', 'Apellido paterno del tutor', 'Teléfono del tutor', 'Parentesco del tutor']
-        resultado = importar([['Ana', 'García', '', CURP_ANA, '9° Primaria', 'María', 'López', '3531234567', 'Madre']], encabezados)
+        resultado = importar([['Ana', 'García', '', CURP_ANA, '9.º Primaria', 'María', 'López', '3531234567', 'Madre']], encabezados)
         self.assertEqual(len(resultado.errores), 1)
         self.assertEqual((Alumno.objects.count(), Tutor.objects.count()), (0, 0))
 
@@ -380,34 +380,34 @@ class ImportarEstudiantesTests(BaseTestCase):
         primero = crear_grado('SECUNDARIA', 1, equivalencia='7')
         crear_grado('PREESCOLAR', 2, equivalencia='K2')
         filas = [
-            ['A', 'Uno', '', CURP_ANA, '1° Secundaria'], ['B', 'Dos', '', CURP_LUIS, 'primero de secundaria'],
+            ['A', 'Uno', '', CURP_ANA, '1.º Secundaria'], ['B', 'Dos', '', CURP_LUIS, 'primero de secundaria'],
             ['C', 'Tres', '', CURP_RAUL, '1ro. SECUNDARIA'], ['D', 'Cuatro', '', CURP_SOFIA, '7'], ['E', 'Cinco', '', CURP_TOMAS, 'k2'],
         ]
         resultado = importar(filas, BASICAS + ['Grado'])
         self.assertEqual(resultado.errores, [])
         grados = [Alumno.objects.get(curp=c).inscripciones.get().grado for c in (CURP_ANA, CURP_LUIS, CURP_RAUL, CURP_SOFIA, CURP_TOMAS)]
         self.assertEqual(grados[:4], [primero] * 4)
-        self.assertEqual(grados[4].nombre_de_nivel, '2° Preescolar')
+        self.assertEqual(grados[4].nombre_de_nivel, '2.º Preescolar')
 
     def test_un_grado_que_no_existe_o_esta_de_baja_es_un_error(self):
         ciclo_actual_de_prueba()
         crear_grado('PRIMARIA', 1, activo=False)
         resultado = importar(
-            [['Ana', 'García', '', CURP_ANA, '1° Primaria'], ['Luis', 'Pérez', '', CURP_LUIS, 'Kínder 9']], BASICAS + ['Grado'],
+            [['Ana', 'García', '', CURP_ANA, '1.º Primaria'], ['Luis', 'Pérez', '', CURP_LUIS, 'Kínder 9']], BASICAS + ['Grado'],
         )
         self.assertEqual(len(resultado.errores), 2)
-        self.assertIn('Grado: «1° Primaria» no existe o está dado de baja', resultado.errores[0]['motivo'])
+        self.assertIn('Grado: «1.º Primaria» no existe o está dado de baja', resultado.errores[0]['motivo'])
         self.assertEqual(Alumno.objects.count(), 0)
 
     def test_sin_ciclo_actual_no_se_puede_inscribir(self):
         crear_grado('PRIMARIA', 1)
-        resultado = importar([['Ana', 'García', '', CURP_ANA, '1° Primaria']], BASICAS + ['Grado'])
+        resultado = importar([['Ana', 'García', '', CURP_ANA, '1.º Primaria']], BASICAS + ['Grado'])
         self.assertIn('no hay un ciclo escolar actual', resultado.errores[0]['motivo'])
 
     def test_un_egresado_no_se_inscribe(self):
         ciclo_actual_de_prueba()
         crear_grado('PRIMARIA', 1)
-        resultado = importar([['Ana', 'García', '', CURP_ANA, 'Egresado', '1° Primaria']], BASICAS + ['Estatus', 'Grado'])
+        resultado = importar([['Ana', 'García', '', CURP_ANA, 'Egresado', '1.º Primaria']], BASICAS + ['Estatus', 'Grado'])
         self.assertIn('activo o suspendido', resultado.errores[0]['motivo'])
 
 

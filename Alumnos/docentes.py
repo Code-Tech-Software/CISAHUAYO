@@ -69,7 +69,7 @@ def mensaje_fuera_de_nivel(profesor, grado):
 
 
 def descripcion_del_cambio(asignacion, anterior):
-    """«Matemáticas de 1° Secundaria · Ciclo 2026-2027: sin profesor → Marta Rangel» (para la bitácora)."""
+    """«Matemáticas de 1.º Secundaria · Ciclo 2026-2027: sin profesor → Marta Rangel» (para la bitácora)."""
     antes = str(anterior) if anterior else 'sin profesor'
     despues = str(asignacion.profesor) if asignacion.profesor_id else 'sin profesor'
     return f'{asignacion.materia} de {asignacion.grado} · Ciclo {asignacion.ciclo}: {antes} → {despues}.'

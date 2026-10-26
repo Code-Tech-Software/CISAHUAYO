@@ -100,7 +100,7 @@ class Destinatario(models.Model):
     alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE, null=True, blank=True, related_name='comunicados_recibidos')
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, null=True, blank=True, related_name='comunicados_recibidos')
     profesor = models.ForeignKey(Profesor, on_delete=models.CASCADE, null=True, blank=True, related_name='comunicados_recibidos')
-    # Cómo se le ubicaba al enviarlo («2° A · Primaria», «Tutor de …» con sus estudiantes del alcance de quien envió)
+    # Cómo se le ubicaba al enviarlo («2.º A · Primaria», «Tutor de …» con sus estudiantes del alcance de quien envió)
     detalle = models.CharField(max_length=250, blank=True)
     # La primera vez que abrió el comunicado (las siguientes no la cambian)
     leido_en = models.DateTimeField('leído el', null=True, blank=True)

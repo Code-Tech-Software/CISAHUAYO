@@ -78,14 +78,14 @@ class ListaTests(BaseTestCase):
     def test_agrupa_por_nivel_en_orden_escolar(self):
         niveles = self.lista().context['niveles']
         self.assertEqual([n['nombre'] for n in niveles], ['Preescolar', 'Primaria', 'Secundaria', 'Preparatoria'])
-        self.assertEqual([f['grado'].nombre_de_nivel for f in niveles[1]['filas']], ['1° Primaria', '6° Primaria'])
+        self.assertEqual([f['grado'].nombre_de_nivel for f in niveles[1]['filas']], ['1.º Primaria', '6.º Primaria'])
 
     def test_no_muestra_los_grados_dados_de_baja_salvo_en_su_filtro(self):
         activos = [str(f['grado']) for n in self.lista().context['niveles'] for f in n['filas']]
-        self.assertNotIn('2° Primaria', activos)
+        self.assertNotIn('2.º Primaria', activos)
         bajas = self.lista(estado='BAJA')
         self.assertTrue(bajas.context['viendo_bajas'])
-        self.assertEqual([f['grado'].nombre_de_nivel for n in bajas.context['niveles'] for f in n['filas']], ['2° Primaria'])
+        self.assertEqual([f['grado'].nombre_de_nivel for n in bajas.context['niveles'] for f in n['filas']], ['2.º Primaria'])
         self.assertContains(bajas, 'Reactivar')
 
     def test_conteos_de_las_pestanas(self):
@@ -148,7 +148,7 @@ class CrearTests(BaseTestCase):
     def test_registra_y_redirige_al_listado_con_mensaje(self):
         respuesta = self.client.post(self.url, {'nivel': 'PRIMARIA', 'numero': 3}, follow=True)
         self.assertRedirects(respuesta, reverse('grados:lista'))
-        self.assertContains(respuesta, 'El grado 3° Primaria fue registrado')
+        self.assertContains(respuesta, 'El grado 3.º Primaria fue registrado')
         grado = Grado.objects.get()
         self.assertTrue(grado.activo)
 
@@ -169,7 +169,7 @@ class CrearTests(BaseTestCase):
         crear_grado('PRIMARIA', 2)
         respuesta = self.client.post(self.url, {'nivel': 'PRIMARIA', 'numero': 2})
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'Ya existe el grado 2° Primaria')
+        self.assertContains(respuesta, 'Ya existe el grado 2.º Primaria')
         self.assertEqual(Grado.objects.count(), 1)
         self.assertEqual(len(respuesta.context['form'].errors), 1)    # un solo aviso, no dos
 
@@ -300,7 +300,7 @@ class DetalleTests(BaseTestCase):
 
     def test_indica_a_que_grado_pasan(self):
         self.assertEqual(self.detalle().context['siguiente'], self.siguiente)
-        self.assertContains(self.detalle(), '5° Primaria')
+        self.assertContains(self.detalle(), '5.º Primaria')
 
     def test_el_ultimo_grado_no_tiene_siguiente(self):
         respuesta = self.client.get(self.siguiente.get_absolute_url())
@@ -338,9 +338,11 @@ class DetalleTests(BaseTestCase):
         self.assertContains(respuesta, 'Reactivar grado')
         self.assertNotContains(respuesta, 'Inscribir estudiante')
 
-    def test_el_aviso_de_baja_cuenta_los_inscritos_actuales(self):
-        self.assertEqual(self.detalle().context['inscritos_actuales'], 2)
-        self.assertContains(self.detalle(), 'Tiene 2 estudiantes inscritos en el ciclo actual')
+    def test_con_inscritos_actuales_la_baja_no_se_permite(self):
+        self.assertIn('Tiene 2 estudiantes inscritos en el ciclo actual', self.detalle().context['bloqueo_baja'])
+        respuesta = self.detalle()
+        self.assertContains(respuesta, 'No se puede dar de baja.')
+        self.assertNotContains(respuesta, '<button type="submit" class="btn btn--danger">Dar de baja</button>', html=True)
 
     def test_grado_inexistente_da_404(self):
         self.assertEqual(self.client.get(reverse('grados:detalle', args=[9999])).status_code, 404)
@@ -355,12 +357,13 @@ class BajaTests(BaseTestCase):
         super().setUp()
         self.ciclo = ciclo_actual_de_prueba()
         self.grado = crear_grado('PRIMARIA', 1)
-        self.inscripcion = inscribir(crear_alumno(), self.ciclo, self.grado)
+        # Con historial, pero sin estudiantes en el ciclo actual ni en uno próximo: se puede dar de baja
+        self.inscripcion = inscribir(crear_alumno(), ciclo_cerrado_de_prueba(), self.grado)
 
     def test_da_de_baja_redirige_al_listado_y_confirma(self):
         respuesta = self.client.post(reverse('grados:baja', args=[self.grado.pk]), follow=True)
         self.assertRedirects(respuesta, reverse('grados:lista'))
-        self.assertContains(respuesta, 'El grado 1° Primaria fue dado de baja')
+        self.assertContains(respuesta, 'El grado 1.º Primaria fue dado de baja')
         self.grado.refresh_from_db()
         self.assertFalse(self.grado.activo)
 

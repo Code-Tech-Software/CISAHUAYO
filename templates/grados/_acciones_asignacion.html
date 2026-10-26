@@ -1,0 +1,33 @@
+{% comment %}
+  Las acciones de una materia del grupo en el plan del grado (asignar o cambiar profesor, quitar, volver a asignar): en
+  la tabla de un solo grupo y en la tabla de materias por grupo. Quitar y volver a asignar son del grado (todos sus
+  grupos: el plan es del grado); el profesor, de cada grupo.
+  Parámetros: item (MateriaGrado con `habilitados` y `del_nivel`), grado, plan_editable y partes: 'profesor' (solo el
+  botón del profesor), 'plan' (solo quitar o volver a asignar) o vacío (todo).
+{% endcomment %}
+{% if partes != 'plan' and plan_editable and item.activa and perms.Alumnos.change_materiagrado %}
+  <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asignar-profesor" data-asignar-profesor
+          data-asignacion="{{ item.pk }}" data-descripcion="{{ item.materia }} de {{ item.grupo }}" data-profesor="{{ item.profesor_id|default_if_none:'' }}"
+          data-habilitados="{{ item.habilitados }}" data-del-nivel="{{ item.del_nivel }}" data-nivel="{{ grado.get_nivel_display }}"
+          aria-label="{% if item.profesor %}Cambiar al profesor de {{ item.materia }} en {{ item.grupo }}{% else %}Asignar profesor a {{ item.materia }} en {{ item.grupo }}{% endif %}"
+          data-tooltip="{% if item.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}">
+    {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
+  </button>
+{% endif %}
+{% if partes != 'profesor' and plan_editable %}
+  {% if item.activa %}
+    {% if perms.Alumnos.delete_materiagrado %}
+      <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-quitar-materia" data-quitar
+              data-action="{% url 'materias:quitar' item.pk %}" data-materia="{{ item.materia }}" data-grado="{{ grado.nombre_de_nivel }}"
+              aria-label="Quitar {{ item.materia }} de {{ grado.nombre_de_nivel }}" data-tooltip="Quitar del grado">
+        {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}
+      </button>
+    {% endif %}
+  {% elif perms.Alumnos.change_materiagrado %}
+    <form method="post" action="{% url 'materias:reactivar_asignacion' item.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}#materias">
+      <button type="submit" class="btn btn--sm">Volver a asignar</button>
+    </form>
+  {% endif %}
+{% endif %}

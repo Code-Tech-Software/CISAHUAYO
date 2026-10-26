@@ -142,8 +142,8 @@ class ListaTests(BaseTestCase):
         secundaria = crear_grado('SECUNDARIA', 1, equivalencia='7')
         Materia.objects.filter(pk=self.esp.pk).update(grado=secundaria)
         html = self.pedir().content.decode()
-        self.assertIn('<span class="cell-stack__main">7°</span>', html)                    # la equivalencia
-        self.assertIn('<span class="cell-stack__sub">1° Secundaria</span>', html)          # y el grado de su nivel
+        self.assertIn('<span class="cell-stack__main">7.º</span>', html)                    # la equivalencia
+        self.assertIn('<span class="cell-stack__sub">1.º Secundaria</span>', html)          # y el grado de su nivel
         self.assertIn('Sin grado', html)                       # las de antes que todavía no tienen
 
     def test_muestra_el_profesor_del_ciclo_actual(self):
@@ -349,7 +349,7 @@ class DetalleTests(BaseTestCase):
         MateriaGrado.objects.filter(pk=self.a1.pk).update(activa=False)
         respuesta = self.detalle()
         self.assertTrue(respuesta.context['puede_agregarse'])
-        self.assertContains(respuesta, 'Agregar al plan de 1°')
+        self.assertContains(respuesta, 'Agregar al plan de 1.º')
         self.client.post(reverse('materias:asignar'), {'ciclo': self.actual.pk, 'materia': self.materia.pk, 'grado': self.p1.pk})
         self.a1.refresh_from_db()
         self.assertTrue(self.a1.activa)
@@ -488,7 +488,7 @@ class AsignarTests(BaseTestCase):
         self.post(materias=[self.mat], grados=[self.p1])
         self.assertFalse(MateriaGrado.objects.exists())
         mensajes = [str(m) for m in self.client.get(reverse('materias:lista')).context['messages']]
-        self.assertIn('No se agregó. Matemáticas es de 2°: solo se agrega al plan de ese grado.', mensajes)
+        self.assertIn('No se agregó. Matemáticas es de 2.º: solo se agrega al plan de ese grado.', mensajes)
         self.post(materias=[self.mat], grados=[self.p2])
         self.assertTrue(MateriaGrado.objects.filter(materia=self.mat, grado=self.p2).exists())
 
@@ -581,7 +581,7 @@ class QuitarTests(BaseTestCase):
     def test_quitar_es_logico_y_conserva_el_horario(self):
         respuesta = self.quitar(follow=True)
         self.assertRedirects(respuesta, self.materia.get_absolute_url())
-        self.assertContains(respuesta, 'se quitó de 1°')
+        self.assertContains(respuesta, 'se quitó de 1.º')
         self.asignacion.refresh_from_db()
         self.assertFalse(self.asignacion.activa)
         self.assertTrue(HorarioMateria.objects.filter(pk=self.bloque.pk).exists())
@@ -609,7 +609,7 @@ class QuitarTests(BaseTestCase):
     def test_volver_a_asignar(self):
         self.quitar()
         respuesta = self.client.post(reverse('materias:reactivar_asignacion', args=[self.asignacion.pk]), follow=True)
-        self.assertContains(respuesta, 'volvió a impartirse en 1°')
+        self.assertContains(respuesta, 'volvió a impartirse en 1.º')
         self.asignacion.refresh_from_db()
         self.assertTrue(self.asignacion.activa)
 
@@ -661,7 +661,7 @@ class ExportarTests(BaseTestCase):
         self.assertIn('2026-2027', filas[0][5])
         self.assertEqual([f[0] for f in filas[1:]], ['MAT', 'ESP'])           # por nombre: «=Matemáticas» va antes que «Español»
         self.assertEqual(filas[1][1], "'=Matemáticas")                      # neutraliza fórmulas de Excel
-        self.assertEqual(filas[1][2:], ['1°', '1°', 'Activa', str(self.marta)])
+        self.assertEqual(filas[1][2:], ['1.º', '1.º', 'Activa', str(self.marta)])
         self.assertEqual(filas[2][2:], ['Sin grado', '', 'Activa', ''])
 
     def test_respeta_los_filtros_de_grado(self):
@@ -718,8 +718,8 @@ class CopiarPlanTests(BaseTestCase):
         asignar(self.esp, self.p1, self.destino)            # esa ya estaba en el destino
         respuesta = self.client.get(self.url, self.parametros())
         plan = {str(f['grupo'].grado): f for f in respuesta.context['plan']}
-        self.assertEqual((plan['1°']['materias'], plan['1°']['bloques'], plan['1°']['ya_existen']), (1, 2, 1))
-        self.assertEqual((plan['2°']['materias'], plan['2°']['bloques']), (1, 0))
+        self.assertEqual((plan['1.º']['materias'], plan['1.º']['bloques'], plan['1.º']['ya_existen']), (1, 2, 1))
+        self.assertEqual((plan['2.º']['materias'], plan['2.º']['bloques']), (1, 0))
         self.assertEqual((respuesta.context['total_materias'], respuesta.context['total_bloques'], respuesta.context['total_existentes']), (2, 2, 1))
 
     def test_no_se_copian_materias_quitadas_ni_de_baja_ni_de_grados_de_baja(self):
@@ -728,7 +728,7 @@ class CopiarPlanTests(BaseTestCase):
         self.esp.activa = False
         self.esp.save()
         respuesta = self.client.get(self.url, self.parametros())
-        self.assertEqual([(str(f['grupo'].grado), f['materias']) for f in respuesta.context['plan']], [('1°', 1)])
+        self.assertEqual([(str(f['grupo'].grado), f['materias']) for f in respuesta.context['plan']], [('1.º', 1)])
         self.p1.activo = False
         self.p1.save()
         self.assertEqual(self.client.get(self.url, self.parametros()).context['plan'], [])

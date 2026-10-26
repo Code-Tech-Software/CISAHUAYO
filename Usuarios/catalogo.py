@@ -108,7 +108,7 @@ MODULOS = (
             'baja': 'Dar de baja un grado.',
         }),
     )),
-    Modulo('grupos', 'Grupos', 'users', 'Los grupos de cada grado (1° A, 1° B…) y el catálogo de nombres de grupo.', (
+    Modulo('grupos', 'Grupos', 'users', 'Los grupos de cada grado (1.º A, 1.º B…) y el catálogo de nombres de grupo.', (
         Funcion('Grupos', {'ver': 'Alumnos.view_grupo'}, ayuda={
             'ver': 'Consultar los grupos con sus estudiantes, sus materias y sus profesores. Los grupos de un grado se eligen al editar el grado.',
         }),

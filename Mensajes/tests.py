@@ -48,7 +48,7 @@ def entrar_al_portal(cliente, tipo, cuenta):
 
 
 class Colegio:
-    """4° A de primaria (Ana y Beto; Matemáticas de la docente Marta) y 1° de secundaria (Zoe). Rosa es tutora de Ana y
+    """4.º A de primaria (Ana y Beto; Matemáticas de la docente Marta) y 1.º de secundaria (Zoe). Rosa es tutora de Ana y
     Tomás de Zoe. Raúl es docente sin grupos de primaria. Control escolar atiende a las familias; prefectura, solo
     secundaria; recepción solo usa la mensajería entre el personal."""
 

@@ -377,7 +377,7 @@ class DetalleTests(BaseTestCase):
     def test_muestra_sus_materias_del_ciclo_actual_y_su_carga(self):
         respuesta = self.detalle()
         self.assertEqual(respuesta.context['ciclo'], self.actual)
-        self.assertEqual([a.materia.clave for a in respuesta.context['asignaciones']], ['MAT', 'ESP'])   # orden escolar: 1° y luego 2°
+        self.assertEqual([a.materia.clave for a in respuesta.context['asignaciones']], ['MAT', 'ESP'])   # orden escolar: 1.º y luego 2.º
         self.assertEqual(respuesta.context['total_grados'], 2)
         self.assertEqual(respuesta.context['total_bloques'], 3)
         self.assertEqual(respuesta.context['horas_semanales'], '2 h 30 min')
@@ -416,7 +416,7 @@ class DetalleTests(BaseTestCase):
         libre = asignar(crear_materia('CIE', 'Ciencias'), self.p1, self.actual)
         respuesta = self.detalle()
         self.assertEqual(respuesta.context['total_pendientes'], 1)
-        self.assertEqual([(str(g['grupo'].grado), [a.pk for a in g['asignaciones']]) for g in respuesta.context['pendientes']], [('1°', [libre.pk])])
+        self.assertEqual([(str(g['grupo'].grado), [a.pk for a in g['asignaciones']]) for g in respuesta.context['pendientes']], [('1.º', [libre.pk])])
         self.assertContains(respuesta, 'modal-asignar-materias')
 
     def test_no_ofrece_materias_quitadas_ni_de_baja_ni_de_grados_de_baja(self):
@@ -451,7 +451,7 @@ class DetalleTests(BaseTestCase):
     def test_consultas_constantes(self):
         with CaptureQueriesContext(connection) as pocas:
             self.detalle()
-        for numero in range(3, 8):
+        for numero in range(3, 7):   # grados válidos: primaria llega al 6.º (el 7 es la equivalencia de 1.º de secundaria)
             asignacion = asignar(self.mat, crear_grado('PRIMARIA', numero), self.actual, profesor=self.profesor)
             bloque(asignacion, 3, (11, 0), (11, 30))
             asignar(crear_materia(f'L{numero}', f'Libre {numero}'), crear_grado('SECUNDARIA', numero - 2), self.actual)
@@ -563,7 +563,7 @@ class AsignarTests(BaseTestCase):
 
     def test_confirma_con_un_mensaje(self):
         respuesta = self.client.post(self.url, {'asignacion': [self.a1.pk], 'profesor': self.profesor.pk}, follow=True)
-        self.assertContains(respuesta, 'Marta Rangel Soto imparte ahora Matemáticas en 1°')
+        self.assertContains(respuesta, 'Marta Rangel Soto imparte ahora Matemáticas en 1.º')
 
     def test_asigna_varias_materias_a_la_vez(self):
         respuesta = self.client.post(self.url, {'asignacion': [self.a1.pk, self.a2.pk], 'profesor': self.profesor.pk}, follow=True)
@@ -628,7 +628,7 @@ class AsignarTests(BaseTestCase):
         respuesta = self.client.post(self.url, {'asignacion': [self.a2.pk], 'profesor': self.profesor.pk}, follow=True)
         self.assertContains(respuesta, 'No se pudo asignar')
         self.assertContains(respuesta, 'un profesor no puede estar en dos grupos a la vez')
-        self.assertContains(respuesta, 'Matemáticas en 1° A (lunes 08:00–09:00)')
+        self.assertContains(respuesta, 'Matemáticas en 1.º A (lunes 08:00–09:00)')
         self.a2.refresh_from_db()
         self.assertIsNone(self.a2.profesor)
 
@@ -673,7 +673,7 @@ class AsignarTests(BaseTestCase):
         self.assertIsNone(libre.profesor)
         self.assertEqual(ocupada.profesor, self.profesor)
         self.assertContains(respuesta, 'imparte ahora 1 materia más')
-        self.assertContains(respuesta, 'Ciencias de 2°')
+        self.assertContains(respuesta, 'Ciencias de 2.º')
 
     def test_quitar_al_profesor_no_revisa_empalmes(self):
         bloque(self.a1, 0, (8, 0), (9, 0))
@@ -727,7 +727,7 @@ class ExportarTests(BaseTestCase):
         self.assertIn('2026-2027', filas[0][-4])
         self.assertEqual(filas[0][-3:], ['Horas por semana en el ciclo actual', 'Materias que puede impartir', 'Horas máximas por semana'])
         self.assertEqual([f[0] for f in filas[1:]], ['Beto', "'=Marta"])                 # neutraliza fórmulas de Excel
-        self.assertEqual(filas[2][-4], 'Español (1° A); Matemáticas (2° A)')                # con la equivalencia del grupo
+        self.assertEqual(filas[2][-4], 'Español (1.º A); Matemáticas (2.º A)')                # con la equivalencia del grupo
         self.assertEqual(filas[1][-4], '')
 
     def test_incluye_lo_que_puede_impartir_y_su_tope_de_horas(self):

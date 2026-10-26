@@ -41,7 +41,7 @@ class AsignarProfesorPorNivelTests(NivelTestCase):
         cambios, omitidas = asignar_profesor([self.mat, self.fis], self.marta)
         self.assertEqual([asignacion for asignacion, _ in cambios], [self.mat])
         self.assertEqual(omitidas, [
-            f'Fis de 7°: {self.marta} no da clases en Secundaria. Agrégale ese nivel en su ficha para poder '
+            f'Fis de 7.º: {self.marta} no da clases en Secundaria. Agrégale ese nivel en su ficha para poder '
             'asignarle materias de ese nivel.',
         ])
         self.fis.refresh_from_db()
@@ -146,7 +146,7 @@ class UnGradoPorMateriaTests(NivelTestCase):
         materia = Materia.objects.create(clave='ESP', nombre='Español', grado=self.primaria)
         html = self.client.get(materia.get_absolute_url()).content.decode()
         self.assertEqual(re.findall(r'<input type="hidden" name="grado" value="(\d+)"', html), [str(self.primaria.pk)])
-        self.assertIn('Agregar al plan de 2°', html)
+        self.assertIn('Agregar al plan de 2.º', html)
 
     def test_no_se_reactiva_en_un_grado_que_no_es_el_suyo(self):
         materia = Materia.objects.create(clave='ESP', nombre='Español', grado=self.secundaria)

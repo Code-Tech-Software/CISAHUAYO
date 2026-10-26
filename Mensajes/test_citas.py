@@ -1,5 +1,5 @@
 """Mejoras de la mensajería del 2026-10-23: responder citando, corregir un mensaje propio en sus primeros 2 minutos,
-«escribiendo…» y quién es cada familia en la lista («Tutor de Ana … (4° A)»)."""
+«escribiendo…» y quién es cada familia en la lista («Tutor de Ana … (4.º A)»)."""
 from datetime import timedelta
 from unittest.mock import patch
 

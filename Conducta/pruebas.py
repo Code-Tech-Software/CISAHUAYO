@@ -41,7 +41,7 @@ def pdf(nombre='acta.pdf'):
 
 
 class BaseConductaTestCase(BaseTestCase):
-    """Primaria (4°) con Ana y secundaria (1°) con Zoe; catálogos de primaria completos y una categoría de secundaria.
+    """Primaria (4.º) con Ana y secundaria (1.º) con Zoe; catálogos de primaria completos y una categoría de secundaria.
     Inicia sesión el administrador."""
 
     def setUp(self):

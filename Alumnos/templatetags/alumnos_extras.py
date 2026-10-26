@@ -61,8 +61,8 @@ def tono_estatus(estatus):
 
 @register.filter
 def grado_equivalente(inscripcion):
-    """«7° A» o «K2 B»: la equivalencia del grado en la continuidad escolar (la guardada en Grados o, si no tiene, la
-    habitual de su nivel) con su grupo. Sin una equivalencia posible, el grado de siempre («1° A Secundaria»)."""
+    """«7.º A» o «K2 B»: la equivalencia del grado en la continuidad escolar (la guardada en Grados o, si no tiene, la
+    habitual de su nivel) con su grupo. Sin una equivalencia posible, el grado de siempre («1.º A Secundaria»)."""
     if not inscripcion:
         return ''
     return inscripcion.grupo.nombre_equivalente if inscripcion.grupo_id else inscripcion.grado.nombre_equivalente

@@ -18,7 +18,7 @@ class NombreGrupoForm(EstiloCamposMixin, forms.ModelForm):
         }
         labels = {'orden': 'Orden'}
         help_texts = {
-            'nombre': 'Una letra («A», «B») o una palabra corta («Matutino»). Así se verá: «1° A Primaria».',
+            'nombre': 'Una letra («A», «B») o una palabra corta («Matutino»). Así se verá: «1.º A Primaria».',
             'orden': 'En qué lugar aparece al listar los grupos de un grado (el más bajo, primero).',
         }
         error_messages = {'nombre': {'required': 'Escribe el nombre del grupo.'}}

@@ -1,6 +1,6 @@
 """Equivalencia de los grados: su nombre en la continuidad escolar sin importar el nivel.
 
-Puede ser un número (1.° de secundaria es el 7) o un código con letras (K1 para 1.° de preescolar).
+Puede ser un número (1.º de secundaria es el 7) o un código con letras (K1 para 1.º de preescolar).
 """
 import importlib
 import re
@@ -44,7 +44,7 @@ class EquivalenciaHabitualTests(SimpleTestCase):
         self.assertEqual(equivalencia_sugerida('PRIMARIA', 0), '')
 
     def test_se_escribe_como_se_quiere_y_se_guarda_ordenada(self):
-        casos = {'k1': 'K1', ' K 1 ': 'K1', '7°': '7', '7.': '7', '07': '7', 'kA2': 'KA2', '': '', None: ''}
+        casos = {'k1': 'K1', ' K 1 ': 'K1', '7.º': '7', '7.': '7', '07': '7', 'kA2': 'KA2', '': '', None: ''}
         for escrito, guardado in casos.items():
             with self.subTest(escrito=escrito):
                 self.assertEqual(normalizar_equivalencia(escrito), guardado)
@@ -56,8 +56,8 @@ class TextoDeLaEquivalenciaTests(SimpleTestCase):
 
     def test_un_numero_se_lee_con_grado(self):
         grado = self.grado('7')
-        self.assertEqual(grado.equivalencia_texto, '7°')
-        self.assertEqual(grado.equivalencia_frase, 'Equivale al 7°')
+        self.assertEqual(grado.equivalencia_texto, '7.º')
+        self.assertEqual(grado.equivalencia_frase, 'Equivale al 7.º')
         self.assertEqual(grado.equivalencia_numero, 7)
 
     def test_un_codigo_con_letras_se_lee_tal_cual(self):
@@ -66,13 +66,19 @@ class TextoDeLaEquivalenciaTests(SimpleTestCase):
         self.assertEqual(grado.equivalencia_frase, 'Equivale a K1')
         self.assertIsNone(grado.equivalencia_numero)
 
-    def test_sin_equivalencia_no_hay_texto(self):
+    def test_sin_equivalencia_guardada_se_lee_la_habitual(self):
+        # Un solo criterio en todo el sitio: la equivalencia efectiva (la guardada o la habitual)
         grado = self.grado('')
+        self.assertEqual((grado.equivalencia_texto, grado.equivalencia_frase), ('7.º', 'Equivale al 7.º'))
+        self.assertEqual(grado.equivalencia_numero, 7)
+
+    def test_sin_ninguna_equivalencia_no_hay_texto(self):
+        grado = Grado(nivel='SECUNDARIA', numero=None, equivalencia='')
         self.assertEqual((grado.equivalencia_texto, grado.equivalencia_frase), ('', ''))
         self.assertIsNone(grado.equivalencia_numero)
 
     def test_un_entero_asignado_en_memoria_tambien_funciona(self):
-        self.assertEqual(self.grado(7).equivalencia_texto, '7°')
+        self.assertEqual(self.grado(7).equivalencia_texto, '7.º')
 
 
 @PRUEBAS
@@ -91,7 +97,7 @@ class FormularioDeGradoTests(BaseTestCase):
                 self.assertEqual(Grado.objects.get(nivel=nivel, numero=numero).equivalencia, esperada)
 
     def test_una_equivalencia_escrita_se_respeta_y_se_ordena(self):
-        casos = [('12', '12'), ('k1', 'K1'), (' 7° ', '7'), ('Ka 2', 'KA2')]
+        casos = [('12', '12'), ('k1', 'K1'), (' 7.º ', '7'), ('Ka 2', 'KA2')]
         for n, (escrita, guardada) in enumerate(casos, start=1):
             with self.subTest(escrita=escrita):
                 self.client.post(reverse('grados:crear'), self.datos(nivel='PRIMARIA', numero=n, equivalencia=escrita))
@@ -105,18 +111,18 @@ class FormularioDeGradoTests(BaseTestCase):
         crear_grado('SECUNDARIA', 1, equivalencia='7')
         respuesta = self.client.post(reverse('grados:crear'), self.datos(nivel='PRIMARIA', numero=2, equivalencia='7'))
         self.assertEqual(respuesta.status_code, 200)
-        self.assertContains(respuesta, 'La equivalencia 7° ya la tiene 1° Secundaria')
+        self.assertContains(respuesta, 'La equivalencia 7.º ya la tiene 1.º Secundaria')
         self.assertFalse(Grado.objects.filter(nivel='PRIMARIA', numero=2).exists())
 
     def test_los_codigos_con_letras_tampoco_se_repiten_aunque_cambien_las_mayusculas(self):
         crear_grado('PREESCOLAR', 1, equivalencia='K1')
         respuesta = self.client.post(reverse('grados:crear'), self.datos(nivel='PREESCOLAR', numero=2, equivalencia='k1'))
-        self.assertContains(respuesta, 'La equivalencia K1 ya la tiene 1° Preescolar')
+        self.assertContains(respuesta, 'La equivalencia K1 ya la tiene 1.º Preescolar')
 
     def test_la_propuesta_automatica_tampoco_puede_repetirse(self):
         crear_grado('PRIMARIA', 1, equivalencia='7')   # alguien ocupó el 7 con otro grado
         respuesta = self.client.post(reverse('grados:crear'), self.datos())
-        self.assertContains(respuesta, 'La equivalencia 7° ya la tiene 1° Primaria')
+        self.assertContains(respuesta, 'La equivalencia 7.º ya la tiene 1.º Primaria')
 
     def test_un_grado_de_baja_no_bloquea_la_equivalencia(self):
         crear_grado('SECUNDARIA', 1, equivalencia='7', activo=False)
@@ -153,7 +159,7 @@ class FormularioDeGradoTests(BaseTestCase):
         html = self.client.get(reverse('grados:crear')).content.decode()
         self.assertIn('name="equivalencia"', html)
         self.assertIn('Equivalencia en la continuidad escolar', html)
-        self.assertIn('un código con letras (K1 para 1.° de preescolar)', html)
+        self.assertIn('un código con letras (K1 para 1.º de preescolar)', html)
         self.assertIn('js/grados-form.js', html)
         for nivel, base in BASE_DE_EQUIVALENCIA.items():
             self.assertIn(f'&quot;{nivel}&quot;: {base}', html)
@@ -168,10 +174,10 @@ class FormularioDeGradoTests(BaseTestCase):
     def test_el_formulario_valida_directamente(self):
         form = GradoForm(data=self.datos(nivel='SECUNDARIA', numero=2))
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data['equivalencia'], '8')
+        self.assertEqual(form.instance.equivalencia, '8')   # la propone el modelo (también en el admin)
         form = GradoForm(data=self.datos(nivel='PREESCOLAR', numero=3))
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data['equivalencia'], 'K3')
+        self.assertEqual(form.instance.equivalencia, 'K3')
 
 
 @PRUEBAS
@@ -179,18 +185,19 @@ class EquivalenciaEnLasPantallasTests(BaseTestCase):
     def test_el_listado_muestra_las_equivalencias(self):
         crear_grado('SECUNDARIA', 1, equivalencia='7')
         crear_grado('PREESCOLAR', 1, equivalencia='K1')
-        crear_grado('PRIMARIA', 1)   # sin equivalencia
+        crear_grado('PRIMARIA', 1)   # sin escribirla: se guarda la habitual
         html = self.client.get(reverse('grados:lista')).content.decode()
-        self.assertIn('Equivale al 7°', html)
+        self.assertIn('Equivale al 7.º', html)
         self.assertIn('Equivale a K1', html)
-        self.assertEqual(len(re.findall(r'grade-card__eq[^>]*>Equivale', html)), 2)
-        self.assertIn('Sin equivalencia', html)
+        self.assertIn('Equivale al 1.º', html)
+        self.assertEqual(len(re.findall(r'grade-card__eq[^>]*>Equivale', html)), 3)
+        self.assertNotIn('Sin equivalencia', html)
 
     def test_el_perfil_del_grado_muestra_su_equivalencia(self):
         grado = crear_grado('SECUNDARIA', 1, equivalencia='7')
         html = self.client.get(reverse('grados:detalle', args=[grado.pk])).content.decode()
-        self.assertIn('Equivale al 7°', html)
-        self.assertRegex(html, r'<dt>Equivalencia</dt><dd>7°</dd>')
+        self.assertIn('Equivale al 7.º', html)
+        self.assertRegex(html, r'<dt>Equivalencia</dt><dd>7.º</dd>')
 
     def test_el_perfil_de_un_grado_con_codigo(self):
         grado = crear_grado('PREESCOLAR', 1, equivalencia='K1')
@@ -198,11 +205,12 @@ class EquivalenciaEnLasPantallasTests(BaseTestCase):
         self.assertIn('Equivale a K1', html)
         self.assertRegex(html, r'<dt>Equivalencia</dt><dd>K1</dd>')
 
-    def test_sin_equivalencia_el_perfil_lo_dice(self):
+    def test_sin_escribirla_el_perfil_muestra_la_habitual(self):
         grado = crear_grado('PREESCOLAR', 1)
+        self.assertEqual(grado.equivalencia, 'K1')   # se guarda: la que se ve es la que se valida
         html = self.client.get(reverse('grados:detalle', args=[grado.pk])).content.decode()
-        self.assertIn('Sin equivalencia', html)
-        self.assertNotIn('Equivale a', html)
+        self.assertIn('Equivale a K1', html)
+        self.assertNotIn('Sin equivalencia', html)
 
     def test_los_archivos_del_formulario_existen(self):
         self.assertTrue((RAIZ / 'static/js/grados-form.js').is_file())
@@ -261,7 +269,7 @@ class ReactivarGradoConEquivalenciaTests(BaseTestCase):
         grado = crear_grado('SECUNDARIA', 1, equivalencia='7', activo=False)
         crear_grado('PRIMARIA', 2, equivalencia='7')
         respuesta = self.client.post(reverse('grados:reactivar', args=[grado.pk]), follow=True)
-        self.assertContains(respuesta, 'ya la tiene 2° Primaria')
+        self.assertContains(respuesta, 'ya la tiene 2.º Primaria')
         grado.refresh_from_db()
         self.assertFalse(grado.activo)
 

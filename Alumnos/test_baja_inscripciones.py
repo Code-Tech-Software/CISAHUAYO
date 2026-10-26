@@ -43,7 +43,7 @@ class BajaYReactivacionTests(BaseTestCase):
         self.assertEqual((self.de_este_ciclo.activa, self.de_este_ciclo.suspendida_por_baja), (False, True))
         self.assertEqual((self.del_proximo.activa, self.del_proximo.suspendida_por_baja), (False, True))
         self.assertEqual((self.historica.activa, self.historica.suspendida_por_baja), (True, False))   # la historia no se toca
-        self.assertContains(respuesta, 'Sus inscripciones en 2° (2026-2027), 3° (2027-2028) quedaron desactivadas')
+        self.assertContains(respuesta, 'Sus inscripciones en 2.º (2026-2027), 3.º (2027-2028) quedaron desactivadas')
 
     def test_ya_no_cuenta_como_inscrito_en_el_ciclo(self):
         self.client.post(reverse('alumnos:baja', args=[self.alumno.pk]), follow=True)   # follow: consume el aviso de la baja

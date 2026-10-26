@@ -7,6 +7,7 @@ app_name = 'grados'
 urlpatterns = [
     path('', views.grado_lista, name='lista'),
     path('nuevo/', views.grado_crear, name='crear'),
+    path('nivel/', views.grado_nivel, name='nivel'),
     path('<int:pk>/', views.grado_detalle, name='detalle'),
     path('<int:pk>/editar/', views.grado_editar, name='editar'),
     path('<int:pk>/baja/', views.grado_baja, name='baja'),

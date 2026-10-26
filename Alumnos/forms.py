@@ -451,7 +451,7 @@ class GradoChoiceField(forms.ModelChoiceField):
 
 
 class GradoEquivalenteChoiceField(GradoChoiceField):
-    """Los grados con su equivalencia en la continuidad escolar («7°», «K1»), agrupados por nivel: como los muestra la
+    """Los grados con su equivalencia en la continuidad escolar («7.º», «K1»), agrupados por nivel: como los muestra la
     tabla de estudiantes."""
 
     def label_from_instance(self, grado):

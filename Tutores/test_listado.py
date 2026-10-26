@@ -54,7 +54,7 @@ class TarjetasDeEstudiantesTests(BaseTestCase):
         html = self.client.get(self.lista).content.decode()
         tarjeta_de_luis = re.search(r'<a class="student-chip"[^>]*href="' + self.luis.get_absolute_url() + r'".*?</a>', html, re.S).group(0)
         self.assertIn('Luis Pérez', tarjeta_de_luis)
-        self.assertIn('Madre · 4° A', tarjeta_de_luis)
+        self.assertIn('Madre · 4.º A', tarjeta_de_luis)
         tarjeta_de_ana = re.search(r'<a class="student-chip"[^>]*href="' + self.ana.get_absolute_url() + r'".*?</a>', html, re.S).group(0)
         self.assertIn('Madre · Sin inscripción', tarjeta_de_ana)
 

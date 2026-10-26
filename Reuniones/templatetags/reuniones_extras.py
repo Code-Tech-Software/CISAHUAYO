@@ -43,7 +43,7 @@ def cuando(reunion):
 
 @register.filter
 def grupo_corto(inscripcion):
-    """«Secundaria · 7° A» de una inscripción (el grupo con la equivalencia del grado)."""
+    """«Secundaria · 7.º A» de una inscripción (el grupo con la equivalencia del grado)."""
     if not inscripcion:
         return 'Sin inscripción en el ciclo actual'
     grado = inscripcion.grado
@@ -53,7 +53,7 @@ def grupo_corto(inscripcion):
 
 @register.filter
 def fecha_larga(fecha):
-    return date_format(fecha, 'l j \d\e F \d\e Y').capitalize() if fecha else ''
+    return date_format(fecha, r'l j \d\e F \d\e Y').capitalize() if fecha else ''
 
 
 @register.filter

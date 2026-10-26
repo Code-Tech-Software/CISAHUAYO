@@ -53,8 +53,8 @@ def foto(nombre='comprobante.jpg', formato='JPEG'):
 
 
 class BaseMateriasTestCase(BaseAsistenciaTestCase):
-    """Como la del docente: Marta da Matemáticas en 4° A Primaria; Español y Ciencias no tienen profesor; también hay un
-    5° con Historia. El periodo abierto va del lunes de hace dos semanas al viernes de la próxima; «hoy» es el lunes de
+    """Como la del docente: Marta da Matemáticas en 4.º A Primaria; Español y Ciencias no tienen profesor; también hay un
+    5.º con Historia. El periodo abierto va del lunes de hace dos semanas al viernes de la próxima; «hoy» es el lunes de
     prueba a las 9:00. Inicia sesión quien administra."""
 
     hora = (9, 0)

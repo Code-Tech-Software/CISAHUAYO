@@ -1,6 +1,6 @@
 """Reglas académicas que comparten las secciones de ciclos, grados e inscripciones.
 
-Cada grado tiene uno o varios grupos (1° A, 1° B). El plan de materias es del grado y lo comparten sus grupos: una
+Cada grado tiene uno o varios grupos (1.º A, 1.º B). El plan de materias es del grado y lo comparten sus grupos: una
 materia del grado tiene una asignación (`MateriaGrado`) por grupo, con su profesor, su horario y su asistencia. Los
 estudiantes se inscriben en un grupo.
 """
@@ -8,7 +8,7 @@ import re
 from datetime import date, timedelta
 
 from django.db import transaction
-from django.db.models import Max, Prefetch, Q
+from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone
 
 from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Materia, MateriaGrado, q_ciclo
@@ -16,8 +16,8 @@ from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Grupo, Inscripci
 # Número máximo de grado por nivel (en preparatoria caben semestres o años).
 LIMITE_GRADOS = {'PREESCOLAR': 3, 'PRIMARIA': 6, 'SECUNDARIA': 3, 'PREPARATORIA': 6}
 
-# Equivalencia habitual de cada grado en la continuidad escolar, sin importar el nivel: primaria 1.° a 6.°, secundaria
-# 7.° a 9.° (1.° de secundaria se nombra «7.°») y preparatoria del 10.° en adelante; preescolar usa un código con letra
+# Equivalencia habitual de cada grado en la continuidad escolar, sin importar el nivel: primaria 1.º a 6.º, secundaria
+# 7.º a 9.º (1.º de secundaria se nombra «7.º») y preparatoria del 10.º en adelante; preescolar usa un código con letra
 # (K1, K2, K3). La equivalencia es un número o un código corto de letras y números. Es solo la propuesta: cada grado
 # guarda la suya y se puede cambiar desde el formulario del grado.
 BASE_DE_EQUIVALENCIA = {'PRIMARIA': 0, 'SECUNDARIA': 6, 'PREPARATORIA': 9}
@@ -37,7 +37,7 @@ def equivalencia_sugerida(nivel, numero):
 
 
 def normalizar_equivalencia(valor):
-    """Lo que se guarda de lo que se escribió: sin espacios, «°» ni puntos y en mayúsculas («k 1» → «K1», «7°» → «7»)."""
+    """Lo que se guarda de lo que se escribió: sin espacios, «°» ni puntos y en mayúsculas («k 1» → «K1», «7.º» → «7»)."""
     valor = re.sub(r'[\s°º.]', '', valor or '').upper()
     return str(int(valor)) if valor.isdigit() else valor   # «07» → «7»
 
@@ -129,10 +129,24 @@ def asegurar_en_el_plan(materia, ciclo=None):
     return agregar_al_plan(materia, materia.grado, ciclo)[0]
 
 
+def suspender_plan(grupos):
+    """Al quitar grupos (o dar de baja su grado): sus materias del ciclo actual y de los próximos dejan de impartirse,
+    con la marca para restaurarlas (conservan profesor y horario). Así no siguen contando en la carga de los
+    profesores ni en los horarios. Devuelve cuántas se suspendieron."""
+    return MateriaGrado.objects.filter(q_ciclo('VIGENTE', 'ciclo__'), grupo__in=grupos, activa=True).update(
+        activa=False, suspendida=True,
+    )
+
+
 def extender_plan_al_grupo(grupo):
-    """Un grupo nuevo (o reactivado) toma el plan de su grado en el ciclo actual y en los próximos: cada materia que
-    el grado ya imparte ahí también queda en el grupo, todavía sin profesor ni horario. Devuelve cuántas agregó."""
+    """Un grupo nuevo (o reactivado) toma el plan de su grado en el ciclo actual y en los próximos: primero vuelven
+    sus materias suspendidas al quitarlo (con su profesor y su horario); después, cada materia que el grado imparte
+    ahí y el grupo no tiene queda en el grupo, todavía sin profesor ni horario. Devuelve cuántas agregó o volvieron."""
     vigentes = q_ciclo('VIGENTE', 'ciclo__')
+    restauradas = MateriaGrado.objects.filter(vigentes, grupo=grupo, suspendida=True, materia__activa=True).update(
+        activa=True, suspendida=False,
+    )
+    MateriaGrado.objects.filter(grupo=grupo, suspendida=True).update(suspendida=False)   # las de ciclos ya cerrados
     plan = set(
         MateriaGrado.objects.filter(vigentes, grado=grupo.grado, activa=True, materia__activa=True)
         .values_list('ciclo_id', 'materia_id')
@@ -143,7 +157,33 @@ def extender_plan_al_grupo(grupo):
             ciclo_id=ciclo_id, grupo=grupo, materia_id=materia_id, defaults={'grado_id': grupo.grado_id},
         )
         agregadas += creada
-    return agregadas
+    return agregadas + restauradas
+
+
+def inscritos_vigentes(grado):
+    """Estudiantes con inscripción activa en el grado, en el ciclo actual o en uno próximo."""
+    return Inscripcion.objects.filter(q_ciclo('VIGENTE', 'ciclo__'), grado=grado, activa=True).count()
+
+
+def inscritos_vigentes_por_grado():
+    """{id de grado: estudiantes con inscripción activa en el ciclo actual o en uno próximo} (una sola consulta)."""
+    return dict(
+        Inscripcion.objects.filter(q_ciclo('VIGENTE', 'ciclo__'), activa=True).order_by()
+        .values_list('grado_id').annotate(total=Count('pk'))
+    )
+
+
+def motivo_para_no_dar_de_baja(grado, inscritos=None):
+    """Por qué el grado no se puede dar de baja ('' si sí): tiene estudiantes inscritos en el ciclo actual o en uno
+    próximo (sus grupos dejarían de verse en Horarios, Prefectura y Grupos mientras siguen tomando clase).
+    `inscritos`, si ya se contaron (`inscritos_vigentes_por_grado`)."""
+    inscritos = inscritos_vigentes(grado) if inscritos is None else inscritos
+    if not inscritos:
+        return ''
+    return (
+        f'Tiene {inscritos} estudiante{"s" if inscritos != 1 else ""} inscrito{"s" if inscritos != 1 else ""} en el ciclo '
+        'actual o en uno próximo. Cámbialos de grado o dalo de baja cuando el ciclo termine y ya no tenga inscritos.'
+    )
 
 
 def _vigentes_en_otros_grados(materia, grado):
@@ -321,7 +361,7 @@ def siguiente_grado(grado, grados):
     """Grado al que pasa normalmente quien cursa `grado`.
 
     `grados` es la lista de grados disponibles. Si la equivalencia del grado es un número y existe el que sigue en la
-    continuidad escolar (equivalencia + 1), ese es el siguiente, aunque cambie de nivel (6.° de primaria → 7.°, 1.° de
+    continuidad escolar (equivalencia + 1), ese es el siguiente, aunque cambie de nivel (6.º de primaria → 7.º, 1.º de
     secundaria). Los códigos con letras (K1) no se pueden contar: ahí y si no existe el que sigue, es el siguiente número
     del mismo nivel o, al terminar el nivel, el primer grado del siguiente nivel que exista. None si ya no hay un grado
     que siga.

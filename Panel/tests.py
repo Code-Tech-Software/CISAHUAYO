@@ -22,7 +22,7 @@ INICIO = reverse('inicio')
 
 
 class Colegio:
-    """Primaria (2°) con Ana, Beto y Caro, y secundaria (1°) con Zoe. Primaria tiene un periodo terminado (P1) y el
+    """Primaria (2.º) con Ana, Beto y Caro, y secundaria (1.º) con Zoe. Primaria tiene un periodo terminado (P1) y el
     actual (P2, que ya tiene actas cerradas); MAT y ESP en las dos, CIE en captura y una materia con otra escala."""
 
     def armar(self):

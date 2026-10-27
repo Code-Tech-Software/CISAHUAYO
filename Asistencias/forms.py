@@ -15,11 +15,18 @@ from Alumnos.models import (
     ConfiguracionAsistencia,
     DiaNoLectivo,
     Grado,
+    Grupo,
     Inscripcion,
     Justificacion,
     LimiteEntradaNivel,
     MateriaGrado,
+    UmbralAsistenciaNivel,
 )
+
+
+def _grupos_vigentes():
+    """Los grupos activos de grados activos, en orden escolar (para los filtros por grupo)."""
+    return Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre').academicos()
 
 FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
 HORA = forms.TimeInput(attrs={'type': 'time'}, format='%H:%M')
@@ -70,11 +77,13 @@ class FiltroDiaForm(EstiloCamposMixin, forms.Form):
         'type': 'search', 'placeholder': 'Nombre o referencia…', 'autocomplete': 'off',
     }))
     grado = forms.ModelChoiceField(Grado.objects.none(), required=False, empty_label='Todos los grados', label='Grado')
+    grupo = forms.ModelChoiceField(Grupo.objects.none(), required=False, empty_label='Todos los grupos', label='Grupo')
     estado = forms.ChoiceField(required=False, choices=ESTADO_CHOICES, label='Estado')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['grado'].queryset = Grado.objects.academicos()
+        self.fields['grupo'].queryset = _grupos_vigentes()
         self.aplicar_estilo()
 
     @property
@@ -385,7 +394,7 @@ class FiltroJustificacionesForm(EstiloCamposMixin, forms.Form):
 # ---------------------------------------------------------------------------
 # Reportes
 # ---------------------------------------------------------------------------
-UMBRAL_ASISTENCIA = 85  # por debajo de este porcentaje el reporte marca al alumno
+# El umbral de asistencia (por debajo, el reporte marca al estudiante) está en Ajustes › Asistencia: Alumnos.asistencias.umbral_de
 
 
 class FiltroReporteForm(EstiloCamposMixin, forms.Form):
@@ -395,6 +404,7 @@ class FiltroReporteForm(EstiloCamposMixin, forms.Form):
 
     ciclo = forms.ModelChoiceField(CicloEscolar.objects.all(), required=False, empty_label=None, label='Ciclo escolar')
     grado = forms.ModelChoiceField(Grado.objects.none(), required=False, empty_label='Elige un grado', label='Grado')
+    grupo = forms.ModelChoiceField(Grupo.objects.none(), required=False, empty_label='Todos sus grupos', label='Grupo')
     materia = forms.IntegerField(required=False, widget=forms.HiddenInput)
     desde = forms.DateField(required=False, label='Desde', widget=FECHA)
     hasta = forms.DateField(required=False, label='Hasta', widget=FECHA)
@@ -403,7 +413,14 @@ class FiltroReporteForm(EstiloCamposMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['grado'].queryset = Grado.objects.academicos()
+        self.fields['grupo'].queryset = _grupos_vigentes()
         self.aplicar_estilo()
+
+    def grupo_elegido(self, grado):
+        """El grupo pedido si es de ese grado (si no, ninguno: todos sus grupos)."""
+        self.is_valid()
+        grupo = getattr(self, 'cleaned_data', {}).get('grupo')
+        return grupo if grupo is not None and grado is not None and grupo.grado_id == grado.pk else None
 
     def resolver(self):
         """(ciclo, grado, asignacion, desde, hasta, vista). `asignacion` es la materia del grado si se pidió una."""
@@ -430,32 +447,56 @@ class FiltroReporteForm(EstiloCamposMixin, forms.Form):
 class ConfiguracionForm(EstiloCamposMixin, forms.ModelForm):
     class Meta:
         model = ConfiguracionAsistencia
-        fields = ['hora_entrada', 'tolerancia_minutos', 'cierre_automatico']
+        fields = ['hora_entrada', 'tolerancia_minutos', 'cierre_automatico', 'entrada_con_referencia', 'dias_para_corregir',
+                  'umbral_asistencia', 'avisar_a_tutores']
         widgets = {
             'hora_entrada': HORA,
             'tolerancia_minutos': forms.NumberInput(attrs={'min': 0, 'max': 120, 'inputmode': 'numeric'}),
             'cierre_automatico': forms.CheckboxInput(),
+            'entrada_con_referencia': forms.CheckboxInput(),
+            'dias_para_corregir': forms.NumberInput(attrs={'min': 0, 'max': 60, 'inputmode': 'numeric'}),
+            'umbral_asistencia': forms.NumberInput(attrs={'min': 1, 'max': 100, 'inputmode': 'numeric'}),
+            'avisar_a_tutores': forms.CheckboxInput(),
         }
         help_texts = {
             'hora_entrada': 'Para los niveles sin hora límite propia: quien entra después de esta hora más la tolerancia queda con retardo.',
             'tolerancia_minutos': 'Minutos de gracia después de la hora de entrada general y del inicio de cada clase.',
             'cierre_automatico': 'Con la primera entrada de la mañana se generan las faltas de los días anteriores que sigan abiertos.',
+            'entrada_con_referencia': 'Quien no trae su credencial escribe su número de referencia en la pantalla. Apágalo si se presta '
+                                      'a que alguien registre la entrada de otro: sin credencial, la entrada la captura el personal.',
+            'dias_para_corregir': 'Además de hoy, cuántos días hacia atrás puede un docente pasar lista o corregirla. Lo anterior lo '
+                                  'corrige la administración. Con 0, solo el día de hoy.',
+            'umbral_asistencia': 'En los reportes se marca a quien tiene menos asistencia que esto. Cada nivel puede tener el suyo.',
+            'avisar_a_tutores': 'Al cerrar el día, sus tutores ven en la campana del portal la falta sin justificar o el retardo de su hijo.',
+        }
+        error_messages = {
+            'dias_para_corregir': {'max_value': 'Como máximo 60 días.'},
+            'umbral_asistencia': {'min_value': 'Escribe un porcentaje del 1 al 100.', 'max_value': 'Escribe un porcentaje del 1 al 100.'},
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # La hora límite de entrada de cada nivel (pedido del 2026-10-14): después de ella, retardo en la entrada y falta
-        # en la primera clase del día. Vacía = la regla general
+        # en la primera clase del día. Vacía = la regla general. Igual el umbral de asistencia de cada nivel (2026-10-27)
         limites = dict(LimiteEntradaNivel.objects.values_list('nivel', 'hora_limite'))
+        umbrales = dict(UmbralAsistenciaNivel.objects.values_list('nivel', 'umbral'))
         for nivel, nombre in Grado.NIVEL_CHOICES:
             self.fields[f'limite_{nivel}'] = forms.TimeField(
                 required=False, label=nombre, widget=HORA, initial=limites.get(nivel),
                 error_messages={'invalid': 'Escribe una hora válida.'},
             )
+            self.fields[f'umbral_{nivel}'] = forms.IntegerField(
+                required=False, label=nombre, min_value=1, max_value=100, initial=umbrales.get(nivel),
+                widget=forms.NumberInput(attrs={'min': 1, 'max': 100, 'inputmode': 'numeric', 'placeholder': 'General'}),
+                error_messages={'invalid': 'Escribe un número.', 'min_value': 'Del 1 al 100.', 'max_value': 'Del 1 al 100.'},
+            )
         self.aplicar_estilo()
 
     def campos_de_limite(self):
         return [self[f'limite_{nivel}'] for nivel, _ in Grado.NIVEL_CHOICES]
+
+    def campos_de_umbral(self):
+        return [self[f'umbral_{nivel}'] for nivel, _ in Grado.NIVEL_CHOICES]
 
     def save(self, commit=True):
         configuracion = super().save(commit=commit)
@@ -465,6 +506,11 @@ class ConfiguracionForm(EstiloCamposMixin, forms.ModelForm):
                 LimiteEntradaNivel.objects.update_or_create(nivel=nivel, defaults={'hora_limite': hora})
             else:
                 LimiteEntradaNivel.objects.filter(nivel=nivel).delete()
+            umbral = self.cleaned_data.get(f'umbral_{nivel}')
+            if umbral:
+                UmbralAsistenciaNivel.objects.update_or_create(nivel=nivel, defaults={'umbral': umbral})
+            else:
+                UmbralAsistenciaNivel.objects.filter(nivel=nivel).delete()
         return configuracion
 
 

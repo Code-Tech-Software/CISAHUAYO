@@ -1,5 +1,6 @@
-"""Asistencia para docentes: la matriz de sus materias en el periodo abierto y el guardado de cada celda
-(Alumnos/asistencia_docente.py y Asistencias/views_docente.py)."""
+"""Asistencia para docentes: la matriz de sus materias en el ciclo (sin depender del periodo de evaluación; el docente
+captura y corrige los últimos días) y el guardado de cada celda (Alumnos/asistencia_docente.py y
+Asistencias/views_docente.py)."""
 from datetime import timedelta
 
 from django.db import connection
@@ -7,7 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from Alumnos.asistencia_docente import version_de
-from Alumnos.models import AsistenciaGeneral, AsistenciaMateria, DiaNoLectivo, Justificacion, Periodo
+from Alumnos.models import AsistenciaGeneral, AsistenciaMateria, ConfiguracionAsistencia, DiaNoLectivo, Justificacion, Periodo
 from CISAHUAYO.pruebas import (
     PRUEBAS,
     BaseAsistenciaTestCase,
@@ -97,11 +98,19 @@ class AccesoTests(BaseDocenteTestCase):
         self.mat.save()
         self.assertContains(self.client.get(URL), 'No tienes materias asignadas')
 
-    def test_sin_periodo_abierto(self):
+    def test_sin_periodo_abierto_se_sigue_pasando_lista(self):
+        # Pedido del 2026-10-27: la asistencia no depende del periodo de evaluación
         self.periodo.delete()
         respuesta = self.client.get(URL)
-        self.assertContains(respuesta, 'No hay un periodo de evaluación abierto')
-        self.assertEqual(self.guardar(dia(0), 'FALTA').status_code, 400)
+        self.assertContains(respuesta, 'Sin periodo abierto')
+        self.assertTrue(self.celdas()[dia(0)].editable)
+        self.assertEqual(self.guardar(dia(0), 'FALTA').status_code, 200)
+        self.assertEqual(AsistenciaMateria.objects.get().estado, 'FALTA')
+
+    def test_con_el_periodo_cerrado_a_mano_se_sigue_pasando_lista(self):
+        self.periodo.apertura = Periodo.CERRADO
+        self.periodo.save()
+        self.assertEqual(self.guardar(dia(0), 'PRESENTE').status_code, 200)
 
     def test_sin_estudiantes(self):
         self.inscripcion.alumno.estatus = 'BAJA'
@@ -148,12 +157,12 @@ class AccesoTests(BaseDocenteTestCase):
 # ---------------------------------------------------------------------------
 @PRUEBAS
 class MatrizTests(BaseDocenteTestCase):
-    def test_por_omision_solo_el_mes_en_curso_dentro_del_periodo(self):
+    def test_por_omision_solo_el_mes_en_curso_dentro_del_ciclo(self):
         datos = self.client.get(URL).context['datos']
         fin_de_mes = (dia(0).replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-        esperado = (max(dia(0).replace(day=1), dia(-14)), min(fin_de_mes, dia(11)))
+        esperado = (max(dia(0).replace(day=1), self.ciclo.fecha_inicio), min(fin_de_mes, self.ciclo.fecha_fin))
         self.assertEqual((datos['desde'], datos['hasta']), esperado)
-        self.assertEqual(datos['limites'], (dia(-14), dia(11)))
+        self.assertEqual(datos['limites'], (self.ciclo.fecha_inicio, self.ciclo.fecha_fin))
         fechas = [c['fecha'] for c in datos['columnas']]
         self.assertTrue(all(esperado[0] <= f <= esperado[1] and f.month == dia(0).month for f in fechas))
 
@@ -172,7 +181,8 @@ class MatrizTests(BaseDocenteTestCase):
         Justificacion.objects.create(inscripcion=self.inscripcion, fecha=dia(-7), motivo='Consulta médica', todas_materias=True)
         DiaNoLectivo.registrar(fecha=dia(-4), motivo='Consejo técnico')
         celdas = self.celdas()
-        self.assertEqual((celdas[dia(-14)].letra, celdas[dia(-14)].editable), ('P', True))
+        self.assertEqual((celdas[dia(-14)].letra, celdas[dia(-14)].editable), ('P', False))      # ya pasó su plazo (7 días)
+        self.assertIn('la corrige la administración', celdas[dia(-14)].nombre)
         self.assertEqual((celdas[dia(-7)].letra, celdas[dia(-7)].editable), ('J', False))       # justificada: bloqueada
         self.assertEqual((celdas[dia(-4)].letra, celdas[dia(-4)].editable), ('S', False))       # suspensión
         self.assertIn('Consejo técnico', celdas[dia(-4)].nombre)
@@ -213,21 +223,23 @@ class MatrizTests(BaseDocenteTestCase):
         self.assertEqual([c['fecha'] for c in datos['columnas']], [dia(d) for d in range(-7, -2)])
         self.assertFalse(datos['completo'])
         self.assertIsNone(respuesta.context['aviso_de_fechas'])
-        self.assertContains(respuesta, f'min="{dia(-14).isoformat()}" max="{dia(11).isoformat()}"')
+        self.assertContains(respuesta, f'min="{self.ciclo.fecha_inicio.isoformat()}" max="{self.ciclo.fecha_fin.isoformat()}"')
 
-    def test_fechas_fuera_del_periodo_se_ajustan(self):
-        respuesta = self.client.get(URL, {'desde': dia(-60).isoformat(), 'hasta': dia(60).isoformat()})
+    def test_fechas_fuera_del_ciclo_se_ajustan(self):
+        inicio, fin = self.ciclo.fecha_inicio, self.ciclo.fecha_fin
+        respuesta = self.client.get(URL, {'desde': (inicio - timedelta(days=30)).isoformat(), 'hasta': (fin + timedelta(days=30)).isoformat()})
         datos = respuesta.context['datos']
-        self.assertEqual((datos['desde'], datos['hasta']), (dia(-14), dia(11)))
+        self.assertEqual((datos['desde'], datos['hasta']), (inicio, fin))
         self.assertTrue(datos['completo'])
-        self.assertContains(respuesta, 'Se ajustó al periodo')
+        self.assertContains(respuesta, 'Se ajustó al ciclo escolar')
 
     def test_fechas_invalidas_o_al_reves_vuelven_al_mes_en_curso(self):
         por_omision = self.client.get(URL).context['datos']
+        despues = self.ciclo.fecha_fin + timedelta(days=10)
         casos = {
             'no válidas': {'desde': 'ayer', 'hasta': dia(0).isoformat()},
             'al revés': {'desde': dia(5).isoformat(), 'hasta': dia(-5).isoformat()},
-            'fuera del periodo': {'desde': dia(40).isoformat(), 'hasta': dia(50).isoformat()},
+            'fuera del ciclo': {'desde': despues.isoformat(), 'hasta': (despues + timedelta(days=10)).isoformat()},
         }
         for que, parametros in casos.items():
             with self.subTest(que):
@@ -238,11 +250,14 @@ class MatrizTests(BaseDocenteTestCase):
 
     def test_rangos_rapidos(self):
         atajos = self.client.get(URL).context['atajos']
-        self.assertEqual([a['nombre'] for a in atajos], ['Esta semana', 'Este mes', 'Todo el periodo'])
+        self.assertEqual([a['nombre'] for a in atajos], ['Esta semana', 'Este mes', 'Periodo «Primer bimestre»', 'Todo el ciclo'])
         semana = next(a for a in atajos if a['nombre'] == 'Esta semana')
         self.assertEqual((semana['desde'], semana['hasta']), (dia(0), dia(4)))
         self.assertEqual([a['nombre'] for a in atajos if a['activo']], ['Este mes'])   # el que se está viendo
-        self.assertEqual((atajos[-1]['desde'], atajos[-1]['hasta']), (dia(-14), dia(11)))
+        self.assertEqual((atajos[2]['desde'], atajos[2]['hasta']), (dia(-14), dia(11)))
+        self.assertEqual((atajos[-1]['desde'], atajos[-1]['hasta']), (self.ciclo.fecha_inicio, self.ciclo.fecha_fin))
+        self.periodo.delete()   # sin periodo abierto, sin su rango
+        self.assertEqual([a['nombre'] for a in self.client.get(URL).context['atajos']], ['Esta semana', 'Este mes', 'Todo el ciclo'])
 
     def test_los_meses_se_distinguen(self):
         self.periodo.fecha_inicio, self.periodo.fecha_fin = dia(-45), dia(40)   # cruza al menos dos cambios de mes
@@ -261,14 +276,30 @@ class MatrizTests(BaseDocenteTestCase):
         self.assertContains(respuesta, f'<span class="asistencia-matriz__mes-nombre">{primer_mes}</span>')
         self.assertContains(respuesta, 'is-inicio-mes')
 
-    def test_avisa_de_un_periodo_demasiado_largo(self):
-        self.assertNotContains(self.client.get(URL), 'parece que una de sus fechas está mal escrita')
-        self.periodo.fecha_inicio, self.periodo.fecha_fin = dia(-365), dia(60)
-        self.periodo.save()
-        respuesta = self.client.get(URL)
-        self.assertContains(respuesta, 'dura 14 meses: parece que una de sus fechas está mal escrita')
-        # aun así se abre en el mes en curso, no en todo el año
-        self.assertTrue(all(c['fecha'].month == dia(0).month for c in respuesta.context['datos']['columnas']))
+    def test_el_docente_solo_captura_los_ultimos_dias(self):
+        # Pedido del 2026-10-27: hoy y los días que fijan los ajustes (7 por omisión); lo anterior, la administración
+        respuesta = self.client.get(URL, self.todo_el_periodo())
+        self.assertContains(respuesta, 'Puedes capturar y corregir la asistencia de hoy y de los 7 días anteriores')
+        columnas = {c['fecha']: c for c in respuesta.context['datos']['columnas']}
+        self.assertTrue(columnas[dia(-14)]['fuera_de_plazo'])
+        self.assertFalse(columnas[dia(-7)]['fuera_de_plazo'])
+        self.assertEqual(self.guardar(dia(-14), 'FALTA').status_code, 400)
+        self.assertEqual(self.guardar(dia(-7), 'FALTA').status_code, 200)
+        configuracion = ConfiguracionAsistencia.cargar()
+        configuracion.dias_para_corregir = 0
+        configuracion.save()
+        self.assertFalse(self.celdas()[dia(-7)].editable)
+        self.assertTrue(self.celdas()[dia(0)].editable)
+
+    def test_la_administracion_no_tiene_ese_plazo(self):
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse('asistencias:materias'), {'materia': self.mat.pk, **self.todo_el_periodo()})
+        fila = next(f for f in respuesta.context['datos']['filas'] if f['inscripcion'] == self.inscripcion)
+        celdas = {c['fecha']: celda for c, celda in zip(respuesta.context['datos']['columnas'], fila['celdas'])}
+        self.assertTrue(celdas[dia(-14)].editable)
+        self.assertEqual(self.client.post(reverse('asistencias:materias_guardar', args=[self.mat.pk]), {
+            'inscripcion': self.inscripcion.pk, 'fecha': dia(-14).isoformat(), 'estado': 'PRESENTE', 'version': '',
+        }).status_code, 200)
 
     def test_consultas_constantes(self):
         with CaptureQueriesContext(connection) as pocas:
@@ -473,9 +504,16 @@ class ReporteTests(BaseDocenteTestCase):
         self.client.force_login(self.admin)   # sin ficha de profesor
         self.assertEqual(self.client.get(self.URL_REPORTE, self.rango).status_code, 403)
 
-    def test_sin_periodo_vuelve_con_aviso(self):
+    def test_sin_periodo_tambien_hay_reporte(self):
         self.periodo.delete()
-        respuesta = self.client.get(self.URL_REPORTE, self.rango, follow=True)
+        respuesta = self.client.get(self.URL_REPORTE, self.rango)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'Ciclo escolar')
+        self.assertNotContains(respuesta, 'Periodo abierto')
+
+    def test_sin_dias_de_clase_vuelve_con_aviso(self):
+        sabado = (dia(5)).isoformat()
+        respuesta = self.client.get(self.URL_REPORTE, {'materia': self.mat.pk, 'desde': sabado, 'hasta': sabado}, follow=True)
         self.assertRedirects(respuesta, f'{URL}?materia={self.mat.pk}')
         self.assertContains(respuesta, 'No hay asistencia que reportar en esas fechas.')
 

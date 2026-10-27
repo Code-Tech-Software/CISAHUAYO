@@ -287,7 +287,9 @@ class FiltroEstudiantesForm(EstiloCamposMixin, _FiltroDelAlcance):
 
 class FiltroAsistenciaForm(EstiloCamposMixin, _FiltroDelAlcance):
     FUENTES = [('materias', 'Por materia (pase de lista)'), ('entrada', 'Entrada al colegio')]
-    ESTADOS = [('', 'Faltas y retardos'), ('FALTA', 'Faltas'), ('RETARDO', 'Retardos'), ('PRESENTE', 'Presentes'), ('todos', 'Todos')]
+    # «Entraron y faltaron»: faltas del pase de lista de quien sí registró su entrada (solo por materia; 2026-10-27)
+    ESTADOS = [('', 'Faltas y retardos'), ('FALTA', 'Faltas'), ('RETARDO', 'Retardos'), ('PRESENTE', 'Presentes'), ('todos', 'Todos'),
+               ('ENTRARON', 'Entraron y faltaron a clases')]
     JUSTIFICACION = [('', 'Justificadas o no'), ('no', 'Sin justificar'), ('si', 'Justificadas')]
     VISTAS = [('registros', 'Cada registro'), ('estudiantes', 'Por estudiante')]
 

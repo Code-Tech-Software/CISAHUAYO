@@ -53,6 +53,31 @@
             {% for campo in form.campos_de_limite %}{% include "partials/field.html" with campo=campo %}{% endfor %}
           </div>
         </fieldset>
+        <div class="field form-grid__full{% if form.entrada_con_referencia.errors %} is-invalid{% endif %}">
+          <label class="choice choice--check" for="{{ form.entrada_con_referencia.id_for_label }}">
+            <input class="choice__input" type="checkbox" name="{{ form.entrada_con_referencia.html_name }}" id="{{ form.entrada_con_referencia.id_for_label }}"{% if form.entrada_con_referencia.value %} checked{% endif %}>
+            <span class="choice__box">{{ form.entrada_con_referencia.label }}</span>
+          </label>
+          <p class="field__hint">{{ form.entrada_con_referencia.help_text }}</p>
+        </div>
+        <fieldset class="field form-grid__full asistencia-limites">
+          <legend class="subsection-title">Pase de lista y reportes</legend>
+          <div class="form-grid">
+            {% include "partials/field.html" with campo=form.dias_para_corregir %}
+            {% include "partials/field.html" with campo=form.umbral_asistencia %}
+          </div>
+          <p class="field__hint">Umbral de asistencia de cada nivel (vacío = el general):</p>
+          <div class="form-grid">
+            {% for campo in form.campos_de_umbral %}{% include "partials/field.html" with campo=campo %}{% endfor %}
+          </div>
+        </fieldset>
+        <div class="field form-grid__full{% if form.avisar_a_tutores.errors %} is-invalid{% endif %}">
+          <label class="choice choice--check" for="{{ form.avisar_a_tutores.id_for_label }}">
+            <input class="choice__input" type="checkbox" name="{{ form.avisar_a_tutores.html_name }}" id="{{ form.avisar_a_tutores.id_for_label }}"{% if form.avisar_a_tutores.value %} checked{% endif %}>
+            <span class="choice__box">{{ form.avisar_a_tutores.label }}</span>
+          </label>
+          <p class="field__hint">{{ form.avisar_a_tutores.help_text }} Solo a los tutores con acceso al portal y que reciben notificaciones de ese estudiante.</p>
+        </div>
       </div>
       {% if perms.Alumnos.change_configuracionasistencia %}
         <footer class="card__footer">
@@ -69,9 +94,9 @@
         <p>El lector RFID funciona como un teclado: al acercar la credencial escribe su <strong>UID</strong> y pulsa Enter. Basta abrir la pantalla de entrada en el equipo del lector y dejarla abierta.</p>
         <ul class="attendance-help__list">
           <li>Cada estudiante debe tener su <strong>UID</strong> capturado en su perfil (campo «UID de tarjeta»).</li>
-          <li>Quien no traiga credencial escribe su <strong>número de referencia</strong> en la misma pantalla.</li>
-          <li>Inicia sesión en ese equipo con una cuenta que pueda registrar entradas.</li>
-          <li>Para que los días se cierren solos aunque nadie abra el sistema, programa cada noche <code class="code">python manage.py cerrar_asistencias</code>.</li>
+          <li>Quien no traiga credencial escribe su <strong>número de referencia</strong> en la misma pantalla (si está permitido arriba).</li>
+          <li>Inicia sesión en ese equipo con una cuenta del rol <strong>«Pantalla de entrada»</strong>: solo puede registrar entradas, así nadie ve otros datos si sale de la pantalla. Mientras la pantalla esté abierta, su sesión no caduca.</li>
+          <li>Para que los días se cierren solos aunque nadie use la pantalla, programa cada noche <code class="code">python manage.py cerrar_asistencias</code> (en Railway, un servicio de tipo Cron). La primera entrada de la mañana también cierra los días anteriores, sin hacer esperar a nadie.</li>
         </ul>
         {% if perms.Alumnos.add_asistenciageneral %}
           <a class="btn btn--primary btn--sm" href="{% url 'asistencias:kiosco' %}">Abrir pantalla de entrada</a>

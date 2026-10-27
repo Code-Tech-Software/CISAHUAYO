@@ -97,6 +97,7 @@ def inicio(request):
         'enlaces': {
             'faltas': con(asistencia_url, fuente='materias', estado='FALTA', desde=texto_hoy, hasta=texto_hoy),
             'estudiantes_con_falta': con(asistencia_url, fuente='materias', estado='FALTA', desde=texto_hoy, hasta=texto_hoy, vista='estudiantes'),
+            'entraron_y_faltaron': con(asistencia_url, fuente='materias', estado='ENTRARON', desde=texto_hoy, hasta=texto_hoy, vista='estudiantes'),
             'faltas_de_entrada': con(asistencia_url, fuente='entrada', estado='FALTA', desde=texto_hoy, hasta=texto_hoy),
             'retardos': con(asistencia_url, fuente='materias', estado='RETARDO', desde=texto_hoy, hasta=texto_hoy),
             'retardos_de_entrada': con(asistencia_url, fuente='entrada', estado='RETARDO', desde=texto_hoy, hasta=texto_hoy),

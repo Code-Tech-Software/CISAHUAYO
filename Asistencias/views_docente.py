@@ -1,5 +1,6 @@
-"""Asistencia para docentes: la matriz de cada materia del profesor (estudiantes × días del periodo abierto) y el
-guardado de una celda y el reporte (para imprimir o para Excel) de lo que muestra la matriz. Las reglas viven en
+"""Asistencia para docentes: la matriz de cada materia del profesor (estudiantes × días del ciclo; captura y corrige
+solo los últimos días, según los ajustes) y el guardado de una celda y el reporte (para imprimir o para Excel) de lo
+que muestra la matriz. Las reglas viven en
 Alumnos/asistencia_docente.py; aquí solo se comprueba quién pide qué.
 
 Solo para cuentas vinculadas a una ficha de profesor, y solo sus materias: lo que no es suyo responde 403 aunque se
@@ -32,13 +33,12 @@ from Alumnos.asistencia_docente import (
     atajos,
     celda_de,
     guardar_cambio,
-    limites_del_periodo,
+    limites_de,
     matriz,
-    periodo_de,
     reporte,
+    ventana_del_docente,
 )
 from Alumnos.models import Inscripcion
-from Alumnos.periodos import meses_si_es_muy_largo
 from Alumnos.utils import proteger_celda_csv, slug
 from CISAHUAYO.permisos import requiere_permisos
 from Usuarios.docentes import profesor_de
@@ -71,7 +71,7 @@ def docente(request):
         asignacion = _asignacion_propia(profesor, int(elegida))
     else:
         asignacion = asignaciones[0]
-    contexto.update(contexto_de_matriz(request, asignacion))
+    contexto.update(contexto_de_matriz(request, asignacion, ventana=ventana_del_docente()))
     contexto.update({
         'url_reporte': reverse('asistencias:docente_reporte'),
         'url_guardar': reverse('asistencias:docente_guardar', args=[asignacion.pk]),
@@ -79,15 +79,15 @@ def docente(request):
     return render(request, 'asistencias/docente.html', contexto)
 
 
-def contexto_de_matriz(request, asignacion, puede_justificar=False, ver_justificaciones=False, url_lista=None):
+def contexto_de_matriz(request, asignacion, puede_justificar=False, ver_justificaciones=False, url_lista=None, ventana=None):
     """Lo que dibuja la matriz de una materia (la del docente o la de la administración): las fechas pedidas dentro del
-    periodo abierto, los rangos rápidos, la leyenda y si se puede cambiar. Para la administración, además, qué faltas
-    se pueden justificar (`puede_justificar`) y los datos de cada J con su comprobante (`ver_justificaciones`)."""
+    ciclo, los rangos rápidos, la leyenda y si se puede cambiar. Para la administración, además, qué faltas se pueden
+    justificar (`puede_justificar`) y los datos de cada J con su comprobante (`ver_justificaciones`). Para el docente,
+    `ventana`: cuántos días hacia atrás puede capturar o corregir."""
     hoy = timezone.localdate()
-    periodo = periodo_de(asignacion)
-    limites = limites_del_periodo(periodo, asignacion.ciclo) if periodo else None
+    limites = limites_de(asignacion)
     desde, hasta, aviso_de_fechas = _rango_pedido(request.GET, limites)
-    datos = matriz(asignacion, usuario=request.user, hoy=hoy, desde=desde, hasta=hasta, puede_justificar=puede_justificar)
+    datos = matriz(asignacion, usuario=request.user, hoy=hoy, desde=desde, hasta=hasta, puede_justificar=puede_justificar, ventana=ventana)
     if ver_justificaciones:
         for fila in datos['filas']:
             for celda in fila['celdas']:
@@ -98,10 +98,9 @@ def contexto_de_matriz(request, asignacion, puede_justificar=False, ver_justific
         'asignacion': asignacion,
         'datos': datos,
         'aviso_de_fechas': aviso_de_fechas,
-        'meses_del_periodo_largo': meses_si_es_muy_largo(periodo) if periodo else None,
         'atajos': [
             {'nombre': nombre, 'desde': inicio, 'hasta': fin, 'activo': (inicio, fin) == (datos['desde'], datos['hasta'])}
-            for nombre, inicio, fin in (atajos(limites, hoy) if limites else [])
+            for nombre, inicio, fin in atajos(limites, hoy, datos['periodo'])
         ],
         'puede_cambiar': request.user.has_perm('Alumnos.change_asistenciamateria'),
         'puede_justificar': puede_justificar,
@@ -144,8 +143,8 @@ def _fecha(texto):
 
 def _rango_pedido(datos, limites):
     """(desde, hasta, aviso) de los filtros «Desde» y «Hasta»: (None, None, …) para el mes en curso. Fuera del
-    periodo se ajustan a él; mal escritas o al revés, se ignoran. El aviso explica lo que se ajustó (o None)."""
-    if limites is None or not (datos.get('desde') or datos.get('hasta')):
+    ciclo se ajustan a él; mal escritas o al revés, se ignoran. El aviso explica lo que se ajustó (o None)."""
+    if not (datos.get('desde') or datos.get('hasta')):
         return None, None, None
     try:
         desde, hasta = _fecha(datos.get('desde')), _fecha(datos.get('hasta'))
@@ -155,10 +154,10 @@ def _rango_pedido(datos, limites):
     if desde > hasta:
         return None, None, 'La fecha de inicio va después de la de fin: se muestra el mes en curso.'
     if hasta < limites[0] or desde > limites[1]:
-        return None, None, 'Esas fechas quedan fuera del periodo: se muestra el mes en curso.'
+        return None, None, 'Esas fechas quedan fuera del ciclo escolar: se muestra el mes en curso.'
     if desde < limites[0] or hasta > limites[1]:
         desde, hasta = ajustar(desde, limites), ajustar(hasta, limites)
-        return desde, hasta, f'Se ajustó al periodo, que va del {_texto(limites[0])} al {_texto(limites[1])}.'
+        return desde, hasta, f'Se ajustó al ciclo escolar, que va del {_texto(limites[0])} al {_texto(limites[1])}.'
     return desde, hasta, None
 
 
@@ -182,11 +181,9 @@ def docente_reporte(request):
 def respuesta_de_reporte(request, asignacion, profesor, url_matriz):
     """La hoja para imprimir (o el CSV con `formato=csv`) de lo que muestra la matriz de la materia; sin nada que
     reportar, de vuelta a la matriz (`url_matriz`) con un aviso."""
-    periodo = periodo_de(asignacion)
-    limites = limites_del_periodo(periodo, asignacion.ciclo) if periodo else None
-    desde, hasta, _ = _rango_pedido(request.GET, limites)
+    desde, hasta, _ = _rango_pedido(request.GET, limites_de(asignacion))
     datos = matriz(asignacion, usuario=request.user, desde=desde, hasta=hasta)
-    if not (datos['periodo'] and datos['columnas'] and datos['filas']):
+    if not (datos['columnas'] and datos['filas']):
         messages.error(request, 'No hay asistencia que reportar en esas fechas.')
         return redirect(f'{url_matriz}?materia={asignacion.pk}')
 
@@ -216,7 +213,9 @@ def _reporte_csv(asignacion, profesor, datos, contenido):
     escritor.writerow(['Reporte de asistencia'])
     escritor.writerow(['Materia', proteger_celda_csv(f'{asignacion.materia} · {asignacion.grupo}')])
     escritor.writerow(['Profesor', proteger_celda_csv(str(profesor) if profesor else 'Sin profesor asignado')])
-    escritor.writerow(['Periodo', proteger_celda_csv(f'{periodo.nombre} ({periodo.fecha_inicio:%d/%m/%Y} al {periodo.fecha_fin:%d/%m/%Y})')])
+    escritor.writerow(['Ciclo escolar', proteger_celda_csv(str(asignacion.ciclo))])
+    if periodo is not None:
+        escritor.writerow(['Periodo abierto', proteger_celda_csv(f'{periodo.nombre} ({periodo.fecha_inicio:%d/%m/%Y} al {periodo.fecha_fin:%d/%m/%Y})')])
     escritor.writerow(['Fechas', f'{desde:%d/%m/%Y} al {hasta:%d/%m/%Y}'])
     escritor.writerow(['Generado', f'{timezone.localtime():%d/%m/%Y %H:%M}'])
     escritor.writerow([])
@@ -254,12 +253,12 @@ def docente_guardar(request, pk):
     profesor = profesor_de(request.user)
     if profesor is None:
         raise PermissionDenied
-    return respuesta_de_guardado(request, _asignacion_propia(profesor, pk))
+    return respuesta_de_guardado(request, _asignacion_propia(profesor, pk), ventana=ventana_del_docente())
 
 
-def respuesta_de_guardado(request, asignacion, puede_justificar=False, ver_justificaciones=False):
+def respuesta_de_guardado(request, asignacion, puede_justificar=False, ver_justificaciones=False, ventana=None):
     """Guarda el estado de una celda de la materia (lo que pide el POST) y responde JSON con la celda ya guardada, o
-    con el motivo por el que no se guardó y lo que está guardado. Los dos últimos parámetros, como en
+    con el motivo por el que no se guardó y lo que está guardado. Los últimos parámetros, como en
     `contexto_de_matriz`."""
     try:
         fecha = date.fromisoformat(request.POST.get('fecha', ''))
@@ -273,12 +272,12 @@ def respuesta_de_guardado(request, asignacion, puede_justificar=False, ver_justi
     try:
         celda = guardar_cambio(
             asignacion, inscripcion, fecha, estado, request.POST.get('version', ''), request.user,
-            observaciones=request.POST.get('observaciones', ''), puede_justificar=puede_justificar,
+            observaciones=request.POST.get('observaciones', ''), puede_justificar=puede_justificar, ventana=ventana,
         )
     except CambioRechazado as error:
         datos = {'ok': False, 'mensaje': error.mensaje}
         if inscripcion.grupo_id == asignacion.grupo_id:   # lo que está guardado
-            guardada = celda_de(asignacion, inscripcion, fecha, request.user, puede_justificar=puede_justificar)
+            guardada = celda_de(asignacion, inscripcion, fecha, request.user, puede_justificar=puede_justificar, ventana=ventana)
             datos.update(celda_json(guardada, ver_justificaciones))
         return JsonResponse(datos, status=error.codigo)
     explicacion = f' ({celda.observaciones})' if celda.observaciones else ''

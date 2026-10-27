@@ -1,5 +1,5 @@
-"""Asistencia para docentes: la matriz de una materia (estudiantes × días del periodo abierto) y los cambios que el
-docente puede hacer en ella.
+"""Asistencia para docentes: la matriz de una materia (estudiantes × días del ciclo) y los cambios que el docente puede
+hacer en ella.
 
 Usa los registros de asistencia por materia (`AsistenciaMateria`: por estudiante, por materia del grupo y por día) que
 también crean la entrada al colegio y el cierre del día: lo que el docente cambia aquí se ve en la asistencia por
@@ -8,9 +8,12 @@ presente o retardo también deja constancia de que el estudiante estuvo en el co
 
 Reglas acordadas con el usuario (2026-10-12):
 - Solo materias asignadas al docente (`MateriaGrado.profesor`), del ciclo actual; cada grupo es una materia aparte.
-- Columnas: los días de lunes a viernes del periodo de evaluación abierto del nivel de la materia; por omisión solo
-  el mes en curso, o el rango que se elija (siempre dentro del periodo). Una fila de meses y líneas entre meses y
-  semanas ayudan a ubicarse (pedido del 2026-10-12).
+- Columnas: los días de lunes a viernes del ciclo; por omisión solo el mes en curso, o el rango que se elija (siempre
+  dentro del ciclo). Una fila de meses y líneas entre meses y semanas ayudan a ubicarse (pedido del 2026-10-12).
+- La asistencia no depende del periodo de evaluación (pedido del 2026-10-27): entre un periodo y otro, sin periodos o
+  con el periodo cerrado a mano para las calificaciones, se sigue pasando lista. El docente captura y corrige solo los
+  últimos días (`ConfiguracionAsistencia.dias_para_corregir`, la `ventana`); lo anterior lo corrige la administración,
+  que no tiene ese plazo. El periodo abierto solo se muestra como referencia y como rango rápido.
 - El docente pone Presente, Falta o Retardo; una falta o un retardo lleva su observación (por qué), que se guarda
   en las observaciones del mismo registro. Poner presente la borra. No justifica: la falta justificada (J) se ve y queda
   bloqueada (la justifica la administración), igual que cualquier celda que cubra una justificación vigente.
@@ -131,8 +134,25 @@ def asignaciones_del_ciclo(ciclo=None):
 
 
 def periodo_de(asignacion):
-    """El periodo de evaluación abierto hoy del nivel de la materia, en su ciclo (o None)."""
+    """El periodo de evaluación abierto hoy del nivel de la materia, en su ciclo (o None). Solo de referencia: la
+    asistencia no depende de él."""
     return periodo_abierto(asignacion.grado.nivel, ciclo=asignacion.ciclo)
+
+
+def limites_de(asignacion):
+    """(primer día, último día) que se pueden ver de la materia: las fechas de su ciclo."""
+    return asignacion.ciclo.fecha_inicio, asignacion.ciclo.fecha_fin
+
+
+def ventana_del_docente():
+    """Cuántos días hacia atrás (además de hoy) captura y corrige un docente su asistencia."""
+    from .models import ConfiguracionAsistencia
+    return ConfiguracionAsistencia.cargar().dias_para_corregir
+
+
+def fuera_de_la_ventana(fecha, hoy, ventana):
+    """Si la fecha ya pasó del plazo del docente (`ventana` días antes de hoy); sin ventana (la administración), nunca."""
+    return ventana is not None and fecha < hoy - timedelta(days=ventana)
 
 
 def inscripciones_de(asignacion):
@@ -205,13 +225,13 @@ def _con_suspension(celda, suspension_del_alumno):
 
 
 def _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion, materia, puede_editar, puede_justificar=False,
-           suspension_del_alumno=None):
+           suspension_del_alumno=None, ventana=None):
     """La celda de un estudiante en un día, con lo que se ve, si el docente la puede cambiar (y si no, por qué) y la
     observación del registro (también en el globo de ayuda). Para quien administra (`puede_justificar`), además, si es
     una falta que se puede justificar; en una J va la justificación que la cubre. Un día con suspensión del estudiante
-    (`suspension_del_alumno`) se marca con su S."""
+    (`suspension_del_alumno`) se marca con su S. Con `ventana` (la del docente), lo que ya pasó del plazo se bloquea."""
     celda = _celda_sin_observacion(
-        registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion is not None, materia, puede_editar,
+        registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion is not None, materia, puede_editar, ventana,
     )
     if registro is not None and registro.observaciones and celda.letra not in ('S', ''):
         celda.observaciones = registro.observaciones
@@ -224,7 +244,7 @@ def _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificaci
     return celda
 
 
-def _celda_sin_observacion(registro, fecha, hoy, inscripcion, suspension, con_clase, justificada, materia, puede_editar):
+def _celda_sin_observacion(registro, fecha, hoy, inscripcion, suspension, con_clase, justificada, materia, puede_editar, ventana=None):
     letra = LETRA_DE_ESTADO.get(registro.estado) if registro is not None else None
     version = version_de(registro)
     if suspension is not None:
@@ -242,6 +262,9 @@ def _celda_sin_observacion(registro, fecha, hoy, inscripcion, suspension, con_cl
         return Celda(letra or '', f'{NOMBRES[letra]} · {nombre}' if letra else nombre, False, version)
     if not puede_editar:
         return Celda(letra or '—', NOMBRES[letra] if letra else 'Sin registro', False, version)
+    if fuera_de_la_ventana(fecha, hoy, ventana):
+        plazo = f'pasaron más de {ventana} día{"s" if ventana != 1 else ""}: la corrige la administración'
+        return Celda(letra or '—', f'{NOMBRES[letra]} · {plazo}' if letra else f'Sin registro · {plazo}', False, version)
     return Celda(letra or '—', NOMBRES[letra] if letra else 'Sin registro: elige el estado', True, version)
 
 
@@ -254,10 +277,10 @@ def _contexto_editable(asignacion, usuario):
 
 
 # ---------------------------------------------------------------------------
-# Qué días se ven: por omisión el mes en curso; o el rango que se elija, siempre dentro del periodo
+# Qué días se ven: por omisión el mes en curso; o el rango que se elija, siempre dentro del ciclo
 # ---------------------------------------------------------------------------
 def limites_del_periodo(periodo, ciclo):
-    """(primer día, último día) que se pueden ver: el periodo dentro de las fechas del ciclo; None si no se cruzan."""
+    """(primer día, último día) del periodo dentro de las fechas del ciclo; None si no se cruzan."""
     desde, hasta = max(periodo.fecha_inicio, ciclo.fecha_inicio), min(periodo.fecha_fin, ciclo.fecha_fin)
     return (desde, hasta) if desde <= hasta else None
 
@@ -272,25 +295,30 @@ def _fin_de_mes(fecha):
 
 
 def rango_del_mes(limites, hoy):
-    """El mes en curso dentro del periodo (si hoy queda fuera del periodo, su mes más cercano)."""
+    """El mes en curso dentro de los límites (si hoy queda fuera, su mes más cercano)."""
     ancla = ajustar(hoy, limites)
     return max(ancla.replace(day=1), limites[0]), min(_fin_de_mes(ancla), limites[1])
 
 
 def rango_de_la_semana(limites, hoy):
-    """La semana en curso (lunes a viernes) dentro del periodo."""
+    """La semana en curso (lunes a viernes) dentro de los límites."""
     ancla = ajustar(hoy, limites)
     lunes = ancla - timedelta(days=ancla.weekday())
     return max(lunes, limites[0]), min(lunes + timedelta(days=4), limites[1])
 
 
-def atajos(limites, hoy):
-    """[(nombre, desde, hasta)] de los rangos de un clic."""
-    return [
+def atajos(limites, hoy, periodo=None):
+    """[(nombre, desde, hasta)] de los rangos de un clic: la semana, el mes, el periodo abierto (si hay) y el ciclo."""
+    rangos = [
         ('Esta semana', *rango_de_la_semana(limites, hoy)),
         ('Este mes', *rango_del_mes(limites, hoy)),
-        ('Todo el periodo', *limites),
     ]
+    if periodo is not None:
+        desde, hasta = max(periodo.fecha_inicio, limites[0]), min(periodo.fecha_fin, limites[1])
+        if desde <= hasta:
+            rangos.append((f'Periodo «{periodo.nombre}»', desde, hasta))
+    rangos.append(('Todo el ciclo', *limites))
+    return rangos
 
 
 def dias_habiles(desde, hasta):
@@ -312,24 +340,20 @@ def dias_del_periodo(periodo, ciclo):
 # ---------------------------------------------------------------------------
 # La matriz
 # ---------------------------------------------------------------------------
-def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_justificar=False):
+def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_justificar=False, ventana=None):
     """Lo que se dibuja de la materia entre `desde` y `hasta` (el mes en curso si no se indican; siempre dentro del
-    periodo abierto). Con `puede_justificar` (solo la vista de la administración) las faltas se marcan justificables.
+    ciclo). Con `puede_justificar` (solo la vista de la administración) las faltas se marcan justificables; con
+    `ventana` (la del docente), lo que ya pasó de su plazo no se puede cambiar.
 
-    Devuelve {'periodo', 'limites', 'desde', 'hasta', 'completo', 'columnas', 'meses', 'filas', 'sin_horario'};
-    `periodo` es None si no hay uno abierto. Cada columna: {'fecha', 'hoy', 'bloqueada', 'suspension', 'sin_clase',
-    'inicial', 'dia', 'titulo', 'inicio_mes', 'inicio_semana', 'mes_par'}; `meses`: [{'nombre', 'columnas', 'par'}]
-    para la fila de meses; cada fila: {'inscripcion', 'alumno', 'celdas'} con una `Celda` por columna.
+    Devuelve {'periodo', 'limites', 'desde', 'hasta', 'completo', 'columnas', 'meses', 'filas', 'sin_horario',
+    'ventana'}; `periodo` es el periodo abierto (de referencia) o None. Cada columna: {'fecha', 'hoy', 'bloqueada',
+    'suspension', 'sin_clase', 'fuera_de_plazo', 'inicial', 'dia', 'titulo', 'inicio_mes', 'inicio_semana', 'mes_par'};
+    `meses`: [{'nombre', 'columnas', 'par'}] para la fila de meses; cada fila: {'inscripcion', 'alumno', 'celdas'} con
+    una `Celda` por columna.
     """
     hoy = hoy or timezone.localdate()
     periodo = periodo_de(asignacion)
-    vacia = {'periodo': periodo, 'limites': None, 'desde': None, 'hasta': None, 'completo': True,
-             'columnas': [], 'meses': [], 'filas': [], 'sin_horario': False}
-    if periodo is None:
-        return vacia
-    limites = limites_del_periodo(periodo, asignacion.ciclo)
-    if limites is None:
-        return vacia
+    limites = limites_de(asignacion)
     if desde is None or hasta is None:
         desde, hasta = rango_del_mes(limites, hoy)
     desde, hasta = ajustar(desde, limites), ajustar(hasta, limites)
@@ -356,9 +380,10 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
         meses[-1]['columnas'] += 1
         suspension = suspensiones.get(fecha)
         sin_clase = fecha not in con_clase
+        fuera_de_plazo = puede_editar and fuera_de_la_ventana(fecha, hoy, ventana)
         columnas.append({
-            'fecha': fecha, 'hoy': fecha == hoy, 'suspension': suspension, 'sin_clase': sin_clase,
-            'bloqueada': suspension is not None or fecha > hoy or sin_clase,
+            'fecha': fecha, 'hoy': fecha == hoy, 'suspension': suspension, 'sin_clase': sin_clase, 'fuera_de_plazo': fuera_de_plazo,
+            'bloqueada': suspension is not None or fecha > hoy or sin_clase or fuera_de_plazo,
             'inicial': INICIALES[fecha.weekday()], 'dia': DIAS[fecha.weekday()],
             'titulo': f'{DIAS[fecha.weekday()]} {fecha.day} de {MESES_LARGOS[fecha.month - 1]}',
             'inicio_mes': inicio_mes and anterior is not None,
@@ -373,7 +398,7 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
             celda = _celda(
                 registros.get((inscripcion.pk, columna['fecha'])), columna['fecha'], hoy, inscripcion,
                 columna['suspension'], not columna['sin_clase'], justificadas.get((inscripcion.pk, columna['fecha'])),
-                asignacion.materia, puede_editar, puede_justificar, suspendidos.get((inscripcion.pk, columna['fecha'])),
+                asignacion.materia, puede_editar, puede_justificar, suspendidos.get((inscripcion.pk, columna['fecha'])), ventana,
             )
             celda.hoy, celda.apagada = columna['hoy'], columna['bloqueada']
             celda.inicio_mes, celda.inicio_semana = columna['inicio_mes'], columna['inicio_semana']
@@ -381,7 +406,8 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
         filas.append({'inscripcion': inscripcion, 'alumno': inscripcion.alumno, 'celdas': celdas})
     return {
         'periodo': periodo, 'limites': limites, 'desde': desde, 'hasta': hasta, 'completo': (desde, hasta) == limites,
-        'columnas': columnas, 'meses': meses, 'filas': filas, 'sin_horario': not HorarioMateria.historial.filter(materia_grado=asignacion).exists(),
+        'columnas': columnas, 'meses': meses, 'filas': filas, 'ventana': ventana if puede_editar else None,
+        'sin_horario': not HorarioMateria.historial.filter(materia_grado=asignacion).exists(),
     }
 
 
@@ -439,7 +465,7 @@ def reporte(datos):
 # ---------------------------------------------------------------------------
 # Un cambio
 # ---------------------------------------------------------------------------
-def celda_de(asignacion, inscripcion, fecha, usuario=None, hoy=None, puede_justificar=False):
+def celda_de(asignacion, inscripcion, fecha, usuario=None, hoy=None, puede_justificar=False, ventana=None):
     """La celda de un estudiante en un día con las mismas reglas de la matriz (para validar un cambio)."""
     hoy = hoy or timezone.localdate()
     registro = AsistenciaMateria.objects.filter(materia_grado=asignacion, inscripcion=inscripcion, fecha=fecha).first()
@@ -449,7 +475,7 @@ def celda_de(asignacion, inscripcion, fecha, usuario=None, hoy=None, puede_justi
     justificacion = _justificaciones(asignacion, [inscripcion], fecha, fecha).get((inscripcion.pk, fecha))
     suspendido = _suspensiones_de([inscripcion], fecha, fecha).get((inscripcion.pk, fecha))
     return _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion, asignacion.materia,
-                  _contexto_editable(asignacion, usuario), puede_justificar, suspendido)
+                  _contexto_editable(asignacion, usuario), puede_justificar, suspendido, ventana)
 
 
 def limpiar_observacion(texto):
@@ -457,13 +483,14 @@ def limpiar_observacion(texto):
     return ' '.join((texto or '').split())
 
 
-def guardar_cambio(asignacion, inscripcion, fecha, estado, version, usuario, hoy=None, observaciones='', puede_justificar=False):
+def guardar_cambio(asignacion, inscripcion, fecha, estado, version, usuario, hoy=None, observaciones='', puede_justificar=False,
+                   ventana=None):
     """Pone ese estado al estudiante en esa materia y día, si se permite. Devuelve la celda ya guardada (con
     `puede_justificar`, como la ve quien administra).
 
     `version` es la que tenía la celda en pantalla: si el registro cambió desde entonces no se sobrescribe (409).
     Una falta o un retardo exigen `observaciones` (por qué); presente las borra. Con el mismo estado y otra
-    observación, solo se actualiza la observación.
+    observación, solo se actualiza la observación. Con `ventana` (la del docente), lo que ya pasó de su plazo se rechaza.
     """
     hoy = hoy or timezone.localdate()
     if estado not in ESTADOS_DEL_DOCENTE:
@@ -479,14 +506,13 @@ def guardar_cambio(asignacion, inscripcion, fecha, estado, version, usuario, hoy
         raise CambioRechazado('Ese estudiante no está inscrito en esta materia.')
     if fecha.weekday() >= 5:
         raise CambioRechazado('Solo se captura de lunes a viernes.')
-    periodo = periodo_de(asignacion)
-    if periodo is None or not (periodo.fecha_inicio <= fecha <= periodo.fecha_fin):
-        raise CambioRechazado('Esa fecha no está en el periodo de evaluación abierto.')
+    if not (asignacion.ciclo.fecha_inicio <= fecha <= asignacion.ciclo.fecha_fin):
+        raise CambioRechazado(f'Esa fecha queda fuera del ciclo {asignacion.ciclo}.')
     if not asistencia_editable(fecha) and fecha <= hoy:
         raise CambioRechazado('Esa fecha es de un ciclo que ya no se modifica.')
 
     with transaction.atomic():
-        actual = celda_de(asignacion, inscripcion, fecha, usuario, hoy)
+        actual = celda_de(asignacion, inscripcion, fecha, usuario, hoy, ventana=ventana)
         if not actual.editable:
             raise CambioRechazado(f'No se puede cambiar: {actual.nombre[0].lower()}{actual.nombre[1:]}.')
         registro = (
@@ -497,7 +523,7 @@ def guardar_cambio(asignacion, inscripcion, fecha, estado, version, usuario, hoy
             raise CambioRechazado('Alguien más cambió esta asistencia mientras la veías: ya se muestra lo guardado.', 409)
         if registro is None or registro.estado != estado or registro.observaciones != observaciones:
             guardar_pase_de_lista(asignacion, fecha, [(inscripcion, estado, observaciones)], usuario=usuario)
-    return celda_de(asignacion, inscripcion, fecha, usuario, hoy, puede_justificar)
+    return celda_de(asignacion, inscripcion, fecha, usuario, hoy, puede_justificar, ventana)
 
 
 # ---------------------------------------------------------------------------

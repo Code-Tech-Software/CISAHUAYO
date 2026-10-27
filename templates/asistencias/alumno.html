@@ -186,6 +186,59 @@
 
     {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="días" por_pagina=por_pagina opciones=opciones_por_pagina %}
   {% endif %}
+
+  {# La bitácora (pedido del 2026-10-27): quién capturó o corrigió qué, con lo que había antes #}
+  {% if inscripcion %}
+    <section class="card asistencia-bitacora" aria-labelledby="titulo-bitacora" id="bitacora">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title" id="titulo-bitacora">Cambios en la asistencia</h2>
+      </header>
+      {% if cambios %}
+        <div class="table-card table-card--flush">
+          <table class="table">
+            <caption class="visually-hidden">Capturas y correcciones de la asistencia de {{ alumno }} en el ciclo {{ ciclo }}</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Día</th>
+                <th class="table__th" scope="col">Qué</th>
+                <th class="table__th" scope="col">Antes</th>
+                <th class="table__th" scope="col">Después</th>
+                <th class="table__th table__col--wide" scope="col">Quién y cuándo</th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for cambio in cambios %}
+                <tr class="table__row">
+                  <td class="table__cell table__cell--main">{{ cambio.fecha|date:"D j M" }}</td>
+                  <td class="table__cell" data-label="Qué">
+                    {% if cambio.materia_grado %}{{ cambio.materia_grado.materia }}{% else %}Entrada al colegio{% endif %}
+                    {% if cambio.via %}<span class="text-muted attendance-origin">{{ cambio.via }}</span>{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Antes">
+                    {% if cambio.estado_anterior %}{{ cambio.antes_texto }}{% if cambio.hora_anterior %} · {{ cambio.hora_anterior|time:"H:i" }}{% endif %}{% else %}<span class="text-muted">Sin registro</span>{% endif %}
+                    {% if cambio.observacion_anterior %}<span class="text-muted attendance-origin">{{ cambio.observacion_anterior }}</span>{% endif %}
+                  </td>
+                  <td class="table__cell" data-label="Después">
+                    {{ cambio.despues_texto }}{% if cambio.hora_nueva %} · {{ cambio.hora_nueva|time:"H:i" }}{% endif %}
+                    {% if cambio.observacion_nueva %}<span class="text-muted attendance-origin">{{ cambio.observacion_nueva }}</span>{% endif %}
+                  </td>
+                  <td class="table__cell table__col--wide" data-label="Quién y cuándo">
+                    {% if cambio.usuario %}{{ cambio.usuario.get_full_name|default:cambio.usuario.username }}{% else %}<span class="text-muted">Cuenta eliminada</span>{% endif %}
+                    <span class="text-muted attendance-origin">{{ cambio.creado|date:"j M Y, H:i" }}</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if hay_mas_cambios %}<p class="card__body text-muted">Se muestran los {{ cambios|length }} cambios más recientes.</p>{% endif %}
+      {% else %}
+        <div class="card__body">
+          <p class="text-muted">Nadie ha capturado ni corregido a mano la asistencia de {{ alumno.nombre }} en este ciclo. Lo que registran la pantalla de entrada y el cierre del día no aparece aquí.</p>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
 {% endblock %}
 
 {% block extra_js %}

@@ -51,6 +51,28 @@
     </div>
   {% endif %}
 
+  {# Días de clases sin ni un registro (pedido del 2026-10-27): no se cierran solos, porque pondría falta a todos #}
+  {% if sin_registros %}
+    <div class="alert alert--warning alert--spaced" role="note" data-dias-sin-registros>
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p>
+          {% if sin_registros|length == 1 %}Hay <strong>1 día de clases sin registros</strong>{% else %}Hay <strong>{{ sin_registros|length }} días de clases sin registros</strong>{% endif %}:
+          nadie registró entrada y no se ha cerrado. Puede que la pantalla de entrada no funcionara. No se cierran solos: cerrarlos pondría falta a todos.
+        </p>
+        <ul class="attendance-alert__dias">
+          {% for dia in sin_registros %}
+            <li>
+              <a href="{% url 'asistencias:inicio' %}?fecha={{ dia|date:'Y-m-d' }}">{{ dia|date:"l j \d\e F"|lower|capfirst }}</a>
+              · <a href="{% url 'asistencias:dia' %}?fecha={{ dia|date:'Y-m-d' }}">capturar su asistencia</a>
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="text-muted">Si hubo clases, captura la asistencia de ese día en «Asistencia del día» y después ciérralo. Si no hubo clases, regístralo como día sin clases en su ciclo escolar.</p>
+      </div>
+    </div>
+  {% endif %}
+
   {% if aviso_niveles %}
     <div class="alert alert--info alert--spaced" role="note">
       {% include "partials/icon.html" with name="calendar" icon_class="alert__icon" %}

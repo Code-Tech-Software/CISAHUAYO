@@ -64,6 +64,12 @@ def _recepcion():
     }
 
 
+def _pantalla_de_entrada():
+    # La cuenta del equipo de la entrada (pedido del 2026-10-27): solo registra entradas; si alguien sale de la pantalla
+    # no ve nada más del sistema
+    return {'Alumnos.add_asistenciageneral'}
+
+
 def _prefectura():
     # Corregir lo de otros y los casos cerrados (Prefectura.corregir_otros) lo concede el administrador si quiere
     return ((permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
@@ -71,6 +77,8 @@ def _prefectura():
             | {'Retiros.consultar', 'Retiros.confirmar'}   # retiros de su alcance
             | REUNIONES_DIRECTIVAS)
 
+
+PANTALLA_DE_ENTRADA = 'Pantalla de entrada'
 
 # nombre, descripción, color, permisos
 PREDETERMINADOS = (
@@ -80,6 +88,7 @@ PREDETERMINADOS = (
     ('Coordinación académica', 'Bitácoras por grupo de los niveles que coordina (se eligen en su ficha); consulta estudiantes, grupos, materias y horarios.', 1, _coordinacion),
     ('Recepción', 'Pantalla de entrada y asistencia del día; consulta las justificaciones.', 5, _recepcion),
     ('Prefectura', 'Estudiantes, asistencia, conducta y seguimiento de los niveles o grupos que se le asignen.', 6, _prefectura),
+    (PANTALLA_DE_ENTRADA, 'Solo la pantalla de entrada: para la cuenta del equipo donde los estudiantes registran su entrada.', 5, _pantalla_de_entrada),
 )
 
 # Roles cuyas cuentas son de profesores (al crearlas se registra o vincula su ficha de profesor)

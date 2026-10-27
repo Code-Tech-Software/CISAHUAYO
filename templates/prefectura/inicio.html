@@ -41,6 +41,11 @@
         <span class="stat__value">{{ dia.estudiantes_con_falta }}</span>
         <span class="stat__hint">cada estudiante una vez · {{ dia.faltas_de_entrada }} sin registrar entrada</span>
       </a>
+      <a class="stat stat--enlace{% if dia.entraron_y_faltaron %} stat--attention{% endif %}" href="{{ enlaces.entraron_y_faltaron }}">
+        <span class="stat__label">Entraron y faltaron a clases</span>
+        <span class="stat__value">{{ dia.entraron_y_faltaron }}</span>
+        <span class="stat__hint">registraron su entrada, pero el pase de lista les puso falta sin salida registrada</span>
+      </a>
       <a class="stat stat--enlace" href="{{ enlaces.retardos }}">
         <span class="stat__label">Retardos por materia</span>
         <span class="stat__value">{{ dia.retardos }}</span>

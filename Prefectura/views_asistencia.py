@@ -111,7 +111,9 @@ def registros(request):
         if hasta:
             base = base.filter(fecha__lte=hasta)
     estado = datos.get('estado') or ''
-    if estado in ('FALTA', 'RETARDO', 'PRESENTE'):
+    if estado == 'ENTRARON' and fuente == 'materias':
+        base = asistencia.entraron_y_faltaron(base)
+    elif estado in ('FALTA', 'RETARDO', 'PRESENTE'):
         base = base.filter(estado=estado)
     elif estado != 'todos':
         base = base.filter(estado__in=('FALTA', 'RETARDO'))

@@ -37,7 +37,8 @@
       <dl class="reporte__datos">
         <div><dt>Materia</dt><dd>{{ asignacion.materia }} · {{ asignacion.grupo }}</dd></div>
         <div><dt>Profesor</dt><dd>{{ profesor|default:'Sin profesor asignado' }}</dd></div>
-        <div><dt>Periodo</dt><dd>{{ datos.periodo.nombre }} <span class="text-muted">({{ datos.periodo.fecha_inicio|date:"d/m/Y" }} al {{ datos.periodo.fecha_fin|date:"d/m/Y" }})</span></dd></div>
+        <div><dt>Ciclo escolar</dt><dd>{{ asignacion.ciclo }}</dd></div>
+        {% if datos.periodo %}<div><dt>Periodo abierto</dt><dd>{{ datos.periodo.nombre }} <span class="text-muted">({{ datos.periodo.fecha_inicio|date:"d/m/Y" }} al {{ datos.periodo.fecha_fin|date:"d/m/Y" }})</span></dd></div>{% endif %}
         <div><dt>Fechas del reporte</dt><dd>Del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F \d\e Y"|lower }} <span class="text-muted">· {{ datos.columnas|length }} día{{ datos.columnas|length|pluralize }}</span></dd></div>
         <div><dt>Generado</dt><dd>{{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
       </dl>

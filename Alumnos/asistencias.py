@@ -12,35 +12,49 @@ Cómo funciona (cada grupo tiene su horario):
 - Al cerrar el día se generan las faltas de quien nunca registró entrada.
 - Una falta está «justificada» cuando hay una justificación vigente que la cubre (se calcula al consultar: no se
   guarda en la asistencia, así que anular o cambiar una justificación se refleja sola).
+- No hay clases en fin de semana (pedido del 2026-10-27), aunque algún horario tenga bloques en sábado o domingo.
+- Cada captura o corrección de una persona queda en la bitácora (`CambioAsistencia`) con lo que había antes.
+- Al cerrar un día se avisa en el portal a los tutores de las faltas sin justificar y de los retardos de sus hijos.
 """
+import logging
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import time, timedelta
 
+from django.conf import settings
 from django.core.cache import cache
-from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db import IntegrityError, connections, transaction
+from django.db.models import Count, Exists, Min, OuterRef, Q
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from .models import (
     Alumno,
     AsistenciaGeneral,
     AsistenciaMateria,
+    CambioAsistencia,
     CicloEscolar,
     CierreDia,
     ConfiguracionAsistencia,
     DiaNoLectivo,
     Grado,
-    HorarioMateria,
     Inscripcion,
     Justificacion,
     LimiteEntradaNivel,
+    NotificacionAsistencia,
+    TutorAlumno,
+    UmbralAsistenciaNivel,
 )
+
+logger = logging.getLogger(__name__)
 
 ESTADOS = ('PRESENTE', 'RETARDO', 'FALTA')
 ETIQUETAS = dict(AsistenciaGeneral.ESTADO_CHOICES)
 # Máximo de días que se revisan hacia atrás al cerrar días pendientes (evita un cierre enorme por error)
 LIMITE_DIAS_PENDIENTES = 45
+# Al cerrar un día de hace más de estos días ya no se avisa a los tutores (sería un aviso viejo)
+DIAS_PARA_AVISAR = 3
 NIVELES = tuple(clave for clave, _ in Grado.NIVEL_CHOICES)
 NOMBRES_DE_NIVEL = dict(Grado.NIVEL_CHOICES)
 
@@ -188,27 +202,58 @@ def motivo_sin_clases(fecha, ciclo=None, exigir_actual=False, nivel=None):
         motivo = ', '.join(dict.fromkeys(sin_clases[n] for n in NIVELES if n in sin_clases)) if _de_todo_el_colegio(sin_clases) else None
     if motivo:
         return f'Día sin clases: {motivo}.'
-    if fecha.weekday() >= 5 and not _bloques_de_fecha(fecha, ciclo).exists():
+    if fecha.weekday() >= 5:
         return 'No hay clases en fin de semana.'
     return None
 
 
 def dias_de_clases(desde, hasta, ciclo, nivel=None):
-    """Los días de clases entre dos fechas (inclusive), dentro del ciclo: sin días sin clases (de ese nivel o, sin nivel,
-    de todo el colegio) y sin fines de semana sin horario."""
+    """Los días de clases entre dos fechas (inclusive), dentro del ciclo: de lunes a viernes y sin días sin clases (de
+    ese nivel o, sin nivel, de todo el colegio)."""
     desde, hasta = max(desde, ciclo.fecha_inicio), min(hasta, ciclo.fecha_fin)
     if desde > hasta:
         return []
     sin_clases = fechas_sin_clases(desde, hasta, nivel)
-    dias_con_horario = set(
-        HorarioMateria.objects.filter(materia_grado__ciclo=ciclo, materia_grado__activa=True).values_list('dia_semana', flat=True).distinct()
-    )
     fechas = []
     for indice in range((hasta - desde).days + 1):
         fecha = desde + timedelta(days=indice)
-        if fecha not in sin_clases and (fecha.weekday() < 5 or fecha.weekday() in dias_con_horario):
+        if fecha not in sin_clases and fecha.weekday() < 5:
             fechas.append(fecha)
     return fechas
+
+
+def quitar_faltas_del_cierre(dias):
+    """Al registrar días sin clases que ya se habían cerrado (por ejemplo, una suspensión por emergencia): quita las
+    faltas que el cierre generó esos días a los estudiantes de esos niveles, generales y por materia, y los avisos de
+    falta a sus tutores. `dias` es [(fecha, nivel), …].
+
+    Solo se quitan las faltas que generó el cierre: lo que registró la pantalla de entrada o una persona se queda (también
+    una falta del cierre que alguien ya corrigió a presente), igual que una falta por materia que ya tiene su
+    justificación con comprobante. Devuelve cuántas faltas generales se quitaron.
+    """
+    hoy = timezone.localdate()
+    por_nivel = defaultdict(set)
+    for fecha, nivel in dias:
+        if fecha <= hoy:
+            por_nivel[nivel].add(fecha)
+    quitadas = 0
+    with transaction.atomic():
+        for nivel, fechas in por_nivel.items():
+            del_nivel = {'fecha__in': fechas, 'inscripcion__grado__nivel': nivel}
+            faltas_del_cierre = {**del_nivel, 'origen': 'CIERRE', 'estado': 'FALTA'}
+            quitadas += AsistenciaGeneral.objects.filter(**faltas_del_cierre).delete()[0]
+            AsistenciaMateria.objects.filter(**faltas_del_cierre).filter(justificaciones__isnull=True).delete()
+            NotificacionAsistencia.objects.filter(tipo=NotificacionAsistencia.FALTA, **del_nivel).delete()
+    return quitadas
+
+
+def reabrir_dias(fechas):
+    """Al quitar un día sin clases: sus fechas ya pasadas vuelven a quedar pendientes de cierre (el siguiente cierre
+    genera las faltas de quien no entró). Devuelve las fechas que se reabrieron."""
+    pasadas = [fecha for fecha in fechas if fecha < timezone.localdate()]
+    reabiertas = list(CierreDia.objects.filter(fecha__in=pasadas).values_list('fecha', flat=True))
+    CierreDia.objects.filter(fecha__in=reabiertas).delete()
+    return sorted(reabiertas)
 
 
 def asistencia_editable(fecha):
@@ -367,20 +412,25 @@ _MENSAJES_ESTATUS = {
 }
 
 
-def buscar_alumno(codigo, modo='uid'):
+def buscar_alumno(codigo, modo='uid', con_referencia=True):
     """El alumno de un código escaneado (UID de la credencial) o escrito (número de referencia).
 
     Se busca primero según `modo`, pero si no aparece se prueba el otro: así un UID escaneado con el cursor en el campo
-    de la referencia (o al revés) también funciona. Devuelve (alumno, origen) con origen UID o REFERENCIA.
+    de la referencia (o al revés) también funciona. Sin `con_referencia` (la entrada con número de referencia se apagó
+    en los ajustes) solo vale la credencial. Devuelve (alumno, origen) con origen UID o REFERENCIA.
     """
     codigo = ''.join(caracter for caracter in (codigo or '') if caracter.isprintable()).strip()
     if not codigo:
-        raise EntradaRechazada('VACIO', 'Acerca tu credencial o escribe tu número de referencia.')
+        raise EntradaRechazada('VACIO', 'Acerca tu credencial o escribe tu número de referencia.' if con_referencia else 'Acerca tu credencial al lector.')
     campos = (('UID', 'uid'), ('REFERENCIA', 'referencia'))
+    if not con_referencia:
+        campos = campos[:1]
     for origen, campo in (campos if modo != 'referencia' else campos[::-1]):
         alumno = Alumno.objects.filter(**{f'{campo}__iexact': codigo}).first()
         if alumno:
             return alumno, origen
+    if not con_referencia:
+        raise EntradaRechazada('NO_ENCONTRADO', 'No encontramos esa credencial. Intenta de nuevo o acude a control escolar: la entrada con número de referencia no está disponible.')
     raise EntradaRechazada('NO_ENCONTRADO', 'No encontramos esa credencial o ese número de referencia. Intenta de nuevo o acude a control escolar.')
 
 
@@ -430,16 +480,43 @@ def registrar_entrada(alumno, origen, usuario=None, momento=None):
 # ---------------------------------------------------------------------------
 # Capturas de quien administra y de los profesores
 # ---------------------------------------------------------------------------
-def fijar_asistencia_general(inscripcion, fecha, estado, hora=None, observaciones='', usuario=None, propagar=True):
+def _materias_del_dia(inscripcion, fecha):
+    """{id de materia: (estado, observaciones)} de la asistencia por materia del estudiante ese día."""
+    return {
+        materia: (estado, observaciones)
+        for materia, estado, observaciones in AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha)
+        .values_list('materia_grado_id', 'estado', 'observaciones')
+    }
+
+
+def _cambios_de_materias(inscripcion, fecha, antes, despues, via, usuario):
+    """Las anotaciones de la bitácora de las materias que cambiaron (o que se registraron) entre dos fotos del día."""
+    return [
+        CambioAsistencia(
+            inscripcion=inscripcion, fecha=fecha, materia_grado_id=materia, estado_anterior=antes.get(materia, ('', ''))[0],
+            estado_nuevo=estado, observacion_anterior=antes.get(materia, ('', ''))[1], observacion_nueva=observaciones,
+            via=via[:120], usuario=usuario,
+        )
+        for materia, (estado, observaciones) in despues.items()
+        if antes.get(materia) != (estado, observaciones)
+    ]
+
+
+def fijar_asistencia_general(inscripcion, fecha, estado, hora=None, observaciones='', usuario=None, propagar=True,
+                             via='Asistencia del día'):
     """Crea o corrige la asistencia general de un alumno ese día (captura manual de quien administra).
 
     Con `propagar`, las materias del día siguen a la general: una falta general es falta en todas; una presencia
     crea las materias que faltan y recalcula las que genera el sistema (las que el profesor ya capturó no se tocan).
+    Sin hora, todas sus materias quedan presentes (salvo la primera si quedó con retardo). Lo que cambió queda en la
+    bitácora con `via` (desde dónde). En `asistencia.pase_sobrescrito` quedan las materias en que el profesor lo había
+    marcado presente o con retardo y que la falta general cambió a falta.
     """
     configuracion = ConfiguracionAsistencia.cargar()
     hora = _minuto(hora) if hora else None
     with transaction.atomic():
         asistencia = AsistenciaGeneral.objects.filter(inscripcion=inscripcion, fecha=fecha).first()
+        antes = (asistencia.estado, asistencia.hora_entrada, asistencia.observaciones) if asistencia else ('', None, '')
         if asistencia is None:
             asistencia = AsistenciaGeneral(inscripcion=inscripcion, fecha=fecha, origen='MANUAL')
         asistencia.estado = estado
@@ -447,18 +524,42 @@ def fijar_asistencia_general(inscripcion, fecha, estado, hora=None, observacione
         asistencia.observaciones = observaciones
         asistencia.registrado_por = usuario
         asistencia.save()
+        cambios = []
+        if antes != (asistencia.estado, asistencia.hora_entrada, asistencia.observaciones):
+            cambios.append(CambioAsistencia(
+                inscripcion=inscripcion, fecha=fecha, estado_anterior=antes[0], estado_nuevo=estado, hora_anterior=antes[1],
+                hora_nueva=asistencia.hora_entrada, observacion_anterior=antes[2], observacion_nueva=observaciones, via=via[:120],
+                usuario=usuario,
+            ))
+        asistencia.pase_sobrescrito = []
         if propagar:
-            _propagar_a_materias(asistencia, configuracion, usuario)
+            previas = _materias_del_dia(inscripcion, fecha)
+            asistencia.pase_sobrescrito = _propagar_a_materias(asistencia, configuracion, usuario)
+            cambios += _cambios_de_materias(inscripcion, fecha, previas, _materias_del_dia(inscripcion, fecha), via, usuario)
+        CambioAsistencia.objects.bulk_create(cambios)
     return asistencia
 
 
+def pase_que_contradice_una_falta(inscripciones, fecha):
+    """{id de inscripción: [materias]} de las materias en que el profesor marcó presente o retardo ese día: si se pone
+    falta general, esas materias también quedan con falta (se avisa antes de guardar)."""
+    resultado = defaultdict(list)
+    for registro in (AsistenciaMateria.objects.filter(inscripcion__in=inscripciones, fecha=fecha, origen='PASE', estado__in=('PRESENTE', 'RETARDO'))
+                     .select_related('materia_grado__materia').order_by('materia_grado__materia__nombre')):
+        resultado[registro.inscripcion_id].append(str(registro.materia_grado.materia))
+    return dict(resultado)
+
+
 def _propagar_a_materias(asistencia, configuracion, usuario):
+    """Las materias del día siguen a la general. Devuelve las materias del pase de lista del profesor (presente o
+    retardo) que una falta general cambió a falta."""
     inscripcion, fecha = asistencia.inscripcion, asistencia.fecha
     clases = clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
     registros = AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha)
     ahora = timezone.now()
 
     if asistencia.estado == 'FALTA':
+        sobrescritas = pase_que_contradice_una_falta([inscripcion.pk], fecha).get(inscripcion.pk, [])
         registros.update(estado='FALTA', origen='MANUAL', registrado_por=usuario, observaciones='No asistió al colegio.', modificado=ahora)
         nuevas = [
             AsistenciaMateria(
@@ -468,7 +569,7 @@ def _propagar_a_materias(asistencia, configuracion, usuario):
             for clase in clases
         ]
         AsistenciaMateria.objects.bulk_create(nuevas, ignore_conflicts=True)
-        return
+        return sobrescritas
 
     # Presente o con retardo: lo que generó el sistema se recalcula con la hora; el pase de lista del profesor se respeta
     registros.exclude(origen='PASE').delete()
@@ -476,16 +577,18 @@ def _propagar_a_materias(asistencia, configuracion, usuario):
         inscripcion, fecha, asistencia.hora_entrada, configuracion.tolerancia_minutos, clases=clases, origen='MANUAL', usuario=usuario,
         retardo_de_entrada=asistencia.estado == 'RETARDO',
     )
+    return []
 
 
-def guardar_pase_de_lista(asignacion, fecha, filas, usuario=None):
+def guardar_pase_de_lista(asignacion, fecha, filas, usuario=None, via=None):
     """Guarda el pase de lista de una materia: `filas` es [(inscripcion, estado, observaciones), …].
 
     Quien aparece presente o con retardo en una clase estuvo en el colegio: si no tenía asistencia general ese día
-    (o tenía falta) se le registra presente. Devuelve cuántos alumnos se guardaron.
+    (o tenía falta) se le registra presente. Lo que cambió queda en la bitácora. Devuelve cuántos alumnos se guardaron.
     """
     if not filas:
         return 0
+    via = (via or f'Pase de lista de {asignacion.materia}')[:120]
     ids = [inscripcion.pk for inscripcion, _, _ in filas]
     ahora = timezone.now()
     with transaction.atomic():
@@ -497,9 +600,15 @@ def guardar_pase_de_lista(asignacion, fecha, filas, usuario=None):
             registro.inscripcion_id: registro
             for registro in AsistenciaGeneral.objects.filter(fecha=fecha, inscripcion__in=ids)
         }
-        nuevas, cambiadas, generales_nuevas, generales_corregidas = [], [], [], []
+        nuevas, cambiadas, generales_nuevas, generales_corregidas, bitacora = [], [], [], [], []
         for inscripcion, estado, observaciones in filas:
             registro = previas.get(inscripcion.pk)
+            antes = (registro.estado, registro.observaciones) if registro is not None else ('', '')
+            if antes != (estado, observaciones):
+                bitacora.append(CambioAsistencia(
+                    inscripcion=inscripcion, fecha=fecha, materia_grado=asignacion, estado_anterior=antes[0], estado_nuevo=estado,
+                    observacion_anterior=antes[1], observacion_nueva=observaciones, via=via, usuario=usuario,
+                ))
             if registro is None:
                 nuevas.append(AsistenciaMateria(
                     inscripcion=inscripcion, materia_grado=asignacion, fecha=fecha, estado=estado, origen='PASE',
@@ -513,6 +622,12 @@ def guardar_pase_de_lista(asignacion, fecha, filas, usuario=None):
             if estado != 'FALTA':
                 general = generales.get(inscripcion.pk)
                 nota = f'Registrada en el pase de lista de {asignacion.materia}.'
+                if general is None or general.estado == 'FALTA':
+                    bitacora.append(CambioAsistencia(
+                        inscripcion=inscripcion, fecha=fecha, estado_anterior=general.estado if general else '', estado_nuevo='PRESENTE',
+                        hora_anterior=general.hora_entrada if general else None, observacion_anterior=general.observaciones if general else '',
+                        observacion_nueva=nota, via=via, usuario=usuario,
+                    ))
                 if general is None:
                     generales_nuevas.append(AsistenciaGeneral(
                         inscripcion=inscripcion, fecha=fecha, estado='PRESENTE', origen='MANUAL', registrado_por=usuario, observaciones=nota,
@@ -525,6 +640,7 @@ def guardar_pase_de_lista(asignacion, fecha, filas, usuario=None):
         AsistenciaMateria.objects.bulk_update(cambiadas, ['estado', 'observaciones', 'origen', 'registrado_por', 'modificado'])
         AsistenciaGeneral.objects.bulk_create(generales_nuevas, ignore_conflicts=True)
         AsistenciaGeneral.objects.bulk_update(generales_corregidas, ['estado', 'observaciones', 'registrado_por', 'modificado'])
+        CambioAsistencia.objects.bulk_create(bitacora)
     return len(filas)
 
 
@@ -579,7 +695,53 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
         CierreDia.objects.update_or_create(fecha=fecha, defaults={
             'cerrado_en': timezone.now(), 'cerrado_por': usuario, 'automatico': automatico, 'faltas': faltas,
         })
+    if configuracion.avisar_a_tutores and fecha >= timezone.localdate() - timedelta(days=DIAS_PARA_AVISAR):
+        try:
+            avisar_a_tutores(fecha, ciclo)
+        except Exception:   # un fallo al avisar nunca deshace el cierre
+            logger.exception('No se pudo avisar a los tutores de la asistencia del %s', fecha)
     return faltas
+
+
+def _texto_del_aviso(registro, fecha):
+    alumno = registro.inscripcion.alumno
+    dia = date_format(fecha, 'l j \\d\\e F').lower()
+    if registro.estado == 'FALTA':
+        return f'Falta de {alumno.nombre}', f'{alumno} no asistió al colegio el {dia}.'
+    hora = f' a las {registro.hora_entrada:%H:%M}' if registro.hora_entrada else ''
+    return f'Retardo de {alumno.nombre}', f'{alumno} llegó con retardo{hora} el {dia}.'
+
+
+def avisar_a_tutores(fecha, ciclo=None):
+    """Avisa en la campana del portal a los tutores de las faltas sin justificar y de los retardos de entrada de ese día
+    de sus hijos: tutores activos, con acceso al portal y con un vínculo activo que recibe notificaciones. Los días con
+    suspensión autorizada no se avisan y un aviso no se repite (uno por tutor, estudiante y día). Devuelve cuántos
+    avisos nuevos propuso."""
+    ciclo = ciclo or ciclo_de_fecha(fecha)
+    if ciclo is None:
+        return 0
+    registros = (
+        con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(
+            fecha=fecha, inscripcion__ciclo=ciclo, inscripcion__activa=True, inscripcion__alumno__estatus='ACTIVO',
+            estado__in=('FALTA', 'RETARDO'),
+        )))
+        .filter(justificada=False).select_related('inscripcion__alumno')
+    )
+    por_alumno = {registro.inscripcion.alumno_id: registro for registro in registros}
+    if not por_alumno:
+        return 0
+    vinculos = TutorAlumno.objects.filter(
+        alumno__in=por_alumno, activo=True, recibe_notificaciones=True, tutor__estatus='ACTIVO', tutor__acceso_portal=True,
+    ).values_list('tutor_id', 'alumno_id')
+    avisos = []
+    for tutor_id, alumno_id in vinculos:
+        registro = por_alumno[alumno_id]
+        titulo, texto = _texto_del_aviso(registro, fecha)
+        avisos.append(NotificacionAsistencia(
+            tutor_id=tutor_id, inscripcion=registro.inscripcion, fecha=fecha, tipo=registro.estado, titulo=titulo[:160], texto=texto[:300],
+        ))
+    NotificacionAsistencia.objects.bulk_create(avisos, ignore_conflicts=True)
+    return len(avisos)
 
 
 def suspension_vigente(alumno, fecha):
@@ -642,6 +804,28 @@ def dias_pendientes_de_cierre(hoy=None):
     return sorted(fechas - cerradas - sin_clases)
 
 
+def dias_sin_registros(hoy=None):
+    """Días de clases anteriores a hoy, del ciclo actual, en que se esperaba a estudiantes y no hay ni un registro de
+    entrada ni un cierre (por ejemplo, si la pantalla de entrada falló toda la mañana). No se cierran solos: cerrarlos
+    pondría falta a todos. Solo se buscan desde el primer día con registros del ciclo (antes el sistema no se usaba)."""
+    hoy = hoy or timezone.localdate()
+    ciclo = CicloEscolar.objects.filter(activo=True).order_by('-fecha_inicio').first()
+    if ciclo is None:
+        return []
+    primero = AsistenciaGeneral.objects.filter(inscripcion__ciclo=ciclo).aggregate(primero=Min('fecha'))['primero']
+    if primero is None:
+        return []
+    desde = max(ciclo.fecha_inicio, hoy - timedelta(days=LIMITE_DIAS_PENDIENTES), primero)
+    candidatos = dias_de_clases(desde, hoy - timedelta(days=1), ciclo)
+    if not candidatos:
+        return []
+    con_registros = set(
+        AsistenciaGeneral.objects.filter(inscripcion__ciclo=ciclo, fecha__in=candidatos).values_list('fecha', flat=True).distinct()
+    )
+    cerradas = set(CierreDia.objects.filter(fecha__in=candidatos).values_list('fecha', flat=True))
+    return [fecha for fecha in candidatos if fecha not in con_registros and fecha not in cerradas and inscripciones_del_dia(fecha, ciclo).exists()]
+
+
 def cerrar_dias_pendientes(usuario=None, automatico=False, hoy=None):
     """Cierra todos los días pendientes. Devuelve [(fecha, faltas), …]."""
     cerrados = []
@@ -653,28 +837,59 @@ def cerrar_dias_pendientes(usuario=None, automatico=False, hoy=None):
 
 
 def cierre_automatico_del_dia(hoy=None):
-    """Cierra los días anteriores una sola vez por día (la primera entrada de la mañana lo dispara), si está activado."""
+    """Cierra los días anteriores una sola vez por día (la primera entrada de la mañana lo dispara), si está activado.
+    Si falla, la siguiente entrada lo vuelve a intentar."""
     hoy = hoy or timezone.localdate()
     clave = f'asistencias:cierre-automatico:{hoy}'
-    if cache.get(clave):
+    if not cache.add(clave, True, 12 * 3600):   # `add` no pisa la marca: dos entradas simultáneas no cierran dos veces
         return []
-    cerrados = cerrar_dias_pendientes(automatico=True, hoy=hoy) if ConfiguracionAsistencia.cargar().cierre_automatico else []
-    cache.set(clave, True, 12 * 3600)
-    return cerrados
+    try:
+        return cerrar_dias_pendientes(automatico=True, hoy=hoy) if ConfiguracionAsistencia.cargar().cierre_automatico else []
+    except Exception:
+        cache.delete(clave)
+        raise
+
+
+def en_segundo_plano(tarea, descripcion):
+    """Corre `tarea` en un hilo aparte (así quien espera la respuesta no espera la tarea) y registra su error si falla.
+    Con ASISTENCIA_CIERRE_EN_SEGUNDO_PLANO apagado (en las pruebas) corre aquí mismo."""
+    def correr():
+        try:
+            tarea()
+        except Exception:
+            logger.exception(descripcion)
+
+    if not getattr(settings, 'ASISTENCIA_CIERRE_EN_SEGUNDO_PLANO', True):
+        correr()
+        return
+
+    def en_su_hilo():
+        try:
+            correr()
+        finally:
+            connections.close_all()   # el hilo abrió sus propias conexiones a la base de datos
+
+    threading.Thread(target=en_su_hilo, name='asistencias-segundo-plano', daemon=True).start()
+
+
+def umbral_de(nivel=None, configuracion=None):
+    """El umbral de asistencia (%) del nivel; sin uno propio, el general. Por debajo, los reportes marcan al estudiante."""
+    propio = UmbralAsistenciaNivel.objects.filter(nivel=nivel).values_list('umbral', flat=True).first() if nivel else None
+    return propio or (configuracion or ConfiguracionAsistencia.cargar()).umbral_asistencia
 
 
 # ---------------------------------------------------------------------------
 # Resúmenes
 # ---------------------------------------------------------------------------
-def resumen_del_dia(fecha, ciclo=None):
-    """La asistencia general del día, grado por grado (en orden escolar) y en total.
+def resumen_del_dia(fecha, ciclo=None, grupo=None):
+    """La asistencia general del día, grado por grado (en orden escolar) y en total (de un solo grupo, si se indica).
 
     Cada fila: grado, inscritos, presentes, retardos, faltas, justificadas (faltas con justificación), suspendidos (con
     suspensión autorizada ese día: no cuentan como faltas), sin_registro (todavía sin entrada ni falta) y entraron
     (presentes más retardos). El total trae las mismas claves.
     """
     ciclo = ciclo or ciclo_de_fecha(fecha)
-    inscripciones = inscripciones_del_dia(fecha, ciclo)
+    inscripciones = inscripciones_del_dia(fecha, ciclo, grupo=grupo)
     inscritos = dict(inscripciones.order_by().values_list('grado_id').annotate(total=Count('pk')))
     suspendidos = dict(
         inscripciones.filter(alumno__in=alumnos_suspendidos(fecha)).order_by().values_list('grado_id').annotate(total=Count('pk'))

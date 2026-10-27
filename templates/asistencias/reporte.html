@@ -49,10 +49,17 @@
       {{ filtro.grado }}
     </div>
     <div class="filters__field">
+      <label class="visually-hidden" for="filtro-grupo">Grupo</label>
+      <select class="field__control field__control--select" id="filtro-grupo" name="grupo"{% if not grado %} disabled{% endif %}>
+        <option value="">Todos sus grupos</option>
+        {% for g in grupos %}<option value="{{ g.pk }}"{% if grupo and grupo.pk == g.pk %} selected{% endif %}>{{ g }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters__field">
       <label class="visually-hidden" for="filtro-materia">Materia</label>
       <select class="field__control field__control--select" id="filtro-materia" name="materia"{% if not grado %} disabled{% endif %}>
         <option value="">Asistencia general</option>
-        {% for m in materias %}<option value="{{ m.pk }}"{% if asignacion and asignacion.pk == m.pk %} selected{% endif %}>{{ m.materia }}</option>{% endfor %}
+        {% for m in materias %}<option value="{{ m.pk }}"{% if asignacion and asignacion.pk == m.pk %} selected{% endif %}>{{ m.materia }}{% if not grupo %} · {{ m.grupo }}{% endif %}</option>{% endfor %}
       </select>
     </div>
     <div class="filters__field filters__field--date">
@@ -177,7 +184,7 @@
         <div class="stat">
           <p class="stat__label">Estudiantes</p>
           <p class="stat__value">{{ filas|length }}</p>
-          <p class="stat__hint">en {{ grado }}</p>
+          <p class="stat__hint">en {{ grupo|default:grado }}</p>
         </div>
       </section>
 
@@ -192,6 +199,7 @@
               <th class="table__th" scope="col">Retardos</th>
               <th class="table__th" scope="col">Faltas</th>
               <th class="table__th" scope="col">Justificadas</th>
+              {% if not asignacion %}<th class="table__th" scope="col" data-tooltip="Entradas registradas con el número de referencia, sin credencial">Con referencia</th>{% endif %}
               <th class="table__th" scope="col">Asistencia</th>
             </tr>
           </thead>
@@ -203,7 +211,7 @@
                     {% include "partials/avatar.html" with persona=inscripcion.alumno %}
                     <span class="person__text">
                       <span class="person__name">{{ inscripcion.alumno }}</span>
-                      <span class="person__meta">Ref. {{ inscripcion.alumno.referencia }}</span>
+                      <span class="person__meta">{% if not grupo %}{{ inscripcion.grupo }} · {% endif %}Ref. {{ inscripcion.alumno.referencia }}</span>
                     </span>
                   </a>
                 </td>
@@ -212,6 +220,7 @@
                 <td class="table__cell" data-label="Retardos"><span class="count count--late">{{ inscripcion.cuenta.retardos }}</span></td>
                 <td class="table__cell" data-label="Faltas"><span class="count count--miss">{{ inscripcion.cuenta.faltas }}</span></td>
                 <td class="table__cell" data-label="Justificadas">{{ inscripcion.cuenta.justificadas|default:"—" }}</td>
+                {% if not asignacion %}<td class="table__cell" data-label="Con referencia">{{ inscripcion.cuenta.con_referencia|default:"—" }}</td>{% endif %}
                 <td class="table__cell" data-label="Asistencia">
                   {% if inscripcion.porcentaje is None %}<span class="text-muted">Sin registros</span>
                   {% else %}
@@ -227,7 +236,7 @@
           </tbody>
         </table>
       </div>
-      <p class="text-muted attendance-legend">La asistencia cuenta presentes y retardos entre los días con registro. Las faltas justificadas se siguen contando como falta y se muestran aparte.</p>
+      <p class="text-muted attendance-legend">La asistencia cuenta presentes y retardos entre los días con registro. Las faltas justificadas se siguen contando como falta y se muestran aparte. Se marca a quien queda por debajo del {{ umbral }} % (Ajustes › Asistencia).</p>
     {% endif %}
     </div>
   {% endif %}

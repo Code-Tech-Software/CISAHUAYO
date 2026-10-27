@@ -131,6 +131,7 @@ TEMPLATES = [
                 'Comunicados.context_processors.comunicados',
                 'Retiros.context_processors.retiros',
                 'Reuniones.context_processors.reuniones',
+                'Asistencias.context_processors.avisos_asistencia',
             ],
         },
     },
@@ -229,3 +230,7 @@ if _REDIS_URL and 'test' not in sys.argv:
     }
 else:
     CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+
+# El cierre automático de asistencia que dispara la primera entrada del día corre en un hilo aparte, para que quien
+# escaneó no espere (Alumnos/asistencias.py). En las pruebas corre en la misma petición.
+ASISTENCIA_CIERRE_EN_SEGUNDO_PLANO = 'test' not in sys.argv

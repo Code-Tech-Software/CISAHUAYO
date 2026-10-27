@@ -66,9 +66,10 @@ class ReporteTests(BaseReporteTests):
 
     def test_resumen_por_alumno(self):
         filas = self.filas(self.reporte())
-        self.assertEqual(filas[str(self.alumno)].cuenta, {'registros': 3, 'presentes': 3, 'retardos': 0, 'faltas': 0, 'justificadas': 0})
-        self.assertEqual(filas[str(self.b.alumno)].cuenta, {'registros': 3, 'presentes': 1, 'retardos': 1, 'faltas': 1, 'justificadas': 0})
-        self.assertEqual(filas[str(self.c.alumno)].cuenta, {'registros': 3, 'presentes': 1, 'retardos': 0, 'faltas': 2, 'justificadas': 1})
+        cero = {'con_referencia': 0}   # entradas con número de referencia (ninguna aquí)
+        self.assertEqual(filas[str(self.alumno)].cuenta, {'registros': 3, 'presentes': 3, 'retardos': 0, 'faltas': 0, 'justificadas': 0, **cero})
+        self.assertEqual(filas[str(self.b.alumno)].cuenta, {'registros': 3, 'presentes': 1, 'retardos': 1, 'faltas': 1, 'justificadas': 0, **cero})
+        self.assertEqual(filas[str(self.c.alumno)].cuenta, {'registros': 3, 'presentes': 1, 'retardos': 0, 'faltas': 2, 'justificadas': 1, **cero})
 
     def test_porcentaje_y_marca_de_quien_esta_bajo_el_umbral(self):
         filas = self.filas(self.reporte())
@@ -78,7 +79,7 @@ class ReporteTests(BaseReporteTests):
         self.assertContains(self.reporte(), 'Bajo 85%')
 
     def test_totales_del_grupo(self):
-        self.assertEqual(self.reporte().context['total'], {'registros': 9, 'presentes': 5, 'retardos': 1, 'faltas': 3, 'justificadas': 1, 'porcentaje': 67})
+        self.assertEqual(self.reporte().context['total'], {'registros': 9, 'presentes': 5, 'retardos': 1, 'faltas': 3, 'justificadas': 1, 'con_referencia': 0, 'porcentaje': 67})
 
     def test_los_alumnos_van_en_orden_alfabetico_y_sin_las_bajas(self):
         inscribir_antes(crear_alumno(estatus='BAJA'), self.ciclo, self.grado)
@@ -174,14 +175,16 @@ class ExportarReporteTests(BaseReporteTests):
     def test_exporta_el_resumen(self):
         filas = self.filas()
         self.assertIn('4.º', filas[0][0])
-        self.assertEqual(filas[1][:3], ['Estudiante', 'Referencia', 'Días registrados'])
+        self.assertEqual(filas[1][:4], ['Estudiante', 'Referencia', 'Grupo', 'Días registrados'])
+        self.assertEqual(filas[1][-1], 'Entradas con número de referencia')
         self.assertEqual([f[0] for f in filas[2:]], [str(self.b.alumno), str(self.c.alumno), str(self.alumno)])
-        self.assertEqual(filas[3][2:], ['3', '1', '0', '2', '1', '33'])
+        self.assertEqual(filas[3][2], str(self.c.grupo))
+        self.assertEqual(filas[3][3:], ['3', '1', '0', '2', '1', '33', '0'])
 
     def test_exporta_la_cuadricula(self):
         filas = self.filas(vista='cuadricula')
-        self.assertEqual(filas[1][:2], ['Estudiante', 'Referencia'])
-        self.assertEqual(len(filas[1]), 2 + 11)
+        self.assertEqual(filas[1][:3], ['Estudiante', 'Referencia', 'Grupo'])
+        self.assertEqual(len(filas[1]), 3 + 11)
         self.assertIn('A = asistió', filas[-1][0])
 
     def test_neutraliza_formulas_de_excel(self):

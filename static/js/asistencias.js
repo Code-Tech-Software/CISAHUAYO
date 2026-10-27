@@ -19,12 +19,24 @@
   });
 
   /* --- Corregir la asistencia general de un alumno ------------------------------------------------------------ */
+  /* Si el profesor lo marcó presente o con retardo en alguna clase (data-pase) y se elige falta aplicándola a las
+     materias, se avisa antes de guardar: esas materias también quedarán con falta. */
   const ventana = document.querySelector('[data-asistencia-form]');
   if (ventana) {
+    const avisoPase = ventana.querySelector('[data-asistencia-aviso-pase]');
+    let pase = '';
+    const pintarAviso = () => {
+      if (!avisoPase) return;
+      const falta = ventana.querySelector('[name="estado"]:checked')?.value === 'FALTA';
+      const propagar = ventana.querySelector('[name="propagar"]').checked;
+      avisoPase.querySelector('[data-asistencia-pase-materias]').textContent = pase;
+      avisoPase.hidden = !(pase && falta && propagar);
+    };
     document.addEventListener('click', (event) => {
       const boton = event.target.closest('[data-asistencia-editar]');
       if (!boton) return;
       const { inscripcion, alumno, estado = '', hora = '', observaciones = '' } = boton.dataset;
+      pase = boton.dataset.pase || '';
       ventana.querySelector('[name="inscripcion"]').value = inscripcion;
       ventana.querySelector('[data-asistencia-alumno]').textContent = alumno;
       const elegido = ventana.querySelector(`[name="estado"][value="${estado || 'PRESENTE'}"]`);
@@ -32,6 +44,10 @@
       ventana.querySelector('[name="hora"]').value = hora;
       ventana.querySelector('[name="observaciones"]').value = observaciones;
       ventana.querySelector('[name="propagar"]').checked = true;
+      pintarAviso();
+    });
+    ventana.addEventListener('change', (event) => {
+      if (event.target.matches('[name="estado"], [name="propagar"]')) pintarAviso();
     });
   }
 

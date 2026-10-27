@@ -27,7 +27,10 @@ class ReglasDeLaEntradaTests(BaseAsistenciaTestCase):
     hora = (10, 30)
 
     def guardar(self, **cambios):
-        datos = {'hora_entrada': '07:30', 'tolerancia_minutos': '15', 'cierre_automatico': 'on'}
+        datos = {
+            'hora_entrada': '07:30', 'tolerancia_minutos': '15', 'cierre_automatico': 'on', 'entrada_con_referencia': 'on',
+            'dias_para_corregir': '7', 'umbral_asistencia': '85', 'avisar_a_tutores': 'on',
+        }
         datos.update(cambios)
         return self.client.post(url('ajustes'), {k: v for k, v in datos.items() if v is not None}, follow=True)
 
@@ -52,7 +55,7 @@ class ReglasDeLaEntradaTests(BaseAsistenciaTestCase):
     def test_guarda_las_reglas_y_las_usa_al_registrar_entradas(self):
         respuesta = self.guardar()
         self.assertRedirects(respuesta, url('ajustes'))
-        self.assertContains(respuesta, 'Se guardaron las reglas')
+        self.assertContains(respuesta, 'Se guardaron los ajustes de asistencia')
         configuracion = ConfiguracionAsistencia.cargar()
         self.assertEqual((configuracion.hora_entrada, configuracion.tolerancia_minutos), (time(7, 30), 15))
         entrar(self.alumno, (7, 44))
@@ -85,6 +88,25 @@ class ReglasDeLaEntradaTests(BaseAsistenciaTestCase):
     def test_se_puede_apagar_el_cierre_automatico(self):
         self.guardar(cierre_automatico=None)
         self.assertFalse(ConfiguracionAsistencia.cargar().cierre_automatico)
+
+    def test_ajustes_del_pase_de_lista_la_referencia_y_los_avisos(self):
+        self.guardar(dias_para_corregir='3', umbral_asistencia='90', entrada_con_referencia=None, avisar_a_tutores=None)
+        configuracion = ConfiguracionAsistencia.cargar()
+        self.assertEqual((configuracion.dias_para_corregir, configuracion.umbral_asistencia), (3, 90))
+        self.assertFalse(configuracion.entrada_con_referencia)
+        self.assertFalse(configuracion.avisar_a_tutores)
+        for cambios in ({'dias_para_corregir': '61'}, {'umbral_asistencia': '0'}, {'umbral_asistencia': '101'}):
+            self.assertTrue(self.guardar(**cambios).context['form'].errors, str(cambios))
+
+    def test_el_umbral_de_asistencia_por_nivel(self):
+        from Alumnos.models import UmbralAsistenciaNivel
+        self.guardar(umbral_asistencia='80', umbral_PRIMARIA='90')
+        self.assertEqual(dict(UmbralAsistenciaNivel.objects.values_list('nivel', 'umbral')), {'PRIMARIA': 90})
+        self.assertEqual(reglas.umbral_de('PRIMARIA'), 90)
+        self.assertEqual(reglas.umbral_de('SECUNDARIA'), 80)   # sin uno propio, el general
+        self.guardar(umbral_asistencia='80')   # vaciar un nivel le quita su umbral
+        self.assertFalse(UmbralAsistenciaNivel.objects.exists())
+        self.assertTrue(self.guardar(umbral_PRIMARIA='150').context['form'].errors)
 
     def test_ver_los_ajustes_no_da_permiso_para_cambiarlos(self):
         self.con_permisos('view_configuracionasistencia')

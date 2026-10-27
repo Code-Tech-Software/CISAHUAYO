@@ -2319,3 +2319,14 @@
 .asistencia-limites legend {
   padding: 0;
 }
+
+/* Historial del estudiante: la bitácora de cambios (debajo de la lista de días) */
+.asistencia-bitacora {
+  margin-top: var(--space-6);
+}
+
+/* Resumen de asistencias: los días de clases sin registros */
+.attendance-alert__dias {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
+}

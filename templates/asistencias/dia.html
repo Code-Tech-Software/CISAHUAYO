@@ -71,23 +71,27 @@
         {{ filtro.grado }}
       </div>
       <div class="filters__field">
+        <label class="visually-hidden" for="{{ filtro.grupo.id_for_label }}">Grupo</label>
+        {{ filtro.grupo }}
+      </div>
+      <div class="filters__field">
         <label class="visually-hidden" for="{{ filtro.estado.id_for_label }}">Estado</label>
         {{ filtro.estado }}
       </div>
       <div class="filters__actions">
         <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Filtrar</button>
-        {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% querystring q=None grado=None estado=None page=None %}">Limpiar</a>{% endif %}
+        {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% querystring q=None grado=None grupo=None estado=None page=None %}">Limpiar</a>{% endif %}
       </div>
     </form>
 
     {% if total %}
-      <ul class="attendance-strip" aria-label="Resumen{% if filtros_activos.grado %} de {{ filtros_activos.grado }}{% endif %}">
+      <ul class="attendance-strip" aria-label="Resumen{% if filtros_activos.grupo %} de {{ filtros_activos.grupo }}{% elif filtros_activos.grado %} de {{ filtros_activos.grado }}{% endif %}">
         <li><span class="count count--ok">{{ total.presentes }}</span> presentes</li>
         <li><span class="count count--late">{{ total.retardos }}</span> con retardo</li>
         <li><span class="count count--miss">{{ total.faltas }}</span> falta{{ total.faltas|pluralize }}{% if total.justificadas %} ({{ total.justificadas }} justificada{{ total.justificadas|pluralize }}){% endif %}</li>
         {% if total.suspendidos %}<li><span class="indicador-asistencia indicador-asistencia--suspendido" aria-hidden="true">S</span> {{ total.suspendidos }} suspendido{{ total.suspendidos|pluralize }}</li>{% endif %}
         <li><span class="count">{{ total.sin_registro }}</span> sin entrada</li>
-        <li class="attendance-strip__total">{{ total.inscritos }} inscritos{% if filtros_activos.grado %} en {{ filtros_activos.grado }}{% endif %}</li>
+        <li class="attendance-strip__total">{{ total.inscritos }} inscritos{% if filtros_activos.grupo %} en {{ filtros_activos.grupo }}{% elif filtros_activos.grado %} en {{ filtros_activos.grado }}{% endif %}</li>
       </ul>
     {% endif %}
 
@@ -157,6 +161,7 @@
                       <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-open="modal-asistencia" data-asistencia-editar
                               data-inscripcion="{{ inscripcion.pk }}" data-alumno="{{ alumno }}" data-estado="{{ general.estado }}"
                               data-hora="{{ general.hora_entrada|time:'H:i' }}" data-observaciones="{{ general.observaciones }}"
+                              {% if inscripcion.pase_presente %}data-pase="{{ inscripcion.pase_presente|join:', ' }}"{% endif %}
                               aria-label="{% if general %}Corregir{% else %}Registrar{% endif %} la asistencia de {{ alumno }}" data-tooltip="{% if general %}Corregir asistencia{% else %}Registrar asistencia{% endif %}">
                         {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %}
                       </button>
@@ -176,7 +181,7 @@
           {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
           <p class="empty-state__title">No encontramos estudiantes con esos filtros</p>
           <p class="empty-state__text">Prueba con otro nombre, grado o estado.</p>
-          <a class="btn btn--sm" href="{% querystring q=None grado=None estado=None page=None %}">Limpiar filtros</a>
+          <a class="btn btn--sm" href="{% querystring q=None grado=None grupo=None estado=None page=None %}">Limpiar filtros</a>
         </div>
       </div>
     {% else %}
@@ -221,7 +226,7 @@
             <div class="field">
               <label class="field__label" for="asistencia-hora">Hora de entrada</label>
               <input class="field__control" id="asistencia-hora" name="hora" type="time">
-              <p class="field__hint">Opcional. Si registras una entrada de hoy sin hora, se guarda la hora actual.</p>
+              <p class="field__hint">Opcional. Escríbela si la sabes: con ella se calcula a qué clases llegó tarde. Sin hora, sus materias del día quedan presentes (con retardo, la primera queda con falta).</p>
             </div>
             <div class="field">
               <label class="field__label" for="asistencia-observaciones">Observaciones</label>
@@ -231,7 +236,11 @@
               <input class="choice__input" type="checkbox" name="propagar" id="asistencia-propagar" checked>
               <span class="choice__box">Aplicar también a las materias de ese día</span>
             </label>
-            <p class="field__hint">Una falta pasa a todas sus materias; una entrada crea las materias que falten y recalcula las que generó el sistema. Lo que ya capturó un profesor no se toca.</p>
+            <p class="field__hint">Una falta pasa a todas sus materias, también a las que el profesor marcó presente. Una entrada crea las materias que falten y recalcula las que generó el sistema, sin tocar lo que capturó un profesor.</p>
+            <div class="alert alert--warning" role="alert" data-asistencia-aviso-pase hidden>
+              {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+              <p class="alert__body">En el pase de lista el profesor lo tiene <strong>presente</strong> en <span data-asistencia-pase-materias></span>. Si guardas la falta, esas materias también quedarán con falta (el cambio queda en la bitácora).</p>
+            </div>
           </div>
           <footer class="modal__footer">
             <button type="button" class="btn" data-modal-close>Cancelar</button>

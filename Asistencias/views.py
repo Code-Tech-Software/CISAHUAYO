@@ -29,20 +29,27 @@ from Alumnos.asistencias import (
     conteos,
     dias_de_clases,
     dias_pendientes_de_cierre,
+    dias_sin_registros,
+    en_segundo_plano,
     fijar_asistencia_general,
     inscripciones_del_dia,
     motivo_sin_clases,
+    pase_que_contradice_una_falta,
     porcentaje,
     alumnos_suspendidos,
+    quitar_faltas_del_cierre,
+    reabrir_dias,
     registrar_entrada,
     sin_dias_suspendidos,
     suspensiones_del_dia,
     resumen_del_dia,
     texto_de_niveles,
+    umbral_de,
 )
 from Alumnos.models import (
     Alumno,
     AsistenciaGeneral,
+    CambioAsistencia,
     CambioJustificacion,
     AsistenciaMateria,
     CicloEscolar,
@@ -61,7 +68,6 @@ from CISAHUAYO.redireccion import destino_seguro
 from Conducta.permisos import puede_configurar
 
 from .forms import (
-    UMBRAL_ASISTENCIA,
     AsistenciaDiaForm,
     ConfiguracionForm,
     DiaNoLectivoForm,
@@ -77,6 +83,10 @@ logger = logging.getLogger(__name__)
 DIAS_MAXIMOS_CUADRICULA = 31
 ESTADO_TEXTO = {'PRESENTE': 'Presente', 'RETARDO': 'Con retardo', 'FALTA': 'Falta'}
 ESTADOS_EN_ORDEN = [('PRESENTE', 'Presente'), ('RETARDO', 'Retardo'), ('FALTA', 'Falta')]
+# La pantalla de entrada mantiene viva su sesión mientras está abierta (pedido del 2026-10-27): cada consulta de la
+# pantalla la extiende a este plazo, así no caduca en plena entrada. Se renueva cuando le queda menos de un día de margen.
+SESION_DE_LA_PANTALLA = timedelta(days=30)
+CAMBIOS_EN_EL_HISTORIAL = 50   # anotaciones de la bitácora que se muestran en el historial del estudiante
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +155,7 @@ def inicio(request):
         'cierre': CierreDia.objects.filter(fecha=fecha).first(),
         'puede_cerrar': bool(ciclo and not motivo and puede_cerrar_dias and asistencia_editable(fecha)),
         'pendientes': dias_pendientes_de_cierre(hoy) if puede_cerrar_dias else [],
+        'sin_registros': dias_sin_registros(hoy) if puede_cerrar_dias else [],
     })
 
 
@@ -216,9 +227,18 @@ def _estado_del_kiosco(fecha):
     }
 
 
+def _mantener_sesion(request):
+    """La pantalla de entrada no pierde su sesión mientras está abierta: se extiende a SESION_DE_LA_PANTALLA (sin
+    guardar la sesión en cada consulta, solo cuando le queda menos de un día de margen). Si se cambia la contraseña de
+    la cuenta, la sesión sí termina (protección de Django)."""
+    if request.session.get_expiry_age() < (SESION_DE_LA_PANTALLA - timedelta(days=1)).total_seconds():
+        request.session.set_expiry(SESION_DE_LA_PANTALLA)
+
+
 @requiere_permisos('Alumnos.add_asistenciageneral')
 def kiosco(request):
     hoy = timezone.localdate()
+    _mantener_sesion(request)
     return render(request, 'asistencias/kiosco.html', {
         'hoy': hoy,
         'motivo': motivo_sin_clases(hoy, exigir_actual=True),
@@ -243,10 +263,12 @@ def entrada_registrar(request):
     sin_acceso = _sin_acceso(request)
     if sin_acceso:
         return sin_acceso
+    _mantener_sesion(request)
 
     alumno = None
     try:
-        alumno, origen = buscar_alumno(request.POST.get('codigo'), request.POST.get('modo'))
+        con_referencia = ConfiguracionAsistencia.cargar().entrada_con_referencia
+        alumno, origen = buscar_alumno(request.POST.get('codigo'), request.POST.get('modo'), con_referencia=con_referencia)
         resultado = registrar_entrada(alumno, origen, usuario=request.user)
     except EntradaRechazada as rechazo:
         carga = {'ok': False, 'tipo': rechazo.codigo, 'mensaje': rechazo.mensaje}
@@ -263,10 +285,9 @@ def entrada_registrar(request):
     }
     if resultado.creada:
         carga.update(tipo='REGISTRADA', mensaje=f'Entrada registrada con retardo, {nombre}.' if asistencia.estado == 'RETARDO' else f'¡Bienvenido, {nombre}!')
-        try:  # la primera entrada del día cierra los días anteriores; un fallo ahí nunca debe impedir esta entrada
-            cierre_automatico_del_dia()
-        except Exception:
-            logger.exception('No se pudo cerrar automáticamente los días anteriores')
+        # La primera entrada del día cierra los días anteriores, en un hilo aparte: quien escaneó no espera y un fallo
+        # ahí nunca impide esta entrada
+        en_segundo_plano(lambda: cierre_automatico_del_dia(), 'No se pudo cerrar automáticamente los días anteriores')
     elif asistencia.estado == 'FALTA':
         carga.update(ok=False, tipo='CON_FALTA', mensaje='Hoy tienes una falta registrada. Acude a dirección.')
     else:
@@ -280,6 +301,7 @@ def kiosco_estado(request):
     sin_acceso = _sin_acceso(request)
     if sin_acceso:
         return sin_acceso
+    _mantener_sesion(request)
     return JsonResponse({'ok': True, **_estado_del_kiosco(timezone.localdate())})
 
 
@@ -306,6 +328,8 @@ def dia(request):
             )
         if datos.get('grado'):
             inscripciones = inscripciones.filter(grado=datos['grado'])
+        if datos.get('grupo'):
+            inscripciones = inscripciones.filter(grupo=datos['grupo'])
         estado = datos.get('estado')
         suspendidos = alumnos_suspendidos(fecha)   # con suspensión autorizada: no cuentan como faltas ni como sin entrada
         if estado == 'SUSPENDIDO':
@@ -326,11 +350,13 @@ def dia(request):
             )
         }
         suspensiones = suspensiones_del_dia(fecha, [inscripcion.alumno_id for inscripcion in pagina])
+        pase = pase_que_contradice_una_falta(ids, fecha)   # si se pone falta general, se avisa antes de cambiarlas
         for inscripcion in pagina:
             inscripcion.general = generales.get(inscripcion.pk)
             inscripcion.materias = materias.get(inscripcion.pk)
             inscripcion.suspension = suspensiones.get(inscripcion.alumno_id)
-        resumen = resumen_del_dia(fecha, ciclo)
+            inscripcion.pase_presente = pase.get(inscripcion.pk, [])
+        resumen = resumen_del_dia(fecha, ciclo, grupo=datos.get('grupo'))
         total = resumen['total']
         if datos.get('grado'):
             total = next((fila for fila in resumen['grados'] if fila['grado'] == datos['grado']), total)
@@ -376,14 +402,17 @@ def dia_guardar(request):
     if not AsistenciaGeneral.objects.filter(inscripcion=inscripcion, fecha=fecha).exists() and not request.user.has_perm('Alumnos.add_asistenciageneral'):
         raise PermissionDenied
 
-    hora = datos['hora']
-    if datos['estado'] != 'FALTA' and hora is None and fecha == timezone.localdate():
-        hora = timezone.localtime().time()          # una entrada capturada hoy sin hora se registra a la hora actual
-    fijar_asistencia_general(
-        inscripcion, fecha, datos['estado'], hora=hora, observaciones=datos['observaciones'],
+    # Sin hora no se inventa una (antes se usaba la hora actual y las clases anteriores quedaban como falta): sus materias
+    # quedan presentes, salvo la primera si se capturó con retardo
+    asistencia = fijar_asistencia_general(
+        inscripcion, fecha, datos['estado'], hora=datos['hora'], observaciones=datos['observaciones'],
         usuario=request.user, propagar=datos['propagar'],
     )
-    messages.success(request, f'Se guardó la asistencia de {inscripcion.alumno}: {ESTADO_TEXTO[datos["estado"]].lower()}.')
+    aviso = ''
+    if asistencia.pase_sobrescrito:
+        materias = ', '.join(asistencia.pase_sobrescrito)
+        aviso = f' El pase de lista lo tenía presente en {materias}: quedó con falta (queda en la bitácora).'
+    messages.success(request, f'Se guardó la asistencia de {inscripcion.alumno}: {ESTADO_TEXTO[datos["estado"]].lower()}.{aviso}')
     return redirect(destino)
 
 
@@ -632,40 +661,49 @@ def _tipo_de_comprobante(documento):
 def _datos_del_reporte(filtro):
     """Todo lo que muestran el reporte y su exportación, según los filtros."""
     ciclo, grado, asignacion, desde, hasta, vista = filtro.resolver()
+    grupo = filtro.grupo_elegido(grado)
     hoy = timezone.localdate()
+    umbral = umbral_de(grado.nivel if grado else None)
     datos = {
-        'ciclo': ciclo, 'grado': grado, 'asignacion': asignacion, 'desde': desde, 'hasta': hasta, 'vista': vista,
-        'filas': [], 'total': None, 'dias': [], 'cuadricula_posible': True, 'materias': [],
+        'ciclo': ciclo, 'grado': grado, 'grupo': grupo, 'asignacion': asignacion, 'desde': desde, 'hasta': hasta, 'vista': vista,
+        'filas': [], 'total': None, 'dias': [], 'cuadricula_posible': True, 'materias': [], 'umbral': umbral, 'grupos': [],
     }
     if not (ciclo and grado):
         return datos
 
-    datos['materias'] = list(
-        MateriaGrado.objects.filter(ciclo=ciclo, grado=grado, activa=True).select_related('materia').order_by('materia__nombre')
-    )
-    inscripciones = list(
-        Inscripcion.objects.filter(ciclo=ciclo, grado=grado, activa=True).exclude(alumno__estatus='BAJA')
-        .select_related('alumno').order_by(*_orden_de_alumnos())
-    )
+    datos['grupos'] = list(grado.grupos.filter(activo=True).select_related('grado', 'nombre').order_by('nombre__orden', 'nombre__nombre'))
+    materias = MateriaGrado.objects.filter(ciclo=ciclo, grado=grado, activa=True).select_related('materia', 'grupo__nombre', 'grupo__grado')
+    if grupo is not None:
+        materias = materias.filter(grupo=grupo)
+    datos['materias'] = list(materias.order_by('materia__nombre', 'grupo__nombre__orden'))
+    if asignacion is not None and grupo is not None and asignacion.grupo_id != grupo.pk:
+        asignacion = datos['asignacion'] = None   # la materia era de otro grupo del grado
+    inscripciones = Inscripcion.objects.filter(ciclo=ciclo, grado=grado, activa=True).exclude(alumno__estatus='BAJA')
+    if grupo is not None:
+        inscripciones = inscripciones.filter(grupo=grupo)
+    inscripciones = list(inscripciones.select_related('alumno', 'grupo__nombre', 'grupo__grado').order_by(*_orden_de_alumnos()))
     if asignacion:
         registros = con_justificada_materia(sin_dias_suspendidos(AsistenciaMateria.objects.filter(materia_grado=asignacion, fecha__range=(desde, hasta), inscripcion__in=inscripciones)))
     else:
         registros = con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(fecha__range=(desde, hasta), inscripcion__in=inscripciones)))
 
+    # De la asistencia general también se cuentan las entradas con número de referencia (sin credencial)
+    con_referencia = {} if asignacion else {'con_referencia': Count('pk', filter=Q(origen='REFERENCIA'))}
     cuenta = {
         fila['inscripcion_id']: fila
         for fila in registros.order_by().values('inscripcion_id').annotate(
             registros=Count('pk'), presentes=Count('pk', filter=Q(estado='PRESENTE')), retardos=Count('pk', filter=Q(estado='RETARDO')),
             faltas=Count('pk', filter=Q(estado='FALTA')), justificadas=Count('pk', filter=Q(estado='FALTA', justificada=True)),
+            **con_referencia,
         )
     }
-    total = dict.fromkeys(('registros', 'presentes', 'retardos', 'faltas', 'justificadas'), 0)
+    total = dict.fromkeys(('registros', 'presentes', 'retardos', 'faltas', 'justificadas', 'con_referencia'), 0)
     for inscripcion in inscripciones:
         fila = cuenta.get(inscripcion.pk, {})
         inscripcion.cuenta = {clave: fila.get(clave, 0) for clave in total}
         inscripcion.porcentaje = porcentaje(inscripcion.cuenta['presentes'], inscripcion.cuenta['retardos'], inscripcion.cuenta['registros'])
         inscripcion.sin_justificar = inscripcion.cuenta['faltas'] - inscripcion.cuenta['justificadas']
-        inscripcion.bajo_umbral = inscripcion.porcentaje is not None and inscripcion.porcentaje < UMBRAL_ASISTENCIA
+        inscripcion.bajo_umbral = inscripcion.porcentaje is not None and inscripcion.porcentaje < umbral
         for clave in total:
             total[clave] += inscripcion.cuenta[clave]
     total['porcentaje'] = porcentaje(total['presentes'], total['retardos'], total['registros'])
@@ -691,7 +729,6 @@ def reporte(request):
         'seccion': 'reporte',
         'filtro': filtro,
         'ciclos': CicloEscolar.objects.all(),
-        'umbral': UMBRAL_ASISTENCIA,
         'consulta': request.GET.urlencode(),
         **datos,
     })
@@ -706,27 +743,35 @@ def reporte_exportar(request):
         messages.error(request, 'Elige un grado para exportar su reporte.')
         return redirect('asistencias:reporte')
 
-    nombre = f'asistencia-{datos["grado"].nivel.lower()}-{datos["grado"].numero}-{datos["desde"]:%Y%m%d}-{datos["hasta"]:%Y%m%d}.csv'
+    grupo = datos['grupo']
+    nombre = f'asistencia-{datos["grado"].nivel.lower()}-{datos["grado"].numero}{f"-{grupo.nombre}".lower() if grupo else ""}-{datos["desde"]:%Y%m%d}-{datos["hasta"]:%Y%m%d}.csv'
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
     respuesta.write('﻿')  # para que Excel reconozca los acentos
     escritor = csv.writer(respuesta)
     materia = f' · {datos["asignacion"].materia}' if datos['asignacion'] else ' · asistencia general'
-    escritor.writerow([f'{datos["grado"]} · {datos["ciclo"]}{materia} · del {datos["desde"]:%d/%m/%Y} al {datos["hasta"]:%d/%m/%Y}'])
+    escritor.writerow([f'{grupo or datos["grado"]} · {datos["ciclo"]}{materia} · del {datos["desde"]:%d/%m/%Y} al {datos["hasta"]:%d/%m/%Y}'])
     if datos['vista'] == 'cuadricula' and datos['cuadricula_posible']:
-        escritor.writerow(['Estudiante', 'Referencia', *[f'{dia:%d/%m}' for dia in datos['dias']]])
+        escritor.writerow(['Estudiante', 'Referencia', 'Grupo', *[f'{dia:%d/%m}' for dia in datos['dias']]])
         for inscripcion in datos['filas']:
-            escritor.writerow([proteger_celda_csv(str(inscripcion.alumno)), proteger_celda_csv(inscripcion.alumno.referencia), *inscripcion.celdas])
+            escritor.writerow([proteger_celda_csv(str(inscripcion.alumno)), proteger_celda_csv(inscripcion.alumno.referencia),
+                               proteger_celda_csv(str(inscripcion.grupo)), *inscripcion.celdas])
         escritor.writerow(['A = asistió, R = retardo, F = falta, J = falta justificada'])
     else:
-        escritor.writerow(['Estudiante', 'Referencia', 'Días registrados', 'Presentes', 'Retardos', 'Faltas', 'Faltas justificadas', 'Asistencia (%)'])
+        encabezado = ['Estudiante', 'Referencia', 'Grupo', 'Días registrados', 'Presentes', 'Retardos', 'Faltas', 'Faltas justificadas', 'Asistencia (%)']
+        if not datos['asignacion']:
+            encabezado.append('Entradas con número de referencia')
+        escritor.writerow(encabezado)
         for inscripcion in datos['filas']:
             cuenta = inscripcion.cuenta
-            escritor.writerow([
-                proteger_celda_csv(str(inscripcion.alumno)), proteger_celda_csv(inscripcion.alumno.referencia),
+            fila = [
+                proteger_celda_csv(str(inscripcion.alumno)), proteger_celda_csv(inscripcion.alumno.referencia), proteger_celda_csv(str(inscripcion.grupo)),
                 cuenta['registros'], cuenta['presentes'], cuenta['retardos'], cuenta['faltas'], cuenta['justificadas'],
                 '' if inscripcion.porcentaje is None else inscripcion.porcentaje,
-            ])
+            ]
+            if not datos['asignacion']:
+                fila.append(cuenta['con_referencia'])
+            escritor.writerow(fila)
     return respuesta
 
 
@@ -771,9 +816,18 @@ def alumno(request, pk):
             fila['nombre'], fila['clave'] = fila['materia_grado__materia__nombre'], fila['materia_grado__materia__clave']
             fila['porcentaje'] = porcentaje(fila['presentes'], fila['retardos'], fila['registros'])
             por_materia.append(fila)
+        # La bitácora: las capturas y correcciones que hizo una persona, con lo que había antes (las más recientes)
+        cambios = list(
+            CambioAsistencia.objects.filter(inscripcion=inscripcion).select_related('materia_grado__materia', 'usuario')
+            .order_by('-creado', '-pk')[:CAMBIOS_EN_EL_HISTORIAL + 1]
+        )
+        for cambio in cambios:
+            cambio.antes_texto = ESTADO_TEXTO.get(cambio.estado_anterior, cambio.estado_anterior)
+            cambio.despues_texto = ESTADO_TEXTO.get(cambio.estado_nuevo, cambio.estado_nuevo)
         contexto.update(
             resumen=resumen, pagina=pagina, rango_paginas=rango_paginas, por_pagina=por_pagina, por_materia=por_materia,
-            por_pagina_defecto=POR_PAGINA_DEFECTO, opciones_por_pagina=OPCIONES_POR_PAGINA, umbral=UMBRAL_ASISTENCIA,
+            por_pagina_defecto=POR_PAGINA_DEFECTO, opciones_por_pagina=OPCIONES_POR_PAGINA, umbral=umbral_de(inscripcion.grado.nivel),
+            cambios=cambios[:CAMBIOS_EN_EL_HISTORIAL], hay_mas_cambios=len(cambios) > CAMBIOS_EN_EL_HISTORIAL,
         )
     return render(request, 'asistencias/alumno.html', contexto)
 
@@ -790,7 +844,7 @@ def ajustes(request):
         form = ConfiguracionForm(request.POST, instance=configuracion)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Se guardaron las reglas de la entrada.')
+            messages.success(request, 'Se guardaron los ajustes de asistencia.')
             return redirect('asistencias:ajustes')
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
     else:
@@ -820,9 +874,13 @@ def dia_sin_clases_crear(request):
     if form.is_valid():
         datos = form.cleaned_data
         fechas = datos['fechas']
-        DiaNoLectivo.objects.bulk_create([DiaNoLectivo(fecha=fecha, nivel=nivel, motivo=datos['motivo']) for fecha, nivel in datos['nuevos']])
+        with transaction.atomic():
+            DiaNoLectivo.objects.bulk_create([DiaNoLectivo(fecha=fecha, nivel=nivel, motivo=datos['motivo']) for fecha, nivel in datos['nuevos']])
+            # Si esos días ya se habían cerrado, sus faltas de cierre dejan de contar (por ejemplo, una suspensión por emergencia)
+            quitadas = quitar_faltas_del_cierre(datos['nuevos'])
+        aviso = f' Se quitaron {_plural(quitadas, "falta")} que había generado el cierre de esos días.' if quitadas else ''
         messages.success(request, f'Se registr{"ó" if len(fechas) == 1 else "aron"} {_plural(len(fechas), "día")} sin clases '
-                                  f'para {texto_de_niveles(datos["niveles"])}: {datos["motivo"]}.')
+                                  f'para {texto_de_niveles(datos["niveles"])}: {datos["motivo"]}.{aviso}')
     else:
         messages.error(request, 'No se registró: ' + ' '.join(error for errores in form.errors.values() for error in errores))
     ciclo = form.cleaned_data.get('ciclo') if hasattr(form, 'cleaned_data') else None
@@ -837,6 +895,10 @@ def dia_sin_clases_eliminar(request, pk):
     dia = get_object_or_404(DiaNoLectivo, pk=pk)
     registros = DiaNoLectivo.objects.filter(fecha=dia.fecha, motivo=dia.motivo)
     niveles = list(registros.values_list('nivel', flat=True))
-    registros.delete()
-    messages.success(request, f'Se quitó el día sin clases del {_texto_de_fecha(dia.fecha)} ({texto_de_niveles(niveles)}).')
+    with transaction.atomic():
+        registros.delete()
+        # Un día ya pasado vuelve a quedar pendiente de cierre: el siguiente cierre genera las faltas de quien no entró
+        reabierto = reabrir_dias([dia.fecha]) if asistencia_editable(dia.fecha) else []
+    aviso = ' Ese día vuelve a quedar pendiente de cierre en Asistencias.' if reabierto else ''
+    messages.success(request, f'Se quitó el día sin clases del {_texto_de_fecha(dia.fecha)} ({texto_de_niveles(niveles)}).{aviso}')
     return redirect(URL_DIAS_SIN_CLASES(ciclo_de_fecha(dia.fecha)))

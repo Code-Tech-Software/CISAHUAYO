@@ -3,7 +3,7 @@ from datetime import date, time
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -1151,6 +1151,17 @@ class ConfiguracionAsistencia(models.Model):
         default=10, validators=[MaxValueValidator(120)], verbose_name='Tolerancia (minutos)',
     )
     cierre_automatico = models.BooleanField(default=True, verbose_name='Cerrar automáticamente los días anteriores')
+    # Pedidos del 2026-10-27: el docente captura y corrige sin depender del periodo de evaluación, pero solo los últimos
+    # días; la entrada con número de referencia se puede apagar; el umbral de asistencia de los reportes y el aviso a los
+    # tutores se configuran aquí
+    dias_para_corregir = models.PositiveSmallIntegerField(
+        default=7, validators=[MaxValueValidator(60)], verbose_name='Días que el docente puede capturar o corregir',
+    )
+    entrada_con_referencia = models.BooleanField(default=True, verbose_name='Permitir la entrada con número de referencia')
+    umbral_asistencia = models.PositiveSmallIntegerField(
+        default=85, validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name='Umbral de asistencia (%)',
+    )
+    avisar_a_tutores = models.BooleanField(default=True, verbose_name='Avisar a los tutores de las faltas y los retardos')
 
     @classmethod
     def cargar(cls):
@@ -1184,6 +1195,83 @@ class LimiteEntradaNivel(models.Model):
         verbose_name = 'Hora límite de entrada de un nivel'
         verbose_name_plural = 'Horas límite de entrada por nivel'
         default_permissions = ()   # se administran con los ajustes de asistencia
+
+
+class UmbralAsistenciaNivel(models.Model):
+    """El umbral de asistencia de un nivel (pedido del 2026-10-27): en los reportes se marca a quien queda por debajo.
+    Un nivel sin umbral propio usa el general (`ConfiguracionAsistencia.umbral_asistencia`)."""
+
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, unique=True, verbose_name='Nivel')
+    umbral = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name='Umbral (%)')
+
+    def __str__(self):
+        return f"{self.get_nivel_display()}: {self.umbral} %"
+
+    class Meta:
+        verbose_name = 'Umbral de asistencia de un nivel'
+        verbose_name_plural = 'Umbrales de asistencia por nivel'
+        default_permissions = ()   # se administran con los ajustes de asistencia
+
+
+class CambioAsistencia(models.Model):
+    """Bitácora de la asistencia (pedido del 2026-10-27): cada captura o corrección que hace una persona, con lo que
+    había antes y lo que quedó. Sin `materia_grado` es la asistencia general (la entrada al colegio). Lo que genera el
+    sistema (la pantalla de entrada y el cierre del día) no se anota: ya queda en el origen del registro."""
+
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='cambios_de_asistencia')
+    fecha = models.DateField(verbose_name='Día de la asistencia')
+    materia_grado = models.ForeignKey(
+        MateriaGrado, null=True, blank=True, on_delete=models.CASCADE, related_name='+', verbose_name='Materia',
+    )
+    estado_anterior = models.CharField(max_length=15, blank=True, verbose_name='Estado anterior')   # vacío: sin registro
+    estado_nuevo = models.CharField(max_length=15, verbose_name='Estado nuevo')
+    hora_anterior = models.TimeField(null=True, blank=True, verbose_name='Hora anterior')
+    hora_nueva = models.TimeField(null=True, blank=True, verbose_name='Hora nueva')
+    observacion_anterior = models.CharField(max_length=250, blank=True, verbose_name='Observación anterior')
+    observacion_nueva = models.CharField(max_length=250, blank=True, verbose_name='Observación nueva')
+    via = models.CharField(max_length=120, blank=True, verbose_name='Desde dónde')
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+', verbose_name='Quién')
+    creado = models.DateTimeField(auto_now_add=True, verbose_name='Cuándo')
+
+    def __str__(self):
+        return f"{self.inscripcion.alumno} - {self.fecha} - {self.estado_anterior or 'sin registro'} → {self.estado_nuevo}"
+
+    class Meta:
+        verbose_name = 'Cambio en la asistencia'
+        verbose_name_plural = 'Cambios en la asistencia'
+        ordering = ['-creado', '-pk']
+        default_permissions = ()   # se consulta con la asistencia del estudiante
+        indexes = [models.Index(fields=['inscripcion', 'fecha'], name='cambio_asistencia_dia')]
+
+
+class NotificacionAsistencia(models.Model):
+    """Un aviso de asistencia en la campana del portal de tutores (pedido del 2026-10-27): al cerrar el día, la falta o
+    el retardo de su hijo. Uno por tutor, estudiante y día."""
+
+    FALTA, RETARDO = 'FALTA', 'RETARDO'
+    TIPOS = [(FALTA, 'Falta'), (RETARDO, 'Retardo')]
+
+    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='+')
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='+')
+    fecha = models.DateField(verbose_name='Día')
+    tipo = models.CharField(max_length=10, choices=TIPOS)
+    titulo = models.CharField(max_length=160)
+    texto = models.CharField(max_length=300)
+    leida = models.BooleanField(default=False)
+    creada = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self):
+        return f"{self.titulo}: {self.texto}"
+
+    class Meta:
+        verbose_name = 'Aviso de asistencia'
+        verbose_name_plural = 'Avisos de asistencia'
+        ordering = ['-creada', '-pk']
+        default_permissions = ()
+        indexes = [models.Index(fields=['tutor', 'leida'], name='asistencia_notif_tutor')]
+        constraints = [
+            models.UniqueConstraint(fields=['tutor', 'inscripcion', 'fecha'], name='asistencia_notif_unica'),
+        ]
 
 
 class DiaNoLectivo(models.Model):

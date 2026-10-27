@@ -161,8 +161,8 @@ MODULOS = (
             'crear': 'Cerrar el día: quien no entró queda con falta.',
         }),
         Funcion('Pase de lista por materia', {'ver': 'Alumnos.view_asistenciamateria', 'editar': 'Alumnos.change_asistenciamateria'}, etiquetas={'editar': 'Pasar lista'}, ayuda={
-            'ver': 'Consultar la asistencia de las materias en el periodo abierto (un docente, solo la de sus materias; todas, con «Asistencia del día y reportes»).',
-            'editar': 'Pasar lista: poner presente, falta o retardo en la matriz de asistencia.',
+            'ver': 'Consultar la asistencia de las materias del ciclo (un docente, solo la de sus materias; todas, con «Asistencia del día y reportes»).',
+            'editar': 'Pasar lista: poner presente, falta o retardo en la matriz de asistencia (un docente, solo los últimos días que fijan los ajustes de asistencia).',
         }),
         Funcion('Justificaciones', _permisos('justificacion'), etiquetas={'baja': 'Anular'},
                 reservado={'crear': ADMINISTRADOR, 'editar': ADMINISTRADOR, 'baja': ADMINISTRADOR}, ayuda={

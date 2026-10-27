@@ -14,6 +14,7 @@ app_name = 'portal_tutores'
 urlpatterns = [
     path('', views.inicio, name='inicio'),
     path('estudiantes/<int:pk>/', views.estudiante, name='estudiante'),
+    path('avisos-de-asistencia/<int:pk>/', views.aviso_asistencia, name='aviso_asistencia'),
     path('salir/', views.salir, name='salir'),
     path('mensajes/', include((rutas_de_portal(portales.TUTOR), 'mensajes'))),
     path('comunicados/', include((rutas_de_comunicados(portales.TUTOR), 'comunicados'))),

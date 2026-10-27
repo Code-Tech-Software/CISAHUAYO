@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 
 from Alumnos.academico import ciclo_actual
@@ -55,6 +55,19 @@ def accesos(alcance):
     return alcance.filtrar(MovimientoAcceso.objects.all())
 
 
+def entraron_y_faltaron(registros):
+    """De los registros por materia, las faltas que puso el pase de lista a quien sí registró su entrada al colegio ese
+    día (presente o con retardo): puede haber salido sin permiso (pedido del 2026-10-27). No cuentan las faltas que pone
+    el sistema por la hora de llegada ni los días con una salida anticipada registrada o un retiro confirmado."""
+    from Retiros.models import RetiroEstudiante
+    entro = AsistenciaGeneral.objects.filter(inscripcion=OuterRef('inscripcion'), fecha=OuterRef('fecha'), estado__in=('PRESENTE', 'RETARDO'))
+    salio = MovimientoAcceso.objects.filter(
+        inscripcion=OuterRef('inscripcion'), fecha=OuterRef('fecha'), tipo=MovimientoAcceso.SALIDA, anulado=False,
+    )
+    retirado = RetiroEstudiante.objects.filter(alumno=OuterRef('inscripcion__alumno'), fecha=OuterRef('fecha'), estado=RetiroEstudiante.RETIRADO)
+    return registros.filter(estado='FALTA', origen='PASE').filter(Exists(entro)).exclude(Exists(salio)).exclude(Exists(retirado))
+
+
 def del_dia(alcance, fecha):
     """Los indicadores de asistencia de un día, separando registros (faltas por materia) de estudiantes."""
     materias = de_materias(alcance).filter(fecha=fecha)
@@ -74,6 +87,7 @@ def del_dia(alcance, fecha):
     return {
         **conteo,
         'estudiantes_con_falta': len(con_falta),
+        'entraron_y_faltaron': entraron_y_faltaron(materias).values('inscripcion__alumno').distinct().count(),
         'faltas_de_entrada': sin_entrar,
         'estudiantes_con_retardo_de_entrada': len(retardos_entrada),
         'accesos': {clave: por_tipo.get(clave, 0) for clave, _ in MovimientoAcceso.TIPOS},

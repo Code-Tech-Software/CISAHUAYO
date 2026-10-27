@@ -1,9 +1,11 @@
 {% comment %}
-  La matriz de asistencia de una materia (estudiantes × días del periodo abierto), la misma para el docente y para la
+  La matriz de asistencia de una materia (estudiantes × días del ciclo), la misma para el docente y para la
   administración: datos de la materia, avisos, leyenda, la tabla y la ventana de cada celda (asistencia-docente.js).
-  Parámetros: los de views_docente.contexto_de_matriz (asignacion, datos, aviso_de_fechas, meses_del_periodo_largo,
-  puede_cambiar, puede_justificar, leyenda, observacion_maxima), url_guardar y, solo en la administración,
-  mostrar_profesor y ver_justificaciones (las J con su justificación se pueden abrir).
+  No depende del periodo de evaluación (pedido del 2026-10-27): el periodo abierto solo se muestra de referencia. El
+  docente captura y corrige los últimos días (datos.ventana); lo anterior queda bloqueado y lo corrige la administración.
+  Parámetros: los de views_docente.contexto_de_matriz (asignacion, datos, aviso_de_fechas, puede_cambiar,
+  puede_justificar, leyenda, observacion_maxima), url_guardar y, solo en la administración, mostrar_profesor y
+  ver_justificaciones (las J con su justificación se pueden abrir).
 {% endcomment %}
 <section class="asistencia-docente__contexto" aria-label="Materia y periodo">
   <div>
@@ -31,7 +33,7 @@
   {% if datos.desde %}
     <div>
       <p class="asistencia-docente__dato-titulo">Mostrando</p>
-      <p class="asistencia-docente__dato">Del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F \d\e Y"|lower }} <span class="text-muted">· {{ datos.columnas|length }} día{{ datos.columnas|length|pluralize }}{% if datos.completo %} · todo el periodo{% endif %}</span></p>
+      <p class="asistencia-docente__dato">Del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F \d\e Y"|lower }} <span class="text-muted">· {{ datos.columnas|length }} día{{ datos.columnas|length|pluralize }}{% if datos.completo %} · todo el ciclo{% endif %}</span></p>
     </div>
   {% endif %}
 </section>
@@ -42,22 +44,8 @@
     <div class="alert__body"><p>{{ aviso_de_fechas }}</p></div>
   </div>
 {% endif %}
-{% if meses_del_periodo_largo %}
-  <div class="alert alert--warning alert--spaced" role="note">
-    {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
-    <div class="alert__body"><p>El periodo «{{ datos.periodo.nombre }}» de {{ asignacion.grado.get_nivel_display|lower }} dura {{ meses_del_periodo_largo }} meses: parece que una de sus fechas está mal escrita. Se corrige en Periodos; mientras, elige aquí las fechas que quieras ver.</p></div>
-  </div>
-{% endif %}
 
-{% if not datos.periodo %}
-  <div class="table-card">
-    <div class="empty-state">
-      {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
-      <p class="empty-state__title">No hay un periodo de evaluación abierto</p>
-      <p class="empty-state__text">{{ asignacion.grado.get_nivel_display }} no tiene un periodo abierto hoy. La asistencia se consulta y se captura dentro del periodo abierto de cada nivel (se administran en Periodos).</p>
-    </div>
-  </div>
-{% elif not datos.columnas %}
+{% if not datos.columnas %}
   <div class="table-card">
     <div class="empty-state">
       {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
@@ -84,6 +72,11 @@
       {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
       <div class="alert__body"><p>{{ aviso_solo_consulta|default:"Puedes consultar la asistencia, pero tu rol no permite cambiarla." }}</p></div>
     </div>
+  {% elif datos.ventana is not None %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <div class="alert__body"><p>Puedes capturar y corregir la asistencia de hoy{% if datos.ventana %} y de los {{ datos.ventana }} día{{ datos.ventana|pluralize }} anteriores{% endif %}. Para una fecha anterior, pide el cambio a la administración.</p></div>
+    </div>
   {% endif %}
 
   <div class="asistencia-docente__barra">
@@ -93,7 +86,7 @@
       {% endfor %}
       <li class="leyenda-asistencia__item"><span class="indicador-asistencia indicador-asistencia--vacia" aria-hidden="true">—</span>Sin registro</li>
       <li class="leyenda-asistencia__item"><span class="indicador-asistencia indicador-asistencia--falta" data-observaciones aria-hidden="true">F</span>Con observación</li>
-      <li class="leyenda-asistencia__item"><span class="leyenda-asistencia__bloqueo" aria-hidden="true"></span>Bloqueado (fecha futura o sin clase)</li>
+      <li class="leyenda-asistencia__item"><span class="leyenda-asistencia__bloqueo" aria-hidden="true"></span>Bloqueado (fecha futura o sin clase{% if datos.ventana is not None %}, o ya pasó tu plazo para corregir{% endif %})</li>
     </ul>
   </div>
 
@@ -103,7 +96,7 @@
     {% csrf_token %}
     <div class="asistencia-matriz__marco" data-marco>
       <table class="asistencia-matriz__tabla">
-        <caption class="visually-hidden">Asistencia de {{ asignacion.materia }}, {{ asignacion.grupo }}, del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F"|lower }} ({{ datos.periodo.nombre }}). Usa las flechas para moverte entre las celdas y Enter para cambiar una.</caption>
+        <caption class="visually-hidden">Asistencia de {{ asignacion.materia }}, {{ asignacion.grupo }}, del {{ datos.desde|date:"j \d\e F"|lower }} al {{ datos.hasta|date:"j \d\e F"|lower }}. Usa las flechas para moverte entre las celdas y Enter para cambiar una.</caption>
         <thead>
           <tr class="asistencia-matriz__fila-meses">
             <th class="asistencia-matriz__esquina" scope="col" rowspan="2">Estudiante <span class="text-muted">· {{ datos.filas|length }}</span></th>
@@ -115,7 +108,7 @@
             {% for columna in datos.columnas %}
               <th class="asistencia-matriz__dia{% if columna.mes_par %} is-mes-par{% endif %}{% if columna.inicio_mes %} is-inicio-mes{% elif columna.inicio_semana %} is-inicio-semana{% endif %}{% if columna.hoy %} is-hoy{% endif %}{% if columna.bloqueada %} is-bloqueada{% endif %}" scope="col"
                   data-fecha="{{ columna.fecha|date:'Y-m-d' }}" data-titulo="{{ columna.titulo }}"
-                  data-tooltip="{{ columna.titulo|capfirst }}{% if columna.hoy %} · hoy{% endif %}{% if columna.suspension %} · suspensión: {{ columna.suspension }}{% elif columna.sin_clase %} · sin clase{% endif %}">
+                  data-tooltip="{{ columna.titulo|capfirst }}{% if columna.hoy %} · hoy{% endif %}{% if columna.suspension %} · suspensión: {{ columna.suspension }}{% elif columna.sin_clase %} · sin clase{% elif columna.fuera_de_plazo %} · ya pasó tu plazo para corregir{% endif %}">
                 <span class="asistencia-matriz__inicial">{{ columna.inicial }}</span>
                 <span class="asistencia-matriz__num">{{ columna.fecha.day }}</span>
               </th>

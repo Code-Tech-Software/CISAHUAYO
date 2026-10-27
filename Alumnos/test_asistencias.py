@@ -110,13 +110,15 @@ class CalendarioTests(BaseAsistenciaTestCase):
         DiaNoLectivo.registrar(fecha=lunes(), motivo='Consejo técnico')
         self.assertEqual(reglas.motivo_sin_clases(lunes()), 'Día sin clases: Consejo técnico.')
 
-    def test_fin_de_semana_solo_si_hay_clases_ese_dia(self):
+    def test_nunca_hay_clases_en_fin_de_semana(self):
+        # Pedido del 2026-10-27: no hay clases los sábados, aunque algún horario tenga un bloque ese día
         sabado = lunes() + timedelta(days=5)
         if sabado > hoy():
             sabado -= timedelta(days=7)
         self.assertEqual(reglas.motivo_sin_clases(sabado), 'No hay clases en fin de semana.')
         materia_en_grado('SAB', self.grado, self.ciclo, dia=5)
-        self.assertIsNone(reglas.motivo_sin_clases(sabado))
+        self.assertEqual(reglas.motivo_sin_clases(sabado), 'No hay clases en fin de semana.')
+        self.assertNotIn(sabado, reglas.dias_de_clases(sabado - timedelta(days=5), sabado, self.ciclo))
 
     def test_un_ciclo_cerrado_no_es_el_actual(self):
         cerrado = ciclo_cerrado_de_prueba()

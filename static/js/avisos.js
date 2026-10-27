@@ -53,12 +53,14 @@
 
   /* ------------------------------------------------------------------ contadores */
   /* El número de la campana: mensajes, comunicados, avisos de retiros y de reuniones sin leer (static/js/reuniones-avisos.js
-     pone los suyos en data-reuniones-sin-leer) */
+     pone los suyos en data-reuniones-sin-leer) y, en el portal de tutores, los avisos de asistencia (data-asistencia-sin-leer:
+     llegan al cerrar el día, sin tiempo real) */
   const pintarCampana = () => {
     const comunicados = Number(raiz.dataset.comunicadosSinLeer) || 0;
     const retiros = Number(raiz.dataset.retirosSinLeer) || 0;
     const reuniones = Number(raiz.dataset.reunionesSinLeer) || 0;
-    const n = mensajes + comunicados + retiros + reuniones;
+    const asistencia = Number(raiz.dataset.asistenciaSinLeer) || 0;
+    const n = mensajes + comunicados + retiros + reuniones + asistencia;
     if (total) {
       total.textContent = String(n);
       total.hidden = !n;
@@ -68,6 +70,7 @@
     if (comunicados) partes.push(`${comunicados} comunicado${comunicados === 1 ? '' : 's'} sin leer`);
     if (retiros) partes.push(`${retiros} aviso${retiros === 1 ? '' : 's'} de retiro sin leer`);
     if (reuniones) partes.push(`${reuniones} aviso${reuniones === 1 ? '' : 's'} de reuniones sin leer`);
+    if (asistencia) partes.push(`${asistencia} aviso${asistencia === 1 ? '' : 's'} de asistencia sin leer`);
     boton?.setAttribute('aria-label', ['Notificaciones', ...partes].join(', '));
     document.title = n ? `(${n}) ${tituloBase}` : tituloBase;
   };
@@ -89,7 +92,9 @@
     const deComunicados = raiz.querySelector('[data-comunicados-lista]');
     const deRetiros = raiz.querySelector('[data-retiros-lista]');
     const deReuniones = raiz.querySelector('[data-reuniones-lista]');
-    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length || deRetiros?.children.length || deReuniones?.children.length);
+    const deAsistencia = raiz.querySelector('[data-asistencia-lista]');
+    vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length || deRetiros?.children.length || deReuniones?.children.length
+      || deAsistencia?.children.length);
   };
 
   /* Los comunicados cambiaron (static/js/comunicados-avisos.js): se vuelve a pintar el número y el estado vacío */

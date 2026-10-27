@@ -609,9 +609,16 @@ class DiaGuardarTests(BaseAsistenciaTestCase):
                          ('PRESENTE', time(7, 50), 'MANUAL', self.admin, 'olvidó su credencial'))
         self.assertEqual(self.estados_de_materias(), {'MAT': 'PRESENTE', 'ESP': 'PRESENTE', 'CIE': 'PRESENTE'})
 
-    def test_sin_hora_se_guarda_la_hora_actual(self):
-        self.guardar(estado='RETARDO')
-        self.assertEqual(AsistenciaGeneral.objects.get().hora_entrada, time(10, 30))
+    def test_sin_hora_no_se_inventa_la_hora_y_sus_clases_quedan_presentes(self):
+        # Pedido del 2026-10-27: antes se usaba la hora actual (las 10:30) y las clases anteriores quedaban como falta
+        self.guardar(estado='PRESENTE', propagar='on')
+        self.assertIsNone(AsistenciaGeneral.objects.get().hora_entrada)
+        self.assertEqual(self.estados_de_materias(), {'MAT': 'PRESENTE', 'ESP': 'PRESENTE', 'CIE': 'PRESENTE'})
+
+    def test_sin_hora_y_con_retardo_solo_la_primera_clase_queda_con_falta(self):
+        self.guardar(estado='RETARDO', propagar='on')
+        self.assertIsNone(AsistenciaGeneral.objects.get().hora_entrada)
+        self.assertEqual(sorted(self.estados_de_materias().values()), ['FALTA', 'PRESENTE', 'PRESENTE'])
 
     def test_sin_hora_en_un_dia_pasado_no_inventa_una(self):
         anterior = lunes() - timedelta(days=7)

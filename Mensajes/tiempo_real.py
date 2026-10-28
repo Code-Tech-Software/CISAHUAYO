@@ -85,13 +85,14 @@ def avisar_retiro(conversacion_id, mensaje_id):
     leer. Solo van ids y lo que sigue en la conversación: nada del mensaje retirado."""
     from .context_processors import _hora
     from .models import Conversacion
-    from .reglas import _sin_leer, no_leidos, vista_previa
+    from .reglas import sin_leer_por_conversacion, vista_previa
     conversacion = Conversacion.objects.select_related('ultimo_mensaje').filter(pk=conversacion_id).first()
     ultimo = conversacion.ultimo_mensaje if conversacion else None
     miembros = Miembro.objects.filter(conversacion=conversacion_id).select_related(
         'participante__usuario', 'participante__alumno', 'participante__tutor')
     for miembro in miembros:
         participante = miembro.participante
+        pendientes = sin_leer_por_conversacion(participante)
         _enviar(participante.pk, {'type': 'mensaje.retirado', 'datos': {
             'conversacion': conversacion_id,
             'id': mensaje_id,
@@ -99,19 +100,29 @@ def avisar_retiro(conversacion_id, mensaje_id):
             'vista_previa': vista_previa(ultimo.texto) if ultimo else '',
             'mio': bool(ultimo and ultimo.autor_id == participante.pk),
             'hora': _hora(ultimo.creado) if ultimo else '',
-            'pendientes': _sin_leer(participante).filter(conversacion=conversacion_id).count(),
-            'no_leidos': no_leidos(participante),
+            'pendientes': pendientes.get(conversacion_id, 0),
+            'no_leidos': sum(pendientes.values()),
         }})
+
+
+def avisar_resumen(participante, conversacion_id):
+    """A las pestañas de la persona: su total sin leer y lo que le queda pendiente en esa conversación (0 al leerla; 1 o
+    más si la dejó «no leída»)."""
+    from .reglas import sin_leer_por_conversacion
+    pendientes = sin_leer_por_conversacion(participante)
+    _enviar(participante.pk, {'type': 'mensajes.resumen', 'datos': {
+        'conversacion': conversacion_id, 'no_leidos': sum(pendientes.values()), 'pendientes': pendientes.get(conversacion_id, 0),
+    }})
 
 
 def avisar_lectura(conversacion, lector, hasta, momento=None):
     """A la otra persona: hasta dónde se leyó y cuándo (sus mensajes pasan a «Leído a las 10:42»). A quien leyó: su
     nuevo total sin leer."""
-    from .reglas import no_leidos, texto_de_lectura
+    from .reglas import texto_de_lectura
     leido = texto_de_lectura(momento or timezone.now())
     for miembro in Miembro.objects.filter(conversacion=conversacion).exclude(participante=lector):
         _enviar(miembro.participante_id, {'type': 'mensaje.leido', 'datos': {'conversacion': conversacion.pk, 'hasta': hasta, 'leido': leido}})
-    _enviar(lector.pk, {'type': 'mensajes.resumen', 'datos': {'conversacion': conversacion.pk, 'no_leidos': no_leidos(lector)}})
+    avisar_resumen(lector, conversacion.pk)
 
 
 def avisar_edicion(mensaje):

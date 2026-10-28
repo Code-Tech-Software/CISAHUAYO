@@ -1,10 +1,11 @@
 {% comment %}
   Las conversaciones de la bandeja (templates/mensajes/bandeja.html y «Ver más conversaciones»: Mensajes/views.conversaciones).
-  Parámetros: bandeja, espacio, hoy_iso y actual (el id de la conversación abierta).
+  Parámetros: bandeja, espacio, hoy_iso, actual (el id de la conversación abierta) y filtro_qs («?sin_leer=1» con el
+  filtro «Sin leer»: los enlaces lo conservan).
 {% endcomment %}
 {% for item in bandeja %}
   <li data-conversacion-item="{{ item.pk }}" data-texto="{{ item.otro.nombre|lower }} {{ item.otro.quien|lower }}">
-    <a class="chat-item{% if actual == item.pk %} is-actual{% endif %}{% if item.no_leidos %} is-sin-leer{% endif %}" href="{% url espacio|add:':conversacion' item.pk %}"{% if actual == item.pk %} aria-current="page"{% endif %}>
+    <a class="chat-item{% if actual == item.pk %} is-actual{% endif %}{% if item.no_leidos %} is-sin-leer{% endif %}" href="{% url espacio|add:':conversacion' item.pk %}{{ filtro_qs }}"{% if actual == item.pk %} aria-current="page"{% endif %}>
       <span class="avatar chat-item__avatar chat-persona__avatar--{{ item.otro.tipo|lower }}" aria-hidden="true">{{ item.otro.iniciales }}</span>
       <span class="chat-item__texto">
         <span class="chat-item__fila">

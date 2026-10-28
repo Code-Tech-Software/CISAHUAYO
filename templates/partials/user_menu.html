@@ -50,7 +50,7 @@
             </li>
           {% endif %}
           <li>
-            <form method="post" action="{% if logout_url %}{{ logout_url }}{% else %}{% url 'admin:logout' %}{% endif %}">
+            <form method="post" action="{% if logout_url %}{{ logout_url }}{% else %}{% url 'admin:logout' %}{% endif %}" data-cerrar-sesion>
               {% csrf_token %}
               <button type="submit" class="menu__item menu__item--danger">
                 {% include "partials/icon.html" with name="log-out" %}

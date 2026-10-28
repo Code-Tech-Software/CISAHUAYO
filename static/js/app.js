@@ -19,6 +19,7 @@
      initCopyAndPrint  Botones [data-copy] y [data-print]
      initReveal    Botones [data-reveal] que muestran u ocultan una contraseña
      initAutosubmit    Filtros de listados que se envían solos ([data-autosubmit])
+     initLogout    Al cerrar sesión ([data-cerrar-sesion]) borra los borradores de mensajes del navegador
 
    Expone window.CISAHUAYO.icon(nombre), .liveSearch(opciones), .alumnoResult(alumno), .forms (CURP, teléfonos,
    errores) y .pickers (la base de los selectores de fecha y de hora) a otros scripts.
@@ -1097,6 +1098,24 @@
     });
   }
 
+  /* ------------------------------------------------------ Cerrar sesión */
+  /* <form data-cerrar-sesion>: antes de salir se borran los borradores de mensajes que guardó este navegador
+     (static/js/mensajes.js): en una computadora compartida, la siguiente persona no los encuentra. */
+  function initLogout() {
+    const PREFIJO_BORRADOR = 'cisahuayo.borrador.';
+    document.addEventListener('submit', (event) => {
+      if (!event.target.matches?.('form[data-cerrar-sesion]')) return;
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+          const key = localStorage.key(i);
+          if (key?.startsWith(PREFIJO_BORRADOR)) localStorage.removeItem(key);
+        }
+      } catch (error) {
+        /* Sin almacenamiento: no hay borradores que borrar. */
+      }
+    });
+  }
+
   /* En Mac los atajos usan ⌘ en lugar de Ctrl. */
   const platform = navigator.userAgentData?.platform || navigator.platform || '';
   if (/mac|iphone|ipad/i.test(platform)) {
@@ -1117,4 +1136,5 @@
   initCopyAndPrint();
   initReveal();
   initAutosubmit();
+  initLogout();
 })();

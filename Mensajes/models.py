@@ -18,6 +18,7 @@ from datetime import time
 from pathlib import Path
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -115,6 +116,9 @@ class Miembro(models.Model):
     participante = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name='membresias')
     ultimo_leido = models.PositiveBigIntegerField(default=0)
     leido_en = models.DateTimeField(null=True, blank=True)
+    # La dejó «no leída» para acordarse de atenderla (2026-10-27): cuenta como pendiente hasta que la vuelve a abrir o
+    # escribe en ella. Es solo suya: no cambia `ultimo_leido`, así que la otra persona sigue viendo sus mensajes leídos
+    marcada_sin_leer = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Miembro de una conversación'
@@ -233,7 +237,8 @@ class ReporteMensaje(models.Model):
 class ConfiguracionMensajes(models.Model):
     """Una sola fila (pk=1): el horario de atención de la mensajería (pedido del 2026-10-27). Fuera de él (de noche, en
     fin de semana o en un día sin clases de todo el colegio), los estudiantes y las familias ven al escribirle al
-    personal que la respuesta puede llegar hasta el siguiente día de clases. No impide escribir."""
+    personal que la respuesta puede llegar hasta el siguiente día de clases. No impide escribir. También, en cuántos días
+    hábiles se espera una respuesta (la moderación muestra las conversaciones que la esperan desde hace más)."""
 
     avisar_fuera_de_horario = models.BooleanField(
         'avisar a las familias fuera del horario de atención', default=True,
@@ -241,6 +246,11 @@ class ConfiguracionMensajes(models.Model):
                   'puede llegar hasta el siguiente día de clases.')
     hora_inicio = models.TimeField('horario de atención: desde', default=time(7, 0))
     hora_fin = models.TimeField('hasta', default=time(15, 0))
+    # Moderación › Todas las conversaciones › «Esperando respuesta» (2026-10-27): Mensajes/moderacion.py
+    dias_para_responder = models.PositiveSmallIntegerField(
+        'días hábiles para responder', default=2, validators=[MinValueValidator(1), MaxValueValidator(15)],
+        help_text='En la moderación, «Esperando respuesta» muestra las conversaciones en que un estudiante o un tutor '
+                  'escribió y nadie le ha contestado en ese tiempo (de lunes a viernes, sin los días sin clases).')
     modificado = models.DateTimeField(auto_now=True)
     modificado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
 

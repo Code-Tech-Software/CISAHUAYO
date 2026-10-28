@@ -115,14 +115,22 @@ def _resultado(mensaje, cuenta):
     }
 
 
+def _sin_leer(request):
+    """Si la bandeja está en el filtro «Sin leer» (?sin_leer=1: lo conservan los enlaces de la lista)."""
+    return (request.GET.get('sin_leer') or request.POST.get('sin_leer')) == '1'
+
+
 def _pantalla(request, cuenta, conversacion=None, **extra):
     participante = cuenta.participante
     limpieza.limpiar_si_toca()   # una vez al día: los archivos que se subieron y nunca se enviaron
     busqueda = request.GET.get('q', '').strip()
-    bandeja, siguientes = reglas.pagina_de_bandeja(participante, despues=request.GET.get('despues') or None)
+    sin_leer = _sin_leer(request)
+    bandeja, siguientes = reglas.pagina_de_bandeja(participante, despues=request.GET.get('despues') or None, solo_sin_leer=sin_leer,
+                                                   incluir=conversacion.pk if conversacion else None)
     contexto = {
         **cuenta.contexto, 'base': cuenta.base, 'espacio': cuenta.espacio, 'yo': participante,
         'bandeja': bandeja, 'siguientes': siguientes, 'conversacion': conversacion, 'busqueda': busqueda,
+        'sin_leer': sin_leer, 'filtro_qs': '?sin_leer=1' if sin_leer else '',
         'contactos': reglas.contactos(participante, busqueda) if busqueda else None,
         'encontrados': [_resultado(m, cuenta) for m in reglas.buscar_mensajes(participante, busqueda)] if busqueda else None,
         'hoy_iso': timezone.localdate().isoformat(),
@@ -187,6 +195,7 @@ def conversacion(request, pk):
         puede_escribir=puede_escribir, maximo=Mensaje.MAXIMO,
         fuera_de_horario=reglas.aviso_fuera_de_horario(participante, otro) if puede_escribir else '',
         url_enviar=cuenta.url('enviar', conversacion.pk), url_leida=cuenta.url('leida', conversacion.pk),
+        url_no_leida=cuenta.url('no_leida', conversacion.pk),
         url_imagenes=cuenta.url('imagen_subir', conversacion.pk), acepta_imagenes=ACEPTA_IMAGENES,
         url_documentos=cuenta.url('documento_subir', conversacion.pk), acepta_documentos=ACEPTA_DOCUMENTOS,
         maximo_imagen_mb=ImagenMensaje.TAMANO_MAXIMO_MB, documentos_por_mensaje=ImagenMensaje.DOCUMENTOS_POR_MENSAJE,
@@ -392,6 +401,21 @@ def leida(request, pk):
     return JsonResponse({'no_leidos': reglas.no_leidos(cuenta.participante)})
 
 
+@require_POST
+def no_leida(request, pk):
+    """Deja la conversación «no leída» para atenderla después (reglas.marcar_no_leida) y vuelve a la lista: si se quedara
+    abierta, contaría como vista."""
+    cuenta = request.mensajeria
+    conversacion = _conversacion(cuenta, pk)
+    try:
+        reglas.marcar_no_leida(conversacion, cuenta.participante)
+    except reglas.MensajeRechazado as rechazo:
+        messages.error(request, str(rechazo))
+        return redirect(cuenta.url('conversacion', conversacion.pk))
+    messages.success(request, 'La conversación quedó como no leída.')
+    return redirect(cuenta.url('inicio') + ('?sin_leer=1' if _sin_leer(request) else ''))
+
+
 @require_GET
 def contactos(request):
     cuenta = request.mensajeria
@@ -409,13 +433,17 @@ def buscar(request):
 
 @require_GET
 def conversaciones(request):
-    """Las conversaciones que siguen en la bandeja («Ver más conversaciones»): {html, siguientes}."""
+    """Las conversaciones que siguen en la bandeja («Ver más conversaciones», y toda la lista al reconectarse):
+    {html, siguientes}. Con ?sin_leer=1, las del filtro «Sin leer» (y la abierta, `actual`)."""
     cuenta = request.mensajeria
-    bandeja, siguientes = reglas.pagina_de_bandeja(cuenta.participante, despues=request.GET.get('despues') or None)
     actual = request.GET.get('actual', '')
+    actual = int(actual) if actual.isdigit() else None
+    sin_leer = _sin_leer(request)
+    bandeja, siguientes = reglas.pagina_de_bandeja(cuenta.participante, despues=request.GET.get('despues') or None,
+                                                   solo_sin_leer=sin_leer, incluir=actual)
     html = render_to_string('mensajes/_conversaciones.html', {
         'bandeja': bandeja, 'espacio': cuenta.espacio, 'hoy_iso': timezone.localdate().isoformat(),
-        'actual': int(actual) if actual.isdigit() else None,
+        'actual': actual, 'filtro_qs': '?sin_leer=1' if sin_leer else '',
     }, request=request)
     return JsonResponse({'html': html, 'siguientes': siguientes or ''})
 

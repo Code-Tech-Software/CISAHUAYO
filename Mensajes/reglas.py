@@ -18,7 +18,7 @@ from datetime import timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q, Value
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
@@ -348,7 +348,7 @@ def enviar(conversacion, autor, texto, html='', documentos=(), responde_a=None):
             _pendientes(conversacion, autor).filter(pk__in=[*imagenes, *documentos]).update(mensaje=mensaje)
         Conversacion.objects.filter(pk=conversacion.pk).update(actualizada=mensaje.creado, ultimo_mensaje=mensaje)
         ahora = timezone.now()
-        Miembro.objects.filter(conversacion=conversacion, participante=autor).update(ultimo_leido=mensaje.pk, leido_en=ahora)
+        Miembro.objects.filter(conversacion=conversacion, participante=autor).update(ultimo_leido=mensaje.pk, leido_en=ahora, marcada_sin_leer=False)
         # Quien responde ya leyó lo anterior: la otra persona lo ve como «Leído»
         leidos = Mensaje.objects.filter(conversacion=conversacion, pk__lt=mensaje.pk, leido_en__isnull=True).exclude(autor=autor).update(leido_en=ahora)
         transaction.on_commit(lambda: tiempo_real.avisar_mensaje(mensaje))
@@ -489,18 +489,32 @@ def html_visible(mensaje, participante):
 
 def marcar_leida(conversacion, participante, hasta=None):
     """Marca como leído todo lo que hay en la conversación (y la hora en cada mensaje de la otra persona que no se había
-    leído); con `hasta` (un id), solo hasta ese mensaje: lo que vino después no se ha visto. Devuelve True si había algo
-    sin leer."""
+    leído); con `hasta` (un id), solo hasta ese mensaje: lo que vino después no se ha visto. Si la había dejado «no
+    leída», deja de estarlo. Devuelve True si había algo sin leer."""
     mensajes = conversacion.mensajes.filter(pk__lte=hasta) if hasta else conversacion.mensajes
     ultimo = mensajes.order_by('-pk').values_list('pk', flat=True).first() or 0
     ahora = timezone.now()
-    cambiados = Miembro.objects.filter(conversacion=conversacion, participante=participante, ultimo_leido__lt=ultimo).update(
-        ultimo_leido=ultimo, leido_en=ahora)
+    suyo = Miembro.objects.filter(conversacion=conversacion, participante=participante)
+    desmarcada = suyo.filter(marcada_sin_leer=True).update(marcada_sin_leer=False)
+    cambiados = suyo.filter(ultimo_leido__lt=ultimo).update(ultimo_leido=ultimo, leido_en=ahora)
+    from . import tiempo_real
     if cambiados:
         Mensaje.objects.filter(conversacion=conversacion, pk__lte=ultimo, leido_en__isnull=True).exclude(autor=participante).update(leido_en=ahora)
-        from . import tiempo_real
         transaction.on_commit(lambda: tiempo_real.avisar_lectura(conversacion, participante, ultimo, ahora))
-    return bool(cambiados)
+    elif desmarcada:   # solo la marca: la otra persona no tiene nada que saber; sus otras pestañas, sí
+        transaction.on_commit(lambda: tiempo_real.avisar_resumen(participante, conversacion.pk))
+    return bool(cambiados or desmarcada)
+
+
+def marcar_no_leida(conversacion, participante):
+    """La persona deja la conversación «no leída» para acordarse de atenderla, como en el correo (pedido del
+    2026-10-27): cuenta como pendiente en su lista y en su campana hasta que la vuelve a abrir o escribe en ella. Es solo
+    suya: la otra persona sigue viendo sus mensajes como leídos. MensajeRechazado si la conversación no tiene mensajes."""
+    if not conversacion.mensajes.exists():
+        raise MensajeRechazado('Esta conversación todavía no tiene mensajes.')
+    Miembro.objects.filter(conversacion=conversacion, participante=participante).update(marcada_sin_leer=True)
+    from . import tiempo_real
+    transaction.on_commit(lambda: tiempo_real.avisar_resumen(participante, conversacion.pk))
 
 
 def texto_de_lectura(momento):
@@ -546,14 +560,21 @@ def _sin_leer(participante):
 
 
 def no_leidos(participante):
+    """Los mensajes sin leer, más uno por cada conversación que dejó «no leída» y no tiene ninguno."""
     if participante is None:
         return 0
-    return _sin_leer(participante).count()
+    return sum(sin_leer_por_conversacion(participante).values())
 
 
 def sin_leer_por_conversacion(participante):
-    """{conversacion_id: mensajes sin leer} (solo las que tienen alguno): una sola consulta."""
-    return dict(_sin_leer(participante).values('conversacion').annotate(n=Count('pk')).values_list('conversacion', 'n'))
+    """{conversacion_id: mensajes sin leer} (solo las que tienen alguno; una que dejó «no leída» cuenta al menos uno):
+    una sola consulta."""
+    reales = _sin_leer(participante).order_by().values('conversacion').annotate(n=Count('pk')).values_list('conversacion', 'n')
+    marcadas = Miembro.objects.filter(participante=participante, marcada_sin_leer=True).annotate(n=Value(1)).values_list('conversacion', 'n')
+    pendientes = {}
+    for conversacion, n in reales.union(marcadas, all=True).order_by():   # sin el orden de Mensaje (no está en la unión)
+        pendientes[conversacion] = max(pendientes.get(conversacion, 0), n)
+    return pendientes
 
 
 def cursor_de(conversacion):
@@ -569,14 +590,15 @@ def _desde_cursor(cursor):
     return datetime(1970, 1, 1, tzinfo=dt_timezone.utc) + timedelta(microseconds=int(momento)), int(pk)
 
 
-def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_leer=False):
+def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_leer=False, incluir=None):
     """Las conversaciones de la persona, de la más reciente a la más antigua, con la otra persona, el último mensaje y
     cuántos mensajes no ha leído. Con `despues` (un cursor de `cursor_de`), las que siguen a esa; con `solo_sin_leer`,
-    solo las que tienen algo sin leer (`pendientes`: lo de `sin_leer_por_conversacion`, si ya se consultó)."""
+    solo las que tienen algo sin leer (`pendientes`: lo de `sin_leer_por_conversacion`, si ya se consultó) y la de id
+    `incluir` (la que tiene abierta: al abrirla quedó leída, pero sigue en la lista)."""
     pendientes = sin_leer_por_conversacion(participante) if pendientes is None else pendientes
     consulta = Conversacion.objects.filter(miembros__participante=participante, ultimo_mensaje__isnull=False)
     if solo_sin_leer:
-        consulta = consulta.filter(pk__in=list(pendientes))
+        consulta = consulta.filter(Q(pk__in=list(pendientes)) | Q(pk=incluir) if incluir else Q(pk__in=list(pendientes)))
     if (desde := _desde_cursor(despues)) is not None:
         consulta = consulta.filter(Q(actualizada__lt=desde[0]) | Q(actualizada=desde[0], pk__lt=desde[1]))
     conversaciones = list(consulta.select_related('ultimo_mensaje__autor').order_by('-actualizada', '-pk')[:limite])
@@ -598,10 +620,11 @@ def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_lee
 POR_PAGINA_BANDEJA = 60
 
 
-def pagina_de_bandeja(participante, despues=None, limite=None):
-    """(conversaciones, cursor de las siguientes o None si ya no hay más)."""
+def pagina_de_bandeja(participante, despues=None, limite=None, solo_sin_leer=False, incluir=None):
+    """(conversaciones, cursor de las siguientes o None si ya no hay más). Con `solo_sin_leer`, el filtro «Sin leer» de
+    la bandeja (y `incluir`, la conversación abierta): ver `bandeja`."""
     limite = limite or POR_PAGINA_BANDEJA
-    conversaciones = bandeja(participante, limite=limite + 1, despues=despues)
+    conversaciones = bandeja(participante, limite=limite + 1, despues=despues, solo_sin_leer=solo_sin_leer, incluir=incluir)
     if len(conversaciones) > limite:
         conversaciones = conversaciones[:limite]
         return conversaciones, cursor_de(conversaciones[-1])

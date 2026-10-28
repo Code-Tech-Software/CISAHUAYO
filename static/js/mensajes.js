@@ -21,6 +21,9 @@
      se envía con su id) y, los propios en sus primeros 2 minutos, «Corregir» (en el lugar; queda «editado» para los
      dos). Mientras se escribe se avisa a la otra persona, a lo más cada 3 segundos, por el WebSocket de avisos.js; su
      «está escribiendo…» se quita a los 5 segundos sin avisos o cuando llega su mensaje.
+   - Borradores (2026-10-27): lo que se está escribiendo (con su cita y sus documentos) se guarda en el navegador por
+     conversación y vuelve al abrirla otra vez. El filtro «Sin leer» de la lista se conserva en sus enlaces, y el
+     resumen de una conversación dejada «no leída» le pone su conteo.
    Sin JavaScript la pantalla funciona con formularios normales.
 */
 (() => {
@@ -31,6 +34,7 @@
 
   const conversacion = Number(chat.dataset.conversacion || 0);
   const hayPosteriores = chat.hasAttribute('data-hay-posteriores');
+  const sinLeer = chat.hasAttribute('data-sin-leer');   /* el filtro «Sin leer» de la lista: sus enlaces lo conservan */
   const mensajes = chat.querySelector('[data-chat-mensajes]');
   const formulario = chat.querySelector('[data-chat-formulario]');
   const campo = chat.querySelector('[data-chat-campo]');
@@ -370,14 +374,20 @@
     if (!barraRespuesta) return;
     barraRespuesta.hidden = true;
     respondeA.value = '';
+    guardarBorradorLuego();
+  };
+  const ponerRespuesta = (id, autor, cita) => {
+    respondeA.value = id;
+    barraRespuesta.querySelector('[data-chat-respuesta-autor]').textContent = autor;
+    barraRespuesta.querySelector('[data-chat-respuesta-cita]').textContent = cita;
+    barraRespuesta.hidden = false;
   };
   const responder = (burbuja) => {
     if (!barraRespuesta) return;
     const texto = (burbuja.querySelector('.burbuja__texto') || burbuja.querySelector('.burbuja__documentos'))?.innerText.trim() || '';
-    respondeA.value = burbuja.dataset.mensaje;
-    barraRespuesta.querySelector('[data-chat-respuesta-autor]').textContent = burbuja.classList.contains('burbuja--mia') ? 'Tú' : (burbuja.dataset.autor || '');
-    barraRespuesta.querySelector('[data-chat-respuesta-cita]').textContent = texto.length > 120 ? `${texto.slice(0, 119)}…` : texto;
-    barraRespuesta.hidden = false;
+    ponerRespuesta(burbuja.dataset.mensaje, burbuja.classList.contains('burbuja--mia') ? 'Tú' : (burbuja.dataset.autor || ''),
+      texto.length > 120 ? `${texto.slice(0, 119)}…` : texto);
+    guardarBorradorLuego();
     if (editor) editor.enfocar();
     else campo?.focus();
   };
@@ -511,7 +521,7 @@
       fila.dataset.conversacionItem = String(datos.conversacion);
       fila.dataset.texto = con.nombre.toLowerCase();
       const enlace = elemento('a', `chat-item${actual ? ' is-actual' : ''}`);
-      enlace.href = datos.url;
+      enlace.href = `${datos.url}${sinLeer ? '?sin_leer=1' : ''}`;
       if (actual) enlace.setAttribute('aria-current', 'page');
       const avatar = elemento('span', `avatar chat-item__avatar${con.tipo ? ` chat-persona__avatar--${con.tipo}` : ''}`, con.iniciales);
       avatar.setAttribute('aria-hidden', 'true');
@@ -539,20 +549,36 @@
       conteo.textContent = String((Number(conteo.textContent) || 0) + 1);
       conteo.hidden = false;
       enlace.classList.add('is-sin-leer');
+    } else if (datos.mio) {   /* quien escribe ya leyó todo lo anterior (también desde otra pestaña) */
+      conteo.textContent = '0';
+      conteo.hidden = true;
+      enlace.classList.remove('is-sin-leer');
     }
     conversaciones.prepend(fila);
     filtrarConversaciones();
     if (sinConversaciones) sinConversaciones.hidden = true;
   };
 
-  const limpiarConteo = (id) => {
+  /* Lo que queda pendiente en una conversación (0 al leerla; 1 o más si se dejó «no leída») */
+  const ponerConteo = (id, pendientes) => {
     const fila = conversaciones?.querySelector(`[data-conversacion-item="${id}"]`);
     if (!fila) return;
     const conteo = fila.querySelector('[data-chat-item-conteo]');
-    conteo.textContent = '0';
-    conteo.hidden = true;
-    fila.querySelector('.chat-item')?.classList.remove('is-sin-leer');
+    conteo.textContent = String(pendientes);
+    conteo.setAttribute('aria-label', `${pendientes} sin leer`);
+    conteo.hidden = !pendientes;
+    fila.querySelector('.chat-item')?.classList.toggle('is-sin-leer', Boolean(pendientes));
   };
+
+  /* La dirección de la lista de conversaciones (siguientes o toda), con el filtro «Sin leer» si está puesto */
+  const urlDeLista = (despues) => {
+    const url = new URL(chat.dataset.conversacionesUrl, window.location.href);
+    if (despues) url.searchParams.set('despues', despues);
+    if (conversacion) url.searchParams.set('actual', String(conversacion));
+    if (sinLeer) url.searchParams.set('sin_leer', '1');
+    return url;
+  };
+  const enlaceDeSiguientes = (despues) => `?despues=${encodeURIComponent(despues)}${sinLeer ? '&sin_leer=1' : ''}`;
 
   /* «Ver más conversaciones»: las siguientes, sin recargar (sin JavaScript, el enlace lleva a la página siguiente) */
   chat.addEventListener('click', async (evento) => {
@@ -562,10 +588,7 @@
     if (enlace.classList.contains('is-loading')) return;
     enlace.classList.add('is-loading');
     try {
-      const url = new URL(chat.dataset.conversacionesUrl, window.location.href);
-      url.searchParams.set('despues', enlace.dataset.siguientes);
-      if (conversacion) url.searchParams.set('actual', String(conversacion));
-      const respuesta = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      const respuesta = await fetch(urlDeLista(enlace.dataset.siguientes), { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
       if (!respuesta.ok) throw new Error('sin respuesta');
       const datos = await respuesta.json();
       const plantilla = document.createElement('template');
@@ -576,7 +599,7 @@
       filtrarConversaciones();
       if (datos.siguientes) {
         enlace.dataset.siguientes = datos.siguientes;
-        enlace.href = `?despues=${encodeURIComponent(datos.siguientes)}`;
+        enlace.href = enlaceDeSiguientes(datos.siguientes);
       } else {
         enlace.closest('[data-chat-mas-fila]')?.remove();
       }
@@ -648,7 +671,7 @@
     } else if (datos.evento === 'leido' && datos.conversacion === conversacion) {
       marcarLeidosHasta(datos.hasta, datos.leido);
     } else if (datos.evento === 'resumen') {
-      limpiarConteo(datos.conversacion);
+      ponerConteo(datos.conversacion, Number(datos.pendientes) || 0);
     }
   });
 
@@ -663,9 +686,7 @@
 
   const refrescarLista = async () => {
     if (!conversaciones || !chat.dataset.conversacionesUrl) return;
-    const url = new URL(chat.dataset.conversacionesUrl, window.location.href);
-    if (conversacion) url.searchParams.set('actual', String(conversacion));
-    const datos = await pedirJsonDe(url);
+    const datos = await pedirJsonDe(urlDeLista());
     if (!datos) return;
     const plantilla = document.createElement('template');
     plantilla.innerHTML = datos.html;   /* lo pinta el servidor (templates/mensajes/_conversaciones.html) */
@@ -682,7 +703,7 @@
     if (datos.siguientes) {
       const enlace = fila.querySelector('[data-chat-mas]');
       enlace.dataset.siguientes = datos.siguientes;
-      enlace.href = `?despues=${encodeURIComponent(datos.siguientes)}`;
+      enlace.href = enlaceDeSiguientes(datos.siguientes);
     } else {
       fila?.remove();
     }
@@ -731,7 +752,7 @@
   });
 
   /* ------------------------------------------------------------------ documentos adjuntos (PDF) */
-  const adjuntos = [];   /* {id, nombre}: los ya subidos, en el orden en que se agregaron */
+  const adjuntos = [];   /* {id, nombre, tamano, subido}: los ya subidos, en el orden en que se agregaron */
   let subiendoAdjuntos = 0;
   let editor = null;
 
@@ -764,6 +785,23 @@
     return { ficha, detalle, quitar };
   };
 
+  /* Un documento ya subido: su ficha lista para quitarse (al terminar de subir, o al recuperar el borrador) */
+  const listoParaEnviar = (adjunto, { ficha, detalle, quitar }) => {
+    adjuntos.push(adjunto);
+    ficha.classList.remove('is-subiendo');
+    detalle.textContent = adjunto.tamano;
+    quitar.disabled = false;
+    quitar.addEventListener('click', () => {
+      adjuntos.splice(adjuntos.indexOf(adjunto), 1);
+      ficha.remove();
+      listaAdjuntos.hidden = !listaAdjuntos.children.length;
+      actualizarCaja();
+      guardarBorradorLuego();
+      if (editor) editor.enfocar();
+      else campo?.focus();
+    });
+  };
+
   const subirAdjuntos = async (archivos) => {
     if (!archivoAdjunto || !listaAdjuntos) return;
     const maximo = Number(archivoAdjunto.dataset.maximo) || 10;
@@ -782,7 +820,8 @@
         mostrarError(`«${archivo.name}» pesa más de ${maximoMb} MB.`);
         continue;
       }
-      const { ficha, detalle, quitar } = fichaDeAdjunto(archivo.name);
+      const piezas = fichaDeAdjunto(archivo.name);
+      const { ficha } = piezas;
       listaAdjuntos.append(ficha);
       listaAdjuntos.hidden = false;
       subiendoAdjuntos += 1;
@@ -793,19 +832,8 @@
         const respuesta = await post(archivoAdjunto.dataset.url, datos);
         const resultado = await respuesta.json().catch(() => ({}));
         if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo adjuntar el documento.');
-        const adjunto = { id: resultado.id, nombre: resultado.nombre };
-        adjuntos.push(adjunto);
-        ficha.classList.remove('is-subiendo');
-        detalle.textContent = resultado.tamano;
-        quitar.disabled = false;
-        quitar.addEventListener('click', () => {
-          adjuntos.splice(adjuntos.indexOf(adjunto), 1);
-          ficha.remove();
-          listaAdjuntos.hidden = !listaAdjuntos.children.length;
-          actualizarCaja();
-          if (editor) editor.enfocar();
-          else campo?.focus();
-        });
+        listoParaEnviar({ id: resultado.id, nombre: resultado.nombre, tamano: resultado.tamano, subido: Date.now() }, piezas);
+        guardarBorradorLuego();
       } catch (problema) {
         ficha.remove();
         mostrarError(problema.message || 'No se pudo adjuntar el documento. Revisa tu conexión e inténtalo de nuevo.');
@@ -821,6 +849,134 @@
     adjuntos.length = 0;
     listaAdjuntos?.replaceChildren();
     if (listaAdjuntos) listaAdjuntos.hidden = true;
+  };
+
+  /* ------------------------------------------------------------------ borradores (2026-10-27) */
+  /* Lo que se está escribiendo se guarda en este navegador, por cuenta y conversación: cambiar de conversación o
+     recargar la página ya no lo pierde. Se borra al enviar, a los 7 días, al cerrar sesión (static/js/app.js) y cuando
+     otra cuenta abre los mensajes en este navegador. Los documentos adjuntos vuelven solo mientras siguen en el servidor
+     (los que no se envían se borran al día siguiente: Mensajes/limpieza.py). */
+  const PREFIJO_BORRADOR = 'cisahuayo.borrador.';
+  const VIGENCIA_BORRADOR = 7 * 24 * 3600 * 1000;
+  const VIGENCIA_ADJUNTO = 20 * 3600 * 1000;
+  const prefijoPropio = `${PREFIJO_BORRADOR}${chat.dataset.yo || ''}.`;
+  const llaveBorrador = conversacion && formulario ? `${prefijoPropio}${conversacion}` : '';
+  const almacen = (() => {
+    try {
+      return window.localStorage;
+    } catch (problema) {
+      return null;   /* sin almacenamiento (navegación privada estricta, permisos): sin borradores */
+    }
+  })();
+  let restaurando = false;
+
+  const leerBorrador = (llave) => {
+    try {
+      const borrador = JSON.parse(almacen.getItem(llave) || 'null');
+      return borrador && typeof borrador === 'object' ? borrador : null;
+    } catch (problema) {
+      return null;
+    }
+  };
+
+  /* Los de otras cuentas y los viejos se van en cuanto se abren los mensajes */
+  const limpiarBorradores = () => {
+    if (!almacen) return;
+    try {
+      for (let indice = almacen.length - 1; indice >= 0; indice -= 1) {
+        const llave = almacen.key(indice);
+        if (!llave?.startsWith(PREFIJO_BORRADOR)) continue;
+        const guardado = Number(leerBorrador(llave)?.guardado) || 0;
+        if (!llave.startsWith(prefijoPropio) || Date.now() - guardado > VIGENCIA_BORRADOR) almacen.removeItem(llave);
+      }
+    } catch (problema) {
+      /* sin almacenamiento */
+    }
+  };
+
+  let pausaBorrador = null;
+  const guardarBorrador = () => {
+    window.clearTimeout(pausaBorrador);
+    pausaBorrador = null;
+    if (!llaveBorrador || !almacen || restaurando) return;
+    const html = editor && !editor.vacio() ? editor.html() : '';
+    const texto = editor ? (editor.vacio() ? '' : editor.texto()) : (campo?.value || '');
+    const responde = respondeA?.value ? {
+      id: respondeA.value,
+      autor: barraRespuesta.querySelector('[data-chat-respuesta-autor]').textContent,
+      cita: barraRespuesta.querySelector('[data-chat-respuesta-cita]').textContent,
+    } : null;
+    try {
+      if (!texto.trim() && !html && !adjuntos.length && !responde) almacen.removeItem(llaveBorrador);
+      else almacen.setItem(llaveBorrador, JSON.stringify({ texto, html, responde, adjuntos, guardado: Date.now() }));
+    } catch (problema) {
+      /* lleno o sin permiso: se sigue sin borrador */
+    }
+  };
+  function guardarBorradorLuego() {   /* declarada como función: la usan las citas y los adjuntos, definidos antes */
+    window.clearTimeout(pausaBorrador);
+    pausaBorrador = window.setTimeout(guardarBorrador, 400);
+  }
+  const borrarBorrador = () => {
+    window.clearTimeout(pausaBorrador);
+    pausaBorrador = null;
+    try {
+      if (llaveBorrador) almacen?.removeItem(llaveBorrador);
+    } catch (problema) {
+      /* sin almacenamiento */
+    }
+  };
+  /* Al salir de la página con un cambio aún sin guardar (salvo al cerrar sesión: app.js acaba de borrar los borradores) */
+  window.addEventListener('pagehide', () => {
+    if (pausaBorrador) guardarBorrador();
+  });
+  document.addEventListener('submit', (evento) => {
+    if (!evento.target.matches?.('form[data-cerrar-sesion]')) return;
+    window.clearTimeout(pausaBorrador);
+    pausaBorrador = null;
+  }, true);
+
+  const parrafos = (texto) => texto.split('\n').map((renglon) => {
+    const parrafo = document.createElement('p');
+    parrafo.textContent = renglon;
+    return renglon ? parrafo.outerHTML : '<p><br></p>';
+  }).join('');
+
+  /* Devuelve true si había un borrador */
+  const restaurarBorrador = () => {
+    if (!llaveBorrador || !almacen) return false;
+    const borrador = leerBorrador(llaveBorrador);
+    if (!borrador) return false;
+    restaurando = true;
+    try {
+      const texto = typeof borrador.texto === 'string' ? borrador.texto : '';
+      const html = typeof borrador.html === 'string' ? borrador.html : '';
+      if (editor && (html || texto)) editor.poner(html || parrafos(texto));
+      else if (campo && texto) {
+        campo.value = texto;
+        ajustarAltura();
+      }
+      const responde = borrador.responde;
+      if (responde?.id && barraRespuesta && /^\d+$/.test(String(responde.id))) {
+        ponerRespuesta(String(responde.id), String(responde.autor || ''), String(responde.cita || ''));
+      }
+      if (archivoAdjunto && listaAdjuntos && Array.isArray(borrador.adjuntos)) {
+        const maximo = Number(archivoAdjunto.dataset.maximo) || 10;
+        borrador.adjuntos
+          .filter((adjunto) => Number.isInteger(adjunto?.id) && Date.now() - (Number(adjunto.subido) || 0) < VIGENCIA_ADJUNTO)
+          .slice(0, maximo)
+          .forEach((adjunto) => {
+            const piezas = fichaDeAdjunto(String(adjunto.nombre || 'documento.pdf'));
+            listaAdjuntos.append(piezas.ficha);
+            listoParaEnviar({ id: adjunto.id, nombre: String(adjunto.nombre || ''), tamano: String(adjunto.tamano || ''), subido: Number(adjunto.subido) }, piezas);
+          });
+        listaAdjuntos.hidden = !listaAdjuntos.children.length;
+      }
+      actualizarCaja();
+    } finally {
+      restaurando = false;
+    }
+    return true;
   };
 
   chat.querySelector('[data-chat-adjuntar]')?.addEventListener('click', () => archivoAdjunto?.click());
@@ -847,7 +1003,9 @@
       alEnviar: enviarAhora,
       alCambiar: () => {
         actualizarCaja();
+        if (restaurando) return;   /* el borrador recuperado al abrir: nadie está escribiendo */
         if (!editor?.vacio()) avisarQueEscribo();
+        guardarBorradorLuego();
       },
     });
     campo.hidden = true;
@@ -864,7 +1022,10 @@
   campo?.addEventListener('input', () => {
     ajustarAltura();
     if (campo.value.trim()) avisarQueEscribo();
+    if (!editor) guardarBorradorLuego();
   });
+  limpiarBorradores();
+  const conBorrador = restaurarBorrador();
   campo?.addEventListener('keydown', (evento) => {
     if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
       evento.preventDefault();
@@ -903,6 +1064,7 @@
       const datos = await respuesta.json().catch(() => ({}));
       if (!respuesta.ok) throw new Error(datos.error || 'No se pudo enviar el mensaje.');
       if (hayPosteriores) {   /* se estaba viendo una parte anterior: a los más recientes, con el nuevo */
+        borrarBorrador();
         window.location.href = `${chat.dataset.conversacionUrl}#mensaje-${datos.id}`;
         return;
       }
@@ -914,6 +1076,7 @@
       if (campoHtml) campoHtml.value = '';
       editor?.vaciar();
       vaciarAdjuntos();
+      borrarBorrador();
       ajustarAltura();
       actualizarCaja();
     } catch (problema) {
@@ -930,8 +1093,12 @@
     }
   });
   if (window.matchMedia('(min-width: 48rem)').matches) {
-    if (editor) editor.enfocar();
-    else campo?.focus({ preventScroll: true });
+    if (editor) {
+      editor.enfocar();
+      if (conBorrador) editor.ponerCursorAlFinal();   /* para seguir escribiendo donde se quedó */
+    } else {
+      campo?.focus({ preventScroll: true });
+    }
   }
 
   /* ------------------------------------------------------------------ buscar */

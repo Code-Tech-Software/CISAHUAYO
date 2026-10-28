@@ -2,7 +2,9 @@
 {% load static %}
 {% comment %}
   Moderación › Todas las conversaciones (Mensajes/views_moderacion.conversaciones): las del colegio que tienen mensajes,
-  de la más reciente a la más antigua, por persona o por con quién son (estudiantes, tutores o entre el personal).
+  de la más reciente a la más antigua, por persona o por con quién son (estudiantes, tutores o entre el personal), y las
+  que esperan respuesta (Mensajes/moderacion.ESPERANDO: un estudiante o un tutor escribió y nadie le ha contestado en
+  los días hábiles de Ajustes › Mensajes), de la que más lleva esperando a la que menos.
 {% endcomment %}
 
 {% block title %}Conversaciones · Moderación | CISAHUAYO{% endblock %}
@@ -28,6 +30,16 @@
 
   {% include "mensajes/_moderacion_pestanas.html" %}
 
+  {% if esperan %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="clock" icon_class="alert__icon" %}
+      <p class="alert__body">
+        {{ esperan }} conversaci{{ esperan|pluralize:"ón espera,ones esperan" }} respuesta desde hace {{ dias_para_responder }} día{{ dias_para_responder|pluralize }} hábil{{ dias_para_responder|pluralize:"es" }} o más: un estudiante o un tutor escribió y nadie le ha contestado.
+        <a href="?estado=esperando">Ver cuáles</a>
+      </p>
+    </div>
+  {% endif %}
+
   <form class="filters" method="get" role="search" aria-label="Buscar conversaciones" data-autosubmit>
     {% if por_pagina and por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
     <div class="filters__search">
@@ -39,6 +51,10 @@
       <label class="visually-hidden" for="{{ filtro.tipo.id_for_label }}">{{ filtro.tipo.label }}</label>
       {{ filtro.tipo }}
     </div>
+    <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.estado.id_for_label }}">{{ filtro.estado.label }}</label>
+      {{ filtro.estado }}
+    </div>
     <div class="filters__actions">
       <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
       {% if filtros_activos %}<a class="btn btn--ghost btn--sm" href="{% url 'mensajes:moderacion_conversaciones' %}">Limpiar</a>{% endif %}
@@ -46,7 +62,7 @@
   </form>
 
   {% if pagina.paginator.count %}
-    <p class="results-summary" role="status">{{ pagina.paginator.count }} conversaci{{ pagina.paginator.count|pluralize:"ón,ones" }}{% if filtros_activos %} con los filtros aplicados{% endif %}</p>
+    <p class="results-summary" role="status">{{ pagina.paginator.count }} conversaci{{ pagina.paginator.count|pluralize:"ón,ones" }}{% if filtros_activos %} con los filtros aplicados{% endif %}{% if esperando %} · esperan respuesta desde hace {{ dias_para_responder }} día{{ dias_para_responder|pluralize }} hábil{{ dias_para_responder|pluralize:"es" }} o más, la que más lleva primero{% endif %}</p>
 
     <div class="table-card">
       <table class="table table--people moderacion-tabla">
@@ -74,6 +90,7 @@
               <td class="table__cell moderacion-texto" data-label="Último mensaje">
                 <span class="moderacion-fragmento">{{ conversacion.ultimo_mensaje.texto|truncatechars:140 }}</span>
                 <span class="text-muted moderacion-fecha"><time datetime="{{ conversacion.actualizada|date:'c' }}">{{ conversacion.actualizada|date:"j M Y" }}, {{ conversacion.actualizada|time:"H:i" }}</time></span>
+                {% if esperando %}<span class="tag tag--warning moderacion-espera">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Sin respuesta: {{ conversacion.dias_esperando }} día{{ conversacion.dias_esperando|pluralize }} hábil{{ conversacion.dias_esperando|pluralize:"es" }}</span>{% endif %}
               </td>
               <td class="table__cell" data-label="Mensajes">{{ conversacion.total }}</td>
               <td class="table__cell table__cell--actions">
@@ -93,7 +110,7 @@
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="message-circle" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">{% if filtros_activos %}No hay conversaciones con esos filtros{% else %}Todavía no hay conversaciones{% endif %}</p>
+        <p class="empty-state__title">{% if esperando and filtros_activos|length == 1 %}Ninguna conversación espera respuesta{% elif filtros_activos %}No hay conversaciones con esos filtros{% else %}Todavía no hay conversaciones{% endif %}</p>
         {% if filtros_activos %}<a class="btn btn--sm" href="{% url 'mensajes:moderacion_conversaciones' %}">Limpiar filtros</a>{% endif %}
       </div>
     </div>

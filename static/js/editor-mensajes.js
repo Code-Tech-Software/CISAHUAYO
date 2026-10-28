@@ -13,7 +13,7 @@
    - Imágenes: se suben al servidor (solo las ve la conversación) y se insertan; al tocarlas se cambia su tamaño, su
      texto alternativo o se eliminan.
    Uso (static/js/mensajes.js): new EditorEnriquecido(raiz, { alEnviar, alCambiar }) → .html(), .texto(), .vacio(),
-   .subiendo(), .vaciar(), .enfocar().
+   .subiendo(), .vaciar(), .enfocar(), .poner(html) (un borrador guardado) y .ponerCursorAlFinal().
 */
 (() => {
   'use strict';
@@ -158,6 +158,31 @@
 
     enfocar() {
       this.area.focus({ preventScroll: true });
+    }
+
+    /* Pone un contenido guardado (el borrador de la conversación, static/js/mensajes.js) como punto de partida: sin
+       historial anterior y con el cursor al final, sin tomar el foco. Salió de este mismo editor; aun así se le quitan
+       scripts y atributos de eventos antes de mostrarlo. */
+    poner(html) {
+      const documento = new DOMParser().parseFromString(html || '', 'text/html');
+      qsa('script,style,iframe,object,embed,svg,math,meta,link,form,input,button,textarea,select', documento.body).forEach((nodo) => nodo.remove());
+      qsa('*', documento.body).forEach((nodo) => {
+        [...nodo.attributes].forEach((atributo) => {
+          if (/^on/i.test(atributo.name) || (['href', 'src'].includes(atributo.name) && /^\s*javascript:/i.test(atributo.value))) {
+            nodo.removeAttribute(atributo.name);
+          }
+        });
+      });
+      this.area.innerHTML = documento.body.innerHTML.trim() || '<p><br></p>';
+      this.historial = [];
+      this.posicion = -1;
+      this.guardarEstado();
+      const rango = document.createRange();
+      rango.selectNodeContents(this.area.lastElementChild || this.area);
+      rango.collapse(false);
+      this.rango = rango;
+      this.cambio();
+      this.actualizarBarra();
     }
 
     /* ================================================================== selección */

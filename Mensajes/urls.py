@@ -23,6 +23,7 @@ def rutas(envolver):
         path('mensajes/<int:pk>/reportar/', envolver(views.reportar), name='reportar'),
         path('push/', envolver(views.push), name='push'),
         path('<int:pk>/leida/', envolver(views.leida), name='leida'),
+        path('<int:pk>/no-leida/', envolver(views.no_leida), name='no_leida'),
         path('<int:pk>/nuevos/', envolver(views.nuevos), name='nuevos'),
         path('<int:pk>/imagenes/', envolver(views.imagen_subir), name='imagen_subir'),
         path('<int:pk>/documentos/', envolver(views.documento_subir), name='documento_subir'),

@@ -9,14 +9,17 @@ El permiso (`Mensajes.moderar`) es exclusivo del rol Administrador (Usuarios/cat
 Desde el 2026-10-27 quien recibe un mensaje puede reportarlo (Mensajes/reglas.reportar): los reportados esperan aquí a
 que el administrador los retire o descarte el reporte. Y el administrador puede recorrer todas las conversaciones del
 colegio (las de los docentes con estudiantes, con tutores o entre el personal), no solo buscar en ellas: es la decisión
-del colegio para las conversaciones privadas entre docentes y estudiantes.
+del colegio para las conversaciones privadas entre docentes y estudiantes. Entre ellas, las que esperan respuesta: un
+estudiante o un tutor escribió y nadie le ha contestado en los días hábiles de Ajustes › Mensajes.
 """
 import logging
+from datetime import datetime, time, timedelta
 
 from django.db import transaction
 from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
+from django.utils import timezone
 
-from .models import Conversacion, ImagenMensaje, Mensaje, Miembro, Participante, ReporteMensaje
+from .models import ConfiguracionMensajes, Conversacion, ImagenMensaje, Mensaje, Miembro, Participante, ReporteMensaje
 from .reglas import CON_CUENTA
 from .reglas import ventana as ventana_alrededor
 
@@ -106,12 +109,64 @@ TIPOS_DE_CONVERSACION = [
     (CON_TUTOR, 'Con tutores'),
     (ENTRE_PERSONAL, 'Entre el personal'),
 ]
+ESPERANDO = 'esperando'
+ESTADOS_DE_CONVERSACION = [(ESPERANDO, 'Esperando respuesta')]
 
 
-def conversaciones(persona='', tipo=''):
+# Días hábiles: de lunes a viernes, sin los días sin clases de todo el colegio (Alumnos/asistencias.py). Se buscan hasta
+# VENTANA días atrás (unas vacaciones largas no tienen días hábiles: la espera no avanza)
+VENTANA = 120
+
+
+def _sin_clases(desde, hasta):
+    from Alumnos.asistencias import fechas_sin_clases
+    return fechas_sin_clases(desde, hasta)
+
+
+def _es_habil(fecha, sin_clases):
+    return fecha.weekday() < 5 and fecha not in sin_clases
+
+
+def limite_de_espera(dias, hoy=None):
+    """Desde cuándo un mensaje ya lleva `dias` días hábiles sin respuesta: los de antes de este momento (la medianoche del
+    `dias`-ésimo día hábil contando hacia atrás desde hoy, hoy incluido). Con 2, un mensaje del lunes espera desde el
+    miércoles; uno del viernes, desde el martes."""
+    hoy = hoy or timezone.localdate()
+    desde = hoy - timedelta(days=VENTANA)
+    sin_clases = _sin_clases(desde, hoy)
+    fecha, contados = hoy, 0
+    while fecha > desde:
+        if _es_habil(fecha, sin_clases):
+            contados += 1
+            if contados >= dias:
+                break
+        fecha -= timedelta(days=1)
+    return timezone.make_aware(datetime.combine(fecha, time.min))
+
+
+def con_espera(conversaciones, hoy=None):
+    """Pone en cada conversación `dias_esperando`: los días hábiles desde su último mensaje hasta hoy (sin contar el día
+    en que se escribió). Una sola consulta para toda la página."""
+    conversaciones = list(conversaciones)
+    if not conversaciones:
+        return conversaciones
+    hoy = hoy or timezone.localdate()
+    fechas = {c.pk: timezone.localtime(c.actualizada).date() for c in conversaciones}
+    sin_clases = _sin_clases(min(fechas.values()), hoy)
+    for conversacion in conversaciones:
+        fecha, dias = fechas[conversacion.pk] + timedelta(days=1), 0
+        while fecha <= hoy:
+            dias += _es_habil(fecha, sin_clases)
+            fecha += timedelta(days=1)
+        conversacion.dias_esperando = dias
+    return conversaciones
+
+
+def conversaciones(persona='', tipo='', estado=''):
     """Las conversaciones del colegio que tienen mensajes, de la más reciente a la más antigua, con cuántos mensajes
     tienen. `persona`: donde participa alguien cuyo nombre, usuario o referencia coincide; `tipo`: CON_ESTUDIANTE,
-    CON_TUTOR o ENTRE_PERSONAL."""
+    CON_TUTOR o ENTRE_PERSONAL; `estado` ESPERANDO: las que esperan respuesta (su último mensaje es de un estudiante o
+    de un tutor y lleva los días hábiles de Ajustes › Mensajes o más), de la que más lleva esperando a la que menos."""
     consulta = Conversacion.objects.filter(ultimo_mensaje__isnull=False).select_related('ultimo_mensaje').annotate(
         total=Count('mensajes', distinct=True))
     if persona:
@@ -123,6 +178,11 @@ def conversaciones(persona='', tipo=''):
         consulta = consulta.filter(Exists(con[Participante.TUTOR]))
     elif tipo == ENTRE_PERSONAL:
         consulta = consulta.exclude(Exists(con[Participante.ESTUDIANTE])).exclude(Exists(con[Participante.TUTOR]))
+    if estado == ESPERANDO:
+        consulta = consulta.filter(
+            ultimo_mensaje__autor__tipo__in=[Participante.ESTUDIANTE, Participante.TUTOR],
+            actualizada__lt=limite_de_espera(ConfiguracionMensajes.actual().dias_para_responder))
+        return consulta.order_by('actualizada', 'pk')
     return consulta.order_by('-actualizada', '-pk')
 
 

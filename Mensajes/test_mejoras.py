@@ -322,10 +322,10 @@ class HorarioTests(Base):
         admin = Client()
         admin.force_login(self.admin)
         self.assertContains(admin.get(url), 'Horario de atención')
-        respuesta = admin.post(url, {'avisar_fuera_de_horario': 'on', 'hora_inicio': '08:00', 'hora_fin': '14:00'})
+        respuesta = admin.post(url, {'avisar_fuera_de_horario': 'on', 'hora_inicio': '08:00', 'hora_fin': '14:00', 'dias_para_responder': '3'})
         self.assertRedirects(respuesta, url)
         configuracion = ConfiguracionMensajes.actual()
-        self.assertEqual((configuracion.hora_inicio.hour, configuracion.hora_fin.hour, configuracion.modificado_por), (8, 14, self.admin))
+        self.assertEqual((configuracion.hora_inicio.hour, configuracion.hora_fin.hour, configuracion.dias_para_responder, configuracion.modificado_por), (8, 14, 3, self.admin))
         respuesta = admin.post(url, {'hora_inicio': '15:00', 'hora_fin': '14:00'})
         self.assertContains(respuesta, 'Debe ser después de la hora de inicio.')
         self.assertContains(admin.get(reverse('ajustes:inicio')), url)   # su pestaña en Ajustes

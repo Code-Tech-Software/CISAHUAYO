@@ -24,7 +24,7 @@
   {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
   {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
   {% if conversacion %}
-    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ urls.inicio }}">Mensajes</a></li>
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ urls.inicio }}{{ filtro_qs }}">Mensajes</a></li>
     <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ otro.nombre|default:"Conversación" }}</span></li>
   {% else %}
     <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Mensajes</span></li>
@@ -34,7 +34,7 @@
 {% block content %}
   <div class="chat{% if conversacion %} chat--abierta{% endif %}" data-chat data-yo="{{ yo.pk }}" data-hoy="{{ hoy_iso }}"
        data-contactos-url="{{ urls.contactos }}" data-buscar-url="{{ urls.buscar }}" data-nueva-url="{{ urls.nueva }}"
-       data-conversaciones-url="{{ urls.conversaciones }}"
+       data-conversaciones-url="{{ urls.conversaciones }}"{% if sin_leer %} data-sin-leer{% endif %}
        {% if conversacion %}data-conversacion="{{ conversacion.pk }}" data-enviar-url="{{ url_enviar }}" data-leida-url="{{ url_leida }}"
        data-nuevos-url="{% url espacio|add:':nuevos' conversacion.pk %}" data-reportar-url="{% url espacio|add:':reportar' 0 %}"
        data-conversacion-url="{% url espacio|add:':conversacion' conversacion.pk %}"{% if hay_posteriores %} data-hay-posteriores{% endif %}{% endif %}>
@@ -55,6 +55,11 @@
                aria-label="Buscar a una persona o en tus mensajes" autocomplete="off" data-chat-buscar>
       </form>
       <p class="chat__buscando" role="status" data-chat-buscando hidden>Buscando…</p>
+      {# Todas o solo las que tienen algo sin leer (también las que se dejaron «no leídas»); la abierta se queda #}
+      <nav class="chat__filtro" aria-label="Qué conversaciones mostrar">
+        <a class="chat__filtro-opcion{% if not sin_leer %} is-activa{% endif %}" href="{{ request.path }}"{% if not sin_leer %} aria-current="page"{% endif %}>Todas</a>
+        <a class="chat__filtro-opcion{% if sin_leer %} is-activa{% endif %}" href="{{ request.path }}?sin_leer=1"{% if sin_leer %} aria-current="page"{% endif %}>Sin leer</a>
+      </nav>
 
       <section class="chat__personas" aria-label="Personas a las que puedes escribir" data-chat-personas{% if contactos is None %} hidden{% endif %}>
         <h2 class="chat__subtitulo">Escribir a…</h2>
@@ -99,12 +104,17 @@
       </ul>
       {% if siguientes %}
         <p class="chat__mas" data-chat-mas-fila>
-          <a class="btn btn--ghost btn--sm" href="?despues={{ siguientes }}" data-chat-mas data-siguientes="{{ siguientes }}">Ver más conversaciones</a>
+          <a class="btn btn--ghost btn--sm" href="?despues={{ siguientes }}{% if sin_leer %}&amp;sin_leer=1{% endif %}" data-chat-mas data-siguientes="{{ siguientes }}">Ver más conversaciones</a>
         </p>
       {% endif %}
       <div class="chat__vacio" data-chat-sin-conversaciones{% if bandeja %} hidden{% endif %}>
         <span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" %}</span>
-        <p>Todavía no tienes conversaciones. Busca a una persona para escribirle.</p>
+        {% if sin_leer %}
+          <p>No tienes conversaciones sin leer.</p>
+          <a class="btn btn--ghost btn--sm" href="{{ request.path }}">Ver todas</a>
+        {% else %}
+          <p>Todavía no tienes conversaciones. Busca a una persona para escribirle.</p>
+        {% endif %}
       </div>
     </aside>
 
@@ -112,13 +122,23 @@
     <section class="chat__hilo" aria-label="{% if conversacion %}Conversación con {{ otro.nombre }}{% else %}Conversación{% endif %}">
       {% if conversacion %}
         <header class="chat__hilo-encabezado">
-          <a class="btn btn--ghost btn--icon chat__volver" href="{{ urls.inicio }}" aria-label="Volver a las conversaciones">{% include "partials/icon.html" with name="arrow-left" %}</a>
+          <a class="btn btn--ghost btn--icon chat__volver" href="{{ urls.inicio }}{{ filtro_qs }}" aria-label="Volver a las conversaciones">{% include "partials/icon.html" with name="arrow-left" %}</a>
           <span class="avatar chat-persona__avatar--{{ otro.tipo|lower }}" aria-hidden="true">{{ otro.iniciales }}</span>
           <div class="chat__hilo-quien">
             <h2 class="chat__hilo-nombre">{{ otro.nombre }}</h2>
             <p class="chat__hilo-detalle">{{ descripcion_otro }}</p>
             <p class="chat__escribiendo" aria-live="polite" data-chat-escribiendo hidden>{{ otro.nombre }} está escribiendo…</p>
           </div>
+          {% if conversacion.ultimo_mensaje_id %}
+            {# Para atenderla después: vuelve a la lista con la conversación pendiente (Mensajes/views.no_leida) #}
+            <form class="chat__hilo-acciones" method="post" action="{{ url_no_leida }}">
+              {% csrf_token %}
+              {% if sin_leer %}<input type="hidden" name="sin_leer" value="1">{% endif %}
+              <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Marcar como no leída" data-tooltip="Marcar como no leída">
+                {% include "partials/icon.html" with name="mail" icon_class="icon--sm" %}
+              </button>
+            </form>
+          {% endif %}
         </header>
 
         <div class="chat__mensajes" data-chat-mensajes tabindex="0" role="log" aria-live="polite" aria-label="Mensajes">

@@ -2,7 +2,7 @@
 
 - Búsqueda en todas las conversaciones, por persona, texto o fechas.
 - Los mensajes reportados por quienes los recibieron (2026-10-27): retirarlos o descartar el reporte.
-- Todas las conversaciones del colegio, por persona o por con quién son (2026-10-27).
+- Todas las conversaciones del colegio, por persona o por con quién son (2026-10-27), y las que esperan respuesta.
 - Una conversación completa, de solo lectura (no la marca como leída: quien modera no es miembro).
 - Retirar un mensaje: confirmación y borrado completo (Mensajes/moderacion.py).
 Las imágenes de los mensajes se entregan aquí por su propia ruta (las de la mensajería solo las ven los miembros).
@@ -20,7 +20,7 @@ from CISAHUAYO.permisos import requiere_permisos
 
 from . import enriquecido, moderacion, reglas
 from .forms import FiltroConversacionesForm, FiltroModeracionForm
-from .models import Conversacion, ImagenMensaje, Mensaje, Participante, ReporteMensaje
+from .models import ConfiguracionMensajes, Conversacion, ImagenMensaje, Mensaje, Participante, ReporteMensaje
 from .moderacion import MODERAR
 
 
@@ -88,14 +88,20 @@ def descartar(request, pk):
 @requiere_permisos(MODERAR)
 @require_GET
 def conversaciones(request):
-    """Todas las conversaciones del colegio (con mensajes), de la más reciente a la más antigua: por persona o por con
-    quién son (con estudiantes, con tutores o entre el personal)."""
+    """Todas las conversaciones del colegio (con mensajes), de la más reciente a la más antigua: por persona, por con
+    quién son (con estudiantes, con tutores o entre el personal) y las que esperan respuesta (de la que más lleva
+    esperando a la que menos, con cuántos días hábiles). Sin ese filtro, un aviso dice cuántas esperan."""
     filtro = FiltroConversacionesForm(request.GET)
     datos = filtro.activos
+    esperando = datos.get('estado') == moderacion.ESPERANDO
     pagina, rango, por_pagina = paginar(request, moderacion.conversaciones(**datos))
     pagina.object_list = moderacion.con_miembros(pagina.object_list)
+    if esperando:
+        moderacion.con_espera(pagina.object_list)
     return render(request, 'mensajes/moderacion_conversaciones.html', _contexto(
-        'conversaciones', filtro=filtro, filtros_activos=datos, pagina=pagina, rango_paginas=rango, por_pagina=por_pagina))
+        'conversaciones', filtro=filtro, filtros_activos=datos, pagina=pagina, rango_paginas=rango, por_pagina=por_pagina,
+        esperando=esperando, dias_para_responder=ConfiguracionMensajes.actual().dias_para_responder,
+        esperan=None if esperando else moderacion.conversaciones(estado=moderacion.ESPERANDO).count()))
 
 
 @requiere_permisos(MODERAR)

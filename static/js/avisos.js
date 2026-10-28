@@ -283,7 +283,11 @@
   const recibir = (datos) => {
     document.dispatchEvent(new CustomEvent('mensajeria:evento', { detail: datos }));
     if (datos.evento === 'mensaje') {
-      if (datos.mio) return;
+      if (datos.mio) {   /* quien escribe ya leyó lo anterior de esa conversación (también si escribió en otra pestaña) */
+        ponerTotal(datos.no_leidos);
+        quitarAviso(datos.conversacion);
+        return;
+      }
       if (conversacionAbierta() === datos.conversacion && aLaVista()) return;   /* se marca leído: llega el resumen */
       ponerTotal(datos.no_leidos);
       ponerAviso(datos);
@@ -291,7 +295,9 @@
       else avisarNavegador(datos);
     } else if (datos.evento === 'resumen') {
       ponerTotal(datos.no_leidos);
-      quitarAviso(datos.conversacion);
+      /* Con algo pendiente (la dejó «no leída»), la lista de la campana se vuelve a pedir; si no, sale de ella */
+      if (Number(datos.pendientes) > 0) pedirResumen();
+      else quitarAviso(datos.conversacion);
     } else if (datos.evento === 'retirado') {
       ponerTotal(datos.no_leidos);
       retirarAviso(datos);
@@ -300,6 +306,11 @@
 
   const ponerseAlDia = async () => {
     document.dispatchEvent(new CustomEvent('avisos:reconectado'));
+    await pedirResumen();
+  };
+
+  /* El total sin leer y la lista de la campana, del servidor */
+  async function pedirResumen() {
     if (!conMensajes) return;
     try {
       const respuesta = await fetch(raiz.dataset.resumenUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
@@ -314,7 +325,7 @@
     } catch (error) {
       /* sin conexión: se intentará al reconectar */
     }
-  };
+  }
 
   /* ------------------------------------------------------------------ conexión */
   const direccion = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}${raiz.dataset.ws}`;

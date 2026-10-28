@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
 {% comment %}
-  Ajustes › Mensajes (Mensajes/views_ajustes.py, con Mensajes.moderar): el horario de atención de la mensajería y el
-  estado de las notificaciones push.
+  Ajustes › Mensajes (Mensajes/views_ajustes.py, con Mensajes.moderar): el horario de atención de la mensajería, los
+  días hábiles para responder (Moderación › «Esperando respuesta») y el estado de las notificaciones push.
 {% endcomment %}
 
 {% block title %}Ajustes de mensajes | CISAHUAYO{% endblock %}
@@ -17,7 +17,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Ajustes</h1>
-      <p class="page-header__description">La mensajería del colegio: el horario en que se atienden los mensajes de estudiantes y familias, y los avisos con el sistema cerrado.</p>
+      <p class="page-header__description">La mensajería del colegio: el horario en que se atienden los mensajes de estudiantes y familias, en cuánto tiempo se espera una respuesta y los avisos con el sistema cerrado.</p>
     </div>
   </header>
 
@@ -27,7 +27,7 @@
     <form class="card" method="post" novalidate aria-labelledby="titulo-horario">
       {% csrf_token %}
       <header class="card__header card__header--icon">
-        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">Horario de atención</h2>
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">Atención a estudiantes y familias</h2>
       </header>
       <div class="card__body form-grid">
         <p class="form-grid__full text-muted">De lunes a viernes, en días de clases. Fuera de él (de noche, en fin de semana o en un día sin clases de todo el colegio) se avisa, pero se puede escribir igual: el mensaje se entrega al momento.</p>
@@ -40,6 +40,7 @@
         </div>
         {% include "partials/field.html" with campo=form.hora_inicio %}
         {% include "partials/field.html" with campo=form.hora_fin %}
+        {% include "partials/field.html" with campo=form.dias_para_responder clase="form-grid__full" %}
       </div>
       {% if perms.Mensajes.moderar %}
         <footer class="card__footer">

@@ -5,13 +5,18 @@ Retirar es borrar por completo: el mensaje, su formato, sus imágenes y sus arch
 existió ni registro de quién lo retiró; la conversación sigue como si nunca se hubiera enviado (su vista previa pasa al
 mensaje anterior). Las pantallas abiertas de las dos personas lo quitan al momento (Mensajes/tiempo_real.avisar_retiro).
 El permiso (`Mensajes.moderar`) es exclusivo del rol Administrador (Usuarios/catalogo.py).
+
+Desde el 2026-10-27 quien recibe un mensaje puede reportarlo (Mensajes/reglas.reportar): los reportados esperan aquí a
+que el administrador los retire o descarte el reporte. Y el administrador puede recorrer todas las conversaciones del
+colegio (las de los docentes con estudiantes, con tutores o entre el personal), no solo buscar en ellas: es la decisión
+del colegio para las conversaciones privadas entre docentes y estudiantes.
 """
 import logging
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
 
-from .models import Conversacion, ImagenMensaje, Mensaje, Miembro, Participante
+from .models import Conversacion, ImagenMensaje, Mensaje, Miembro, Participante, ReporteMensaje
 from .reglas import CON_CUENTA
 from .reglas import ventana as ventana_alrededor
 
@@ -65,6 +70,73 @@ def con_destinatarios(mensajes):
     for mensaje in mensajes:
         mensaje.para = next((p for p in miembros.get(mensaje.conversacion_id, []) if p.pk != mensaje.autor_id), None)
     return mensajes
+
+
+# ---------------------------------------------------------------------------
+# Mensajes reportados
+# ---------------------------------------------------------------------------
+def reportados_pendientes():
+    """Cuántos mensajes reportados esperan revisión (la campana de quien modera)."""
+    return Mensaje.objects.filter(Exists(ReporteMensaje.objects.filter(mensaje=OuterRef('pk')))).count()
+
+
+def reportados():
+    """Los mensajes reportados, del reporte más reciente al más antiguo, con sus reportes (`reportes_de`: quién y por
+    qué) y la otra persona de la conversación (`para`, con `con_destinatarios`)."""
+    return (Mensaje.objects.filter(Exists(ReporteMensaje.objects.filter(mensaje=OuterRef('pk'))))
+            .select_related(*CON_CUENTA)
+            .annotate(ultimo_reporte=Max('reportes__creado'))
+            .prefetch_related(Prefetch('reportes', to_attr='reportes_de', queryset=ReporteMensaje.objects.select_related(
+                'participante__usuario', 'participante__alumno', 'participante__tutor').order_by('creado')))
+            .order_by('-ultimo_reporte', '-pk'))
+
+
+def descartar_reportes(mensaje):
+    """El mensaje no es inapropiado: se borran sus reportes y se queda en la conversación (sin dejar marca)."""
+    return ReporteMensaje.objects.filter(mensaje=mensaje).delete()[0]
+
+
+# ---------------------------------------------------------------------------
+# Todas las conversaciones
+# ---------------------------------------------------------------------------
+# Con quién es la conversación (además del personal): para recorrer, por ejemplo, solo las de docentes con estudiantes
+CON_ESTUDIANTE, CON_TUTOR, ENTRE_PERSONAL = 'ESTUDIANTE', 'TUTOR', 'PERSONAL'
+TIPOS_DE_CONVERSACION = [
+    (CON_ESTUDIANTE, 'Con estudiantes'),
+    (CON_TUTOR, 'Con tutores'),
+    (ENTRE_PERSONAL, 'Entre el personal'),
+]
+
+
+def conversaciones(persona='', tipo=''):
+    """Las conversaciones del colegio que tienen mensajes, de la más reciente a la más antigua, con cuántos mensajes
+    tienen. `persona`: donde participa alguien cuyo nombre, usuario o referencia coincide; `tipo`: CON_ESTUDIANTE,
+    CON_TUTOR o ENTRE_PERSONAL."""
+    consulta = Conversacion.objects.filter(ultimo_mensaje__isnull=False).select_related('ultimo_mensaje').annotate(
+        total=Count('mensajes', distinct=True))
+    if persona:
+        consulta = consulta.filter(pk__in=Miembro.objects.filter(participante__in=personas_que_coinciden(persona)).values('conversacion'))
+    con = {t: Miembro.objects.filter(conversacion=OuterRef('pk'), participante__tipo=t) for t in (Participante.ESTUDIANTE, Participante.TUTOR)}
+    if tipo == CON_ESTUDIANTE:
+        consulta = consulta.filter(Exists(con[Participante.ESTUDIANTE]))
+    elif tipo == CON_TUTOR:
+        consulta = consulta.filter(Exists(con[Participante.TUTOR]))
+    elif tipo == ENTRE_PERSONAL:
+        consulta = consulta.exclude(Exists(con[Participante.ESTUDIANTE])).exclude(Exists(con[Participante.TUTOR]))
+    return consulta.order_by('-actualizada', '-pk')
+
+
+def con_miembros(conversaciones):
+    """Pone en cada conversación `miembros_de`: sus dos participantes (las familias y los estudiantes primero, como en la
+    pantalla de la conversación)."""
+    conversaciones = list(conversaciones)
+    miembros = {}
+    for miembro in Miembro.objects.filter(conversacion__in=conversaciones).select_related(
+            'participante__usuario', 'participante__alumno', 'participante__tutor'):
+        miembros.setdefault(miembro.conversacion_id, []).append(miembro.participante)
+    for conversacion in conversaciones:
+        conversacion.miembros_de = sorted(miembros.get(conversacion.pk, []), key=lambda p: (p.tipo == Participante.SISTEMA, p.pk))
+    return conversaciones
 
 
 # ---------------------------------------------------------------------------

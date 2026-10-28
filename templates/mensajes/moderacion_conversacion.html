@@ -27,7 +27,7 @@
       <p class="page-header__description">Solo lectura. Al retirar un mensaje se borra por completo para las dos personas, con sus imágenes.</p>
     </div>
     <div class="page-header__actions">
-      <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la búsqueda</a>
+      <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver</a>
     </div>
   </header>
 
@@ -42,7 +42,7 @@
       {% for mensaje in mensajes %}
         {% ifchanged mensaje.dia %}<p class="chat__dia"><span>{{ mensaje.creado|date:"l j \d\e F \d\e Y"|lower|capfirst }}</span></p>{% endifchanged %}
         <article class="burbuja{% if mensaje.a_la_derecha %} burbuja--mia{% endif %}{% if mensaje.pk == destacado %} is-destacado{% endif %}" id="mensaje-{{ mensaje.pk }}" aria-label="Mensaje de {{ mensaje.autor.nombre }}">
-          <p class="burbuja__autor">{{ mensaje.autor.nombre }}</p>
+          <p class="burbuja__autor">{{ mensaje.autor.nombre }}{% if mensaje.veces_reportado %} <span class="tag tag--danger">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %} Reportado</span>{% endif %}</p>
           {% if mensaje.html_visible %}
             <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
           {% elif not mensaje.sin_texto %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Ajustes › Mensajes (Mensajes/views_ajustes.py, con Mensajes.moderar): el horario de atención de la mensajería y el
+  estado de las notificaciones push.
+{% endcomment %}
+
+{% block title %}Ajustes de mensajes | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Mensajes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes</h1>
+      <p class="page-header__description">La mensajería del colegio: el horario en que se atienden los mensajes de estudiantes y familias, y los avisos con el sistema cerrado.</p>
+    </div>
+  </header>
+
+  {% include "ajustes/_pestanas.html" %}
+
+  <div class="info-grid">
+    <form class="card" method="post" novalidate aria-labelledby="titulo-horario">
+      {% csrf_token %}
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">Horario de atención</h2>
+      </header>
+      <div class="card__body form-grid">
+        <p class="form-grid__full text-muted">De lunes a viernes, en días de clases. Fuera de él (de noche, en fin de semana o en un día sin clases de todo el colegio) se avisa, pero se puede escribir igual: el mensaje se entrega al momento.</p>
+        <div class="field form-grid__full{% if form.avisar_fuera_de_horario.errors %} is-invalid{% endif %}">
+          <label class="choice choice--check" for="{{ form.avisar_fuera_de_horario.id_for_label }}">
+            <input class="choice__input" type="checkbox" name="{{ form.avisar_fuera_de_horario.html_name }}" id="{{ form.avisar_fuera_de_horario.id_for_label }}"{% if form.avisar_fuera_de_horario.value %} checked{% endif %}>
+            <span class="choice__box">{{ form.avisar_fuera_de_horario.label|capfirst }}</span>
+          </label>
+          <p class="field__hint">{{ form.avisar_fuera_de_horario.help_text }}</p>
+        </div>
+        {% include "partials/field.html" with campo=form.hora_inicio %}
+        {% include "partials/field.html" with campo=form.hora_fin %}
+      </div>
+      {% if perms.Mensajes.moderar %}
+        <footer class="card__footer">
+          <button type="submit" class="btn btn--primary">Guardar</button>
+        </footer>
+      {% endif %}
+    </form>
+
+    <section class="card" aria-labelledby="titulo-push">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="bell" %}<h2 class="card__title" id="titulo-push">Avisos con el sistema cerrado</h2>
+      </header>
+      <div class="card__body">
+        {% if push_activas %}
+          <p>Las notificaciones push están <strong>activas</strong>. Cada persona las activa desde su campana de notificaciones («Activar avisos del navegador»): desde entonces, los mensajes nuevos le llegan a ese equipo aunque tenga el sistema cerrado.</p>
+          <p class="text-muted">{{ suscripciones }} navegador{{ suscripciones|pluralize:"es" }} recibe{{ suscripciones|pluralize:"n" }} avisos. En iPhone y iPad solo funcionan con el sistema agregado a la pantalla de inicio (Compartir › Agregar a inicio).</p>
+        {% else %}
+          <p>Las notificaciones push <strong>no están configuradas</strong>: los avisos de mensajes solo llegan con el sistema abierto.</p>
+          <p class="text-muted">Para activarlas, en el servidor: genera las claves con <code>python manage.py generar_claves_push</code> y pon las dos líneas que imprime (<code>VAPID_PUBLIC_KEY</code> y <code>VAPID_PRIVATE_KEY</code>) en las variables de entorno (Railway).</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

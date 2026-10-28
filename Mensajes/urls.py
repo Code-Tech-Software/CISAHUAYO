@@ -20,7 +20,10 @@ def rutas(envolver):
         path('<int:pk>/', envolver(views.conversacion), name='conversacion'),
         path('<int:pk>/enviar/', envolver(views.enviar), name='enviar'),
         path('mensajes/<int:pk>/editar/', envolver(views.editar), name='editar'),
+        path('mensajes/<int:pk>/reportar/', envolver(views.reportar), name='reportar'),
+        path('push/', envolver(views.push), name='push'),
         path('<int:pk>/leida/', envolver(views.leida), name='leida'),
+        path('<int:pk>/nuevos/', envolver(views.nuevos), name='nuevos'),
         path('<int:pk>/imagenes/', envolver(views.imagen_subir), name='imagen_subir'),
         path('<int:pk>/documentos/', envolver(views.documento_subir), name='documento_subir'),
         path('imagenes/<int:pk>/', envolver(views.imagen), name='imagen'),
@@ -36,7 +39,10 @@ app_name = 'mensajes'
 urlpatterns = rutas(views.para_sistema) + [
     # Moderación (solo en el sistema, exclusiva del administrador: Mensajes/views_moderacion.py)
     path('moderacion/', views_moderacion.buscar, name='moderacion'),
+    path('moderacion/reportados/', views_moderacion.reportados, name='moderacion_reportados'),
+    path('moderacion/conversaciones/', views_moderacion.conversaciones, name='moderacion_conversaciones'),
     path('moderacion/conversaciones/<int:pk>/', views_moderacion.conversacion, name='moderacion_conversacion'),
     path('moderacion/mensajes/<int:pk>/retirar/', views_moderacion.retirar, name='moderacion_retirar'),
+    path('moderacion/mensajes/<int:pk>/descartar/', views_moderacion.descartar, name='moderacion_descartar'),
     path('moderacion/imagenes/<int:pk>/', views_moderacion.imagen, name='moderacion_imagen'),
 ]

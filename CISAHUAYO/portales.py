@@ -148,6 +148,8 @@ def iniciar_sesion(request, tipo, cuenta):
 
 
 def cerrar_sesion(request):
+    from Mensajes.push import olvidar_navegador
+    olvidar_navegador(request)   # ese navegador deja de recibir las notificaciones push de la cuenta
     request.session.flush()
 
 

@@ -14,6 +14,7 @@ Desde el 2026-10-20 el administrador puede retirar mensajes inapropiados (modera
 por completo, sin dejar copia ni marca.
 """
 import uuid
+from datetime import time
 from pathlib import Path
 
 from django.conf import settings
@@ -204,3 +205,74 @@ class ImagenMensaje(models.Model):
 
     def como_dict(self, url):
         return {'id': self.pk, 'nombre': self.nombre_original, 'tamano': self.tamano_texto, 'url': url}
+
+
+class ReporteMensaje(models.Model):
+    """Un mensaje que reportó como inapropiado la persona que lo recibió (pedido del 2026-10-27). Lo revisa el
+    administrador en la moderación (Mensajes/moderacion.py): si retira el mensaje, el reporte se borra con él (sin
+    rastro); si no, lo descarta. Quien escribió el mensaje no se entera."""
+
+    MOTIVO_MAXIMO = 300
+
+    mensaje = models.ForeignKey(Mensaje, on_delete=models.CASCADE, related_name='reportes')
+    participante = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name='reportes')
+    motivo = models.CharField(max_length=MOTIVO_MAXIMO, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Mensaje reportado'
+        verbose_name_plural = 'Mensajes reportados'
+        default_permissions = ()
+        ordering = ['-creado']
+        constraints = [models.UniqueConstraint(fields=['mensaje', 'participante'], name='reporte_unico')]
+
+    def __str__(self):
+        return f'Reporte de {self.participante} sobre el mensaje {self.mensaje_id}'
+
+
+class ConfiguracionMensajes(models.Model):
+    """Una sola fila (pk=1): el horario de atención de la mensajería (pedido del 2026-10-27). Fuera de él (de noche, en
+    fin de semana o en un día sin clases de todo el colegio), los estudiantes y las familias ven al escribirle al
+    personal que la respuesta puede llegar hasta el siguiente día de clases. No impide escribir."""
+
+    avisar_fuera_de_horario = models.BooleanField(
+        'avisar a las familias fuera del horario de atención', default=True,
+        help_text='Al escribirle a un docente o al personal fuera del horario, el estudiante o el tutor ve que la respuesta '
+                  'puede llegar hasta el siguiente día de clases.')
+    hora_inicio = models.TimeField('horario de atención: desde', default=time(7, 0))
+    hora_fin = models.TimeField('hasta', default=time(15, 0))
+    modificado = models.DateTimeField(auto_now=True)
+    modificado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        verbose_name = 'configuración de la mensajería'
+        verbose_name_plural = 'configuración de la mensajería'
+        default_permissions = ()
+
+    def __str__(self):
+        return 'Configuración de la mensajería'
+
+    @classmethod
+    def actual(cls):
+        configuracion, _ = cls.objects.get_or_create(pk=1)
+        return configuracion
+
+
+class SuscripcionPush(models.Model):
+    """Un navegador (una computadora o un celular) que recibe el aviso de los mensajes nuevos aunque la página esté
+    cerrada (notificaciones push, pedido del 2026-10-27: Mensajes/push.py). Si el servicio de push dice que ya no
+    existe, se borra; al cerrar sesión en ese navegador, también."""
+
+    participante = models.ForeignKey(Participante, on_delete=models.CASCADE, related_name='suscripciones_push')
+    endpoint = models.URLField(max_length=1000, unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    creada = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Suscripción a notificaciones push'
+        verbose_name_plural = 'Suscripciones a notificaciones push'
+        default_permissions = ()
+
+    def __str__(self):
+        return f'Notificaciones push de {self.participante}'

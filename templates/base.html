@@ -35,6 +35,8 @@
   <meta name="theme-color" content="{% block color_tema %}{{ apariencia.color }}{% endblock %}">
   <title>{% block title %}CISAHUAYO{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  {# Para agregar el sistema a la pantalla de inicio (y recibir ahí las notificaciones push: Mensajes/push.py) #}
+  {% url 'manifiesto' as url_manifiesto %}{% if url_manifiesto %}<link rel="manifest" href="{{ url_manifiesto }}">{% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   {% block fuentes %}<link rel="stylesheet" href="{{ apariencia.fuentes }}">{% endblock %}

@@ -2,6 +2,7 @@
 (/portal/estudiantes/mensajes/ y /portal/tutores/mensajes/): cambian la cuenta (`Cuenta`), la plantilla base y la
 protección (permisos del sistema o la sesión del portal). Ver Mensajes/urls.py.
 """
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -147,19 +148,25 @@ def conversacion(request, pk):
     cuenta = request.mensajeria
     participante = cuenta.participante
     conversacion = _conversacion(cuenta, pk)
-    reglas.marcar_leida(conversacion, participante)   # al consultarla, queda leída
     antes, destacado = request.GET.get('antes', ''), request.GET.get('mensaje', '')
     if destacado.isdigit():   # abierta en un mensaje encontrado al buscar: los de antes y después de él
         mensajes, hay_anteriores, hay_posteriores = reglas.ventana(conversacion, int(destacado))
     else:
         mensajes, hay_anteriores = reglas.historial(conversacion, antes=int(antes) if antes.isdigit() else None)
         hay_posteriores = antes.isdigit() and conversacion.mensajes.filter(pk__gte=int(antes)).exists()
+    # Al consultarla, queda leída; abierta en una parte anterior, solo hasta lo que se ve (lo más reciente sigue sin leer)
+    if not hay_posteriores:
+        reglas.marcar_leida(conversacion, participante)
+    elif mensajes:
+        reglas.marcar_leida(conversacion, participante, hasta=mensajes[-1].pk)
     reglas.con_documentos(mensajes, lambda documento: cuenta.url('documento', documento))
     leido_hasta = reglas.leido_por_el_otro(conversacion, participante)
+    reportados = reglas.reportados_por(participante, mensajes)
     hoy = timezone.localdate()
     ultimo_leido_mio = None
     for mensaje in mensajes:
         mensaje.mio = mensaje.autor_id == participante.pk
+        mensaje.reportado = mensaje.pk in reportados
         mensaje.leido = mensaje.mio and mensaje.pk <= leido_hasta
         if mensaje.leido:
             mensaje.texto_leido = reglas.texto_de_lectura(mensaje.leido_en)
@@ -171,12 +178,14 @@ def conversacion(request, pk):
         # Con formato: el HTML limpio otra vez al mostrarlo (Mensajes/enriquecido.py), con las imágenes de su espacio
         mensaje.html_visible = mark_safe(reglas.html_visible(mensaje, participante)) if mensaje.html else ''
     otro = reglas.el_otro(conversacion, participante)
+    puede_escribir = reglas.puede_escribir_en(conversacion, participante)
     return _pantalla(
         request, cuenta, conversacion,
         otro=otro, descripcion_otro=descripcion(otro) if otro else '', mensajes=mensajes, hay_anteriores=hay_anteriores,
         hay_posteriores=hay_posteriores, destacado=int(destacado) if destacado.isdigit() else None,
         primero=mensajes[0].pk if mensajes else None, leido_hasta=leido_hasta, ultimo_leido_mio=ultimo_leido_mio,
-        puede_escribir=reglas.puede_escribir_en(conversacion, participante), maximo=Mensaje.MAXIMO,
+        puede_escribir=puede_escribir, maximo=Mensaje.MAXIMO,
+        fuera_de_horario=reglas.aviso_fuera_de_horario(participante, otro) if puede_escribir else '',
         url_enviar=cuenta.url('enviar', conversacion.pk), url_leida=cuenta.url('leida', conversacion.pk),
         url_imagenes=cuenta.url('imagen_subir', conversacion.pk), acepta_imagenes=ACEPTA_IMAGENES,
         url_documentos=cuenta.url('documento_subir', conversacion.pk), acepta_documentos=ACEPTA_DOCUMENTOS,
@@ -225,10 +234,54 @@ def editar(request, pk):
     if mensaje is None:
         raise Http404('No existe ese mensaje.')
     try:
-        reglas.editar(mensaje, cuenta.participante, request.POST.get('texto', ''))
+        reglas.editar(mensaje, cuenta.participante, request.POST.get('texto', ''), request.POST.get('html', ''))
     except reglas.MensajeRechazado as rechazo:
         return JsonResponse({'error': str(rechazo)}, status=400)
     return JsonResponse(datos_de_mensaje(mensaje, cuenta.participante))
+
+
+@require_POST
+def reportar(request, pk):
+    """Reporta al administrador un mensaje recibido, con un motivo opcional (reglas.reportar). Responde JSON; sin
+    JavaScript, regresa a la conversación."""
+    cuenta = request.mensajeria
+    mensaje = Mensaje.objects.filter(pk=pk, conversacion__miembros__participante=cuenta.participante).first()
+    if mensaje is None:
+        raise Http404('No existe ese mensaje.')
+    volver = f"{cuenta.url('conversacion', mensaje.conversacion_id)}#mensaje-{mensaje.pk}"
+    try:
+        reglas.reportar(mensaje, cuenta.participante, request.POST.get('motivo', ''))
+    except reglas.MensajeRechazado as rechazo:
+        if _quiere_json(request):
+            return JsonResponse({'error': str(rechazo)}, status=400)
+        messages.error(request, str(rechazo))
+        return redirect(volver)
+    aviso = 'Gracias. El administrador del colegio revisará el mensaje.'
+    if _quiere_json(request):
+        return JsonResponse({'ok': True, 'mensaje': aviso})
+    messages.success(request, aviso)
+    return redirect(volver)
+
+
+@require_POST
+def push(request):
+    """Guarda la suscripción a notificaciones push de este navegador (static/js/avisos.js). Cuerpo JSON:
+    {endpoint, keys: {p256dh, auth}}. Se olvida al cerrar sesión (Mensajes/push.olvidar_navegador)."""
+    from . import push as notificaciones_push
+    cuenta = request.mensajeria
+    if not notificaciones_push.activas():
+        return JsonResponse({'error': 'Las notificaciones push no están configuradas.'}, status=404)
+    try:
+        datos = json.loads(request.body or b'{}')
+    except ValueError:
+        datos = None
+    if not isinstance(datos, dict):
+        return JsonResponse({'error': 'La suscripción del navegador no es válida.'}, status=400)
+    try:
+        notificaciones_push.guardar(cuenta.participante, datos, request)
+    except notificaciones_push.SuscripcionInvalida as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    return JsonResponse({'ok': True})
 
 
 def _subir(request, pk, campo, documento):
@@ -304,6 +357,34 @@ def documento(request, pk):
     return _entregar(request, pk, documento=True)
 
 
+NUEVOS_MAXIMO = 50
+
+
+@require_GET
+def nuevos(request, pk):
+    """Para ponerse al día cuando la pestaña se reconecta (el celular se bloqueó, cambió de red o se reinició el
+    servidor): los mensajes que llegaron después del último que tiene a la vista (`despues`), cuáles de los que tiene
+    siguen existiendo (desde `desde`: los retirados por moderación salen) y hasta dónde leyó la otra persona. Con más de
+    NUEVOS_MAXIMO nuevos, `completos` es False y la pestaña pide los siguientes."""
+    cuenta = request.mensajeria
+    participante = cuenta.participante
+    conversacion = _conversacion(cuenta, pk)
+    despues, desde = request.GET.get('despues', ''), request.GET.get('desde', '')
+    despues = int(despues) if despues.isdigit() else 0
+    nuevos = list(conversacion.mensajes.filter(pk__gt=despues).select_related(*reglas.CON_CUENTA).order_by('pk')[:NUEVOS_MAXIMO + 1])
+    existentes = []
+    if desde.isdigit() and despues:
+        existentes = list(conversacion.mensajes.filter(pk__gte=int(desde), pk__lte=despues).values_list('pk', flat=True))
+    otro = reglas.miembro_de_la_otra_persona(conversacion, participante)
+    return JsonResponse({
+        'mensajes': [datos_de_mensaje(m, participante) for m in nuevos[:NUEVOS_MAXIMO]],
+        'completos': len(nuevos) <= NUEVOS_MAXIMO,
+        'existentes': existentes,
+        'leido_hasta': otro.ultimo_leido if otro else 0,
+        'leido': reglas.texto_de_lectura(otro.leido_en) if otro else '',
+    })
+
+
 @require_POST
 def leida(request, pk):
     cuenta = request.mensajeria
@@ -337,6 +418,33 @@ def conversaciones(request):
         'actual': int(actual) if actual.isdigit() else None,
     }, request=request)
     return JsonResponse({'html': html, 'siguientes': siguientes or ''})
+
+
+# ---------------------------------------------------------------------------
+# Notificaciones push: el service worker y el manifiesto (en la raíz del sitio, sin sesión)
+# ---------------------------------------------------------------------------
+@require_GET
+def service_worker(request):
+    """El service worker de las notificaciones push (templates/mensajes/sw.js). Va en la raíz (/sw.js) para atender a
+    todo el sitio: el sistema y los dos portales."""
+    respuesta = render(request, 'mensajes/sw.js', content_type='application/javascript; charset=utf-8')
+    respuesta['Cache-Control'] = 'no-cache'
+    respuesta['Service-Worker-Allowed'] = '/'
+    return respuesta
+
+
+@require_GET
+def manifiesto(request):
+    """El manifiesto de la aplicación: permite agregar el sistema a la pantalla de inicio del celular (en iPhone y iPad
+    es la única forma de recibir notificaciones push)."""
+    from django.templatetags.static import static
+    respuesta = JsonResponse({
+        'name': 'CISAHUAYO', 'short_name': 'CISAHUAYO', 'lang': 'es', 'start_url': '/', 'scope': '/',
+        'display': 'standalone', 'background_color': '#ffffff', 'theme_color': '#2f737c',
+        'icons': [{'src': static('img/logointer.svg'), 'sizes': 'any', 'type': 'image/svg+xml', 'purpose': 'any'}],
+    }, json_dumps_params={'ensure_ascii': False})
+    respuesta['Content-Type'] = 'application/manifest+json'
+    return respuesta
 
 
 @require_GET

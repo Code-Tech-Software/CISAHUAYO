@@ -181,8 +181,9 @@ class BuscarTests(Base):
         self.assertContains(bandeja, '<mark>fracciones</mark>')
 
     def test_abrir_la_conversacion_en_el_mensaje_encontrado(self):
-        for n in range(60):
-            reglas.enviar(self.conversacion, self.p(self.marta), f'Recordatorio {n}')
+        with patch.object(reglas, 'POR_MINUTO', 100):   # sin el límite de mensajes seguidos
+            for n in range(60):
+                reglas.enviar(self.conversacion, self.p(self.marta), f'Recordatorio {n}')
         pantalla = self.pantalla(mensaje=self.examen.pk)
         ids = [m.pk for m in pantalla.context['mensajes']]
         self.assertIn(self.examen.pk, ids)

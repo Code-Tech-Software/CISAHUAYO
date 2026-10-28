@@ -2,9 +2,10 @@
   Secciones de Ajustes (la configuración del sistema, menú Sistema). Parámetros: ajustes_seccion («apariencia»,
   «asistencia», «calificaciones», «conducta» o «retiros») y puede_configurar_conducta (si ve algún catálogo de conducta).
   La asistencia y las calificaciones se ven con el permiso de consultar sus ajustes; los motivos de retiro, con el de
-  configurarlos (Retiros.configurar); las reuniones con familias, con Reuniones.configurar; la apariencia, todos.
+  configurarlos (Retiros.configurar); las reuniones con familias, con Reuniones.configurar; los mensajes, con
+  Mensajes.moderar (el administrador); la apariencia, todos.
 {% endcomment %}
-{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Retiros.configurar or perms.Reuniones.configurar or perms.Panel.view_criterioseguimiento %}
+{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Retiros.configurar or perms.Reuniones.configurar or perms.Panel.view_criterioseguimiento or perms.Mensajes.moderar %}
   <nav class="pills pills--section" aria-label="Secciones de ajustes">
     <a class="pill{% if ajustes_seccion == 'apariencia' %} is-active{% endif %}" href="{% url 'ajustes:inicio' %}"{% if ajustes_seccion == 'apariencia' %} aria-current="page"{% endif %}>Apariencia</a>
     {% if perms.Alumnos.view_configuracionasistencia %}
@@ -24,6 +25,9 @@
     {% endif %}
     {% if perms.Panel.view_criterioseguimiento %}
       <a class="pill{% if ajustes_seccion == 'seguimiento' %} is-active{% endif %}" href="{% url 'panel:criterios' %}"{% if ajustes_seccion == 'seguimiento' %} aria-current="page"{% endif %}>Seguimiento</a>
+    {% endif %}
+    {% if perms.Mensajes.moderar %}
+      <a class="pill{% if ajustes_seccion == 'mensajes' %} is-active{% endif %}" href="{% url 'ajustes_mensajes' %}"{% if ajustes_seccion == 'mensajes' %} aria-current="page"{% endif %}>Mensajes</a>
     {% endif %}
   </nav>
 {% endif %}

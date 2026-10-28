@@ -5,6 +5,8 @@ from django.conf.urls.static import static
 
 from Panel.views import inicio
 from CISAHUAYO.acceso import acceso, salir
+from Mensajes import views as mensajes_views
+from Mensajes.views_ajustes import ajustes as mensajes_ajustes
 
 urlpatterns = [
     path('', inicio, name='inicio'),
@@ -37,8 +39,12 @@ urlpatterns = [
     path('', include('Calificaciones.urls')),
     # Bitácoras por grupo: observaciones informativas de cada clase (Bitacoras/alcance.py)
     path('bitacoras/', include('Bitacoras.urls')),
-    # Mensajería interna (también en los portales: PortalEstudiantes/urls.py, PortalTutores/urls.py)
+    # Mensajería interna (también en los portales: PortalEstudiantes/urls.py, PortalTutores/urls.py), su horario de
+    # atención en Ajustes (ajustes/mensajes/) y, en la raíz, lo de las notificaciones push (Mensajes/push.py)
     path('mensajes/', include('Mensajes.urls')),
+    path('ajustes/mensajes/', mensajes_ajustes, name='ajustes_mensajes'),
+    path('sw.js', mensajes_views.service_worker, name='service_worker'),
+    path('manifest.webmanifest', mensajes_views.manifiesto, name='manifiesto'),
     # Comunicados con seguimiento de lectura (también en los portales: PortalEstudiantes/urls.py, PortalTutores/urls.py)
     path('comunicados/', include('Comunicados.urls')),
     # Retiros anticipados: gestión (retiros/…) y motivos en Ajustes (ajustes/retiros/…); el aviso del tutor está en su portal

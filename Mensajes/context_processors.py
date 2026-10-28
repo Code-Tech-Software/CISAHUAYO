@@ -1,11 +1,14 @@
-"""La mensajería en todas las páginas: el total sin leer y los avisos de la campana de notificaciones (y del menú)."""
+"""La mensajería en todas las páginas: el total sin leer y los avisos de la campana de notificaciones (y del menú); para
+quien modera, cuántos mensajes reportados esperan revisión."""
+from django.conf import settings
 from django.db import DatabaseError
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 
-from . import reglas
+from . import push, reglas
 from .models import Participante
+from .moderacion import MODERAR, reportados_pendientes
 
 ESPACIO_DE_PORTAL = {'estudiante': Participante.ESTUDIANTE, 'tutor': Participante.TUTOR}
 
@@ -16,9 +19,11 @@ def _hora(momento):
 
 
 def datos_de_avisos(participante, espacio, como_json=False):
-    """{'no_leidos', 'avisos'}: las conversaciones con mensajes sin leer, con quién escribió y una vista previa."""
+    """{'no_leidos', 'avisos'}: las conversaciones con mensajes sin leer, con quién escribió y una vista previa. Sin nada
+    sin leer es una sola consulta (está en todas las páginas)."""
+    pendientes = reglas.sin_leer_por_conversacion(participante) if participante else {}
     avisos = []
-    for conversacion in (reglas.avisos(participante) if participante else []):
+    for conversacion in reglas.avisos(participante, pendientes=pendientes):
         avisos.append({
             'conversacion': conversacion.pk,
             'url': reverse(f'{espacio}:conversacion', args=[conversacion.pk]),
@@ -28,7 +33,7 @@ def datos_de_avisos(participante, espacio, como_json=False):
             'no_leidos': conversacion.no_leidos,
             'hora': _hora(conversacion.actualizada),
         })
-    return {'no_leidos': reglas.no_leidos(participante) if participante else 0, 'avisos': avisos}
+    return {'no_leidos': sum(pendientes.values()), 'avisos': avisos}
 
 
 def mensajeria(request):
@@ -49,6 +54,14 @@ def mensajeria(request):
                 espacio, participante = reglas.ESPACIO[ESPACIO_DE_PORTAL[tipo]], reglas.de_portal(tipo, cuenta, crear=False)
             datos = datos_de_avisos(participante, espacio)
             datos.update(activa=True, ws='/ws/mensajes/', url_bandeja=reverse(f'{espacio}:inicio'), url_resumen=reverse(f'{espacio}:resumen'))
+            if push.activas():
+                # Notificaciones push (Mensajes/push.py): la clave pública del colegio y a dónde manda su suscripción el
+                # navegador (esa vista crea el participante si la cuenta todavía no usó la mensajería)
+                datos.update(push_clave=settings.VAPID_PUBLIC_KEY, url_push=reverse(f'{espacio}:push'),
+                             push_cuenta=f'{espacio}:{participante.pk if participante else ""}')
+            if usuario is not None and usuario.is_authenticated and usuario.has_perm(MODERAR):
+                # Quien modera ve en la campana cuántos mensajes reportados esperan revisión
+                datos.update(moderar=True, reportados=reportados_pendientes(), url_reportados=reverse('mensajes:moderacion_reportados'))
         except (DatabaseError, NoReverseMatch):   # sin la migración o sin las rutas de Mensajes: el resto sigue funcionando
             return {'activa': False}
         return datos

@@ -26,6 +26,8 @@ SOLO_CON_SESION = {
 SIN_SESION = {
     'login': 'iniciar sesión',
     'logout': 'cerrar sesión',
+    'service_worker': 'el service worker de las notificaciones push: solo código, sin datos (Mensajes/views.py)',
+    'manifiesto': 'el manifiesto para agregar el sistema a la pantalla de inicio: sin datos (Mensajes/views.py)',
 }
 # Responden JSON con su propia comprobación de sesión y permiso (la pantalla de entrada no puede redirigir al login)
 CON_COMPROBACION_PROPIA = {

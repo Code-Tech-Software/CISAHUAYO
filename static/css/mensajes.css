@@ -921,6 +921,27 @@
   color: var(--color-text-muted);
 }
 
+/* Fuera del horario de atención (Ajustes › Mensajes): solo lo ven estudiantes y tutores al escribirle al personal */
+.chat__horario {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--chat-orilla) 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.chat__horario .icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--color-warning);
+}
+
 /* --- 6. Estados vacíos ------------------------------------------------------------------------------------ */
 .chat__icono-vacio {
   display: grid;
@@ -1057,7 +1078,8 @@
     padding: var(--space-2);
   }
 
-  .chat__error {
+  .chat__error,
+  .chat__horario {
     margin-inline: var(--space-2);
   }
 
@@ -1103,6 +1125,33 @@
 
 .moderacion-tabla .moderacion-retirar:hover {
   color: var(--color-danger);
+}
+
+/* Reportados: quién lo reportó, cuándo y por qué; «Descartar» es un formulario junto a los enlaces */
+.moderacion-reportes__lista {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.moderacion-reportes__quien {
+  font-weight: var(--weight-semibold);
+}
+
+.moderacion-reportes__motivo {
+  display: block;
+}
+
+.moderacion-texto .moderacion-fecha {
+  display: block;
+  font-size: var(--text-xs);
+}
+
+.moderacion-descartar {
+  display: inline;
 }
 
 .moderacion-hilo {
@@ -1238,6 +1287,27 @@
   font-style: italic;
 }
 
+/* Reportar un mensaje recibido (2026-10-27): el motivo en el lugar y, ya reportado, la marca en su pie */
+.burbuja__reportado {
+  color: var(--color-danger);
+  font-weight: var(--weight-semibold);
+}
+
+.burbuja__reporte-titulo {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.burbuja__reporte textarea {
+  min-height: 3rem;
+}
+
+.burbuja__reporte-nota {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
 /* Responder y corregir: aparecen al pasar el puntero o al enfocar el mensaje; en pantallas táctiles, siempre */
 .burbuja {
   position: relative;
@@ -1319,11 +1389,21 @@
   min-width: min(18rem, 60vw);
 }
 
-.burbuja__edicion textarea {
+.burbuja__edicion textarea,
+.burbuja__edicion-rico {
   width: 100%;
   min-height: 3.5rem;
   resize: vertical;
   color: var(--color-text);
+}
+
+/* Corrigiendo un mensaje con formato: se edita en el lugar, con su formato */
+.burbuja__edicion-rico {
+  height: auto;
+  max-height: 18rem;
+  overflow: auto;
+  text-align: left;
+  cursor: text;
 }
 
 .burbuja__edicion-botones {

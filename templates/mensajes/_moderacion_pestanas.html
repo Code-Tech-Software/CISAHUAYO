@@ -1,0 +1,11 @@
+{% comment %}
+  Secciones de la moderación de mensajes (Mensajes/views_moderacion.py). Parámetros: moderacion_seccion («buscar»,
+  «reportados» o «conversaciones») y reportados_pendientes (cuántos mensajes reportados esperan revisión).
+{% endcomment %}
+<nav class="pills pills--section" aria-label="Secciones de la moderación">
+  <a class="pill{% if moderacion_seccion == 'buscar' %} is-active{% endif %}" href="{% url 'mensajes:moderacion' %}"{% if moderacion_seccion == 'buscar' %} aria-current="page"{% endif %}>Buscar mensajes</a>
+  <a class="pill{% if moderacion_seccion == 'reportados' %} is-active{% endif %}" href="{% url 'mensajes:moderacion_reportados' %}"{% if moderacion_seccion == 'reportados' %} aria-current="page"{% endif %}>
+    Reportados{% if reportados_pendientes %} <span class="pill__count">{{ reportados_pendientes }}</span>{% endif %}
+  </a>
+  <a class="pill{% if moderacion_seccion == 'conversaciones' %} is-active{% endif %}" href="{% url 'mensajes:moderacion_conversaciones' %}"{% if moderacion_seccion == 'conversaciones' %} aria-current="page"{% endif %}>Todas las conversaciones</a>
+</nav>

@@ -185,9 +185,10 @@
 
   const editableHasta = (burbuja) => Date.parse(burbuja.dataset.editableHasta || '') || 0;
 
-  /* «Responder» en todos (si se puede escribir) y «Corregir» en los propios mientras dure el plazo */
+  /* «Responder» en todos (si se puede escribir), «Corregir» en los propios mientras dure el plazo y «Reportar» en los
+     de la otra persona (también si la conversación ya no admite mensajes) */
   const ponerAcciones = (burbuja) => {
-    if (!formulario || burbuja.querySelector('.burbuja__acciones')) return;
+    if (burbuja.querySelector('.burbuja__acciones')) return;
     const acciones = elemento('div', 'burbuja__acciones');
     const boton = (nombre, etiqueta, accion) => {
       const nodo = elemento('button', 'burbuja__accion');
@@ -198,23 +199,85 @@
       nodo.append(icono(nombre));
       return nodo;
     };
-    acciones.append(boton('reply', 'Responder', 'responder'));
+    if (formulario) acciones.append(boton('reply', 'Responder', 'responder'));
     const restante = editableHasta(burbuja) - Date.now();
-    if (restante > 0) {
+    if (formulario && restante > 0) {
       const corregir = boton('pencil', 'Corregir', 'corregir');
       acciones.append(corregir);
       window.setTimeout(() => corregir.remove(), restante);
     }
-    burbuja.append(acciones);
+    if (chat.dataset.reportarUrl && !burbuja.classList.contains('burbuja--mia') && !burbuja.hasAttribute('data-reportado')) {
+      acciones.append(boton('flag', 'Reportar al administrador', 'reportar'));
+    }
+    if (acciones.children.length) burbuja.append(acciones);
   };
 
-  /* El texto nuevo de un mensaje corregido (aquí, en otra pestaña o por la otra persona) */
+  /* Reportar un mensaje recibido al administrador: un motivo opcional y listo (quien lo escribió no se entera) */
+  const reportar = (burbuja) => {
+    if (burbuja.querySelector('.burbuja__reporte')) return;
+    const forma = elemento('form', 'burbuja__edicion burbuja__reporte');
+    const etiqueta = elemento('label', 'burbuja__reporte-titulo', '¿Por qué es inapropiado? (opcional)');
+    const motivo = elemento('textarea', 'field__control');
+    motivo.maxLength = 300;
+    motivo.rows = 2;
+    motivo.id = `motivo-reporte-${burbuja.dataset.mensaje}`;
+    etiqueta.htmlFor = motivo.id;
+    const nota = elemento('p', 'burbuja__reporte-nota', 'Lo revisará el administrador del colegio. La otra persona no se entera.');
+    const botones = elemento('div', 'burbuja__edicion-botones');
+    const cancelar = elemento('button', 'btn btn--ghost btn--sm', 'Cancelar');
+    cancelar.type = 'button';
+    const enviarReporte = elemento('button', 'btn btn--danger btn--sm', 'Reportar');
+    enviarReporte.type = 'submit';
+    botones.append(cancelar, enviarReporte);
+    forma.append(etiqueta, motivo, nota, botones);
+    burbuja.querySelector('.burbuja__pie').before(forma);
+    motivo.focus();
+    cancelar.addEventListener('click', () => forma.remove());
+    motivo.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Escape') forma.remove();
+    });
+    forma.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      enviarReporte.disabled = true;
+      try {
+        const cuerpo = new FormData();
+        cuerpo.append('motivo', motivo.value);
+        const url = chat.dataset.reportarUrl.replace(/\/0\/reportar\/$/, `/${burbuja.dataset.mensaje}/reportar/`);
+        const respuesta = await post(url, cuerpo);
+        const datos = await respuesta.json().catch(() => ({}));
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo reportar el mensaje.');
+        forma.remove();
+        burbuja.dataset.reportado = '';
+        burbuja.querySelector('[data-chat-accion="reportar"]')?.remove();
+        const marca = elemento('span', 'burbuja__reportado', 'Reportado');
+        marca.dataset.tooltip = 'Lo reportaste al administrador del colegio';
+        burbuja.querySelector('.burbuja__pie')?.append(marca);
+        mostrarError('');
+        if (estadoDelReporte) estadoDelReporte.textContent = datos.mensaje || 'Se reportó el mensaje.';
+      } catch (problema) {
+        enviarReporte.disabled = false;
+        mostrarError(problema.message);
+      }
+    });
+  };
+  /* Para lectores de pantalla: la confirmación del reporte */
+  const estadoDelReporte = elemento('p', 'visually-hidden');
+  estadoDelReporte.setAttribute('role', 'status');
+  chat.append(estadoDelReporte);
+
+  /* El texto nuevo de un mensaje corregido (aquí, en otra pestaña o por la otra persona), con su formato si lo tiene */
   const ponerCorreccion = (datos) => {
     const burbuja = document.getElementById(`mensaje-${datos.id}`);
     if (!burbuja) return;
     burbuja.querySelector('.burbuja__edicion')?.remove();
     burbuja.querySelectorAll('.burbuja__texto').forEach((nodo) => nodo.remove());
-    const texto = elemento('p', 'burbuja__texto', datos.texto);
+    let texto;
+    if (datos.html) {
+      texto = elemento('div', 'burbuja__texto burbuja__texto--rico');
+      texto.innerHTML = datos.html;   /* ya limpio en el servidor (Mensajes/enriquecido.py) */
+    } else {
+      texto = elemento('p', 'burbuja__texto', datos.texto);
+    }
     const cita = burbuja.querySelector('.burbuja__cita');
     if (cita) cita.after(texto);
     else burbuja.prepend(texto);
@@ -228,13 +291,32 @@
     }
   };
 
+  /* Un mensaje con formato se corrige en el lugar con su formato (negritas, listas, tablas…): el servidor lo vuelve a
+     limpiar. Lo que se pega entra como texto. */
+  const areaConFormato = (original) => {
+    const area = elemento('div', 'field__control burbuja__edicion-rico burbuja__texto--rico');
+    area.contentEditable = 'true';
+    area.setAttribute('role', 'textbox');
+    area.setAttribute('aria-multiline', 'true');
+    area.innerHTML = original.innerHTML;   /* el HTML que ya se muestra, limpio en el servidor */
+    area.addEventListener('paste', (evento) => {
+      evento.preventDefault();
+      document.execCommand('insertText', false, evento.clipboardData?.getData('text/plain') || '');
+    });
+    return area;
+  };
+
   const corregir = (burbuja) => {
     if (burbuja.querySelector('.burbuja__edicion')) return;
     const original = burbuja.querySelector('.burbuja__texto');
+    const conFormato = Boolean(original?.classList.contains('burbuja__texto--rico'));
     const forma = elemento('form', 'burbuja__edicion');
-    const area = elemento('textarea', 'field__control');
-    area.value = original ? original.innerText.trim() : '';
-    area.maxLength = Number(campo?.maxLength) > 0 ? Number(campo.maxLength) : 2000;
+    const area = conFormato ? areaConFormato(original) : elemento('textarea', 'field__control');
+    if (!conFormato) {
+      area.value = original ? original.innerText.trim() : '';
+      area.maxLength = Number(campo?.maxLength) > 0 ? Number(campo.maxLength) : 2000;
+    }
+    const contenido = () => (conFormato ? area.innerText : area.value);
     area.setAttribute('aria-label', 'Corregir el mensaje');
     const botones = elemento('div', 'burbuja__edicion-botones');
     const cancelar = elemento('button', 'btn btn--ghost btn--sm', 'Cancelar');
@@ -253,18 +335,23 @@
     cancelar.addEventListener('click', cerrar);
     area.addEventListener('keydown', (evento) => {
       if (evento.key === 'Escape') cerrar();
-      if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
+      /* Como en la caja de escribir: Intro guarda; en listas y tablas, hace un renglón nuevo */
+      const nodo = conFormato ? window.getSelection()?.anchorNode : null;
+      const lugar = nodo?.nodeType === Node.ELEMENT_NODE ? nodo : nodo?.parentElement;
+      const enListaOTabla = Boolean(lugar && area.contains(lugar) && lugar.closest('li, td, th'));
+      if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing && !enListaOTabla) {
         evento.preventDefault();
         forma.requestSubmit();
       }
     });
     forma.addEventListener('submit', async (evento) => {
       evento.preventDefault();
-      if (!area.value.trim()) return;
+      if (!contenido().trim()) return;
       guardar.disabled = true;
       try {
         const cuerpo = new FormData();
-        cuerpo.append('texto', area.value);
+        cuerpo.append('texto', contenido());
+        if (conFormato) cuerpo.append('html', area.innerHTML);
         const respuesta = await post(burbuja.dataset.urlEditar, cuerpo);
         const datos = await respuesta.json().catch(() => ({}));
         if (!respuesta.ok) throw new Error(datos.error || 'No se pudo corregir el mensaje.');
@@ -301,6 +388,7 @@
     if (accion) {
       const burbuja = accion.closest('.burbuja');
       if (accion.dataset.chatAccion === 'responder') responder(burbuja);
+      else if (accion.dataset.chatAccion === 'reportar') reportar(burbuja);
       else if (editableHasta(burbuja) > Date.now()) corregir(burbuja);
       else accion.remove();
       return;
@@ -346,10 +434,11 @@
     if (!dias.length || dias[dias.length - 1].dataset.chatDia !== datos.fecha) {
       const dia = elemento('p', 'chat__dia');
       dia.dataset.chatDia = datos.fecha;
-      dia.append(elemento('span', '', 'Hoy'));
+      dia.append(elemento('span', ''));
       mensajes.append(dia);
     }
-    renombrarDias(datos.fecha);   /* el mensaje acaba de llegar: su día es hoy */
+    /* Normalmente acaba de llegar (su día es hoy); al ponerse al día después de una desconexión puede ser de antes */
+    renombrarDias(datos.fecha > hoyAhora() ? datos.fecha : hoyAhora());
     const burbuja = elemento('div', `burbuja is-nueva${datos.mio ? ' burbuja--mia' : ''}`);
     burbuja.id = `mensaje-${datos.id}`;
     burbuja.dataset.mensaje = String(datos.id);
@@ -560,6 +649,84 @@
       marcarLeidosHasta(datos.hasta, datos.leido);
     } else if (datos.evento === 'resumen') {
       limpiarConteo(datos.conversacion);
+    }
+  });
+
+  /* ------------------------------------------------------------------ ponerse al día al reconectarse */
+  /* Mientras la pestaña estuvo desconectada (celular bloqueado, cambio de red, servidor reiniciado) no llegaron los
+     eventos: al reconectarse (avisos.js → «avisos:reconectado») se vuelve a pedir la lista de conversaciones y, en la
+     conversación abierta, los mensajes nuevos, los que se retiraron y hasta dónde leyó la otra persona. */
+  const pedirJsonDe = async (url) => {
+    const respuesta = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    return respuesta.ok ? respuesta.json() : null;
+  };
+
+  const refrescarLista = async () => {
+    if (!conversaciones || !chat.dataset.conversacionesUrl) return;
+    const url = new URL(chat.dataset.conversacionesUrl, window.location.href);
+    if (conversacion) url.searchParams.set('actual', String(conversacion));
+    const datos = await pedirJsonDe(url);
+    if (!datos) return;
+    const plantilla = document.createElement('template');
+    plantilla.innerHTML = datos.html;   /* lo pinta el servidor (templates/mensajes/_conversaciones.html) */
+    conversaciones.replaceChildren(...plantilla.content.querySelectorAll('[data-conversacion-item]'));
+    let fila = chat.querySelector('[data-chat-mas-fila]');
+    if (datos.siguientes && !fila) {
+      fila = elemento('p', 'chat__mas');
+      fila.dataset.chatMasFila = '';
+      const enlace = elemento('a', 'btn btn--ghost btn--sm', 'Ver más conversaciones');
+      enlace.dataset.chatMas = '';
+      fila.append(enlace);
+      conversaciones.after(fila);
+    }
+    if (datos.siguientes) {
+      const enlace = fila.querySelector('[data-chat-mas]');
+      enlace.dataset.siguientes = datos.siguientes;
+      enlace.href = `?despues=${encodeURIComponent(datos.siguientes)}`;
+    } else {
+      fila?.remove();
+    }
+    filtrarConversaciones();
+    if (sinConversaciones) sinConversaciones.hidden = Boolean(conversaciones.querySelector('[data-conversacion-item]'));
+  };
+
+  const ponerAlDiaLaConversacion = async () => {
+    /* Abierta en una parte anterior, lo nuevo se ve con «Ver mensajes más recientes» */
+    if (!conversacion || hayPosteriores || !mensajes || !chat.dataset.nuevosUrl) return;
+    const ids = [...mensajes.querySelectorAll('.burbuja[data-mensaje]')].map((burbuja) => Number(burbuja.dataset.mensaje));
+    let despues = ids.length ? Math.max(...ids) : 0;
+    let datos = null;
+    let llegaron = false;
+    for (let vuelta = 0; vuelta < 10; vuelta += 1) {   /* de 50 en 50, por si fueron muchos */
+      const url = new URL(chat.dataset.nuevosUrl, window.location.href);
+      url.searchParams.set('despues', String(despues));
+      if (vuelta === 0 && ids.length) url.searchParams.set('desde', String(Math.min(...ids)));
+      datos = await pedirJsonDe(url);
+      if (!datos) return;
+      if (vuelta === 0 && ids.length) {
+        const siguen = new Set(datos.existentes);
+        ids.filter((id) => !siguen.has(id)).forEach((id) => quitarMensaje({ conversacion, id }));
+      }
+      datos.mensajes.forEach((mensaje) => {
+        agregar(mensaje);
+        if (!mensaje.mio) llegaron = true;
+        despues = Math.max(despues, mensaje.id);
+      });
+      if (datos.completos) break;
+    }
+    marcarLeidosHasta(datos.leido_hasta, datos.leido);
+    if (llegaron) {
+      ocultarEscribiendo();
+      if (document.visibilityState === 'visible') marcarLeida();
+      else porLeer = true;
+    }
+  };
+
+  document.addEventListener('avisos:reconectado', async () => {
+    try {
+      await Promise.all([refrescarLista(), ponerAlDiaLaConversacion()]);
+    } catch (problema) {
+      /* sin conexión otra vez: se intentará en la siguiente reconexión */
     }
   });
 

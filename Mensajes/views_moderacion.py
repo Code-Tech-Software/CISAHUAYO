@@ -1,6 +1,8 @@
 """Pantallas de la moderación de la mensajería (solo en el sistema, con `Mensajes.moderar`: exclusivo del administrador).
 
 - Búsqueda en todas las conversaciones, por persona, texto o fechas.
+- Los mensajes reportados por quienes los recibieron (2026-10-27): retirarlos o descartar el reporte.
+- Todas las conversaciones del colegio, por persona o por con quién son (2026-10-27).
 - Una conversación completa, de solo lectura (no la marca como leída: quien modera no es miembro).
 - Retirar un mensaje: confirmación y borrado completo (Mensajes/moderacion.py).
 Las imágenes de los mensajes se entregan aquí por su propia ruta (las de la mensajería solo las ven los miembros).
@@ -11,15 +13,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 
 from . import enriquecido, moderacion, reglas
-from .forms import FiltroModeracionForm
-from .models import Conversacion, ImagenMensaje, Mensaje, Participante
+from .forms import FiltroConversacionesForm, FiltroModeracionForm
+from .models import Conversacion, ImagenMensaje, Mensaje, Participante, ReporteMensaje
 from .moderacion import MODERAR
+
+
+def _contexto(seccion, **extra):
+    """Lo que comparten las pantallas con pestañas (templates/mensajes/_moderacion_pestanas.html)."""
+    return {'moderacion_seccion': seccion, 'reportados_pendientes': moderacion.reportados_pendientes(),
+            'por_pagina_defecto': POR_PAGINA_DEFECTO, 'opciones_por_pagina': OPCIONES_POR_PAGINA, **extra}
 
 
 def _volver(request):
@@ -45,15 +53,49 @@ def _html(mensaje):
 def buscar(request):
     filtro = FiltroModeracionForm(request.GET)
     datos = filtro.activos
-    contexto = {'filtro': filtro, 'filtros_activos': datos,
-                'por_pagina_defecto': POR_PAGINA_DEFECTO, 'opciones_por_pagina': OPCIONES_POR_PAGINA}
-    if datos:   # sin criterios no se lista nada: se busca, no se recorren las conversaciones de todos
+    contexto = _contexto('buscar', filtro=filtro, filtros_activos=datos)
+    if datos:   # sin criterios no se lista ningún mensaje: para recorrer, están las conversaciones (abajo)
         pagina, rango, por_pagina = paginar(request, moderacion.buscar(**datos))
         pagina.object_list = moderacion.con_destinatarios(pagina.object_list)
         for mensaje in pagina.object_list:
             mensaje.fragmento = reglas.resaltar(mensaje.texto, datos.get('texto', ''))
         contexto.update(pagina=pagina, rango_paginas=rango, por_pagina=por_pagina)
     return render(request, 'mensajes/moderacion.html', contexto)
+
+
+@requiere_permisos(MODERAR)
+@require_GET
+def reportados(request):
+    """Los mensajes que reportaron quienes los recibieron, del reporte más reciente al más antiguo: quién lo reportó y
+    por qué, y las acciones (verlo en la conversación, retirarlo o descartar el reporte)."""
+    pagina, rango, por_pagina = paginar(request, moderacion.reportados())
+    pagina.object_list = moderacion.con_destinatarios(pagina.object_list)
+    reglas.con_documentos(pagina.object_list, _url_de_archivo)
+    return render(request, 'mensajes/moderacion_reportados.html', _contexto(
+        'reportados', pagina=pagina, rango_paginas=rango, por_pagina=por_pagina))
+
+
+@requiere_permisos(MODERAR)
+@require_POST
+def descartar(request, pk):
+    """El mensaje reportado no es inapropiado: se borran sus reportes y sigue en la conversación."""
+    mensaje = get_object_or_404(Mensaje, pk=pk)
+    if moderacion.descartar_reportes(mensaje):
+        messages.success(request, 'Se descartó el reporte. El mensaje sigue en la conversación.')
+    return redirect(_volver(request))
+
+
+@requiere_permisos(MODERAR)
+@require_GET
+def conversaciones(request):
+    """Todas las conversaciones del colegio (con mensajes), de la más reciente a la más antigua: por persona o por con
+    quién son (con estudiantes, con tutores o entre el personal)."""
+    filtro = FiltroConversacionesForm(request.GET)
+    datos = filtro.activos
+    pagina, rango, por_pagina = paginar(request, moderacion.conversaciones(**datos))
+    pagina.object_list = moderacion.con_miembros(pagina.object_list)
+    return render(request, 'mensajes/moderacion_conversaciones.html', _contexto(
+        'conversaciones', filtro=filtro, filtros_activos=datos, pagina=pagina, rango_paginas=rango, por_pagina=por_pagina))
 
 
 @requiere_permisos(MODERAR)
@@ -67,7 +109,11 @@ def conversacion(request, pk):
     miembros = sorted(moderacion.miembros_de(conversacion), key=lambda p: (p.tipo == Participante.SISTEMA, p.pk))
     derecha = miembros[-1].pk if len(miembros) > 1 else None
     reglas.con_documentos(mensajes, _url_de_archivo)
+    reportes = {}
+    for reporte in ReporteMensaje.objects.filter(mensaje__in=[m.pk for m in mensajes]):
+        reportes[reporte.mensaje_id] = reportes.get(reporte.mensaje_id, 0) + 1
     for mensaje in mensajes:
+        mensaje.veces_reportado = reportes.get(mensaje.pk, 0)
         mensaje.a_la_derecha = mensaje.autor_id == derecha
         mensaje.html_visible = _html(mensaje)
         mensaje.dia = timezone.localtime(mensaje.creado).date()

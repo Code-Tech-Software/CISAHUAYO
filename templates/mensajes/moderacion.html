@@ -2,7 +2,8 @@
 {% load static %}
 {% comment %}
   Moderación de la mensajería (Mensajes/views_moderacion.py, exclusiva del administrador): buscar en todas las
-  conversaciones por persona, texto o fechas, abrir la conversación y retirar un mensaje (se borra por completo).
+  conversaciones por persona, texto o fechas, abrir la conversación y retirar un mensaje (se borra por completo). Las
+  otras secciones (pestañas): los mensajes reportados y todas las conversaciones.
 {% endcomment %}
 
 {% block title %}Moderación · Mensajes | CISAHUAYO{% endblock %}
@@ -21,9 +22,11 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Moderación de mensajes</h1>
-      <p class="page-header__description">Busca en todas las conversaciones del colegio y retira los mensajes inapropiados. Un mensaje retirado se borra por completo, con sus imágenes: no queda copia ni aviso de que existió.</p>
+      <p class="page-header__description">Revisa las conversaciones del colegio y retira los mensajes inapropiados. Un mensaje retirado se borra por completo, con sus imágenes: no queda copia ni aviso de que existió.</p>
     </div>
   </header>
+
+  {% include "mensajes/_moderacion_pestanas.html" %}
 
   <form class="filters" method="get" role="search" aria-label="Buscar mensajes" data-autosubmit>
     {% if por_pagina and por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}

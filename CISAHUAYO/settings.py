@@ -234,3 +234,12 @@ else:
 # El cierre automático de asistencia que dispara la primera entrada del día corre en un hilo aparte, para que quien
 # escaneó no espere (Alumnos/asistencias.py). En las pruebas corre en la misma petición.
 ASISTENCIA_CIERRE_EN_SEGUNDO_PLANO = 'test' not in sys.argv
+
+# Notificaciones push de la mensajería (Mensajes/push.py): avisan de un mensaje nuevo aunque la página esté cerrada. Las
+# claves se generan una vez con `python manage.py generar_claves_push` y van en las variables de entorno (Railway): sin
+# ellas, no se ofrecen. VAPID_CONTACTO: cómo contactar al responsable del sitio (mailto: o https:), lo piden los
+# servicios de push; por omisión, la dirección del sistema. Se envían en un hilo aparte (en las pruebas, en la petición).
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+VAPID_CONTACTO = os.getenv('VAPID_CONTACTO', '') or CSRF_TRUSTED_ORIGINS[0]
+PUSH_EN_SEGUNDO_PLANO = 'test' not in sys.argv

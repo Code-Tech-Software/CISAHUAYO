@@ -28,9 +28,10 @@ from django.utils.safestring import mark_safe
 from Alumnos.academico import ciclo_actual
 from Alumnos.models import Alumno, Inscripcion, MateriaGrado, Tutor, TutorAlumno
 from CISAHUAYO import portales
+from CISAHUAYO.sin_acentos import quitar_acentos
 
 from . import enriquecido
-from .models import Conversacion, ImagenMensaje, Mensaje, Miembro, Participante
+from .models import ConfiguracionMensajes, Conversacion, ImagenMensaje, Mensaje, Miembro, Participante, ReporteMensaje
 
 USAR = 'Mensajes.usar'
 FAMILIAS = 'Mensajes.contactar_familias'
@@ -283,6 +284,23 @@ def _pendientes(conversacion, autor):
     return ImagenMensaje.objects.filter(conversacion=conversacion, autor=autor, mensaje__isnull=True)
 
 
+def _desde_html(html, imagenes_validas):
+    """(texto plano, html limpio, ids de imágenes) de lo que manda el editor con formato. Sin formato real, el html queda
+    vacío (basta el texto); sin nada escrito, los dos. MensajeRechazado si es demasiado largo."""
+    if len(html) > Mensaje.MAXIMO_HTML * 3:
+        raise MensajeRechazado('El mensaje es demasiado largo.')
+    html, imagenes = enriquecido.limpiar(html, imagenes_validas=imagenes_validas)
+    if enriquecido.tiene_contenido(html):
+        texto = enriquecido.texto_plano(html)
+        if enriquecido.es_texto_simple(html):
+            html = ''
+    else:
+        html, texto = '', ''
+    if len(html) > Mensaje.MAXIMO_HTML:
+        raise MensajeRechazado('El mensaje tiene demasiado contenido o formato. Divídelo en varios mensajes.')
+    return texto, html, imagenes
+
+
 def preparar_contenido(conversacion, autor, texto, html='', documentos=()):
     """(texto plano, html limpio, ids de imágenes, ids de documentos, sin_texto) de lo que se quiere enviar. Con `html`
     (el editor con formato), el texto sale de él y el HTML se limpia en el servidor: solo quedan las imágenes que esa
@@ -295,18 +313,8 @@ def preparar_contenido(conversacion, autor, texto, html='', documentos=()):
     if len(adjuntos) > ImagenMensaje.DOCUMENTOS_POR_MENSAJE:
         raise MensajeRechazado(f'Se pueden adjuntar hasta {ImagenMensaje.DOCUMENTOS_POR_MENSAJE} documentos por mensaje.')
     if html and html.strip():
-        if len(html) > Mensaje.MAXIMO_HTML * 3:
-            raise MensajeRechazado('El mensaje es demasiado largo.')
         validas = set(_pendientes(conversacion, autor).filter(tipo__startswith='image/').values_list('pk', flat=True))
-        html, imagenes = enriquecido.limpiar(html, imagenes_validas=validas)
-        if enriquecido.tiene_contenido(html):
-            texto = enriquecido.texto_plano(html)
-            if enriquecido.es_texto_simple(html):
-                html = ''
-        else:
-            html, texto = '', ''
-        if len(html) > Mensaje.MAXIMO_HTML:
-            raise MensajeRechazado('El mensaje tiene demasiado contenido o formato. Divídelo en varios mensajes.')
+        texto, html, imagenes = _desde_html(html, validas)
     else:
         html, texto = '', (texto or '').strip()
     sin_texto = not texto
@@ -319,13 +327,20 @@ def preparar_contenido(conversacion, autor, texto, html='', documentos=()):
     return texto, html, imagenes, [documento.pk for documento in adjuntos], sin_texto
 
 
+# Mensajes seguidos que una persona puede mandar en una conversación en un minuto (que nadie llene de mensajes a otra)
+POR_MINUTO = 10
+
+
 def enviar(conversacion, autor, texto, html='', documentos=(), responde_a=None):
     texto, html, imagenes, documentos, sin_texto = preparar_contenido(conversacion, autor, texto, html, documentos)
     if not puede_escribir_en(conversacion, autor):
         raise MensajeRechazado('Ya no puedes escribir en esta conversación.')
+    recientes = conversacion.mensajes.filter(autor=autor, creado__gte=timezone.now() - timedelta(minutes=1)).count()
+    if recientes >= POR_MINUTO:
+        raise MensajeRechazado('Enviaste muchos mensajes seguidos. Espera un minuto antes de enviar otro.')
     # La cita solo vale con un mensaje de la misma conversación (si no, se envía sin cita)
     citado = conversacion.mensajes.filter(pk=responde_a).first() if str(responde_a or '').isdigit() else None
-    from . import tiempo_real
+    from . import push, tiempo_real
     with transaction.atomic():
         mensaje = Mensaje.objects.create(conversacion=conversacion, autor=autor, texto=texto, html=html, sin_texto=sin_texto,
                                          responde_a=citado)
@@ -337,6 +352,7 @@ def enviar(conversacion, autor, texto, html='', documentos=(), responde_a=None):
         # Quien responde ya leyó lo anterior: la otra persona lo ve como «Leído»
         leidos = Mensaje.objects.filter(conversacion=conversacion, pk__lt=mensaje.pk, leido_en__isnull=True).exclude(autor=autor).update(leido_en=ahora)
         transaction.on_commit(lambda: tiempo_real.avisar_mensaje(mensaje))
+        transaction.on_commit(lambda: push.avisar_mensaje(mensaje))   # también con la página cerrada
         if leidos:
             transaction.on_commit(lambda: tiempo_real.avisar_lectura(conversacion, autor, mensaje.pk, ahora))
     return mensaje
@@ -358,24 +374,72 @@ def se_puede_editar(mensaje, participante, ahora=None):
     )
 
 
-def editar(mensaje, participante, texto):
-    """Cambia el texto del mensaje (queda como texto, sin formato) y lo marca «editado». MensajeRechazado si ya no se
-    puede o si queda vacío o demasiado largo."""
+def editar(mensaje, participante, texto, html=''):
+    """Cambia el texto del mensaje y lo marca «editado». Un mensaje con formato se corrige con su formato (`html`, que se
+    limpia como al enviar); sin `html`, queda como texto. MensajeRechazado si ya no se puede o si queda vacío o
+    demasiado largo."""
     if not puede_escribir_en(mensaje.conversacion, participante):
         raise MensajeRechazado('Ya no puedes escribir en esta conversación.')
     if not se_puede_editar(mensaje, participante):
         raise MensajeRechazado(f'Solo puedes corregir tus mensajes de texto en los primeros {MINUTOS_PARA_EDITAR} minutos.')
-    texto = (texto or '').strip()
+    if html and html.strip():
+        texto, html, _ = _desde_html(html, imagenes_validas=set())   # se corrigen los que no tienen imágenes
+    else:
+        texto, html = (texto or '').strip(), ''
     if not texto:
         raise MensajeRechazado('Escribe un mensaje.')
     if len(texto) > Mensaje.MAXIMO:
         raise MensajeRechazado(f'El mensaje es muy largo (máximo {Mensaje.MAXIMO} caracteres).')
     from . import tiempo_real
     with transaction.atomic():
-        mensaje.texto, mensaje.html, mensaje.editado = texto, '', timezone.now()
+        mensaje.texto, mensaje.html, mensaje.editado = texto, html, timezone.now()
         mensaje.save(update_fields=['texto', 'html', 'editado'])
         transaction.on_commit(lambda: tiempo_real.avisar_edicion(mensaje))
     return mensaje
+
+
+# ---------------------------------------------------------------------------
+# Horario de atención (2026-10-27)
+# ---------------------------------------------------------------------------
+def _hora(valor):
+    return f'{valor.hour}:{valor.minute:02d}'
+
+
+def aviso_fuera_de_horario(participante, otro, momento=None):
+    """El aviso para un estudiante o un tutor que le escribe al personal fuera del horario de atención (Ajustes ›
+    Mensajes): de noche, en fin de semana o en un día sin clases de todo el colegio. '' en horario, con el aviso apagado
+    o entre otras cuentas. No impide escribir."""
+    if participante.tipo == Participante.SISTEMA or otro is None or otro.tipo != Participante.SISTEMA:
+        return ''
+    configuracion = ConfiguracionMensajes.actual()
+    if not configuracion.avisar_fuera_de_horario:
+        return ''
+    from Alumnos.asistencias import motivo_sin_clases
+    momento = timezone.localtime(momento)
+    if motivo_sin_clases(momento.date()) is None and configuracion.hora_inicio <= momento.time() < configuracion.hora_fin:
+        return ''
+    return (f'Estás escribiendo fuera del horario de atención del colegio (de lunes a viernes, de '
+            f'{_hora(configuracion.hora_inicio)} a {_hora(configuracion.hora_fin)}, en días de clases). Tu mensaje se '
+            f'entrega al momento, pero la respuesta puede llegar hasta el siguiente día de clases.')
+
+
+# ---------------------------------------------------------------------------
+# Reportar un mensaje inapropiado (2026-10-27)
+# ---------------------------------------------------------------------------
+def reportar(mensaje, participante, motivo=''):
+    """Quien recibió el mensaje lo reporta al administrador (Mensajes/moderacion.py), con un motivo opcional. Una vez por
+    persona y mensaje: si lo vuelve a reportar, se actualiza el motivo. Quien lo escribió no se entera. También en una
+    conversación que ya no admite mensajes nuevos. MensajeRechazado si es un mensaje propio."""
+    if mensaje.autor_id == participante.pk:
+        raise MensajeRechazado('Solo puedes reportar los mensajes que recibiste.')
+    motivo = ' '.join((motivo or '').split())[:ReporteMensaje.MOTIVO_MAXIMO]
+    reporte, _ = ReporteMensaje.objects.update_or_create(mensaje=mensaje, participante=participante, defaults={'motivo': motivo})
+    return reporte
+
+
+def reportados_por(participante, mensajes):
+    """Los ids de esos mensajes que la persona ya reportó (y que siguen esperando revisión)."""
+    return set(ReporteMensaje.objects.filter(participante=participante, mensaje__in=[m.pk for m in mensajes]).values_list('mensaje_id', flat=True))
 
 
 def cita_de(mensaje):
@@ -423,10 +487,12 @@ def html_visible(mensaje, participante):
     return enriquecido.presentar(mensaje.html, lambda pk: reverse(f'{espacio}:imagen', args=[pk]))
 
 
-def marcar_leida(conversacion, participante):
+def marcar_leida(conversacion, participante, hasta=None):
     """Marca como leído todo lo que hay en la conversación (y la hora en cada mensaje de la otra persona que no se había
-    leído). Devuelve True si había algo sin leer."""
-    ultimo = conversacion.mensajes.order_by('-pk').values_list('pk', flat=True).first() or 0
+    leído); con `hasta` (un id), solo hasta ese mensaje: lo que vino después no se ha visto. Devuelve True si había algo
+    sin leer."""
+    mensajes = conversacion.mensajes.filter(pk__lte=hasta) if hasta else conversacion.mensajes
+    ultimo = mensajes.order_by('-pk').values_list('pk', flat=True).first() or 0
     ahora = timezone.now()
     cambiados = Miembro.objects.filter(conversacion=conversacion, participante=participante, ultimo_leido__lt=ultimo).update(
         ultimo_leido=ultimo, leido_en=ahora)
@@ -468,6 +534,11 @@ def leido_por_el_otro(conversacion, participante):
     return Miembro.objects.filter(conversacion=conversacion).exclude(participante=participante).values_list('ultimo_leido', flat=True).first() or 0
 
 
+def miembro_de_la_otra_persona(conversacion, participante):
+    """El `Miembro` de la otra persona (hasta dónde leyó y cuándo), o None."""
+    return Miembro.objects.filter(conversacion=conversacion).exclude(participante=participante).first()
+
+
 def _sin_leer(participante):
     """Los mensajes de otros que la persona no ha leído, por conversación."""
     suyo_sin_leer = Miembro.objects.filter(conversacion=OuterRef('conversacion'), participante=participante, ultimo_leido__lt=OuterRef('pk'))
@@ -478,6 +549,11 @@ def no_leidos(participante):
     if participante is None:
         return 0
     return _sin_leer(participante).count()
+
+
+def sin_leer_por_conversacion(participante):
+    """{conversacion_id: mensajes sin leer} (solo las que tienen alguno): una sola consulta."""
+    return dict(_sin_leer(participante).values('conversacion').annotate(n=Count('pk')).values_list('conversacion', 'n'))
 
 
 def cursor_de(conversacion):
@@ -493,11 +569,14 @@ def _desde_cursor(cursor):
     return datetime(1970, 1, 1, tzinfo=dt_timezone.utc) + timedelta(microseconds=int(momento)), int(pk)
 
 
-def bandeja(participante, limite=60, despues=None):
+def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_leer=False):
     """Las conversaciones de la persona, de la más reciente a la más antigua, con la otra persona, el último mensaje y
-    cuántos mensajes no ha leído. Con `despues` (un cursor de `cursor_de`), las que siguen a esa."""
-    pendientes = dict(_sin_leer(participante).values('conversacion').annotate(n=Count('pk')).values_list('conversacion', 'n'))
+    cuántos mensajes no ha leído. Con `despues` (un cursor de `cursor_de`), las que siguen a esa; con `solo_sin_leer`,
+    solo las que tienen algo sin leer (`pendientes`: lo de `sin_leer_por_conversacion`, si ya se consultó)."""
+    pendientes = sin_leer_por_conversacion(participante) if pendientes is None else pendientes
     consulta = Conversacion.objects.filter(miembros__participante=participante, ultimo_mensaje__isnull=False)
+    if solo_sin_leer:
+        consulta = consulta.filter(pk__in=list(pendientes))
     if (desde := _desde_cursor(despues)) is not None:
         consulta = consulta.filter(Q(actualizada__lt=desde[0]) | Q(actualizada=desde[0], pk__lt=desde[1]))
     conversaciones = list(consulta.select_related('ultimo_mensaje__autor').order_by('-actualizada', '-pk')[:limite])
@@ -534,11 +613,15 @@ def vista_previa(texto):
     return texto if len(texto) <= VISTA_PREVIA else texto[:VISTA_PREVIA - 1].rstrip() + '…'
 
 
-def avisos(participante, limite=6):
-    """Las conversaciones con mensajes sin leer (las de la campana de notificaciones)."""
+def avisos(participante, limite=6, pendientes=None):
+    """Las conversaciones con mensajes sin leer (las de la campana de notificaciones). Sin nada sin leer, no se arma
+    ninguna conversación: la campana está en todas las páginas."""
     if participante is None:
         return []
-    return [c for c in bandeja(participante, limite=40) if c.no_leidos][:limite]
+    pendientes = sin_leer_por_conversacion(participante) if pendientes is None else pendientes
+    if not pendientes:
+        return []
+    return bandeja(participante, limite=limite, pendientes=pendientes, solo_sin_leer=True)
 
 
 def historial(conversacion, antes=None, cantidad=50):
@@ -567,27 +650,40 @@ def ventana(conversacion, alrededor, cantidad=50):
 # ---------------------------------------------------------------------------
 # Buscar en las conversaciones
 # ---------------------------------------------------------------------------
+def _plegado(texto):
+    """(el texto sin acentos y en minúsculas, la posición en `texto` de cada carácter del plegado): para encontrar lo
+    buscado igual que la base de datos (CISAHUAYO/sin_acentos.py) y resaltarlo en el texto original."""
+    letras, origen = [], []
+    for posicion, caracter in enumerate(texto):
+        for letra in quitar_acentos(caracter):
+            letras.append(letra)
+            origen.append(posicion)
+    return ''.join(letras), origen
+
+
 def resaltar(texto, buscado='', largo=220):
     """El texto en una línea, recortado alrededor de la primera coincidencia, con las palabras buscadas en <mark> (todo
-    lo demás, escapado)."""
+    lo demás, escapado). Como la búsqueda, no distingue acentos ni mayúsculas: «excursion» resalta «Excursión»."""
     texto = ' '.join((texto or '').split())
-    palabras = [re.escape(p) for p in (buscado or '').split()]
-    patron = re.compile('|'.join(palabras), re.IGNORECASE) if palabras else None
+    palabras = [re.escape(p) for p in quitar_acentos(buscado or '').split()]
+    coincidencias = []
+    if palabras:
+        plegado, origen = _plegado(texto)
+        coincidencias = [(origen[c.start()], origen[c.end() - 1] + 1) for c in re.finditer('|'.join(palabras), plegado)]
     inicio = 0
-    if patron and (primera := patron.search(texto)) and primera.start() > largo // 3:
-        inicio = primera.start() - largo // 4
-    fragmento = texto[inicio:inicio + largo]
-    partes = []
-    if patron:
-        ultimo = 0
-        for coincidencia in patron.finditer(fragmento):
-            partes.append(conditional_escape(fragmento[ultimo:coincidencia.start()]))
-            partes.append(f'<mark>{conditional_escape(coincidencia.group())}</mark>')
-            ultimo = coincidencia.end()
-        partes.append(conditional_escape(fragmento[ultimo:]))
-    else:
-        partes.append(conditional_escape(fragmento))
-    return mark_safe(('…' if inicio else '') + ''.join(partes) + ('…' if inicio + largo < len(texto) else ''))
+    if coincidencias and coincidencias[0][0] > largo // 3:
+        inicio = coincidencias[0][0] - largo // 4
+    fin = inicio + largo
+    partes, ultimo = [], inicio
+    for desde, hasta in coincidencias:
+        if desde < ultimo or desde >= fin:
+            continue
+        hasta = min(hasta, fin)
+        partes.append(conditional_escape(texto[ultimo:desde]))
+        partes.append(f'<mark>{conditional_escape(texto[desde:hasta])}</mark>')
+        ultimo = hasta
+    partes.append(conditional_escape(texto[ultimo:fin]))
+    return mark_safe(('…' if inicio else '') + ''.join(partes) + ('…' if fin < len(texto) else ''))
 
 
 def buscar_mensajes(participante, texto, limite=20):

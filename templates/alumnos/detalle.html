@@ -141,6 +141,12 @@
           {% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Reuniones con la familia
         </a>
       {% endif %}
+      {# Registrar una reunión con su familia: «Registrar llamada» ya con el estudiante (Reuniones/views.nueva) #}
+      {% if alumno.estatus == 'ACTIVO' and perms.Reuniones.registrar or alumno.estatus == 'ACTIVO' and perms.Reuniones.gestionar or alumno.estatus == 'ACTIVO' and perms.Reuniones.todo %}
+        <a class="tabs__tab tabs__tab--enlace" href="{% url 'reuniones:nueva' %}?alumno={{ alumno.pk }}">
+          {% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} Agendar reunión
+        </a>
+      {% endif %}
     </div>
 
     {# --- Resumen ---------------------------------------------------------- #}

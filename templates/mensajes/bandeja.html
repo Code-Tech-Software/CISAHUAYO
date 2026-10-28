@@ -37,7 +37,7 @@
        data-conversaciones-url="{{ urls.conversaciones }}"{% if sin_leer %} data-sin-leer{% endif %}
        {% if conversacion %}data-conversacion="{{ conversacion.pk }}" data-enviar-url="{{ url_enviar }}" data-leida-url="{{ url_leida }}"
        data-nuevos-url="{% url espacio|add:':nuevos' conversacion.pk %}" data-reportar-url="{% url espacio|add:':reportar' 0 %}"
-       data-conversacion-url="{% url espacio|add:':conversacion' conversacion.pk %}"{% if hay_posteriores %} data-hay-posteriores{% endif %}{% endif %}>
+       data-conversacion-url="{% url espacio|add:':conversacion' conversacion.pk %}"{% if hay_posteriores %} data-hay-posteriores{% endif %}{% if asunto %} data-asunto="{{ asunto }}"{% endif %}{% endif %}>
     {% csrf_token %}
 
     {# --- Conversaciones y búsqueda ------------------------------------------------------------------- #}

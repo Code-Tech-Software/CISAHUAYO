@@ -5,7 +5,10 @@ mensajes, los comunicados y los retiros).
   reunión confirmada, las reprogramaciones, las cancelaciones, las inasistencias, los recordatorios previos y los
   acuerdos a su cargo por vencer o vencidos. Quien hizo el cambio no se notifica a sí mismo.
 - A los tutores invitados: la solicitud de confirmar la cita, la confirmación, las reprogramaciones, las cancelaciones,
-  los recordatorios y los acuerdos compartidos con la familia por vencer o vencidos.
+  los recordatorios y los acuerdos compartidos con la familia por vencer o vencidos. Llevan las indicaciones para la
+  familia, si las hay.
+- A quien atiende (el responsable o, sin él, quien registra o gestiona esa reunión): las solicitudes que pasaron su plazo
+  sin programarse (Ajustes › Reuniones), una vez cada una.
 
 Solo dicen cuándo y dónde (y el folio): nunca el motivo, la descripción, los acuerdos ni las notas. Se guardan en la base
 de datos y, al confirmarse la transacción, se avisan en tiempo real (Reuniones/tiempo_real.py). Los recordatorios y los
@@ -33,6 +36,12 @@ def cuando(reunion):
 
 def _texto(reunion):
     return f'{cuando(reunion)} · {reunion.folio}'[:300]
+
+
+def _texto_familia(reunion):
+    """Para la familia: cuándo, dónde, el folio y sus indicaciones (si las hay)."""
+    texto = _texto(reunion)
+    return f'{texto} · {reunion.indicaciones}'[:300] if reunion.indicaciones and reunion.programada else texto
 
 
 def _guardar(notificaciones):
@@ -65,7 +74,7 @@ def al_personal(reunion, titulo, texto=None, usuarios=None, excluir=None, clave=
 
 def a_la_familia(reunion, titulo, texto=None, clave=''):
     return _guardar([NotificacionReunion(tutor_id=invitado.tutor_id, reunion=reunion, titulo=titulo[:160],
-                                         texto=(texto or _texto(reunion))[:300], clave=clave)
+                                         texto=(texto or _texto_familia(reunion))[:300], clave=clave)
                      for invitado in reunion.tutores.all()])
 
 
@@ -81,7 +90,7 @@ def asignada(reunion, usuarios, actor):
 def programada(reunion, actor, nuevos=()):
     """La cita ya tiene fecha: el personal confirma su disponibilidad y la familia, su asistencia."""
     al_personal(reunion, 'Confirma tu disponibilidad para una reunión con familia', f'{_texto(reunion)}', excluir=actor)
-    a_la_familia(reunion, 'Cita programada: confirma tu asistencia', _texto(reunion))
+    a_la_familia(reunion, 'Cita programada: confirma tu asistencia')
 
 
 def confirmada(reunion, actor):
@@ -139,6 +148,22 @@ def _clave_recordatorio(reunion):
     return f'recordatorio:{reunion.pk}:{reunion.fecha:%Y%m%d}{reunion.hora_inicio:%H%M}'
 
 
+def _clave_espera(reunion):
+    return f'espera:{reunion.pk}'
+
+
+def _esperan(usuario, hoy):
+    """Las solicitudes que pasaron su plazo sin programarse y que le toca atender: las suyas como responsable y, sin
+    responsable, las que puede atender (registra o gestiona esa reunión)."""
+    from .alcance import Acceso, atiende_reuniones
+    from .reglas import que_esperan_demasiado
+    if not atiende_reuniones(usuario):
+        return []
+    acceso = Acceso(usuario)
+    return [r for r in que_esperan_demasiado(acceso.reuniones(), hoy)
+            if r.responsable_id == usuario.pk or (r.responsable_id is None and acceso.atiende_reunion(r))]
+
+
 def _clave_acuerdo(acuerdo, hoy):
     tipo = 'vencido' if acuerdo.fecha_limite < hoy else 'por-vencer'
     return f'acuerdo-{tipo}:{acuerdo.pk}:{acuerdo.fecha_limite:%Y%m%d}'
@@ -151,8 +176,9 @@ def _aviso_de_acuerdo(acuerdo, hoy):
 
 
 def generar_para(usuario=None, tutor=None, ahora=None):
-    """Los recordatorios de las próximas reuniones y los avisos de acuerdos por vencer o vencidos de una cuenta del
-    personal o de un tutor que todavía no se le hayan dado. Devuelve las nuevas."""
+    """Los recordatorios de las próximas reuniones, los avisos de acuerdos por vencer o vencidos y (al personal que
+    atiende) las solicitudes que esperan demasiado, de una cuenta del personal o de un tutor, que todavía no se le hayan
+    dado. Devuelve las nuevas."""
     ahora = ahora or timezone.now()
     hoy = timezone.localdate(ahora)
     configuracion = ConfiguracionReuniones.actual()
@@ -166,12 +192,18 @@ def generar_para(usuario=None, tutor=None, ahora=None):
             propuestas.append(NotificacionReunion(usuario=usuario, reunion=reunion, titulo='Recordatorio: reunión con familia',
                                                   texto=_texto(reunion), clave=_clave_recordatorio(reunion)))
         acuerdos = abiertos.filter(Q(responsable=usuario) | Q(responsable__isnull=True, reunion__responsable=usuario)).select_related('reunion')
+        for reunion in _esperan(usuario, hoy):
+            dias = reunion.dias_de_espera
+            propuestas.append(NotificacionReunion(
+                usuario=usuario, reunion=reunion, titulo='Una solicitud espera ser programada', clave=_clave_espera(reunion),
+                texto=f'{reunion.folio} · Solicitada el {timezone.localtime(reunion.creada):%d/%m} · '
+                      f'{dias} día{"s" if dias != 1 else ""} hábil{"es" if dias != 1 else ""} sin programar'))
     else:
         destino = {'tutor': tutor}
         suyas = Reunion.objects.filter(tutores__tutor=tutor).distinct()
         for reunion in _proximas(suyas, ahora, configuracion.recordatorio_horas):
             propuestas.append(NotificacionReunion(tutor=tutor, reunion=reunion, titulo='Recordatorio: tienes una cita en el colegio',
-                                                  texto=_texto(reunion), clave=_clave_recordatorio(reunion)))
+                                                  texto=_texto_familia(reunion), clave=_clave_recordatorio(reunion)))
         acuerdos = abiertos.filter(compartido=True, reunion__tutores__tutor=tutor).exclude(quien='ESCUELA').select_related('reunion').distinct()
     for acuerdo in acuerdos:
         titulo, texto = _aviso_de_acuerdo(acuerdo, hoy)
@@ -190,6 +222,10 @@ def generar_todas(ahora=None):
                    .values_list('usuario_id', flat=True))
     personal |= set(Reunion.objects.exclude(responsable=None).values_list('responsable_id', flat=True))
     personal |= set(Acuerdo.objects.exclude(estado=Acuerdo.CUMPLIDO).exclude(responsable=None).values_list('responsable_id', flat=True))
+    if Reunion.objects.filter(estado__in=Reunion.SIN_PROGRAMAR).exists():   # quien atiende, por las solicitudes que esperan
+        from .alcance import QUE_ATIENDEN, cuentas_con_permiso
+        for permiso in QUE_ATIENDEN:
+            personal |= set(cuentas_con_permiso(permiso).values_list('pk', flat=True))
     total = 0
     for usuario in get_user_model().objects.filter(pk__in=personal, is_active=True):
         total += len(generar_para(usuario=usuario, ahora=ahora))

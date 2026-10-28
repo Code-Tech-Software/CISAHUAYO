@@ -17,6 +17,10 @@
 - **Inasistencia**: queda registrado quién faltó (tutor, docente o acompañante).
 - **Minuta y acuerdos**: la minuta separa las notas internas confidenciales de lo que se comparte con la familia; cada
   acuerdo tiene responsable, fecha límite, estado y seguimiento.
+- **Desde el portal** (2026-10-28): el tutor dice que leyó la minuta y los acuerdos (vale hasta que la minuta se edite) y
+  reporta el avance de los acuerdos de la familia; el responsable lo revisa al registrar el siguiente seguimiento.
+- **Plazo para programar**: una solicitud sin programar después de N días hábiles (Ajustes › Reuniones; las urgentes, el
+  mismo día) «espera demasiado» y se avisa a quien la atiende.
 
 Nada de esto cambia calificaciones, asistencias ni genera sanciones.
 """
@@ -317,11 +321,13 @@ def _reiniciar_confirmaciones(reunion):
 
 
 @transaction.atomic
-def programar(reunion, *, fecha, inicio, fin, sala, usuario):
+def programar(reunion, *, fecha, inicio, fin, sala, usuario, indicaciones=None):
     if reunion.estado not in Reunion.SIN_PROGRAMAR:
         raise ReglaRota('Esta reunión ya tiene fecha: usa «Reprogramar».')
     _validar_horario(reunion, fecha, inicio, fin, sala)
     reunion.fecha, reunion.hora_inicio, reunion.hora_fin, reunion.sala = fecha, inicio, fin, sala
+    if indicaciones is not None:
+        reunion.indicaciones = indicaciones.strip()[:500]
     _reiniciar_confirmaciones(reunion)
     reunion.estado = Reunion.PROGRAMADA
     reunion.save()
@@ -333,7 +339,7 @@ def programar(reunion, *, fecha, inicio, fin, sala, usuario):
 
 
 @transaction.atomic
-def reprogramar(reunion, *, fecha, inicio, fin, sala, motivo, usuario):
+def reprogramar(reunion, *, fecha, inicio, fin, sala, motivo, usuario, indicaciones=None):
     if reunion.estado not in Reunion.ACTIVAS:
         raise ReglaRota('Solo se reprograma una reunión programada, confirmada o en curso.')
     if not (motivo or '').strip():
@@ -348,6 +354,8 @@ def reprogramar(reunion, *, fecha, inicio, fin, sala, motivo, usuario):
     )
     anterior = notificaciones.cuando(reunion)
     reunion.fecha, reunion.hora_inicio, reunion.hora_fin, reunion.sala = fecha, inicio, fin, sala
+    if indicaciones is not None:
+        reunion.indicaciones = indicaciones.strip()[:500]
     _reiniciar_confirmaciones(reunion)
     reunion.estado, reunion.iniciada_en = Reunion.PROGRAMADA, None
     reunion.save()
@@ -676,6 +684,8 @@ def seguir_acuerdo(acuerdo, *, estado, nota, usuario, evidencia=None, tipo_evide
     if evidencia is not None:
         seguimiento.evidencia, seguimiento.evidencia_nombre, seguimiento.evidencia_tipo = evidencia, evidencia.name[:200], tipo_evidencia
     seguimiento.save()
+    # Lo que reportó la familia queda revisado con este seguimiento
+    acuerdo.seguimientos.filter(tutor__isnull=False, revisado_en=None).update(revisado_en=_ahora(), revisado_por=usuario)
     acuerdo.estado = estado
     acuerdo.cumplido_en = _ahora() if estado == Acuerdo.CUMPLIDO else None
     acuerdo.save(update_fields=['estado', 'cumplido_en'])
@@ -700,3 +710,158 @@ def proxima_hora(minutos=15):
     """La siguiente hora redonda (para sugerir el inicio al programar)."""
     ahora = timezone.localtime() + timedelta(minutes=minutos)
     return ahora.replace(minute=(ahora.minute // 15) * 15, second=0, microsecond=0).time()
+
+
+# ---------------------------------------------------------------------------
+# Indicaciones para la familia y lo que hace el tutor desde su portal
+# ---------------------------------------------------------------------------
+@transaction.atomic
+def cambiar_indicaciones(reunion, *, texto, usuario):
+    """Lo que la familia debe saber de la cita («Preséntate en recepción», «Trae la boleta firmada»). Si la cita ya tiene
+    fecha, se le avisa."""
+    if not reunion.abierta:
+        raise ReglaRota('Las indicaciones se cambian mientras la reunión no ha terminado.')
+    texto = (texto or '').strip()[:500]
+    if texto == reunion.indicaciones:
+        raise ReglaRota('Las indicaciones no cambiaron.')
+    reunion.indicaciones = texto
+    reunion.save(update_fields=['indicaciones', 'modificada'])
+    _evento(reunion, EventoReunion.INDICACIONES, f'Indicaciones para la familia: {texto}' if texto else 'Quitó las indicaciones para la familia.', usuario)
+    if texto and reunion.programada and reunion.estado in Reunion.ACTIVAS:
+        notificaciones.a_la_familia(reunion, 'Nuevas indicaciones para tu cita en el colegio')
+    return reunion
+
+
+def invitacion_de(reunion, tutor):
+    """El TutorEnReunion de ese tutor en la reunión (ReglaRota si no está invitado)."""
+    invitado = reunion.tutores.filter(tutor=tutor).first()
+    if invitado is None:
+        raise ReglaRota('No estás invitado a esta reunión.')
+    return invitado
+
+
+def enterado_vigente(invitado, minuta):
+    """Si el «Leí la minuta» del tutor sigue valiendo (es posterior a la última edición de la minuta)."""
+    return bool(invitado.enterado_minuta_en and minuta is not None and invitado.enterado_minuta_en >= minuta.modificada_en)
+
+
+def enterados(reunion):
+    """[(tutor, momento)] de quienes dijeron desde su portal que leyeron la minuta vigente."""
+    minuta = getattr(reunion, 'minuta', None) if reunion.estado == Reunion.REALIZADA else None
+    if minuta is None:
+        return []
+    return [(i.tutor, i.enterado_minuta_en) for i in reunion.tutores.select_related('tutor') if enterado_vigente(i, minuta)]
+
+
+@transaction.atomic
+def enterado_de_la_minuta(reunion, *, tutor):
+    """«Leí la minuta y los acuerdos»: queda la fecha y la hora (como evidencia, en lugar de la foto de una firma)."""
+    if reunion.estado != Reunion.REALIZADA or not hasattr(reunion, 'minuta'):
+        raise ReglaRota('La reunión todavía no tiene minuta.')
+    invitado = invitacion_de(reunion, tutor)
+    if enterado_vigente(invitado, reunion.minuta):
+        raise ReglaRota('Ya habías confirmado que leíste esta minuta.')
+    invitado.enterado_minuta_en = _ahora()
+    invitado.save(update_fields=['enterado_minuta_en'])
+    _evento(reunion, EventoReunion.ENTERADO, f'{nombre_de_persona(tutor)} confirmó desde el portal que leyó la minuta y los acuerdos.', tutor=tutor)
+    return invitado
+
+
+def acuerdos_de_la_familia(reunion):
+    """Los acuerdos cuyo avance puede reportar la familia: compartidos, de la familia o del estudiante (o de varios) y sin
+    cumplir, de una reunión realizada."""
+    if reunion.estado != Reunion.REALIZADA:
+        return Acuerdo.objects.none()
+    return reunion.acuerdos.filter(compartido=True).exclude(quien='ESCUELA').exclude(estado=Acuerdo.CUMPLIDO)
+
+
+@transaction.atomic
+def avance_de_la_familia(acuerdo, *, tutor, nota, evidencia=None, tipo_evidencia=''):
+    """«Ya lo hice»: el avance que reporta el tutor (con una nota y, si quiere, una foto o un PDF). No cambia el estado del
+    acuerdo: lo revisa el responsable al registrar su seguimiento."""
+    reunion = acuerdo.reunion
+    invitacion_de(reunion, tutor)
+    if not acuerdos_de_la_familia(reunion).filter(pk=acuerdo.pk).exists():
+        raise ReglaRota('Este acuerdo ya no admite avances desde el portal.')
+    nota = (nota or '').strip()
+    if not nota:
+        raise ReglaRota('Cuéntanos qué hiciste.')
+    seguimiento = SeguimientoAcuerdo(acuerdo=acuerdo, estado=acuerdo.estado, nota=nota[:1000], tutor=tutor)
+    if evidencia is not None:
+        seguimiento.evidencia, seguimiento.evidencia_nombre, seguimiento.evidencia_tipo = evidencia, evidencia.name[:200], tipo_evidencia
+    seguimiento.save()
+    _evento(reunion, EventoReunion.AVANCE_FAMILIA, f'{nombre_de_persona(tutor)} reportó avance del acuerdo «{acuerdo.descripcion[:80]}».', tutor=tutor)
+    responsable = acuerdo.responsable if acuerdo.responsable_id else reunion.responsable
+    if responsable is not None and responsable.is_active:
+        notificaciones.al_personal(reunion, 'La familia reportó avance de un acuerdo', f'{reunion.folio} · Revísalo y registra el seguimiento',
+                                   usuarios=[responsable])
+    return seguimiento
+
+
+# ---------------------------------------------------------------------------
+# Plazo para programar una solicitud
+# ---------------------------------------------------------------------------
+def _dias_habiles(desde, hasta, dias, sin_clases):
+    """Los días de atención (sin los días sin clases de todo el colegio) después de `desde` y hasta `hasta`."""
+    total, fecha = 0, desde + timedelta(days=1)
+    while fecha <= hasta:
+        if fecha.weekday() in dias and fecha not in sin_clases:
+            total += 1
+        fecha += timedelta(days=1)
+    return total
+
+
+def plazo_de(reunion, configuracion):
+    """Los días hábiles que puede esperar sin programarse: 0 si es urgente (el mismo día)."""
+    return 0 if reunion.prioridad == Reunion.URGENTE else configuracion.espera_dias
+
+
+def esperas(reuniones, hoy=None):
+    """Marca en cada reunión `dias_de_espera` (días hábiles desde la llamada, solo las que siguen sin programar) y
+    `espera_vencida` (pasó su plazo). Devuelve la lista."""
+    from Alumnos.asistencias import fechas_sin_clases
+    from .models import ConfiguracionReuniones
+    reuniones = list(reuniones)
+    for reunion in reuniones:
+        reunion.dias_de_espera, reunion.espera_vencida = None, False
+    pendientes = [r for r in reuniones if r.estado in Reunion.SIN_PROGRAMAR]
+    if not pendientes:
+        return reuniones
+    hoy = hoy or timezone.localdate()
+    configuracion = ConfiguracionReuniones.actual()
+    llamadas = {r.pk: timezone.localtime(r.creada).date() for r in pendientes}
+    sin_clases = fechas_sin_clases(min(llamadas.values()), hoy)
+    for reunion in pendientes:
+        reunion.dias_de_espera = _dias_habiles(llamadas[reunion.pk], hoy, configuracion.dias or [], sin_clases)
+        reunion.espera_vencida = reunion.dias_de_espera > plazo_de(reunion, configuracion)
+    return reuniones
+
+
+def que_esperan_demasiado(consulta, hoy=None):
+    """Las solicitudes de la consulta que pasaron su plazo sin programarse, la que más espera primero."""
+    vencidas = [r for r in esperas(consulta.filter(estado__in=Reunion.SIN_PROGRAMAR), hoy) if r.espera_vencida]
+    return sorted(vencidas, key=lambda r: (-r.dias_de_espera, r.creada))
+
+
+# ---------------------------------------------------------------------------
+# «Agregar a mi calendario»
+# ---------------------------------------------------------------------------
+def ics_de_reunion(reunion, *, familia, url=''):
+    """La cita como archivo .ics: para la familia, «Cita en el colegio» con las indicaciones; para el personal, con quién.
+    Nunca el motivo (como las notificaciones). El identificador es el mismo de la agenda: no se duplica."""
+    from CISAHUAYO.ics import EventoIcs, calendario
+    lugar = f'{reunion.sala}{" · " + reunion.sala.ubicacion if reunion.sala.ubicacion else ""}' if reunion.sala_id else ''
+    if familia:
+        titulo = f'Cita en el colegio · {reunion.get_area_display()}'
+        partes = [f'Folio {reunion.folio}.']
+        if reunion.indicaciones:
+            partes.append(f'Indicaciones: {reunion.indicaciones}')
+    else:
+        titulo = f'Reunión con familia · {nombre_de_persona(reunion.tutor)} ({reunion.folio})'
+        estudiantes = _lista(nombre_de_persona(e.alumno) for e in reunion.estudiantes.select_related('alumno'))
+        partes = [f'Con {reunion.get_area_display().lower()}. Estudiantes: {estudiantes}.']
+        if reunion.indicaciones:
+            partes.append(f'Indicaciones para la familia: {reunion.indicaciones}')
+    evento = EventoIcs(uid=f'reunion-r{reunion.pk}@cisahuayo', titulo=titulo, fecha_inicio=reunion.fecha, fecha_fin=reunion.fecha,
+                       hora_inicio=reunion.hora_inicio, hora_fin=reunion.hora_fin, descripcion='\n'.join(partes), lugar=lugar, url=url)
+    return calendario([evento])

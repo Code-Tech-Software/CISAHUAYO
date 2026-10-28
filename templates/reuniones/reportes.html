@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Reportes de reuniones con familias (Reuniones/views.reportes): las solicitudes de un periodo (por omisión, desde el
+  inicio del ciclo escolar) por estado, motivo, área y nivel; la espera de la llamada a la cita y si se programaron dentro
+  del plazo; las inasistencias (quién faltó) y los acuerdos cumplidos. Todo dentro del alcance de la cuenta y en Excel.
+{% endcomment %}
+
+{% block title %}Reportes · Reuniones con familias | CISAHUAYO{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'reuniones:inicio' %}">Reuniones con familias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reportes</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reportes de reuniones</h1>
+      <p class="page-header__description">Solicitadas del {{ desde|date:"j \d\e F \d\e Y"|lower }} al {{ hasta|date:"j \d\e F \d\e Y"|lower }}{% if nombre_nivel %} · {{ nombre_nivel }}{% endif %}.</p>
+    </div>
+  </header>
+
+  {% include "reuniones/_navegacion.html" with activa='reportes' %}
+
+  <form class="filters reuniones-filtros" method="get" aria-label="Periodo del reporte">
+    <div class="filters__field"><label class="field__label" for="{{ form.desde.id_for_label }}">{{ form.desde.label }}</label>{{ form.desde }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ form.hasta.id_for_label }}">{{ form.hasta.label }}</label>{{ form.hasta }}</div>
+    <div class="filters__field"><label class="field__label" for="{{ form.nivel.id_for_label }}">{{ form.nivel.label }}</label>{{ form.nivel }}</div>
+    <div class="filters__actions">
+      <button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Aplicar</button>
+      <a class="btn btn--ghost btn--sm" href="{{ url_excel }}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Descargar en Excel</a>
+    </div>
+  </form>
+
+  {% if not total %}
+    <div class="table-card"><div class="empty-state">
+      {% include "partials/icon.html" with name="bar-chart" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">No hay solicitudes en ese periodo</p>
+      <p class="empty-state__text">Elige otras fechas u otro nivel.</p>
+    </div></div>
+  {% else %}
+    <ul class="reuniones-kpis reuniones-kpis--reporte" aria-label="Indicadores del periodo">
+      <li><div class="reuniones-kpi"><span class="reuniones-kpi__numero">{{ total }}</span><span class="reuniones-kpi__nombre">Solicitudes</span></div></li>
+      <li><div class="reuniones-kpi"><span class="reuniones-kpi__numero">{{ realizadas }}</span><span class="reuniones-kpi__nombre">Realizadas</span></div></li>
+      <li><div class="reuniones-kpi"><span class="reuniones-kpi__numero">{% if dias_promedio is not None %}{{ dias_promedio }}{% else %}—{% endif %}</span><span class="reuniones-kpi__nombre">Días de la llamada a la cita (promedio{% if dias_mediana is not None %}; mediana {{ dias_mediana }}{% endif %})</span></div></li>
+      <li><div class="reuniones-kpi{% if en_plazo_porcentaje is not None and en_plazo_porcentaje < 80 %} is-alerta{% endif %}"><span class="reuniones-kpi__numero">{% if en_plazo_porcentaje is not None %}{{ en_plazo_porcentaje }} %{% else %}—{% endif %}</span><span class="reuniones-kpi__nombre">Programadas en plazo ({{ plazo }} días hábiles)</span></div></li>
+      <li><div class="reuniones-kpi{% if inasistencia %} is-alerta{% endif %}"><span class="reuniones-kpi__numero">{% if inasistencia is not None %}{{ inasistencia }} %{% else %}—{% endif %}</span><span class="reuniones-kpi__nombre">Inasistencia</span></div></li>
+      <li><div class="reuniones-kpi"><span class="reuniones-kpi__numero">{% if cumplidos_porcentaje is not None %}{{ cumplidos_porcentaje }} %{% else %}—{% endif %}</span><span class="reuniones-kpi__nombre">Acuerdos cumplidos ({{ cumplidos }} de {{ acuerdos }})</span></div></li>
+    </ul>
+
+    <div class="reuniones-reporte">
+      <section class="card" aria-labelledby="estado-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-list" %}<h2 class="card__title" id="estado-titulo">Por estado</h2></header>
+        <ul class="reuniones-reporte__barras card__body">
+          {% for nombre, cuantas in por_estado %}
+            <li><span class="reuniones-reporte__etiqueta">{{ nombre }}</span><span class="reuniones-reporte__barra" style="--parte: {% widthratio cuantas total 100 %}%"></span><strong>{{ cuantas }}</strong></li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="espera-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="espera-titulo">Espera e inasistencias</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item details__item--wide"><dt class="details__label">De la llamada a la cita</dt><dd class="details__value">{% if dias_promedio is not None %}{{ dias_promedio }} días en promedio · mediana {{ dias_mediana }} ({{ con_cita }} con fecha){% else %}Sin citas programadas{% endif %}</dd></div>
+            <div class="details__item details__item--wide"><dt class="details__label">Programadas dentro del plazo</dt><dd class="details__value">{{ en_plazo }} de {{ con_programacion }} · plazo de {{ plazo }} días hábiles; las urgentes, el mismo día</dd></div>
+            <div class="details__item"><dt class="details__label">Hoy esperan demasiado</dt><dd class="details__value">{% if esperan %}<a class="link-subtle" href="{% url 'reuniones:lista' %}?estado=ESPERA">{{ esperan }}</a>{% else %}0{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">No realizadas por inasistencia</dt><dd class="details__value">{{ no_realizadas }}{% if no_realizadas %} · faltó la familia en {{ falto_familia }}, el personal en {{ falto_personal }}{% endif %}</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      {% include "reuniones/_reporte_tabla.html" with titulo="Por motivo" filas=por_motivo icono="file-text" %}
+      {% include "reuniones/_reporte_tabla.html" with titulo="Por área" filas=por_area icono="users" %}
+      {% include "reuniones/_reporte_tabla.html" with titulo="Por nivel" filas=por_nivel icono="graduation-cap" %}
+
+      <section class="card" aria-labelledby="acuerdos-titulo">
+        <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title" id="acuerdos-titulo">Acuerdos</h2></header>
+        <div class="card__body">
+          <dl class="details">
+            <div class="details__item"><dt class="details__label">Registrados</dt><dd class="details__value">{{ acuerdos }}</dd></div>
+            <div class="details__item"><dt class="details__label">Cumplidos</dt><dd class="details__value">{{ cumplidos }}{% if cumplidos %} · {{ a_tiempo }} a tiempo{% endif %}</dd></div>
+            <div class="details__item"><dt class="details__label">Vencidos sin cumplir</dt><dd class="details__value">{% if vencidos %}<a class="link-subtle" href="{% url 'reuniones:compromisos' %}?estado=VENCIDO">{{ vencidos }}</a>{% else %}0{% endif %}</dd></div>
+          </dl>
+        </div>
+      </section>
+    </div>
+  {% endif %}
+{% endblock %}

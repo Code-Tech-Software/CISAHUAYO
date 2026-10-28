@@ -3,13 +3,19 @@ participante, tutor o de la sala) y las clases de los docentes (sus horarios del
 
 Solo cuentan las reuniones que ocupan su horario: programadas, confirmadas o en curso. Los mensajes dicen quién y a qué
 hora, nunca el motivo de la otra reunión.
+
+Al programar (2026-10-28) se sugieren los primeros horarios libres para todos (`horarios_libres`), empezando por los que
+propuso el tutor.
 """
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
+
+from django.utils import timezone
+from django.utils.formats import date_format
 
 from Alumnos.academico import ciclo_actual
 from Alumnos.models import HorarioMateria
 
-from .models import NOMBRE_DE_DIA, ConfiguracionReuniones, ParticipanteReunion, Reunion, TutorEnReunion
+from .models import NOMBRE_DE_DIA, ConfiguracionReuniones, ParticipanteReunion, Reunion, SalaReunion, TutorEnReunion
 
 
 def _hora(valor):
@@ -122,3 +128,142 @@ def hora_fin_sugerida(inicio, minutos):
     """La hora de término con la duración predeterminada (sin pasar de la medianoche)."""
     fin = datetime.combine(datetime.min, inicio) + timedelta(minutes=minutos)
     return fin.time() if fin.date() == datetime.min.date() else inicio.replace(hour=23, minute=59)
+
+
+# ---------------------------------------------------------------------------
+# Horarios libres sugeridos al programar
+# ---------------------------------------------------------------------------
+PASO = timedelta(minutes=15)
+DIAS_A_REVISAR = 15          # días de atención hacia adelante
+MARGEN_DE_HOY = timedelta(minutes=30)
+
+
+def _en(fecha, hora):
+    return datetime.combine(fecha, hora)
+
+
+def _se_cruza(inicio, fin, ocupados):
+    return any(a < fin and b > inicio for a, b in ocupados)
+
+
+def _ocupacion_del_dia(reunion, fecha, usuarios, tutores, ciclo):
+    """(lo ocupado del personal y los tutores, lo ocupado de cada sala) ese día, como intervalos de datetime."""
+    otras = Reunion.objects.filter(estado__in=Reunion.ACTIVAS, fecha=fecha).exclude(pk=reunion.pk)
+    de_personas = []
+    if usuarios:
+        de_personas += ParticipanteReunion.objects.filter(reunion__in=otras, usuario__in=usuarios, activo=True).values_list(
+            'reunion__hora_inicio', 'reunion__hora_fin')
+    if tutores:
+        de_personas += TutorEnReunion.objects.filter(reunion__in=otras, tutor__in=tutores).values_list('reunion__hora_inicio', 'reunion__hora_fin')
+    if usuarios and ciclo is not None:
+        from Alumnos.semanas import bloques_de_fecha
+        de_personas += bloques_de_fecha(fecha, ciclo, materia_grado__profesor__usuario__in=usuarios).values_list('hora_inicio', 'hora_fin')
+    por_sala = {}
+    for sala_id, inicio, fin in otras.exclude(sala=None).values_list('sala_id', 'hora_inicio', 'hora_fin'):
+        por_sala.setdefault(sala_id, []).append((_en(fecha, inicio), _en(fecha, fin)))
+    return [(_en(fecha, a), _en(fecha, b)) for a, b in de_personas if a and b], por_sala
+
+
+def _libres_del_dia(reunion, fecha, desde, hasta, duracion, salas, ocupacion, ahora):
+    """Los horarios libres de ese día entre `desde` y `hasta` (cada 15 minutos), con la primera sala libre."""
+    personas, por_sala = ocupacion
+    inicio = _en(fecha, desde)
+    if fecha == ahora.date():
+        inicio = max(inicio, ahora.replace(tzinfo=None) + MARGEN_DE_HOY)
+    # A la siguiente hora en punto, y cuarto, y media o menos cuarto
+    if inicio.minute % 15 or inicio.second or inicio.microsecond:
+        inicio = inicio.replace(second=0, microsecond=0) + timedelta(minutes=15 - inicio.minute % 15)
+    limite = _en(fecha, hasta)
+    while inicio + duracion <= limite and inicio.date() == fecha:
+        fin = inicio + duracion
+        mismo = reunion.programada and fecha == reunion.fecha and inicio.time() == reunion.hora_inicio
+        if not mismo and not _se_cruza(inicio, fin, personas):
+            sala = next((s for s in salas if not _se_cruza(inicio, fin, por_sala.get(s.pk, []))), None)
+            if sala is not None:
+                yield inicio.time(), fin.time(), sala
+        inicio += PASO
+
+
+def _hora_de_texto(texto):
+    try:
+        return time.fromisoformat(texto) if texto else None
+    except ValueError:
+        return None
+
+
+def _fecha_de_texto(texto):
+    try:
+        return date.fromisoformat(texto)
+    except (TypeError, ValueError):
+        return None
+
+
+DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+
+def texto_de_horario(fecha, inicio, fin, sala):
+    """«Lun 3 nov · 10:00 a 10:30 · Dirección»."""
+    return f'{DIAS_CORTOS[fecha.weekday()]} {fecha.day} {date_format(fecha, "b")} · {_hora(inicio)} a {_hora(fin)} · {sala}'
+
+
+def horarios_libres(reunion, *, cantidad=6, por_dia=2, ahora=None):
+    """Los primeros horarios en que están libres todo el personal de la reunión, sus tutores y alguna sala: dentro del
+    horario de atención, sin clases de los docentes ni días sin clases de todo el colegio. Primero, uno por cada horario
+    que propuso el tutor (si está libre); luego, a lo más `por_dia` por día. [{fecha, inicio, fin, sala, texto,
+    de_la_familia}]"""
+    from Alumnos.asistencias import fechas_sin_clases
+    configuracion = ConfiguracionReuniones.actual()
+    ahora = timezone.localtime(ahora) if ahora else timezone.localtime()
+    hoy = ahora.date()
+    duracion = timedelta(minutes=reunion.duracion or configuracion.duracion)
+    salas = list(SalaReunion.objects.filter(activo=True))
+    if reunion.sala_id:   # la que ya tiene, primero
+        salas.sort(key=lambda s: s.pk != reunion.sala_id)
+    if not salas:
+        return []
+    usuarios, tutores, ciclo = personal_de(reunion), tutores_de(reunion), ciclo_actual()
+    ultimo = hoy + timedelta(days=DIAS_A_REVISAR * 3)
+    sin_clases = fechas_sin_clases(hoy, ultimo)
+    dias = configuracion.dias or []
+    ocupaciones = {}
+
+    def ocupacion(fecha):
+        if fecha not in ocupaciones:
+            ocupaciones[fecha] = _ocupacion_del_dia(reunion, fecha, usuarios, tutores, ciclo)
+        return ocupaciones[fecha]
+
+    def atiende(fecha):
+        return hoy <= fecha <= ultimo and fecha.weekday() in dias and fecha not in sin_clases
+
+    sugeridos, tomados = [], set()
+
+    def agregar(fecha, inicio, fin, sala, de_la_familia=False):
+        tomados.add((fecha, inicio))
+        sugeridos.append({'fecha': fecha, 'inicio': inicio, 'fin': fin, 'sala': sala, 'de_la_familia': de_la_familia,
+                          'texto': texto_de_horario(fecha, inicio, fin, sala)})
+
+    for propuesta in reunion.propuestas or []:
+        fecha = _fecha_de_texto(propuesta.get('fecha'))
+        if fecha is None or not atiende(fecha):
+            continue
+        desde = max(_hora_de_texto(propuesta.get('desde')) or configuracion.hora_apertura, configuracion.hora_apertura)
+        hasta = min(_hora_de_texto(propuesta.get('hasta')) or configuracion.hora_cierre, configuracion.hora_cierre)
+        libre = next(_libres_del_dia(reunion, fecha, desde, hasta, duracion, salas, ocupacion(fecha), ahora), None)
+        if libre is not None and (fecha, libre[0]) not in tomados:
+            agregar(fecha, *libre, de_la_familia=True)
+
+    fecha, revisados = hoy, 0
+    while len(sugeridos) < cantidad and revisados < DIAS_A_REVISAR and fecha <= ultimo:
+        if atiende(fecha):
+            revisados += 1
+            del_dia = 0
+            for libre in _libres_del_dia(reunion, fecha, configuracion.hora_apertura, configuracion.hora_cierre, duracion, salas,
+                                         ocupacion(fecha), ahora):
+                if (fecha, libre[0]) in tomados:
+                    continue
+                agregar(fecha, *libre)
+                del_dia += 1
+                if del_dia >= por_dia or len(sugeridos) >= cantidad:
+                    break
+        fecha += timedelta(days=1)
+    return sugeridos

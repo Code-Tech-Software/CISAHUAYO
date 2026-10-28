@@ -1,5 +1,5 @@
 {% comment %}
-  Las secciones del módulo (panel, agenda, lista y compromisos) y «Registrar llamada». Parámetro: activa.
+  Las secciones del módulo (panel, agenda, lista, compromisos y reportes) y «Registrar llamada». Parámetro: activa.
   Del contexto: atiende (quien registra o gestiona: ve el panel y registra llamadas) y sin_niveles.
 {% endcomment %}
 <div class="reuniones-barra">
@@ -8,6 +8,7 @@
     <a class="pill{% if activa == 'agenda' %} is-active{% endif %}" href="{% url 'reuniones:agenda' %}"{% if activa == 'agenda' %} aria-current="page"{% endif %}>Agenda</a>
     <a class="pill{% if activa == 'lista' %} is-active{% endif %}" href="{% url 'reuniones:lista' %}"{% if activa == 'lista' %} aria-current="page"{% endif %}>{% if atiende %}Lista{% else %}Mis reuniones{% endif %}</a>
     <a class="pill{% if activa == 'compromisos' %} is-active{% endif %}" href="{% url 'reuniones:compromisos' %}"{% if activa == 'compromisos' %} aria-current="page"{% endif %}>Compromisos</a>
+    {% if atiende %}<a class="pill{% if activa == 'reportes' %} is-active{% endif %}" href="{% url 'reuniones:reportes' %}"{% if activa == 'reportes' %} aria-current="page"{% endif %}>Reportes</a>{% endif %}
   </nav>
   {% if atiende %}
     <a class="btn btn--primary btn--sm" href="{% url 'reuniones:nueva' %}">{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} Registrar llamada</a>

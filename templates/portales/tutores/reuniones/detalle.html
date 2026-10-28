@@ -1,9 +1,11 @@
 {% extends "portales/base.html" %}
 {% load static reuniones_extras %}
 {% comment %}
-  Una cita del tutor (Reuniones/views_portal.detalle): cuándo y dónde, con quién (quién es el docente y quién acompaña),
-  sus estudiantes, el estado, la confirmación de su asistencia, los cambios de fecha, los acuerdos compartidos con la
-  familia, los documentos compartidos y la minuta para la familia. Nunca las notas internas ni lo que no se compartió.
+  Una cita del tutor (Reuniones/views_portal.detalle): cuándo y dónde, las indicaciones, con quién (quién es el docente y
+  quién acompaña, con «Escribir» por Mensajes), sus estudiantes, el estado, la confirmación de su asistencia, «Agregar a
+  mi calendario», los cambios de fecha, los acuerdos compartidos con la familia (y «Ya lo hice» en los suyos), los
+  documentos compartidos y la minuta para la familia con «Leí la minuta». Nunca las notas internas ni lo que no se
+  compartió.
 {% endcomment %}
 
 {% block title %}Reunión {{ reunion.folio }} · {{ portal.nombre }} | CISAHUAYO{% endblock %}
@@ -39,6 +41,9 @@
   {% elif reunion.confirmacion_tutor and reunion.abierta %}
     <p class="reuniones-confirmacion"><span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Asistencia confirmada</span> el {{ reunion.confirmacion_tutor.momento|date:"d/m/Y H:i" }}</p>
   {% endif %}
+  {% if con_calendario %}
+    <p class="reuniones-portal-calendario"><a class="btn btn--ghost btn--sm" href="{% url 'portal_tutores:reuniones:calendario_ics' reunion.pk %}">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} Agregar a mi calendario</a></p>
+  {% endif %}
 
   <div class="reuniones-detalle">
     <div class="reuniones-detalle__principal">
@@ -49,6 +54,7 @@
             <div class="details__item details__item--wide"><dt class="details__label">Cuándo</dt><dd class="details__value{% if not reunion.programada %} details__value--empty{% endif %}">{% if reunion.programada %}{{ reunion.fecha|fecha_larga }} · {{ reunion.hora_inicio|time:"H:i" }} a {{ reunion.hora_fin|time:"H:i" }}{% else %}El colegio te avisará la fecha{% endif %}</dd></div>
             <div class="details__item"><dt class="details__label">Dónde</dt><dd class="details__value">{% if reunion.sala %}{{ reunion.sala }}{% if reunion.sala.ubicacion %} · {{ reunion.sala.ubicacion }}{% endif %}{% else %}Por definir{% endif %}</dd></div>
             <div class="details__item"><dt class="details__label">Estudiantes</dt><dd class="details__value">{% for e in estudiantes %}{{ e.alumno.nombre }} {{ e.alumno.apellido_paterno }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>
+            {% if reunion.indicaciones and reunion.abierta %}<div class="details__item details__item--wide reuniones-indicaciones"><dt class="details__label">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %} Indicaciones</dt><dd class="details__value">{{ reunion.indicaciones|linebreaksbr }}</dd></div>{% endif %}
             {% if reunion.estado == 'CANCELADA' %}<div class="details__item details__item--wide"><dt class="details__label">Cancelada</dt><dd class="details__value">El {{ reunion.cerrada_en|date:"d/m/Y" }}. Si tienes dudas, llama al colegio.</dd></div>{% endif %}
           </dl>
         </div>
@@ -64,6 +70,14 @@
                   <p class="reuniones-persona__nombre">{{ p.usuario|cuenta }}</p>
                   <p class="reuniones-papel reuniones-papel--{{ p.papel|lower }}">{{ p.get_papel_display }}</p>
                 </div>
+                {% if p.usuario_id in escribir_a %}
+                  <form method="post" action="{% url 'portal_tutores:mensajes:nueva' %}" class="reuniones-persona__estado">
+                    {% csrf_token %}
+                    <input type="hidden" name="destinatario" value="u:{{ p.usuario_id }}">
+                    <input type="hidden" name="asunto" value="Sobre la reunión {{ reunion.folio }}">
+                    <button type="submit" class="btn btn--ghost btn--sm">{% include "partials/icon.html" with name="message-circle" icon_class="icon--sm" %} Escribir</button>
+                  </form>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>
@@ -75,9 +89,30 @@
           <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clipboard-check" %}<h2 class="card__title">Acuerdos</h2></header>
           <ul class="reuniones-acuerdos">
             {% for acuerdo in acuerdos %}
-              <li class="reuniones-acuerdo">
+              <li class="reuniones-acuerdo" id="acuerdo-{{ acuerdo.pk }}">
                 <div class="reuniones-acuerdo__cabeza"><p class="reuniones-acuerdo__texto">{{ acuerdo.descripcion|linebreaksbr }}</p>{% include "reuniones/_acuerdo_estado.html" %}</div>
                 <p class="text-muted reuniones-sub">{{ acuerdo.get_quien_display }} · Fecha límite: {{ acuerdo.fecha_limite|date:"d/m/Y" }}</p>
+                {% if acuerdo.mi_avance %}
+                  <p class="reuniones-mi-avance">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Enviaste tu avance el {{ acuerdo.mi_avance.creado|date:"d/m/Y" }}: «{{ acuerdo.mi_avance.nota|truncatechars:120 }}» · {% if acuerdo.mi_avance.revisado_en %}el colegio ya lo revisó{% else %}el colegio lo revisará{% endif %}.</p>
+                {% endif %}
+                {% if acuerdo.reportable %}
+                  <details class="reuniones-avance"{% if not acuerdo.mi_avance %} data-primero{% endif %}>
+                    <summary class="btn btn--sm">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} {% if acuerdo.mi_avance %}Contar otro avance{% else %}Ya lo hice{% endif %}</summary>
+                    <form method="post" action="{% url 'portal_tutores:reuniones:avance' acuerdo.pk %}" enctype="multipart/form-data" class="reuniones-avance__form">
+                      {% csrf_token %}
+                      <div class="field">
+                        <label class="field__label" for="avance-nota-{{ acuerdo.pk }}">{{ form_avance.nota.label }}</label>
+                        <textarea class="field__control" id="avance-nota-{{ acuerdo.pk }}" name="nota" rows="2" maxlength="1000" required></textarea>
+                      </div>
+                      <div class="field">
+                        <label class="field__label" for="avance-evidencia-{{ acuerdo.pk }}">{{ form_avance.evidencia.label }}</label>
+                        <input class="field__control" type="file" id="avance-evidencia-{{ acuerdo.pk }}" name="evidencia" accept="{{ form_avance.evidencia.field.widget.attrs.accept }}">
+                        <p class="field__hint">{{ form_avance.evidencia.help_text }}</p>
+                      </div>
+                      <button type="submit" class="btn btn--primary btn--sm">Enviar al colegio</button>
+                    </form>
+                  </details>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>
@@ -87,9 +122,17 @@
 
     <aside class="reuniones-detalle__lateral">
       {% if tiene_minuta %}
-        <section class="card">
+        <section class="card" id="minuta">
           <header class="card__header card__header--icon">{% include "partials/icon.html" with name="notebook-pen" %}<h2 class="card__title">Minuta</h2></header>
-          <div class="card__body"><a class="btn btn--sm" href="{% url 'portal_tutores:reuniones:minuta' reunion.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Ver o imprimir la minuta</a></div>
+          <div class="card__body reuniones-portal-minuta">
+            <a class="btn btn--sm" href="{% url 'portal_tutores:reuniones:minuta' reunion.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Ver o imprimir la minuta</a>
+            {% if enterado %}
+              <p class="reuniones-enterado">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Confirmaste que leíste la minuta y los acuerdos el {{ enterado|date:"d/m/Y \a \l\a\s H:i" }}.</p>
+            {% else %}
+              <p class="text-muted reuniones-sub">{% if minuta_cambio %}La minuta se actualizó después de que la leíste: revísala de nuevo.{% else %}Cuando la leas, confírmalo aquí: queda como constancia para el colegio.{% endif %}</p>
+              <form method="post" action="{% url 'portal_tutores:reuniones:enterado' reunion.pk %}">{% csrf_token %}<button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Leí la minuta y los acuerdos</button></form>
+            {% endif %}
+          </div>
         </section>
       {% endif %}
       {% if documentos %}

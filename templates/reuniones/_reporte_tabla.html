@@ -1,0 +1,36 @@
+{% comment %}
+  Una tabla de los reportes (por motivo, área o nivel). Parámetros: titulo, icono y filas
+  ([{nombre, total, realizadas, no_realizadas, canceladas, abiertas, inasistencia}], Reuniones/views._por_grupo).
+{% endcomment %}
+<section class="card reuniones-reporte__tabla">
+  <header class="card__header card__header--icon">{% include "partials/icon.html" with name=icono %}<h2 class="card__title">{{ titulo }}</h2></header>
+  <div class="reuniones-tabla-marco">
+    <table class="table">
+      <caption class="visually-hidden">Reuniones {{ titulo|lower }}</caption>
+      <thead class="table__head">
+        <tr>
+          <th class="table__th" scope="col">{{ titulo|slice:"4:"|capfirst }}</th>
+          <th class="table__th table__th--num" scope="col">Solicitudes</th>
+          <th class="table__th table__th--num" scope="col">Realizadas</th>
+          <th class="table__th table__th--num" scope="col">No realizadas</th>
+          <th class="table__th table__th--num" scope="col">Canceladas</th>
+          <th class="table__th table__th--num" scope="col">Abiertas</th>
+          <th class="table__th table__th--num" scope="col">Inasistencia</th>
+        </tr>
+      </thead>
+      <tbody class="table__body">
+        {% for fila in filas %}
+          <tr class="table__row">
+            <th class="table__cell" scope="row">{{ fila.nombre }}</th>
+            <td class="table__cell table__cell--num">{{ fila.total }}</td>
+            <td class="table__cell table__cell--num">{{ fila.realizadas }}</td>
+            <td class="table__cell table__cell--num">{{ fila.no_realizadas }}</td>
+            <td class="table__cell table__cell--num">{{ fila.canceladas }}</td>
+            <td class="table__cell table__cell--num">{{ fila.abiertas }}</td>
+            <td class="table__cell table__cell--num">{% if fila.inasistencia is not None %}{{ fila.inasistencia }} %{% else %}—{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

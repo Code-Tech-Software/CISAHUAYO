@@ -25,6 +25,9 @@
   {% url 'reuniones:lista' as url_lista %}
   {% include "reuniones/_filtros.html" with accion=url_lista con_fechas=True limpiar=url_lista %}
 
+  {% if atiende and pagina.paginator.count %}
+    <p class="reuniones-exportar"><a class="btn btn--ghost btn--sm" href="{{ url_excel }}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Descargar en Excel ({{ pagina.paginator.count }})</a></p>
+  {% endif %}
   <ul class="reuniones-totales" aria-label="Reuniones por estado">
     {% for clave, nombre, total in totales %}{% if total %}
       <li><a class="reuniones-totales__item" href="{% url 'reuniones:lista' %}?estado={{ clave }}"><span class="reuniones-totales__numero">{{ total }}</span> {{ nombre }}</a></li>

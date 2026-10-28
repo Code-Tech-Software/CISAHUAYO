@@ -1026,6 +1026,11 @@
   });
   limpiarBorradores();
   const conBorrador = restaurarBorrador();
+  /* Abierta desde otro lugar con un asunto (p. ej. una cita del portal): si no había borrador, ya viene escrito */
+  if (!conBorrador && chat.dataset.asunto) {
+    if (editor) editor.poner(parrafos(`${chat.dataset.asunto}: `));
+    else if (campo) campo.value = `${chat.dataset.asunto}: `;
+  }
   campo?.addEventListener('keydown', (evento) => {
     if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
       evento.preventDefault();

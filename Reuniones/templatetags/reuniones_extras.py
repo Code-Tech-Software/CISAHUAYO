@@ -60,3 +60,9 @@ def fecha_larga(fecha):
 def get(diccionario, clave):
     """El valor de una clave de un diccionario (en las plantillas)."""
     return (diccionario or {}).get(clave)
+
+
+@register.filter
+def por_revisar(acuerdo):
+    """Si la familia reportó avance del acuerdo y nadie lo ha revisado (con los seguimientos ya traídos)."""
+    return any(s.por_revisar for s in acuerdo.seguimientos.all())

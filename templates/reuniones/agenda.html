@@ -36,6 +36,7 @@
       <a class="btn btn--sm" href="{{ hoy_url }}">Hoy</a>
       <a class="btn btn--icon btn--sm" href="{{ siguiente }}" aria-label="Siguiente" data-tooltip="Siguiente">{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</a>
       <h2 class="reuniones-agenda-barra__titulo">{{ titulo }}</h2>
+      {% if vista == 'dia' %}<a class="btn btn--ghost btn--sm" href="{{ url_imprimir_dia }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir el día</a>{% endif %}
     </div>
   </div>
 

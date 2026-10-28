@@ -1,0 +1,55 @@
+{% load static reuniones_extras %}<!doctype html>
+{% comment %}
+  Las citas de un día por sala, para recepción (Reuniones/views.imprimir_dia): hora, folio, familia y teléfono,
+  estudiantes, con quién, si la familia confirmó y las indicaciones. Sin menús ni notas internas. Al abrirse pide
+  imprimir (static/js/agenda-imprimir.js, el mismo de la agenda del mes).
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reuniones del {{ fecha|date:"j \d\e F"|lower }} | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/reuniones-imprimir.css' %}">
+</head>
+<body>
+  <header class="dia__cabeza">
+    <img class="dia__logo" src="{% static 'img/logointer.svg' %}" alt="">
+    <div>
+      <p class="dia__colegio">Colegio Interamericano de Sahuayo · Reuniones con familias</p>
+      <h1 class="dia__titulo">{{ fecha|fecha_larga }}</h1>
+      <p class="dia__resumen">{{ total }} cita{{ total|pluralize }}</p>
+    </div>
+    <nav class="dia__acciones">
+      <button type="button" class="dia__boton" data-imprimir>Imprimir o guardar en PDF</button>
+      <a class="dia__volver" href="{{ volver }}">Volver a la agenda</a>
+    </nav>
+  </header>
+
+  {% for sala, reuniones in salas %}
+    <section class="dia__sala">
+      <h2 class="dia__nombre-sala">{% if sala %}{{ sala }}{% if sala.ubicacion %} <span>· {{ sala.ubicacion }}</span>{% endif %}{% else %}Sin sala asignada{% endif %}</h2>
+      <table class="dia__tabla">
+        <thead><tr><th>Hora</th><th>Familia</th><th>Estudiantes</th><th>Con quién</th><th>Confirmó</th><th>Indicaciones</th></tr></thead>
+        <tbody>
+          {% for reunion in reuniones %}
+            <tr>
+              <td class="dia__hora"><strong>{{ reunion.hora_inicio|time:"H:i" }}</strong> a {{ reunion.hora_fin|time:"H:i" }}<br><span>{{ reunion.folio }}</span></td>
+              <td>{% for invitado in reunion.tutores.all %}{{ invitado.tutor|persona }}{% if not forloop.last %}<br>{% endif %}{% endfor %}<br><span>Tel. {{ reunion.telefono }}</span></td>
+              <td>{% for e in reunion.estudiantes.all %}{{ e.alumno|persona }} <span>({{ e.inscripcion|grupo_corto }})</span>{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+              <td>{{ reunion.get_area_display }}<br><span>{% for p in reunion.activos %}{{ p.usuario|cuenta }}{% if p.es_acompanante %} (acompaña){% elif p.es_docente %} (docente){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>
+              <td>{% if reunion.confirmacion_tutor_id %}Sí{% else %}<strong>No</strong>{% endif %}{% if reunion.estado == 'REALIZADA' %}<br><span>Realizada</span>{% elif reunion.estado == 'EN_CURSO' %}<br><span>En curso</span>{% endif %}</td>
+              <td>{{ reunion.indicaciones|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% empty %}
+    <p class="dia__vacio">No hay citas este día.</p>
+  {% endfor %}
+
+  <footer class="dia__pie">Impreso el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</footer>
+  <script src="{% static 'js/agenda-imprimir.js' %}" defer></script>
+</body>
+</html>

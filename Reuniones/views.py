@@ -8,17 +8,22 @@
 - Detalle: toda la información, las confirmaciones, los participantes (quién es docente y quién acompaña), la minuta,
   los acuerdos, los documentos y el historial. Cada acción abre su formulario en una ventana (data-modal-form) o como
   página.
-- Compromisos: los acuerdos pendientes, en proceso y vencidos.
+- Compromisos: los acuerdos pendientes, en proceso y vencidos (y los que la familia reportó, por revisar).
 - Historial del estudiante: sus reuniones y acuerdos.
+- Mejoras del 2026-10-28: horarios libres sugeridos al programar, indicaciones para la familia, «Agregar a mi
+  calendario» (.ics), solicitudes que esperan demasiado, reportes y Excel (también de la lista), la agenda del día para
+  imprimir y registrar la reunión desde la ficha del estudiante o un caso de Conducta.
 Todo dentro de lo que la cuenta puede ver (Reuniones/alcance.py): lo de fuera responde 404; las acciones sin permiso,
 403.
 """
 from datetime import timedelta
+from statistics import mean, median
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Prefetch, Q
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -36,11 +41,12 @@ from .alcance import (
 from .context_processors import datos_de_avisos, generar_si_toca
 from .forms import (
     ACEPTA, AYUDA_DE_ARCHIVOS, AcuerdoForm, AvisoForm, BuscarTutorForm, CancelarForm, ConfiguracionForm, ConfirmarTutorForm,
-    DisponibilidadForm, DocumentosForm, FiltroForm, IniciarForm, InasistenciaForm, MinutaForm, MotivoForm, ParticipantesForm,
-    ProgramarForm, ReprogramarForm, SalaForm, SeguimientoAcuerdoForm, SolicitudForm, SustitutoForm,
+    DisponibilidadForm, DocumentosForm, FiltroForm, IndicacionesForm, IniciarForm, InasistenciaForm, MinutaForm, MotivoForm,
+    ParticipantesForm, ProgramarForm, ReporteForm, ReprogramarForm, SalaForm, SeguimientoAcuerdoForm, SolicitudForm, SustitutoForm,
 )
 from .models import (
-    Acuerdo, AdjuntoReunion, EstudianteEnReunion, ConfiguracionReuniones, MotivoReunion, ParticipanteReunion, Reunion, SalaReunion, SeguimientoAcuerdo,
+    AUSENTE, Acuerdo, AdjuntoReunion, CambioDeFecha, EstudianteEnReunion, ConfiguracionReuniones, EventoReunion, MotivoReunion,
+    ParticipanteReunion, Reunion, SalaReunion, SeguimientoAcuerdo, TutorEnReunion,
 )
 from .reglas import ReglaRota
 
@@ -95,11 +101,13 @@ def inicio(request):
         consulta = consulta.filter(estudiantes__inscripcion__grado__nivel=nivel).distinct()
     desde = hoy - timedelta(days=30)
     acuerdos = Acuerdo.objects.filter(reunion__in=consulta).exclude(reunion__estado=Reunion.CANCELADA)
+    esperan = reglas.que_esperan_demasiado(consulta, hoy)
     indicadores = [
         ('hoy', 'Reuniones de hoy', consulta.filter(fecha=hoy, estado__in=Reunion.ACTIVAS + (Reunion.REALIZADA,)).count(), 'calendar',
          f'{reverse("reuniones:agenda")}?vista=dia&fecha={hoy:%Y-%m-%d}'),
         ('sin_programar', 'Solicitudes sin programar', consulta.filter(estado__in=Reunion.SIN_PROGRAMAR).count(), 'phone',
          f'{reverse("reuniones:lista")}?estado=SOLICITADA'),
+        ('esperan', 'Esperan demasiado', len(esperan), 'circle-alert', f'{reverse("reuniones:lista")}?estado=ESPERA'),
         ('por_confirmar', 'Pendientes de confirmación', consulta.filter(estado=Reunion.PROGRAMADA).count(), 'clock',
          f'{reverse("reuniones:lista")}?estado=PROGRAMADA'),
         ('realizadas', 'Realizadas (últimos 30 días)', consulta.filter(estado=Reunion.REALIZADA, fecha__gte=desde).count(), 'circle-check',
@@ -118,7 +126,7 @@ def inicio(request):
     proximas = _con_relaciones(consulta.filter(estado=Reunion.CONFIRMADA, fecha__gt=hoy)).order_by('fecha', 'hora_inicio')[:6]
     # Prioridad: urgente primero
     orden = {Reunion.URGENTE: 0, Reunion.ALTA: 1, Reunion.NORMAL: 2}
-    por_programar = sorted(por_programar, key=lambda r: (orden[r.prioridad], r.creada))
+    por_programar = reglas.esperas(sorted(por_programar, key=lambda r: (orden[r.prioridad], r.creada)), hoy)
     return render(request, 'reuniones/inicio.html', {
         **_comunes(request, acceso), 'indicadores': indicadores, 'de_hoy': de_hoy, 'por_programar': por_programar,
         'atencion': atencion, 'proximas': proximas, 'niveles': niveles, 'nivel': nivel,
@@ -136,14 +144,62 @@ def lista(request):
     filtro = FiltroForm(request.GET or None, acceso=acceso)
     consulta = _con_relaciones(filtro.filtrar(acceso.reuniones()))
     consulta = consulta.order_by('-fecha', '-hora_inicio', '-creada') if request.GET.get('orden') != 'proximas' else consulta.order_by('fecha', 'hora_inicio')
+    if request.GET.get('formato') == 'xlsx':
+        _exigir(acceso.registra or acceso.gestiona or acceso.todo)
+        return _excel_de_la_lista(consulta)
     pagina, rango_paginas, por_pagina = paginar(request, consulta)
+    pagina.object_list = reglas.esperas(pagina.object_list)
     totales = dict(acceso.reuniones().order_by().values_list('estado').annotate(total=Count('pk')))
     return render(request, 'reuniones/lista.html', {
         **_comunes(request, acceso), 'filtro': filtro, 'mas_filtros': filtro.activos, 'pagina': pagina, 'rango_paginas': rango_paginas,
         'por_pagina': por_pagina, 'por_pagina_defecto': POR_PAGINA_DEFECTO, 'opciones_por_pagina': OPCIONES_POR_PAGINA,
         'totales': [(clave, nombre, totales.get(clave, 0)) for clave, nombre in Reunion.ESTADOS],
         'vistas': calendario.VISTAS, 'vista': 'lista', 'consulta': request.GET.urlencode(),
+        'url_excel': f'{reverse("reuniones:lista")}?{_con_formato(request.GET)}',
     })
+
+
+def _con_formato(datos, formato='xlsx'):
+    copia = datos.copy()
+    for clave in ('page', 'por_pagina'):
+        copia.pop(clave, None)
+    copia['formato'] = formato
+    return copia.urlencode()
+
+
+def _respuesta_excel(contenido, nombre):
+    respuesta = HttpResponse(contenido, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    respuesta['Cache-Control'] = 'private, no-store'
+    return respuesta
+
+
+def _sin_zona(momento):
+    return timezone.localtime(momento).replace(tzinfo=None) if momento else None
+
+
+def _excel_de_la_lista(consulta):
+    """La lista con sus filtros en Excel (sin observaciones internas, notas ni motivo de la solicitud más allá del
+    catálogo)."""
+    from CISAHUAYO.xlsx import ENCABEZADO, TITULO, Celda, Hoja, libro
+
+    from .disponibilidad import nombre_de_persona, nombre_de_usuario
+    encabezados = ['Folio', 'Solicitada', 'Estado', 'Prioridad', 'Con quién', 'Motivo', 'Tutor', 'Teléfono', 'Estudiantes',
+                   'Fecha', 'Horario', 'Lugar', 'Responsable', 'Personal']
+    filas = [[Celda('Reuniones con familias', TITULO)], [f'Generado el {timezone.localtime():%d/%m/%Y %H:%M}'], [],
+             [Celda(texto, ENCABEZADO) for texto in encabezados]]
+    for reunion in consulta:
+        estudiantes = '; '.join(f'{nombre_de_persona(e.alumno)} ({e.inscripcion.grupo.corto if e.inscripcion and e.inscripcion.grupo_id else "sin grupo"})'
+                                for e in reunion.estudiantes.all())
+        personal = ', '.join(f'{nombre_de_usuario(p.usuario)} ({p.get_papel_display().lower()})' for p in reunion.activos)
+        filas.append([
+            reunion.folio, _sin_zona(reunion.creada), reunion.get_estado_display(), reunion.get_prioridad_display(), reunion.get_area_display(),
+            str(reunion.motivo), nombre_de_persona(reunion.tutor), reunion.telefono, estudiantes, reunion.fecha,
+            f'{reunion.hora_inicio:%H:%M} a {reunion.hora_fin:%H:%M}' if reunion.programada else '', str(reunion.sala or ''),
+            nombre_de_usuario(reunion.responsable) if reunion.responsable_id else '', personal,
+        ])
+    contenido = libro([Hoja('Reuniones', filas, anchos=[16, 17, 24, 10, 22, 26, 30, 14, 44, 12, 14, 18, 26, 44])])
+    return _respuesta_excel(contenido, f'reuniones-{timezone.localdate():%Y-%m-%d}.xlsx')
 
 
 @require_GET
@@ -189,6 +245,7 @@ def agenda(request):
         'anterior': enlace(f=anterior), 'siguiente': enlace(f=siguiente), 'hoy_url': enlace(f=hoy),
         'enlaces_de_vista': {v: enlace(v=v) for v, _ in calendario.VISTAS if v != 'lista'},
         'lista_url': f'{reverse("reuniones:lista")}?{conservar.urlencode()}', 'mes_actual': fecha.month,
+        'url_imprimir_dia': f'{reverse("reuniones:imprimir_dia")}?fecha={fecha:%Y-%m-%d}',
         'filtros_qs': conservar.urlencode(), 'conservar_ocultos': [('vista', vista), ('fecha', fecha.isoformat())],
     })
 
@@ -207,10 +264,26 @@ def _tutores_encontrados(texto):
     return consulta.distinct().order_by('nombre', 'apellido_paterno')[:20]
 
 
+def _desde_otro_modulo(request):
+    """El estudiante (desde su ficha) y el caso de Conducta (desde el caso) con que se abre «Registrar llamada»: el caso
+    solo si la cuenta lo puede ver y es de ese estudiante."""
+    alumno = conducta = None
+    clave = request.GET.get('alumno', '')
+    if clave.isdigit():
+        alumno = Alumno.objects.filter(pk=clave, estatus='ACTIVO').first()
+    clave = request.GET.get('conducta', '')
+    if alumno is not None and clave.isdigit():
+        from Conducta.views import registros_de
+        conducta = registros_de(request.user).filter(pk=clave, alumno=alumno).first()
+    return alumno, conducta
+
+
 @requiere_alguno(*QUE_ATIENDEN)
 def nueva(request):
     acceso = Acceso(request.user)
     tutor = None
+    alumno, conducta = _desde_otro_modulo(request)
+    origen = urlencode({k: v.pk for k, v in (('alumno', alumno), ('conducta', conducta)) if v is not None})
     if request.GET.get('tutor', '').isdigit() or request.POST.get('tutor', '').isdigit():
         tutor = get_object_or_404(Tutor, pk=request.POST.get('tutor') or request.GET.get('tutor'), estatus='ACTIVO')
     if tutor is None:
@@ -218,13 +291,27 @@ def nueva(request):
         texto = (request.GET.get('q') or '').strip()
         encontrados = []
         if len(texto) >= 2:
-            for t in _tutores_encontrados(texto):
-                hijos = [v.alumno for v in TutorAlumno.objects.filter(tutor=t, activo=True, alumno__estatus='ACTIVO').select_related('alumno')]
-                encontrados.append((t, hijos))
+            tutores = _tutores_encontrados(texto)
+        elif alumno is not None:   # desde la ficha o el caso: sus tutores
+            tutores = Tutor.objects.filter(estatus='ACTIVO', alumnos_relacionados__alumno=alumno, alumnos_relacionados__activo=True).distinct()
+        else:
+            tutores = []
+        for t in tutores:
+            hijos = [v.alumno for v in TutorAlumno.objects.filter(tutor=t, activo=True, alumno__estatus='ACTIVO').select_related('alumno')]
+            encontrados.append((t, hijos))
         return render(request, 'reuniones/nueva_tutor.html', {**_comunes(request, acceso), 'buscar': buscar, 'texto': texto,
-                                                               'encontrados': encontrados})
+                                                               'encontrados': encontrados, 'alumno': alumno, 'conducta': conducta,
+                                                               'origen': origen})
 
-    form = SolicitudForm(request.POST or None, tutor=tutor)
+    inicial = {}
+    if alumno is not None and TutorAlumno.objects.filter(tutor=tutor, alumno=alumno, activo=True).exists():
+        inicial['alumnos'] = [str(alumno.pk)]
+        if conducta is not None:
+            inicial['descripcion'] = f'Seguimiento del reporte de conducta del {conducta.fecha:%d/%m/%Y}.'
+            motivo = MotivoReunion.objects.filter(activo=True, nombre__icontains='conducta').first()
+            if motivo is not None:
+                inicial['motivo'] = motivo.pk
+    form = SolicitudForm(request.POST or None, tutor=tutor, initial=inicial)
     if request.method == 'POST' and form.is_valid():
         datos = form.cleaned_data
         alumnos = form.alumnos_elegidos()
@@ -270,6 +357,8 @@ def _puede(acceso, reunion, participacion):
         'disponibilidad': participacion is not None and estado in (Reunion.PROGRAMADA, Reunion.CONFIRMADA),
         'disponibilidad_de_otros': atiende and estado in (Reunion.PROGRAMADA, Reunion.CONFIRMADA),
         'sustituto': gestiona and estado in Reunion.ACTIVAS and (tiene_docentes or any(p.es_acompanante for p in reunion.activos)),
+        'indicaciones': atiende and estado in Reunion.ABIERTAS,
+        'calendario': estado in Reunion.ACTIVAS and reunion.programada,
         'iniciar': gestiona and estado in (Reunion.PROGRAMADA, Reunion.CONFIRMADA) and reunion.fecha == hoy,
         'inasistencia': gestiona and estado in (Reunion.PROGRAMADA, Reunion.CONFIRMADA) and reunion.fecha is not None and reunion.fecha <= hoy,
         'finalizar': gestiona and estado == Reunion.EN_CURSO,
@@ -296,7 +385,7 @@ def detalle(request, pk):
     alumnos = [e.alumno_id for e in reunion.estudiantes.all()]
     antecedentes = (acceso.reuniones().filter(estudiantes__alumno__in=alumnos).exclude(pk=reunion.pk).distinct()
                     .select_related('motivo').order_by('-creada'))
-    acuerdos = list(reunion.acuerdos.select_related('responsable').prefetch_related('seguimientos__usuario'))
+    acuerdos = list(reunion.acuerdos.select_related('responsable').prefetch_related('seguimientos__usuario', 'seguimientos__tutor'))
     minuta = reunion.minuta if hasattr(reunion, 'minuta') else None
     return render(request, 'reuniones/detalle.html', {
         **_comunes(request, acceso), 'reunion': reunion, 'puede': puede, 'participacion': participacion,
@@ -313,7 +402,8 @@ def detalle(request, pk):
         'firmada': reunion.adjuntos.filter(clase=AdjuntoReunion.FIRMA).first(),
         'antecedentes': antecedentes[:6], 'total_antecedentes': antecedentes.count(),
         'siguientes': reunion.siguientes.order_by('creada'), 'faltaron': reglas.quienes_faltaron(reunion),
-        'tutores': reunion.tutores.select_related('tutor'),
+        'tutores': reunion.tutores.select_related('tutor'), 'enterados': reglas.enterados(reunion),
+        'espera': reglas.esperas([reunion])[0] if reunion.estado in Reunion.SIN_PROGRAMAR else None,
     })
 
 
@@ -361,12 +451,20 @@ def programar(request, pk):
 
     def ejecutar(datos):
         return reglas.programar(reunion, fecha=datos['fecha'], inicio=datos['hora_inicio'], fin=datos['hora_fin'], sala=datos['sala'],
-                                usuario=request.user)
+                                usuario=request.user, indicaciones=datos['indicaciones'])
     return _accion(request, reunion, form, plantilla='reuniones/programar.html', titulo=f'Programar {reunion.folio}',
                    descripcion='Se revisan el horario de atención, las otras reuniones del personal, de la familia y de la sala, y las clases '
                                'de los docentes. Programar no confirma la cita: después se registran las confirmaciones.',
                    boton='Programar', ejecutar=ejecutar, exito='Se programó la cita. Ahora falta que la confirmen la familia y el personal.',
-                   extra={'propuestas': reunion.propuestas, 'configuracion': ConfiguracionReuniones.actual()})
+                   extra=_para_programar(reunion))
+
+
+def _para_programar(reunion):
+    """Los horarios que propuso el tutor, el horario de atención y los primeros horarios libres para todos."""
+    from .disponibilidad import horarios_libres
+    con_personal = reunion.participantes.filter(activo=True).exists()
+    return {'propuestas': reunion.propuestas, 'configuracion': ConfiguracionReuniones.actual(), 'con_personal': con_personal,
+            'sugeridos': horarios_libres(reunion) if con_personal else []}
 
 
 @requiere_alguno(*QUE_ATIENDEN)
@@ -377,11 +475,36 @@ def reprogramar(request, pk):
 
     def ejecutar(datos):
         return reglas.reprogramar(reunion, fecha=datos['fecha'], inicio=datos['hora_inicio'], fin=datos['hora_fin'], sala=datos['sala'],
-                                  motivo=datos['motivo'], usuario=request.user)
+                                  motivo=datos['motivo'], usuario=request.user, indicaciones=datos['indicaciones'])
     return _accion(request, reunion, form, plantilla='reuniones/programar.html', titulo=f'Reprogramar {reunion.folio}',
                    descripcion='La fecha anterior queda en el historial con el motivo. Las confirmaciones se piden de nuevo.',
                    boton='Reprogramar', ejecutar=ejecutar, exito='Se reprogramó la cita y se pidió confirmar de nuevo.',
-                   extra={'propuestas': reunion.propuestas, 'configuracion': ConfiguracionReuniones.actual()})
+                   extra=_para_programar(reunion))
+
+
+@requiere_alguno(*QUE_ATIENDEN)
+def indicaciones(request, pk):
+    reunion, acceso = _reunion(request, pk)
+    _exigir(acceso.atiende_reunion(reunion))
+    form = IndicacionesForm(request.POST or None, reunion=reunion)
+    return _accion(request, reunion, form, titulo='Indicaciones para la familia',
+                   descripcion='Lo que la familia debe saber de la cita: se ve en su portal, en el recordatorio y en su calendario. Si la '
+                               'cita ya tiene fecha, se le avisa del cambio.', boton='Guardar',
+                   ejecutar=lambda datos: reglas.cambiar_indicaciones(reunion, texto=datos['indicaciones'], usuario=request.user),
+                   exito='Se guardaron las indicaciones para la familia.', ancla='confirmaciones')
+
+
+@require_GET
+@requiere_alguno(*DEL_MODULO)
+def calendario_ics(request, pk):
+    """«Agregar a mi calendario»: la cita programada como archivo .ics."""
+    reunion, _ = _reunion(request, pk)
+    if not (reunion.programada and reunion.estado in Reunion.ACTIVAS):
+        raise Http404('La reunión no tiene una cita vigente.')
+    contenido = reglas.ics_de_reunion(reunion, familia=False, url=request.build_absolute_uri(reverse('reuniones:detalle', args=[reunion.pk])))
+    respuesta = HttpResponse(contenido, content_type='text/calendar; charset=utf-8')
+    respuesta['Content-Disposition'] = f'attachment; filename="reunion-{reunion.folio}.ics"'
+    return respuesta
 
 
 @requiere_alguno(*QUE_ATIENDEN)
@@ -566,7 +689,8 @@ def seguimiento(request, pk):
                                      tipo_evidencia=getattr(form, 'tipo_evidencia', ''))
     return _accion(request, objeto.reunion, form, plantilla='reuniones/seguimiento.html', titulo='Seguimiento del acuerdo',
                    descripcion=objeto.descripcion, boton='Guardar seguimiento', ejecutar=ejecutar, exito='Se guardó el seguimiento.',
-                   ancla='acuerdos', extra={'acuerdo': objeto})
+                   ancla='acuerdos', extra={'acuerdo': objeto, 'de_la_familia': objeto.seguimientos.filter(tutor__isnull=False, revisado_en=None)
+                                            .select_related('tutor')})
 
 
 @requiere_alguno(GESTIONAR, TODO)
@@ -633,6 +757,7 @@ def contexto_de_minuta(request, reunion, *, interna, volver):
         'reunion': reunion, 'minuta': reunion.minuta, 'interna': interna, 'acuerdos': acuerdos, 'personal': asistentes_personal,
         'familia': asistentes_familia, 'estudiantes': reunion.estudiantes.select_related('alumno', 'inscripcion__grado', 'inscripcion__grupo__nombre'),
         'firma': firma, 'generado': timezone.localtime(), 'volver': volver, 'imprimir_al_abrir': request.GET.get('pdf') == '1',
+        'enterados': reglas.enterados(reunion),
     }
 
 
@@ -649,6 +774,8 @@ def compromisos(request):
     estado = request.GET.get('estado', 'ABIERTOS')
     if estado == 'VENCIDO':
         consulta = consulta.exclude(estado=Acuerdo.CUMPLIDO).filter(fecha_limite__lt=hoy)
+    elif estado == 'POR_REVISAR':   # la familia reportó avance y nadie lo ha revisado
+        consulta = consulta.filter(seguimientos__tutor__isnull=False, seguimientos__revisado_en=None).distinct()
     elif estado in (Acuerdo.PENDIENTE, Acuerdo.EN_PROCESO, Acuerdo.CUMPLIDO):
         consulta = consulta.filter(estado=estado)
     else:
@@ -661,8 +788,8 @@ def compromisos(request):
         **_comunes(request, acceso), 'pagina': pagina, 'rango_paginas': rango_paginas, 'por_pagina': por_pagina,
         'opciones_por_pagina': OPCIONES_POR_PAGINA, 'estado': estado, 'mios': request.GET.get('mios') == '1',
         'tonos_acuerdo': reglas.TONO_DE_ACUERDO,
-        'estados': [('ABIERTOS', 'Sin cumplir'), ('VENCIDO', 'Vencidos'), (Acuerdo.PENDIENTE, 'Pendientes'), (Acuerdo.EN_PROCESO, 'En proceso'),
-                    (Acuerdo.CUMPLIDO, 'Cumplidos')],
+        'estados': [('ABIERTOS', 'Sin cumplir'), ('VENCIDO', 'Vencidos'), ('POR_REVISAR', 'Avance de la familia por revisar'),
+                    (Acuerdo.PENDIENTE, 'Pendientes'), (Acuerdo.EN_PROCESO, 'En proceso'), (Acuerdo.CUMPLIDO, 'Cumplidos')],
     })
 
 
@@ -740,3 +867,184 @@ def motivo(request, pk=None):
 @requiere_permisos(CONFIGURAR)
 def sala(request, pk=None):
     return _catalogo(request, SalaReunion, SalaForm, 'la sala', pk)
+
+
+# ---------------------------------------------------------------------------
+# La agenda del día para imprimir (recepción)
+# ---------------------------------------------------------------------------
+@require_GET
+@requiere_alguno(*DEL_MODULO)
+def imprimir_dia(request):
+    """Las citas de un día por sala, en una hoja limpia: hora, folio, familia y teléfono, estudiantes, con quién, si la
+    familia confirmó y las indicaciones. Solo las que la cuenta puede ver."""
+    acceso = Acceso(request.user)
+    hoy = timezone.localdate()
+    fecha = calendario.fecha_pedida(request.GET.get('fecha', ''), hoy)
+    reuniones = list(_con_relaciones(acceso.reuniones().filter(fecha=fecha, estado__in=Reunion.ACTIVAS + (Reunion.REALIZADA,)))
+                     .select_related('confirmacion_tutor').order_by('hora_inicio', 'folio'))
+    por_sala = {}
+    for reunion in reuniones:
+        por_sala.setdefault(reunion.sala, []).append(reunion)
+    salas = sorted(por_sala.items(), key=lambda par: (par[0] is None, par[0].orden if par[0] else 0, str(par[0] or '')))
+    return render(request, 'reuniones/dia_hoja.html', {
+        'fecha': fecha, 'salas': salas, 'total': len(reuniones), 'generado': timezone.localtime(),
+        'volver': f'{reverse("reuniones:agenda")}?vista=dia&fecha={fecha:%Y-%m-%d}',
+    })
+
+
+# ---------------------------------------------------------------------------
+# Reportes (y su Excel)
+# ---------------------------------------------------------------------------
+def _porcentaje(parte, total):
+    return round(parte * 100 / total) if total else None
+
+
+def _por_grupo(reuniones, claves_de):
+    """[{nombre, total, realizadas, no_realizadas, canceladas, abiertas, inasistencia}] por cada clave (motivo, área,
+    nivel), de la más frecuente a la menos."""
+    grupos = {}
+    for reunion in reuniones:
+        for nombre in claves_de(reunion):
+            fila = grupos.setdefault(nombre, {'nombre': nombre, 'total': 0, 'realizadas': 0, 'no_realizadas': 0, 'canceladas': 0, 'abiertas': 0})
+            fila['total'] += 1
+            if reunion.estado == Reunion.REALIZADA:
+                fila['realizadas'] += 1
+            elif reunion.estado == Reunion.NO_REALIZADA:
+                fila['no_realizadas'] += 1
+            elif reunion.estado == Reunion.CANCELADA:
+                fila['canceladas'] += 1
+            else:
+                fila['abiertas'] += 1
+    for fila in grupos.values():
+        fila['inasistencia'] = _porcentaje(fila['no_realizadas'], fila['realizadas'] + fila['no_realizadas'])
+    return sorted(grupos.values(), key=lambda f: (-f['total'], f['nombre']))
+
+
+def _niveles_de(reunion):
+    niveles = {e.inscripcion.grado.get_nivel_display() for e in reunion.estudiantes.all() if e.inscripcion_id}
+    return sorted(niveles) or ['Sin inscripción']
+
+
+def datos_del_reporte(acceso, desde, hasta, nivel=''):
+    """Las cifras de las reuniones solicitadas entre esas fechas (en el alcance de la cuenta)."""
+    hoy = timezone.localdate()
+    consulta = acceso.reuniones().filter(creada__date__gte=desde, creada__date__lte=hasta)
+    if nivel:
+        consulta = consulta.filter(estudiantes__inscripcion__grado__nivel=nivel).distinct()
+    reuniones = list(_con_relaciones(consulta).order_by('creada'))
+    ids = [r.pk for r in reuniones]
+    configuracion = ConfiguracionReuniones.actual()
+
+    # Espera: de la llamada a la primera fecha de la cita, y si se programó dentro del plazo
+    primera_fecha = {}
+    for reunion_id, fecha in CambioDeFecha.objects.filter(reunion__in=ids).order_by('creado', 'pk').values_list('reunion_id', 'fecha_anterior'):
+        primera_fecha.setdefault(reunion_id, fecha)
+    programada_en = {}
+    for reunion_id, creado in EventoReunion.objects.filter(reunion__in=ids, tipo=EventoReunion.PROGRAMADA).order_by('creado', 'pk').values_list('reunion_id', 'creado'):
+        programada_en.setdefault(reunion_id, timezone.localtime(creado).date())
+    from Alumnos.asistencias import fechas_sin_clases
+    sin_clases = fechas_sin_clases(desde, max(hoy, hasta)) if reuniones else set()
+    dias_a_la_cita, en_plazo, con_programacion = [], 0, 0
+    for reunion in reuniones:
+        llamada = timezone.localtime(reunion.creada).date()
+        reunion.dias_a_la_cita = None
+        cita = primera_fecha.get(reunion.pk) or reunion.fecha
+        if cita is not None:
+            reunion.dias_a_la_cita = max((cita - llamada).days, 0)   # una cita anotada después de hecha cuenta como del mismo día
+            dias_a_la_cita.append(reunion.dias_a_la_cita)
+        if reunion.pk in programada_en:
+            con_programacion += 1
+            habiles = reglas._dias_habiles(llamada, programada_en[reunion.pk], configuracion.dias or [], sin_clases)
+            en_plazo += habiles <= reglas.plazo_de(reunion, configuracion)
+    esperan = [r for r in reglas.esperas(reuniones, hoy) if r.espera_vencida]
+
+    # Inasistencias: quién faltó
+    no_realizadas = [r.pk for r in reuniones if r.estado == Reunion.NO_REALIZADA]
+    falto_familia = set(TutorEnReunion.objects.filter(reunion__in=no_realizadas, asistencia=AUSENTE).values_list('reunion_id', flat=True))
+    falto_personal = set(ParticipanteReunion.objects.filter(reunion__in=no_realizadas, asistencia=AUSENTE).values_list('reunion_id', flat=True))
+    realizadas = sum(1 for r in reuniones if r.estado == Reunion.REALIZADA)
+
+    # Acuerdos de esas reuniones
+    acuerdos = list(Acuerdo.objects.filter(reunion__in=ids).exclude(reunion__estado=Reunion.CANCELADA))
+    cumplidos = [a for a in acuerdos if a.estado == Acuerdo.CUMPLIDO]
+    a_tiempo = sum(1 for a in cumplidos if a.cumplido_en and timezone.localtime(a.cumplido_en).date() <= a.fecha_limite)
+    vencidos = sum(1 for a in acuerdos if a.vencido)
+
+    totales = dict.fromkeys([clave for clave, _ in Reunion.ESTADOS], 0)
+    for reunion in reuniones:
+        totales[reunion.estado] += 1
+    return {
+        'desde': desde, 'hasta': hasta, 'reuniones': reuniones, 'total': len(reuniones), 'realizadas': realizadas,
+        'por_estado': [(nombre, totales[clave]) for clave, nombre in Reunion.ESTADOS if totales[clave]],
+        'por_motivo': _por_grupo(reuniones, lambda r: [str(r.motivo)]),
+        'por_area': _por_grupo(reuniones, lambda r: [r.get_area_display()]),
+        'por_nivel': _por_grupo(reuniones, _niveles_de),
+        'dias_promedio': round(mean(dias_a_la_cita), 1) if dias_a_la_cita else None,
+        'dias_mediana': median(dias_a_la_cita) if dias_a_la_cita else None,
+        'con_cita': len(dias_a_la_cita), 'en_plazo': en_plazo, 'con_programacion': con_programacion,
+        'en_plazo_porcentaje': _porcentaje(en_plazo, con_programacion), 'esperan': len(esperan), 'plazo': configuracion.espera_dias,
+        'no_realizadas': len(no_realizadas), 'inasistencia': _porcentaje(len(no_realizadas), realizadas + len(no_realizadas)),
+        'falto_familia': len(falto_familia), 'falto_personal': len(falto_personal),
+        'acuerdos': len(acuerdos), 'cumplidos': len(cumplidos), 'a_tiempo': a_tiempo, 'vencidos': vencidos,
+        'cumplidos_porcentaje': _porcentaje(len(cumplidos), len(acuerdos)),
+    }
+
+
+def _excel_del_reporte(datos, nombre_nivel):
+    from CISAHUAYO.xlsx import ENCABEZADO, SECCION, TITULO, Celda, Hoja, libro
+
+    from .disponibilidad import nombre_de_persona
+    periodo = f'Solicitadas del {datos["desde"]:%d/%m/%Y} al {datos["hasta"]:%d/%m/%Y}' + (f' · {nombre_nivel}' if nombre_nivel else '')
+
+    def valor(numero, sufijo=''):
+        return '—' if numero is None else f'{numero}{sufijo}'
+
+    resumen = [
+        [Celda('Reportes de reuniones con familias', TITULO)], [periodo], [],
+        [Celda('Solicitudes', SECCION)], ['Solicitudes registradas', datos['total']],
+        *[[nombre, total] for nombre, total in datos['por_estado']], [],
+        [Celda('Espera', SECCION)],
+        ['Días de la llamada a la cita (promedio)', valor(datos['dias_promedio'])],
+        ['Días de la llamada a la cita (mediana)', valor(datos['dias_mediana'])],
+        [f'Programadas dentro del plazo ({datos["plazo"]} días hábiles; urgentes, el mismo día)', valor(datos['en_plazo_porcentaje'], ' %')],
+        ['Sin programar fuera de plazo (hoy)', datos['esperan']], [],
+        [Celda('Inasistencias', SECCION)],
+        ['No realizadas por inasistencia', datos['no_realizadas']], ['Porcentaje de inasistencia', valor(datos['inasistencia'], ' %')],
+        ['Faltó la familia', datos['falto_familia']], ['Faltó el personal', datos['falto_personal']], [],
+        [Celda('Acuerdos', SECCION)],
+        ['Acuerdos registrados', datos['acuerdos']], ['Cumplidos', datos['cumplidos']], ['Cumplidos a tiempo', datos['a_tiempo']],
+        ['Vencidos sin cumplir', datos['vencidos']], ['Porcentaje cumplido', valor(datos['cumplidos_porcentaje'], ' %')],
+    ]
+    encabezado = [Celda(texto, ENCABEZADO) for texto in ('', 'Solicitudes', 'Realizadas', 'No realizadas', 'Canceladas', 'Abiertas', '% inasistencia')]
+
+    def hoja(nombre, titulo, filas):
+        return Hoja(nombre, [[Celda(titulo, TITULO)], [periodo], [], [Celda(titulo, ENCABEZADO), *encabezado[1:]]]
+                    + [[f['nombre'], f['total'], f['realizadas'], f['no_realizadas'], f['canceladas'], f['abiertas'],
+                        f['inasistencia'] if f['inasistencia'] is not None else '—'] for f in filas], anchos=[34, 12, 12, 14, 12, 10, 14])
+
+    detalle = [[Celda('Reuniones', TITULO)], [periodo], [],
+               [Celda(t, ENCABEZADO) for t in ('Folio', 'Solicitada', 'Estado', 'Prioridad', 'Con quién', 'Motivo', 'Nivel', 'Tutor',
+                                                'Fecha de la cita', 'Días a la cita')]]
+    for reunion in datos['reuniones']:
+        detalle.append([reunion.folio, _sin_zona(reunion.creada), reunion.get_estado_display(), reunion.get_prioridad_display(),
+                        reunion.get_area_display(), str(reunion.motivo), ', '.join(_niveles_de(reunion)), nombre_de_persona(reunion.tutor),
+                        reunion.fecha, reunion.dias_a_la_cita])
+    return libro([Hoja('Resumen', resumen, anchos=[60, 14]), hoja('Por motivo', 'Por motivo', datos['por_motivo']),
+                  hoja('Por área', 'Por área', datos['por_area']), hoja('Por nivel', 'Por nivel', datos['por_nivel']),
+                  Hoja('Reuniones', detalle, anchos=[16, 17, 24, 10, 22, 26, 22, 30, 14, 12])])
+
+
+@require_GET
+@requiere_alguno(*QUE_ATIENDEN)
+def reportes(request):
+    acceso = Acceso(request.user)
+    form = ReporteForm(request.GET or None, acceso=acceso)
+    desde, hasta, nivel = form.periodo(timezone.localdate())
+    datos = datos_del_reporte(acceso, desde, hasta, nivel)
+    nombre_nivel = dict(form.fields['nivel'].choices).get(nivel, '') if nivel else ''
+    if request.GET.get('formato') == 'xlsx':
+        return _respuesta_excel(_excel_del_reporte(datos, nombre_nivel), f'reportes-reuniones-{desde:%Y%m%d}-{hasta:%Y%m%d}.xlsx')
+    return render(request, 'reuniones/reportes.html', {
+        **_comunes(request, acceso), **datos, 'form': form, 'nombre_nivel': nombre_nivel,
+        'url_excel': f'{reverse("reuniones:reportes")}?{_con_formato(request.GET)}',
+    })

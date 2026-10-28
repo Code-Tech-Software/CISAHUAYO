@@ -35,7 +35,7 @@
   <ul class="reuniones-kpis" aria-label="Indicadores">
     {% for clave, nombre, total, icono, url in indicadores %}
       <li>
-        <a class="reuniones-kpi reuniones-kpi--{{ clave }}{% if total and clave == 'vencidos' or total and clave == 'inasistencias' %} is-alerta{% endif %}" href="{{ url }}">
+        <a class="reuniones-kpi reuniones-kpi--{{ clave }}{% if total and clave == 'vencidos' or total and clave == 'inasistencias' or total and clave == 'esperan' %} is-alerta{% endif %}" href="{{ url }}">
           <span class="reuniones-kpi__icono" aria-hidden="true">{% include "partials/icon.html" with name=icono icon_class="icon--sm" %}</span>
           <span class="reuniones-kpi__numero">{{ total }}</span>
           <span class="reuniones-kpi__nombre">{{ nombre }}</span>

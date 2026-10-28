@@ -1,6 +1,10 @@
 {% extends "reuniones/accion.html" %}
-{% load reuniones_extras %}
-{% comment %}Programar o reprogramar: los horarios que propuso el tutor y el horario de atención, como referencia.{% endcomment %}
+{% load static reuniones_extras %}
+{% comment %}
+  Programar o reprogramar: los horarios que propuso el tutor y el horario de atención, como referencia, y los primeros
+  horarios libres para todos (Reuniones/disponibilidad.horarios_libres); al elegir uno se llenan la fecha, las horas y
+  la sala (static/js/reuniones-form.js). El servidor vuelve a revisar todo al guardar.
+{% endcomment %}
 {% block antes %}
   <section class="card reuniones-referencia">
     <div class="card__body">
@@ -12,7 +16,27 @@
         <div class="details__item details__item--wide"><dt class="details__label">Horario de atención</dt>
           <dd class="details__value">{{ configuracion.nombres_de_dias|join:", " }} · {{ configuracion.hora_apertura|time:"H:i" }} a {{ configuracion.hora_cierre|time:"H:i" }} · {{ configuracion.duracion }} minutos por reunión</dd></div>
       </dl>
-      <p class="text-muted reuniones-sub"><a class="link-subtle" href="{% url 'reuniones:agenda' %}?vista=dia" target="_blank" rel="noopener">Ver la agenda del día por sala</a> para elegir un horario libre.</p>
+      {% if sugeridos %}
+        <div class="reuniones-sugeridos" data-reuniones-sugeridos>
+          <p class="reuniones-subtitulo">Horarios libres para todos</p>
+          <p class="text-muted reuniones-sub">El personal, la familia y una sala están libres, sin clases de los docentes. Elige uno para llenar el formulario.</p>
+          <ul class="reuniones-sugeridos__lista">
+            {% for h in sugeridos %}
+              <li><button type="button" class="reuniones-sugerido" aria-pressed="false" data-fecha="{{ h.fecha|date:'Y-m-d' }}" data-inicio="{{ h.inicio|time:'H:i' }}" data-fin="{{ h.fin|time:'H:i' }}" data-sala="{{ h.sala.pk }}">
+                {% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}<span>{{ h.texto }}</span>{% if h.de_la_familia %}<span class="tag tag--primary">Lo propuso el tutor</span>{% endif %}
+              </button></li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% elif not con_personal %}
+        <p class="text-muted reuniones-sub">Asigna primero al personal que atenderá la reunión para ver los horarios libres.</p>
+      {% else %}
+        <p class="text-muted reuniones-sub">No hay horarios libres para todos en los próximos días de atención: revisa la agenda o cambia al personal.</p>
+      {% endif %}
+      <p class="text-muted reuniones-sub"><a class="link-subtle" href="{% url 'reuniones:agenda' %}?vista=dia" target="_blank" rel="noopener">Ver la agenda del día por sala</a></p>
     </div>
   </section>
+{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/reuniones-form.js' %}" defer></script>
 {% endblock %}

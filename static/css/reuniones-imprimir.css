@@ -1,0 +1,151 @@
+/* CISAHUAYO · las citas de un día por sala, para recepción (templates/reuniones/dia_hoja.html): una hoja horizontal,
+   sin menús, con una tabla por sala. */
+@page {
+  size: letter landscape;
+  margin: 10mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: #fff;
+  color: #111827;
+  font: 12px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.dia__cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dia__logo {
+  width: 44px;
+  height: 44px;
+}
+
+.dia__colegio,
+.dia__resumen {
+  margin: 0;
+  color: #4b5563;
+  font-size: 11px;
+}
+
+.dia__titulo {
+  margin: 0;
+  font-size: 22px;
+}
+
+.dia__acciones {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.dia__boton {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1f5f66;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dia__volver {
+  color: #1f5f66;
+}
+
+.dia__sala {
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+
+.dia__nombre-sala {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.dia__nombre-sala span,
+.dia__tabla span {
+  color: #4b5563;
+  font-weight: 400;
+}
+
+.dia__tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dia__tabla th,
+.dia__tabla td {
+  padding: 5px 6px;
+  border: 1px solid #d1d5db;
+  text-align: left;
+  vertical-align: top;
+}
+
+.dia__tabla th {
+  background: #f3f4f6;
+  font-size: 11px;
+}
+
+.dia__tabla tr {
+  break-inside: avoid;
+}
+
+.dia__hora {
+  width: 7.5rem;
+  white-space: nowrap;
+}
+
+.dia__vacio {
+  color: #4b5563;
+}
+
+.dia__pie {
+  margin-top: 10px;
+  color: #6b7280;
+  font-size: 10px;
+  text-align: right;
+}
+
+@media print {
+  body {
+    padding: 0;
+  }
+
+  .dia__acciones {
+    display: none;
+  }
+}
+
+@media (max-width: 40rem) {
+  .dia__tabla,
+  .dia__tabla tbody,
+  .dia__tabla tr,
+  .dia__tabla td {
+    display: block;
+  }
+
+  .dia__tabla thead {
+    display: none;
+  }
+
+  .dia__tabla tr {
+    margin-bottom: 8px;
+    border: 1px solid #d1d5db;
+  }
+
+  .dia__tabla td {
+    border: 0;
+  }
+}

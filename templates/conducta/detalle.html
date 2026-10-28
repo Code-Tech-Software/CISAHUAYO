@@ -28,6 +28,10 @@
           <a class="btn btn--sm" href="{% url 'conducta:compromiso_crear' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="clipboard-list" icon_class="icon--sm" %} Compromiso</a>
           <a class="btn btn--sm" href="{% url 'conducta:contacto_crear' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="phone" icon_class="icon--sm" %} Contacto con la familia</a>
         {% endif %}
+        {# Una reunión con la familia en el módulo de Reuniones (aparte de las citas del caso): ya con el estudiante y el caso #}
+        {% if perms.Reuniones.registrar or perms.Reuniones.gestionar or perms.Reuniones.todo %}
+          <a class="btn btn--sm" href="{% url 'reuniones:nueva' %}?alumno={{ registro.alumno_id }}&amp;conducta={{ registro.pk }}">{% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Agendar reunión con la familia</a>
+        {% endif %}
         {% if puede.seguimiento or puede.corregir %}
           <a class="btn btn--sm" href="{% url 'conducta:evidencias_agregar' registro.pk %}" data-modal-form>{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} Evidencias</a>
         {% endif %}

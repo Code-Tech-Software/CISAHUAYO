@@ -1,12 +1,24 @@
 {% extends "reuniones/accion.html" %}
 {% load reuniones_extras %}
-{% comment %}Seguimiento de un acuerdo: nuevo estado, observación y evidencia opcional.{% endcomment %}
+{% comment %}
+  Seguimiento de un acuerdo: nuevo estado, observación y evidencia opcional. Si la familia reportó avance desde su portal,
+  aparece arriba: guardar el seguimiento lo deja revisado.
+{% endcomment %}
 {% block enctype %} enctype="multipart/form-data"{% endblock %}
 {% block antes %}
   <section class="card">
     <div class="card__body">
       <p><strong>{{ acuerdo.descripcion }}</strong></p>
       <p class="text-muted reuniones-sub">{{ acuerdo.nombre_responsable }} · vence el {{ acuerdo.fecha_limite|date:"d/m/Y" }} · {% include "reuniones/_acuerdo_estado.html" %}</p>
+      {% if de_la_familia %}
+        <div class="reuniones-avance-familia">
+          <p class="reuniones-subtitulo">{% include "partials/icon.html" with name="message-circle" icon_class="icon--sm" %} Lo que reportó la familia</p>
+          <ul class="reuniones-mini">
+            {% for s in de_la_familia %}<li>{{ s.nota }} <span class="text-muted">· {{ s.tutor|persona }}, {{ s.creado|date:"d/m/Y H:i" }}</span>{% if s.evidencia %} · <a class="link-subtle" href="{% url 'reuniones:evidencia' s.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ s.evidencia_nombre }}</a>{% endif %}</li>{% endfor %}
+          </ul>
+          <p class="text-muted reuniones-sub">Al guardar este seguimiento, el avance queda revisado. Si ya se cumplió, elige «Cumplido».</p>
+        </div>
+      {% endif %}
     </div>
   </section>
 {% endblock %}

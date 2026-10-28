@@ -21,7 +21,8 @@
             <td class="table__cell" data-label="Cita">
               {% if reunion.programada %}<strong>{{ reunion.fecha|date:"D d/m" }} · {{ reunion.hora_inicio|time:"H:i" }}</strong>
                 <span class="text-muted reuniones-sub">{{ reunion.sala|default:"Sin sala" }}</span>
-              {% else %}<strong>Por programar</strong><span class="text-muted reuniones-sub">Solicitada el {{ reunion.creada|date:"d/m" }}</span>{% endif %}
+              {% else %}<strong>Por programar</strong><span class="text-muted reuniones-sub">Solicitada el {{ reunion.creada|date:"d/m" }}</span>
+                {% if reunion.espera_vencida %}<span class="tag tag--warning reuniones-espera">{% include "partials/icon.html" with name="circle-alert" icon_class="icon--sm" %} {{ reunion.dias_de_espera }} día{{ reunion.dias_de_espera|pluralize }} hábil{{ reunion.dias_de_espera|pluralize:"es" }} esperando</span>{% endif %}{% endif %}
               <span class="text-muted reuniones-sub">{{ reunion.folio }}</span>
             </td>
             <td class="table__cell table__cell--main">

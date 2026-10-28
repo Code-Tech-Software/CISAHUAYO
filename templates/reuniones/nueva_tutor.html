@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% load static reuniones_extras %}
-{% comment %}Registrar una llamada, paso 1: buscar al tutor que llama en el registro (Reuniones/views.nueva).{% endcomment %}
+{% comment %}
+  Registrar una llamada, paso 1: buscar al tutor que llama en el registro (Reuniones/views.nueva). Abierto desde la ficha
+  de un estudiante o un caso de Conducta (`alumno`, `origen`), muestra de una vez a sus tutores y la solicitud ya trae al
+  estudiante (y, desde el caso, la descripción).
+{% endcomment %}
 
 {% block title %}Registrar llamada · Reuniones con familias | CISAHUAYO{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/reuniones.css' %}">{% endblock %}
@@ -19,16 +23,20 @@
   </header>
 
   <form class="filters reuniones-buscar" method="get" role="search" aria-label="Buscar al tutor">
+    {% if alumno %}<input type="hidden" name="alumno" value="{{ alumno.pk }}">{% if conducta %}<input type="hidden" name="conducta" value="{{ conducta.pk }}">{% endif %}{% endif %}
     <div class="filters__field reuniones-buscar__campo"><label class="field__label" for="{{ buscar.q.id_for_label }}">{{ buscar.q.label }}</label>{{ buscar.q }}</div>
     <div class="filters__actions"><button type="submit" class="btn btn--primary btn--sm">{% include "partials/icon.html" with name="search" icon_class="icon--sm" %} Buscar</button></div>
   </form>
 
-  {% if texto %}
+  {% if alumno and not texto %}
+    <p class="reuniones-desde">{% include "partials/icon.html" with name="graduation-cap" icon_class="icon--sm" %} Tutores de <strong>{{ alumno|persona }}</strong>{% if conducta %}, para dar seguimiento a su reporte de conducta del {{ conducta.fecha|date:"d/m/Y" }}{% endif %}. Elige al que llama o busca a otro.</p>
+  {% endif %}
+  {% if texto or alumno %}
     {% if encontrados %}
       <ul class="reuniones-tutores" aria-label="Tutores encontrados">
         {% for tutor, hijos in encontrados %}
           <li>
-            <a class="reuniones-tutor" href="{% url 'reuniones:nueva' %}?tutor={{ tutor.pk }}">
+            <a class="reuniones-tutor" href="{% url 'reuniones:nueva' %}?tutor={{ tutor.pk }}{% if origen %}&amp;{{ origen }}{% endif %}">
               {% include "partials/avatar.html" with persona=tutor %}
               <span class="reuniones-tutor__texto">
                 <span class="reuniones-tutor__nombre">{{ tutor|persona }}</span>
@@ -43,7 +51,7 @@
     {% else %}
       <div class="table-card"><div class="empty-state">
         {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
-        <p class="empty-state__title">No se encontró a nadie con «{{ texto }}»</p>
+        <p class="empty-state__title">{% if texto %}No se encontró a nadie con «{{ texto }}»{% else %}{{ alumno|persona }} no tiene tutores activos{% endif %}</p>
         <p class="empty-state__text">Busca por nombre, apellido, teléfono o por el nombre del estudiante. El tutor debe estar dado de alta en Tutores.</p>
       </div></div>
     {% endif %}

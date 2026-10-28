@@ -8,6 +8,7 @@
     <span class="reuniones-tarjeta__texto">
       <span class="reuniones-tarjeta__titulo">{{ reunion.tutor|persona }}</span>
       <span class="text-muted reuniones-sub">{{ reunion.get_area_display }}{% if reunion.sala %} · {{ reunion.sala }}{% endif %} · {% for e in reunion.estudiantes.all %}{{ e.alumno.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+      {% if reunion.espera_vencida %}<span class="reuniones-tarjeta__falta">{% include "partials/icon.html" with name="circle-alert" icon_class="icon--sm" %} Espera desde hace {{ reunion.dias_de_espera }} día{{ reunion.dias_de_espera|pluralize }} hábil{{ reunion.dias_de_espera|pluralize:"es" }}</span>{% endif %}
       {% if faltan %}<span class="reuniones-tarjeta__falta">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} {{ faltan.0 }}{% if faltan|length > 1 %} (+{{ faltan|length|add:"-1" }}){% endif %}</span>{% endif %}
     </span>
     <span class="reuniones-etiquetas">{% include "reuniones/_estado.html" %}{% include "reuniones/_prioridad.html" %}</span>

@@ -1054,8 +1054,259 @@
   }
 }
 
+/* --- Mejoras del 2026-10-28 ------------------------------------------------------------------------------------- */
+/* Programar: los horarios libres para todos */
+.reuniones-sugeridos {
+  margin-top: var(--space-3);
+}
+
+.reuniones-sugeridos .reuniones-subtitulo {
+  margin-top: 0;
+  margin-bottom: 0.15rem;
+}
+
+.reuniones-sugeridos__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reuniones-sugerido {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background: var(--color-field-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.reuniones-sugerido:hover {
+  border-color: var(--color-primary);
+}
+
+.reuniones-sugerido:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.reuniones-sugerido[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.reuniones-sugerido > .icon {
+  color: var(--color-primary-text);
+}
+
+/* Solicitudes que esperan demasiado, Excel, «desde la ficha» */
+.reuniones-espera {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+.reuniones-exportar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 var(--space-2);
+}
+
+.reuniones-desde {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-soft);
+}
+
+/* Lo que hace la familia desde su portal: leyó la minuta, reportó avance */
+.reuniones-enterado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  color: var(--color-success);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.reuniones-seguimiento--familia {
+  color: var(--color-primary-text);
+}
+
+.reuniones-avance-familia {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+}
+
+.reuniones-avance-familia .reuniones-subtitulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 0;
+}
+
+.reuniones-avance-familia .reuniones-mini {
+  padding: 0 0 var(--space-2);
+}
+
+/* Portal: indicaciones, calendario, minuta y avances */
+.reuniones-indicaciones .details__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-primary-text);
+}
+
+.reuniones-portal-calendario {
+  margin: 0 0 var(--space-3);
+}
+
+.reuniones-portal-minuta {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+.reuniones-portal-minuta .reuniones-enterado,
+.reuniones-portal-minuta .reuniones-sub {
+  margin: 0;
+}
+
+.reuniones-mi-avance {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  color: var(--color-success);
+  font-size: var(--text-xs);
+}
+
+.reuniones-avance {
+  margin-top: var(--space-2);
+}
+
+.reuniones-avance > summary {
+  list-style: none;
+}
+
+.reuniones-avance > summary::-webkit-details-marker {
+  display: none;
+}
+
+.reuniones-avance__form {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.reuniones-avance__form .field {
+  width: 100%;
+}
+
+/* Reportes */
+.reuniones-kpis--reporte .reuniones-kpi {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "numero" "nombre";
+}
+
+.reuniones-kpis--reporte .reuniones-kpi:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.reuniones-reporte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.reuniones-reporte__barras {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  list-style: none;
+}
+
+.reuniones-reporte__barras li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.reuniones-reporte__barras strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.reuniones-reporte__etiqueta {
+  color: var(--color-text-soft);
+}
+
+.reuniones-reporte__barra {
+  height: 0.6rem;
+  border-radius: var(--radius-full);
+  background: linear-gradient(to right, var(--color-primary) var(--parte), var(--color-surface-2) var(--parte));
+}
+
+.reuniones-reporte__tabla .table__th--num,
+.reuniones-reporte__tabla .table__cell--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.reuniones-reporte__tabla th[scope="row"] {
+  font-weight: var(--weight-medium);
+  text-align: left;
+}
+
+@media (min-width: 64rem) {
+  .reuniones-reporte {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reuniones-reporte__tabla {
+    grid-column: 1 / -1;
+  }
+}
+
 /* --- Teléfono -------------------------------------------------------------------------------------------------- */
 @media (max-width: 39.99rem) {
+  .reuniones-reporte__barras li {
+    grid-template-columns: minmax(0, 1fr) 2.5rem;
+  }
+
+  .reuniones-reporte__barra {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .reuniones-propuestas__fila {
     grid-template-columns: 1fr 1fr;
   }

@@ -17,6 +17,9 @@ acuerdos.
   notas internas confidenciales (nunca se muestran al tutor), los acuerdos con su responsable, su fecha límite y su
   seguimiento, y los documentos (también la evidencia de firma).
 - **Notificaciones** (`NotificacionReunion`): los avisos de la campana, sin motivos ni notas.
+- **Desde el portal** (2026-10-28): las indicaciones para la familia (`Reunion.indicaciones`), el «Leí la minuta y los
+  acuerdos» de cada tutor (`TutorEnReunion.enterado_minuta_en`) y el avance que reporta la familia de un acuerdo
+  (`SeguimientoAcuerdo` con `tutor`), que el responsable revisa.
 
 La reunión es un registro aparte: no cambia calificaciones, asistencias ni genera sanciones.
 """
@@ -72,6 +75,9 @@ class ConfiguracionReuniones(models.Model):
     aviso_acuerdos_dias = models.PositiveSmallIntegerField(
         'aviso de acuerdos por vencer (días antes)', default=2, validators=[MaxValueValidator(30)],
         help_text='Cuántos días antes de su fecha límite se avisa de un acuerdo pendiente.')
+    espera_dias = models.PositiveSmallIntegerField(
+        'plazo para programar una solicitud (días hábiles)', default=3, validators=[MinValueValidator(1), MaxValueValidator(30)],
+        help_text='Si una solicitud no se programa en ese plazo, se avisa a quien la atiende. Las urgentes, el mismo día.')
     modificado = models.DateTimeField(auto_now=True)
     modificado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
 
@@ -160,6 +166,8 @@ class Reunion(models.Model):
     prioridad = models.CharField('prioridad', max_length=8, choices=PRIORIDADES, default=NORMAL)
     propuestas = models.JSONField('horarios propuestos por el tutor', default=list, blank=True)   # [{fecha, desde, hasta}]
     observaciones_internas = models.TextField('observaciones internas', max_length=2000, blank=True)
+    # Lo que la familia debe saber (se ve en su portal, en el recordatorio y en el archivo de calendario)
+    indicaciones = models.TextField('indicaciones para la familia', max_length=500, blank=True)
 
     estado = models.CharField('estado', max_length=14, choices=ESTADOS, default=SOLICITADA, db_index=True)
     # La cita
@@ -289,6 +297,8 @@ class TutorEnReunion(models.Model):
     tutor = models.ForeignKey(Tutor, on_delete=models.PROTECT, related_name='reuniones_con_familia')
     solicitante = models.BooleanField('solicitó la reunión', default=False)
     asistencia = models.CharField('asistencia', max_length=10, choices=ASISTENCIAS, blank=True)
+    # «Leí la minuta y los acuerdos» desde su portal (vale si es posterior a la última edición de la minuta)
+    enterado_minuta_en = models.DateTimeField('leyó la minuta', null=True, blank=True)
 
     class Meta:
         verbose_name = 'tutor de una reunión'
@@ -412,6 +422,7 @@ class EventoReunion(models.Model):
     DISPONIBILIDAD, CONFIRMACION_TUTOR, AVISO, CONFIRMADA = 'DISPONIBILIDAD', 'CONFIRMACION_TUTOR', 'AVISO', 'CONFIRMADA'
     PENDIENTE_CONFIRMAR, SUSTITUTO, INICIADA, REALIZADA = 'PENDIENTE_CONFIRMAR', 'SUSTITUTO', 'INICIADA', 'REALIZADA'
     MINUTA, INASISTENCIA, CANCELADA, ACUERDO, DOCUMENTO, VINCULADA = 'MINUTA', 'INASISTENCIA', 'CANCELADA', 'ACUERDO', 'DOCUMENTO', 'VINCULADA'
+    INDICACIONES, ENTERADO, AVANCE_FAMILIA = 'INDICACIONES', 'ENTERADO', 'AVANCE_FAMILIA'
     TIPOS = [
         (REGISTRADA, 'Solicitud registrada'),
         (PARTICIPANTES, 'Participantes'),
@@ -431,6 +442,9 @@ class EventoReunion(models.Model):
         (ACUERDO, 'Acuerdos'),
         (DOCUMENTO, 'Documentos'),
         (VINCULADA, 'Reunión vinculada'),
+        (INDICACIONES, 'Indicaciones para la familia'),
+        (ENTERADO, 'Enterado de la minuta'),
+        (AVANCE_FAMILIA, 'Avance de la familia'),
     ]
 
     reunion = models.ForeignKey(Reunion, on_delete=models.CASCADE, related_name='eventos')
@@ -534,6 +548,10 @@ class SeguimientoAcuerdo(models.Model):
     evidencia_nombre = models.CharField(max_length=200, blank=True)
     evidencia_tipo = models.CharField(max_length=80, blank=True)
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    # El avance que reporta la familia desde su portal («Ya lo hice»): lo revisa el responsable (no cambia el estado)
+    tutor = models.ForeignKey(Tutor, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    revisado_en = models.DateTimeField(null=True, blank=True)
+    revisado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
     creado = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -541,6 +559,14 @@ class SeguimientoAcuerdo(models.Model):
         verbose_name_plural = 'seguimiento de los acuerdos'
         ordering = ['creado', 'pk']
         default_permissions = ()
+
+    @property
+    def de_la_familia(self):
+        return self.tutor_id is not None
+
+    @property
+    def por_revisar(self):
+        return self.de_la_familia and self.revisado_en is None
 
 
 class AdjuntoReunion(models.Model):

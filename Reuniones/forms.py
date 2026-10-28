@@ -257,11 +257,16 @@ class ParticipantesForm(EstiloCamposMixin, forms.Form):
         return datos
 
 
+AYUDA_DE_INDICACIONES = 'La familia las ve en su portal, en el recordatorio y en su calendario. P. ej. «Preséntate en recepción».'
+
+
 class ProgramarForm(EstiloCamposMixin, forms.Form):
     fecha = forms.DateField(label='Fecha', widget=FECHA)
     hora_inicio = forms.TimeField(label='Hora de inicio', widget=HORA)
     hora_fin = forms.TimeField(label='Hora de término', widget=HORA, required=False)
     sala = forms.ModelChoiceField(SalaReunion.objects.none(), label='Lugar o sala', empty_label='Elige el lugar')
+    indicaciones = forms.CharField(label='Indicaciones para la familia', max_length=500, required=False, help_text=AYUDA_DE_INDICACIONES,
+                                   widget=forms.Textarea(attrs={'rows': 2, 'placeholder': 'Trae la boleta firmada…'}))
 
     def __init__(self, *args, reunion=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -273,6 +278,8 @@ class ProgramarForm(EstiloCamposMixin, forms.Form):
             self.fields['hora_inicio'].initial = reunion.hora_inicio
             self.fields['hora_fin'].initial = reunion.hora_fin
             self.fields['sala'].initial = reunion.sala_id
+        if reunion is not None:
+            self.fields['indicaciones'].initial = reunion.indicaciones
         self.aplicar_estilo()
 
     def clean(self):
@@ -290,6 +297,16 @@ class ReprogramarForm(ProgramarForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+
+class IndicacionesForm(EstiloCamposMixin, forms.Form):
+    indicaciones = forms.CharField(label='Indicaciones para la familia', max_length=500, required=False, help_text=AYUDA_DE_INDICACIONES,
+                                   widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Preséntate en recepción 10 minutos antes…'}))
+
+    def __init__(self, *args, reunion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['indicaciones'].initial = reunion.indicaciones
         self.aplicar_estilo()
 
 
@@ -490,6 +507,27 @@ class SeguimientoAcuerdoForm(EstiloCamposMixin, forms.Form):
         return archivo
 
 
+class AvanceFamiliaForm(forms.Form):
+    """El avance de un acuerdo que reporta el tutor en su portal (Reuniones/views_portal.avance)."""
+
+    nota = forms.CharField(label='¿Qué hiciste?', max_length=1000, widget=forms.Textarea(attrs={'rows': 2}))
+    evidencia = forms.FileField(label='Foto o PDF (opcional)', required=False, help_text=AYUDA_DE_ARCHIVOS,
+                                widget=forms.ClearableFileInput(attrs={'accept': ACEPTA}))
+
+    def clean_nota(self):
+        nota = self.cleaned_data['nota'].strip()
+        if not nota:
+            raise forms.ValidationError('Cuéntanos qué hiciste.')
+        return nota
+
+    def clean_evidencia(self):
+        archivo = self.cleaned_data.get('evidencia')
+        if archivo:
+            from Conducta.forms import validar_archivo
+            self.tipo_evidencia = validar_archivo(archivo)
+        return archivo
+
+
 class DocumentosForm(EstiloCamposMixin, forms.Form):
     """Los archivos llegan en request.FILES.getlist('archivos'); el campo solo cuelga sus errores."""
 
@@ -526,6 +564,9 @@ class DocumentosForm(EstiloCamposMixin, forms.Form):
 # ---------------------------------------------------------------------------
 # Filtros de la agenda y la lista
 # ---------------------------------------------------------------------------
+ESPERA = 'ESPERA'
+
+
 class FiltroForm(EstiloCamposMixin, forms.Form):
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
         'type': 'search', 'placeholder': 'Folio, tutor o estudiante…', 'autocomplete': 'off'}))
@@ -534,7 +575,8 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
     estudiante = forms.CharField(required=False, label='Estudiante', max_length=80)
     tutor = forms.CharField(required=False, label='Tutor', max_length=80)
     participante = CampoDeCuenta(queryset=None, required=False, empty_label='Cualquiera', label='Participante')
-    estado = forms.ChoiceField(choices=[('', 'Todos los estados'), ('ABIERTAS', 'Abiertas (sin terminar)'), *Reunion.ESTADOS],
+    estado = forms.ChoiceField(choices=[('', 'Todos los estados'), ('ABIERTAS', 'Abiertas (sin terminar)'),
+                                        (ESPERA, 'Esperan demasiado (sin programar fuera de plazo)'), *Reunion.ESTADOS],
                                required=False, label='Estado')
     prioridad = forms.ChoiceField(choices=[('', 'Todas'), *Reunion.PRIORIDADES], required=False, label='Prioridad')
     desde = forms.DateField(required=False, label='Desde', widget=FECHA)
@@ -578,6 +620,9 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
             consulta = consulta.filter(participantes__usuario=datos['participante'], participantes__activo=True)
         if datos.get('estado') == 'ABIERTAS':
             consulta = consulta.filter(estado__in=Reunion.ABIERTAS)
+        elif datos.get('estado') == ESPERA:
+            from .reglas import que_esperan_demasiado
+            consulta = consulta.filter(pk__in=[r.pk for r in que_esperan_demasiado(consulta)])
         elif datos.get('estado'):
             consulta = consulta.filter(estado=datos['estado'])
         if datos.get('prioridad'):
@@ -601,7 +646,7 @@ class ConfiguracionForm(EstiloCamposMixin, forms.ModelForm):
 
     class Meta:
         model = ConfiguracionReuniones
-        fields = ['dias', 'hora_apertura', 'hora_cierre', 'duracion', 'recordatorio_horas', 'aviso_acuerdos_dias']
+        fields = ['dias', 'hora_apertura', 'hora_cierre', 'duracion', 'recordatorio_horas', 'aviso_acuerdos_dias', 'espera_dias']
         widgets = {'hora_apertura': HORA, 'hora_cierre': HORA}
 
     def __init__(self, *args, **kwargs):
@@ -617,6 +662,30 @@ class ConfiguracionForm(EstiloCamposMixin, forms.ModelForm):
         if 'dias' in datos and not datos['dias']:
             self.add_error('dias', 'Elige al menos un día.')
         return datos
+
+
+class ReporteForm(EstiloCamposMixin, forms.Form):
+    """El periodo y el nivel de los reportes (Reuniones/views.reportes). Sin fechas: desde el inicio del ciclo escolar."""
+
+    desde = forms.DateField(required=False, label='Solicitadas desde', widget=FECHA)
+    hasta = forms.DateField(required=False, label='Hasta', widget=FECHA)
+    nivel = forms.ChoiceField(choices=[('', 'Todos los niveles')], required=False, label='Nivel')
+
+    def __init__(self, *args, acceso, **kwargs):
+        super().__init__(*args, **kwargs)
+        from Prefectura.alcance import TOTAL
+        alcance = TOTAL if acceso.ve_todo else acceso.alcance
+        self.fields['nivel'].choices = [('', 'Todos los niveles' if alcance.total else 'Todos mis niveles'), *alcance.niveles_visibles()]
+        self.aplicar_estilo()
+
+    def periodo(self, hoy):
+        datos = self.cleaned_data if self.is_valid() else {}
+        ciclo = ciclo_actual()
+        desde = datos.get('desde') or (ciclo.fecha_inicio if ciclo and ciclo.fecha_inicio <= hoy else hoy - timedelta(days=90))
+        hasta = datos.get('hasta') or hoy
+        if hasta < desde:
+            desde, hasta = hasta, desde
+        return desde, hasta, datos.get('nivel', '')
 
 
 class MotivoForm(EstiloCamposMixin, forms.ModelForm):

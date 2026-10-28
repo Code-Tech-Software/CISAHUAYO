@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import timedelta
 from functools import wraps
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -31,6 +32,7 @@ registro = logging.getLogger(__name__)
 # Conducta.forms.validar_archivo)
 ACEPTA_IMAGENES = '.jpg,.jpeg,.png,.webp'
 ACEPTA_DOCUMENTOS = '.pdf'
+ASUNTO_MAXIMO = 120   # el asunto con que se abre una conversación desde otro módulo
 
 
 @dataclass
@@ -189,6 +191,7 @@ def conversacion(request, pk):
     puede_escribir = reglas.puede_escribir_en(conversacion, participante)
     return _pantalla(
         request, cuenta, conversacion,
+        asunto=' '.join(request.GET.get('asunto', '').split())[:ASUNTO_MAXIMO] if puede_escribir else '',
         otro=otro, descripcion_otro=descripcion(otro) if otro else '', mensajes=mensajes, hay_anteriores=hay_anteriores,
         hay_posteriores=hay_posteriores, destacado=int(destacado) if destacado.isdigit() else None,
         primero=mensajes[0].pk if mensajes else None, leido_hasta=leido_hasta, ultimo_leido_mio=ultimo_leido_mio,
@@ -204,7 +207,8 @@ def conversacion(request, pk):
 
 @require_POST
 def nueva(request):
-    """Abre (o retoma) la conversación con la persona elegida en la búsqueda."""
+    """Abre (o retoma) la conversación con la persona elegida en la búsqueda. Con `asunto` (p. ej. «Sobre la reunión
+    RF-2026-00012», desde una cita del portal), la caja de texto lo trae escrito si no hay un borrador."""
     cuenta = request.mensajeria
     destino = reglas.de_clave(request.POST.get('destinatario', ''))
     try:
@@ -214,7 +218,9 @@ def nueva(request):
     except reglas.MensajeRechazado as rechazo:
         messages.error(request, str(rechazo))
         return redirect(cuenta.url('inicio'))
-    return redirect(cuenta.url('conversacion', conversacion.pk))
+    asunto = ' '.join(request.POST.get('asunto', '').split())[:ASUNTO_MAXIMO]
+    destino = cuenta.url('conversacion', conversacion.pk)
+    return redirect(f'{destino}?{urlencode({"asunto": asunto})}' if asunto else destino)
 
 
 @require_POST

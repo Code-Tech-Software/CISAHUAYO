@@ -88,7 +88,7 @@
 
     <section class="reporte__seccion reuniones-minuta__firmas">
       <h2 class="reuniones-minuta__titulo">Firmas</h2>
-      <p class="reuniones-minuta__estado-firma">{% if firma %}Se registró la evidencia de firma el {{ firma.creado|date:"d/m/Y" }}.{% else %}Pendiente de firma: el colegio todavía no registra la minuta firmada.{% endif %}</p>
+      <p class="reuniones-minuta__estado-firma">{% if firma %}Se registró la evidencia de firma el {{ firma.creado|date:"d/m/Y" }}.{% elif enterados %}La familia confirmó en su portal que leyó la minuta y los acuerdos: {% for tutor, momento in enterados %}{{ tutor|persona }}, {{ momento|date:"d/m/Y H:i" }}{% if not forloop.last %}; {% endif %}{% endfor %}.{% else %}Pendiente de firma: el colegio todavía no registra la minuta firmada.{% endif %}</p>
       <div class="reuniones-minuta__lineas">
         {% for t in familia %}<div class="reuniones-minuta__linea"><span></span>{{ t.tutor|persona }}<small>Tutor</small></div>{% endfor %}
         {% for p in personal %}<div class="reuniones-minuta__linea"><span></span>{{ p.usuario|cuenta }}<small>{{ p.get_papel_display }}</small></div>{% endfor %}

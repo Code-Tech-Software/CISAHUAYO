@@ -20,6 +20,7 @@ import threading
 
 from django.conf import settings
 from django.db import connections
+from django.db.models import Q
 
 from .models import Miembro, SuscripcionPush
 
@@ -60,13 +61,14 @@ def olvidar_navegador(request):
         registro.exception('No se pudo quitar la suscripción push al cerrar sesión')
 
 
-def _enviar(suscripcion, carga):
+def _enviar(suscripcion, carga, urgente=False):
     from pywebpush import WebPushException, webpush
     try:
         webpush(
             subscription_info={'endpoint': suscripcion.endpoint, 'keys': {'p256dh': suscripcion.p256dh, 'auth': suscripcion.auth}},
             data=json.dumps(carga), vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={'sub': settings.VAPID_CONTACTO}, ttl=VIGENCIA, timeout=10,
+            headers={'Urgency': 'high' if urgente else 'normal'},   # un aviso urgente despierta al teléfono de inmediato
         )
     except WebPushException as error:
         estado = getattr(getattr(error, 'response', None), 'status_code', None)
@@ -91,6 +93,27 @@ def _en_segundo_plano(envios):
         threading.Thread(target=tarea, name='mensajes-push', daemon=True).start()
     else:
         tarea()
+
+
+def suscripciones_de(tutores=(), alumnos=(), usuarios=()):
+    """Los navegadores suscritos de esas cuentas (ids de tutores, estudiantes y usuarios del sistema), en una sola
+    consulta: {('tutor' | 'alumno' | 'usuario', id): [suscripciones]}. Lo usan los comunicados (Comunicados/avisos.py)."""
+    if not (tutores or alumnos or usuarios):
+        return {}
+    condicion = Q(participante__tutor_id__in=list(tutores)) | Q(participante__alumno_id__in=list(alumnos)) | Q(participante__usuario_id__in=list(usuarios))
+    resultado = {}
+    for suscripcion in SuscripcionPush.objects.filter(condicion).select_related('participante'):
+        participante = suscripcion.participante
+        clave = ('tutor', participante.tutor_id) if participante.tutor_id else (
+            ('alumno', participante.alumno_id) if participante.alumno_id else ('usuario', participante.usuario_id))
+        resultado.setdefault(clave, []).append(suscripcion)
+    return resultado
+
+
+def enviar_ahora(envios, urgente=False):
+    """Manda [(suscripción, carga)] en este hilo (quien llama ya decidió si va en segundo plano)."""
+    for suscripcion, carga in envios:
+        _enviar(suscripcion, carga, urgente)
 
 
 def avisar_mensaje(mensaje):

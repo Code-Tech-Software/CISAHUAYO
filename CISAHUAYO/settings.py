@@ -243,3 +243,5 @@ VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
 VAPID_CONTACTO = os.getenv('VAPID_CONTACTO', '') or CSRF_TRUSTED_ORIGINS[0]
 PUSH_EN_SEGUNDO_PLANO = 'test' not in sys.argv
+# Los avisos de un comunicado (en tiempo real y push) salen en un hilo aparte: quien envía no espera (Comunicados/avisos.py)
+COMUNICADOS_EN_SEGUNDO_PLANO = 'test' not in sys.argv

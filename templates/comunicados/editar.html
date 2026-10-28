@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Corregir un comunicado ya enviado (Comunicados/views.editar): el mismo formulario de crear (comunicados/_formulario.html)
+  sin el selector de destinatarios ni la respuesta que se pide, que no cambian. Quienes ya lo recibieron lo ven
+  corregido, con la marca «Editado».
+{% endcomment %}
+
+{% block title %}Corregir comunicado | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+  <link rel="stylesheet" href="{% static 'css/editor-mensajes.css' %}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'comunicados:inicio' %}">Comunicados</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'comunicados:detalle' edicion.pk %}">{{ edicion.titulo|truncatechars:40 }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Corregir</span></li>
+{% endblock %}
+
+{% block content %}
+  <div class="crear-comunicado crear-comunicado--pagina">
+    <header class="crear-comunicado__cabecera">
+      <div>
+        <h1 class="crear-comunicado__titulo">Corregir comunicado</h1>
+        <p class="crear-comunicado__descripcion">{% if programable %}Todavía no se publica: puedes cambiar también su hora de publicación.{% else %}Quienes ya lo recibieron lo verán corregido, con la marca «Editado». Sus lecturas y respuestas se conservan.{% endif %}</p>
+      </div>
+    </header>
+    <div class="crear-comunicado__cuerpo">
+      {% include "comunicados/_formulario.html" with en_pagina=True %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/caracteres-especiales.js' %}" defer></script>
+  <script src="{% static 'js/editor-mensajes.js' %}" defer></script>
+  <script src="{% static 'js/comunicados-form.js' %}" defer></script>
+{% endblock %}

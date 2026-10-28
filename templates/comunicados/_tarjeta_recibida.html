@@ -1,15 +1,20 @@
 {% load comunicados_extras usuarios_extras %}{% comment %}
   Tarjeta de un comunicado recibido (la copia `destinatario` de quien mira). Los que no ha leído se distinguen; los
-  urgentes sin leer van primero (Comunicados/reglas.recibidos). Abrirla (su detalle) guarda la primera lectura.
+  urgentes sin leer van primero y después los fijados (Comunicados/reglas.recibidos). A un tutor le dice de cuál de sus
+  hijos trata; si pide respuesta y no ha respondido, lo dice. Abrirla (su detalle) guarda la primera lectura.
 {% endcomment %}
-<article class="tarjeta-comunicado tarjeta-comunicado--recibida{% if comunicado.urgente %} tarjeta-comunicado--urgente{% endif %}{% if not destinatario.leido_en %} is-pendiente{% endif %}" data-tarjeta="{{ comunicado.pk }}">
+<article class="tarjeta-comunicado tarjeta-comunicado--recibida{% if comunicado.urgente %} tarjeta-comunicado--urgente{% endif %}{% if comunicado.fijado %} tarjeta-comunicado--fijada{% endif %}{% if not destinatario.leido_en %} is-pendiente{% endif %}" data-tarjeta="{{ comunicado.pk }}">
   <a class="tarjeta-comunicado__enlace" href="{% url espacio|add:':recibido' comunicado.pk %}" data-abrir-detalle="{% url espacio|add:':recibido' comunicado.pk %}?parcial=1">
     <div class="tarjeta-comunicado__cuerpo">
       <div class="tarjeta-comunicado__etiquetas">
         {% if comunicado.urgente %}<span class="etiqueta-urgente">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
         <span class="tag tag--primary tarjeta-comunicado__nuevo" data-tarjeta-nuevo{% if destinatario.leido_en %} hidden{% endif %}><span class="tarjeta-comunicado__punto" aria-hidden="true"></span> Sin leer</span>
+        {% if comunicado.pide_respuesta and not destinatario.respondido_en %}<span class="tag tag--warning" data-tarjeta-responder>{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Responde</span>{% endif %}
+        {% if comunicado.fijado %}<span class="tag">{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %} Fijado</span>{% endif %}
+        {% if comunicado.categoria %}<span class="tag tag--tono-{{ comunicado.tono_categoria }}">{{ comunicado.nombre_categoria }}</span>{% endif %}
       </div>
       <h2 class="tarjeta-comunicado__titulo">{{ comunicado.titulo }}</h2>
+      {% if destinatario.para_quien %}<p class="tarjeta-comunicado__para">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Sobre: {{ destinatario.para_quien }}</p>{% endif %}
       <p class="tarjeta-comunicado__extracto">{{ comunicado.descripcion|truncatechars:180 }}</p>
     </div>
     <div class="tarjeta-comunicado__pie">
@@ -18,12 +23,13 @@
           <span class="avatar avatar--sm avatar--tone-{{ comunicado.autor_id|tono_de }}" aria-hidden="true">{{ comunicado.autor|iniciales }}</span>
           <span class="tarjeta-comunicado__autor-nombre">{{ comunicado.autor|nombre_visible }}</span>
         </span>
-        <time class="tarjeta-comunicado__fecha" datetime="{{ comunicado.creado|date:'c' }}">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} {{ comunicado.creado|date:"j b Y" }}</time>
+        <time class="tarjeta-comunicado__fecha" datetime="{{ comunicado.publicado_en|date:'c' }}">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} {{ comunicado.publicado_en|date:"j b Y" }}</time>
       </div>
       <div class="tarjeta-comunicado__fila tarjeta-comunicado__fila--suave">
         <span data-tarjeta-lectura>{% if destinatario.leido_en %}{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Leído el {{ destinatario.leido_en|date:"j b" }}{% else %}{% include "partials/icon.html" with name="eye-off" icon_class="icon--sm" %} Pendiente de leer{% endif %}</span>
         {% if destinatario.adjuntos %}<span class="tarjeta-comunicado__adjuntos" aria-label="{{ destinatario.adjuntos }} archivo{{ destinatario.adjuntos|pluralize }}">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ destinatario.adjuntos }}</span>{% endif %}
       </div>
+      {% if comunicado.tiene_evento %}<p class="tarjeta-comunicado__expira">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} {{ comunicado.texto_del_evento }}</p>{% endif %}
       {% if comunicado.expira %}<p class="tarjeta-comunicado__expira">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Disponible hasta el {{ comunicado.expira|date:"j b Y, H:i" }}</p>{% endif %}
     </div>
   </a>

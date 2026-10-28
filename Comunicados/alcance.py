@@ -17,6 +17,9 @@ el envío revisa que cada persona elegida esté en ella (Comunicados/reglas.py):
     varios niveles, basta uno; al emisor solo se le muestran los hijos que él puede ver);
   · profesor: activo, que da clases en el nivel (su ficha o sus materias del ciclo) y cuya cuenta puede consultar
     comunicados (`Comunicados.recibir`): sin cuenta no tendría dónde leerlo.
+- El personal no docente (2026-10-27): las cuentas activas que pueden consultar comunicados y no son de un profesor
+  (control escolar, prefectura, recepción…). No tiene nivel: le envía el administrador o quien tenga
+  `Comunicados.enviar_personal` (por omisión, Dirección).
 """
 from dataclasses import dataclass, field
 
@@ -32,9 +35,10 @@ from .models import Destinatario
 RECIBIR = 'Comunicados.recibir'
 SEGUIMIENTO = 'Comunicados.seguimiento'
 ENVIAR = 'Comunicados.enviar'
+ENVIAR_PERSONAL = 'Comunicados.enviar_personal'
 ELIMINAR = 'Comunicados.eliminar'
 GESTIONAR = 'Comunicados.gestionar'
-TODOS = (RECIBIR, SEGUIMIENTO, ENVIAR, ELIMINAR, GESTIONAR)
+TODOS = (RECIBIR, SEGUIMIENTO, ENVIAR, ENVIAR_PERSONAL, ELIMINAR, GESTIONAR)
 
 NOMBRE_DE_NIVEL = dict(Grado.NIVEL_CHOICES)
 SIN_NIVELES = ('No tienes niveles educativos asignados, así que todavía no puedes enviar comunicados. Pide al administrador '
@@ -75,9 +79,10 @@ def nombre_y_apellidos(persona):
 
 
 def _lista(nombres, maximo):
+    """«Ana», «Ana y Luis», «Ana, Luis y Sofía» o, con más de `maximo`, «Ana, Luis y 3 más»."""
     nombres = list(nombres)
     if len(nombres) <= maximo:
-        return ', '.join(nombres)
+        return ' y '.join([', '.join(nombres[:-1]), nombres[-1]]) if len(nombres) > 1 else ''.join(nombres)
     return f'{", ".join(nombres[:maximo])} y {len(nombres) - maximo} más'
 
 
@@ -139,8 +144,12 @@ class Alcance:
     _cache: dict = field(default_factory=dict, repr=False)
 
     @property
+    def envia_al_personal(self):
+        return self.usuario.has_perm(ENVIAR) and (self.total or self.usuario.has_perm(ENVIAR_PERSONAL))
+
+    @property
     def puede_enviar(self):
-        return self.usuario.has_perm(ENVIAR) and (self.total or bool(self.niveles))
+        return self.usuario.has_perm(ENVIAR) and (self.total or bool(self.niveles) or self.envia_al_personal)
 
     @property
     def niveles_en_orden(self):
@@ -150,9 +159,10 @@ class Alcance:
     def descripcion(self):
         if self.total:
             return 'Todo el colegio'
-        if not self.niveles:
-            return 'Sin niveles asignados'
-        return ' · '.join(nombre for _, nombre in self.niveles_en_orden)
+        partes = [nombre for _, nombre in self.niveles_en_orden]
+        if self.envia_al_personal:
+            partes.append('Personal del colegio')
+        return ' · '.join(partes) or 'Sin niveles asignados'
 
     # ------------------------------------------------------------------ quién está en el alcance
     def ciclo(self):
@@ -196,8 +206,17 @@ class Alcance:
                                                                    profesor__isnull=False).values('profesor'))
         return consulta.filter(pk__in=Profesor.objects.filter(de_sus_niveles).values('pk'))
 
+    def personal(self):
+        """Las cuentas del personal no docente que pueden consultar comunicados (sin ficha de profesor), si quien envía
+        llega al personal."""
+        if not self.envia_al_personal:
+            return get_user_model().objects.none()
+        return (get_user_model().objects.filter(is_active=True, pk__in=cuentas_con(RECIBIR))
+                .exclude(pk__in=Profesor.objects.filter(usuario__isnull=False).values('usuario')).exclude(pk=self.usuario.pk))
+
     def consulta_de(self, tipo):
-        return {Destinatario.ESTUDIANTE: self.estudiantes, Destinatario.TUTOR: self.tutores, Destinatario.PROFESOR: self.profesores}[tipo]()
+        return {Destinatario.ESTUDIANTE: self.estudiantes, Destinatario.TUTOR: self.tutores, Destinatario.PROFESOR: self.profesores,
+                Destinatario.PERSONAL: self.personal}[tipo]()
 
     # ------------------------------------------------------------------ validación del envío
     def validar(self, seleccion):
@@ -245,12 +264,45 @@ class Alcance:
         return hijos
 
     def detalles_de_tutores(self, tutores):
+        """{id de tutor: «Tutor de Ana López (2.º A) y Luis López (1.º A)»}: sus hijos del alcance, con su grupo (así sabe
+        de cuál trata el comunicado)."""
         hijos = self.hijos_de(tutores)
+        inscripciones = self._inscripciones_de([a.pk for lista in hijos.values() for a in lista])
+
+        def nombre(alumno):
+            inscripcion = inscripciones.get(alumno.pk)
+            return f'{nombre_y_apellidos(alumno)} ({_grupo_corto(inscripcion.grupo)})' if inscripcion else nombre_y_apellidos(alumno)
+
         return {
-            tutor_id: f'Tutor de {_lista((nombre_y_apellidos(a) for a in hijos.get(tutor_id, [])), MAXIMO_DE_HIJOS_EN_DETALLE)}'
+            tutor_id: f'Tutor de {_lista((nombre(a) for a in hijos.get(tutor_id, [])), MAXIMO_DE_HIJOS_EN_DETALLE)}'
             if hijos.get(tutor_id) else 'Tutor'
             for tutor_id in (t if isinstance(t, int) else t.pk for t in tutores)
         }
+
+    def grupos_de(self, elegidos):
+        """{tipo: {id: id de grupo}} con que cuenta cada estudiante (el de su inscripción vigente) y cada tutor (el de su
+        primer hijo del alcance con inscripción) en «Lectura por grupo»."""
+        inscripciones = self._inscripciones_de(sorted(elegidos.get(Destinatario.ESTUDIANTE, ())))
+        estudiantes = {pk: inscripcion.grupo_id for pk, inscripcion in inscripciones.items()}
+        hijos = self.hijos_de(sorted(elegidos.get(Destinatario.TUTOR, ())))
+        de_hijos = self._inscripciones_de([a.pk for lista in hijos.values() for a in lista])
+        tutores = {}
+        for tutor_id, lista in hijos.items():
+            for alumno in lista:
+                if alumno.pk in de_hijos:
+                    tutores[tutor_id] = de_hijos[alumno.pk].grupo_id
+                    break
+        return {Destinatario.ESTUDIANTE: estudiantes, Destinatario.TUTOR: tutores}
+
+    @staticmethod
+    def detalles_de_personal(usuarios):
+        """{id de cuenta: su rol («Control escolar», «Prefectura»…)}."""
+        from Usuarios.seguridad import rol_de
+        detalles = {}
+        for cuenta in get_user_model().objects.filter(pk__in=list(usuarios)):
+            rol = rol_de(cuenta)
+            detalles[cuenta.pk] = rol.nombre if rol else 'Personal del colegio'
+        return detalles
 
     def clases_de(self, profesores):
         """{id de profesor: [asignaciones del ciclo actual en el alcance]}"""
@@ -295,6 +347,7 @@ class Alcance:
             Destinatario.ESTUDIANTE: {pk: texto for pk, (texto, _) in self.detalles_de_estudiantes(sorted(elegidos[Destinatario.ESTUDIANTE])).items()},
             Destinatario.TUTOR: self.detalles_de_tutores(sorted(elegidos[Destinatario.TUTOR])),
             Destinatario.PROFESOR: self.detalles_de_profesores(sorted(elegidos[Destinatario.PROFESOR])),
+            Destinatario.PERSONAL: self.detalles_de_personal(sorted(elegidos.get(Destinatario.PERSONAL, ()))),
         }
 
     # ------------------------------------------------------------------ lo que necesita el selector
@@ -336,9 +389,22 @@ class Alcance:
                 por_nivel[grado.nivel]['grados'].append(por_grado[grado.pk])
             por_grado[grado.pk]['grupos'].append({'id': grupo.pk, 'nombre': f'{_grupo_corto(grupo)}', 'materias': materias.get(grupo.pk, [])})
 
+        # El personal (si llega a él), por rol: en el selector es su propia rama del árbol
+        personal, roles = [], {}
+        if self.envia_al_personal:
+            from Usuarios.seguridad import rol_de
+            for cuenta in self.personal().order_by('first_name', 'last_name', 'username'):
+                rol = rol_de(cuenta)
+                clave = rol.pk if rol else 0
+                roles.setdefault(clave, rol.nombre if rol else 'Sin rol')
+                personal.append({'id': cuenta.pk, 'nombre': cuenta.get_full_name() or cuenta.get_username(), 'rol': clave,
+                                 'detalle': roles[clave]})
+
         return {
-            'alcance': {'total': self.total, 'descripcion': self.descripcion()},
+            'alcance': {'total': self.total, 'descripcion': self.descripcion(), 'personal': self.envia_al_personal},
             'arbol': arbol,
+            'personal': personal,
+            'roles': [{'id': clave, 'nombre': nombre} for clave, nombre in sorted(roles.items(), key=lambda par: par[1])],
             'estudiantes': [{
                 'id': a.pk, 'nombre': apellidos_y_nombre(a), 'corto': nombre_y_apellidos(a), 'detalle': detalles[a.pk][0],
                 'grupo': detalles[a.pk][1], 'sin_acceso': not (a.acceso_portal and a.correo_electronico and a.contrasena),

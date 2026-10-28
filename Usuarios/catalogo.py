@@ -213,10 +213,10 @@ MODULOS = (
                       'completo, con sus imágenes, sin dejar copia ni marca. Exclusivo del administrador.',
         }),
     )),
-    Modulo('comunicados', 'Comunicados', 'megaphone', 'Avisos informativos para tutores, estudiantes y profesores, con seguimiento de lectura.', (
+    Modulo('comunicados', 'Comunicados', 'megaphone', 'Avisos informativos para tutores, estudiantes, profesores y el personal, con seguimiento de lectura.', (
         Funcion('Comunicados recibidos', {'ver': 'Comunicados.recibir'}, etiquetas={'ver': 'Consultar'}, ayuda={
-            'ver': 'Un profesor consulta los comunicados que le envían. Los tutores y los estudiantes los ven en su portal, '
-                   'sin necesidad de permisos.',
+            'ver': 'Un profesor o alguien del personal consulta (y responde) los comunicados que le envían; sin este permiso no '
+                   'aparece entre los destinatarios. Los tutores y los estudiantes los ven en su portal, sin necesidad de permisos.',
         }),
         Funcion('Envío de comunicados', {'ver': 'Comunicados.seguimiento', 'crear': 'Comunicados.enviar', 'baja': 'Comunicados.eliminar'},
                 etiquetas={'ver': 'Seguimiento', 'crear': 'Enviar', 'baja': 'Eliminar'}, ayuda={
@@ -224,6 +224,11 @@ MODULOS = (
             'crear': 'Enviar comunicados a tutores, estudiantes y profesores de los niveles que tiene asignados: los que da como '
                      'docente, dirige o coordina, su alcance de prefectura y los «Niveles para comunicados» de su ficha.',
             'baja': 'Eliminar sus propios comunicados: dejan de verse y se conservan en el historial para auditoría.',
+        }),
+        Funcion('Comunicados al personal', {'crear': 'Comunicados.enviar_personal'}, etiquetas={'crear': 'Enviar al personal'},
+                requiere=('Comunicados.enviar',), ayuda={
+            'crear': 'Enviar comunicados al personal no docente (control escolar, prefectura, recepción…): las cuentas que pueden '
+                     'consultar comunicados y no son de un profesor.',
         }),
         Funcion('Gestión de todos los comunicados', {'editar': 'Comunicados.gestionar'}, etiquetas={'editar': 'Gestionar'},
                 requiere=('Comunicados.seguimiento',), reservado={'editar': ADMINISTRADOR}, ayuda={

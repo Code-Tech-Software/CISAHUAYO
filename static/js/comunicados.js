@@ -31,13 +31,15 @@
       let visibles = 0;
       filas.forEach((fila) => {
         const nombre = fila.dataset.nombre.normalize('NFD').replace(/[̀-ͯ]/g, '');
-        const ver = (!texto || nombre.includes(texto)) && (!estado || fila.dataset.estado === estado);
+        const delEstado = !estado || (estado === 'sin-responder' ? fila.hasAttribute('data-sin-responder') : fila.dataset.estado === estado);
+        const ver = (!texto || nombre.includes(texto)) && delEstado;
         fila.hidden = !ver;
         visibles += ver;
       });
       if (vacio) {
         vacio.hidden = Boolean(visibles);
-        vacio.textContent = estado === 'leido' && !texto ? 'Nadie lo ha leído todavía.' : estado === 'pendiente' && !texto ? 'Todos lo han leído.' : 'Nadie coincide con la búsqueda.';
+        vacio.textContent = estado === 'leido' && !texto ? 'Nadie lo ha leído todavía.' : estado === 'pendiente' && !texto ? 'Todos lo han leído.'
+          : estado === 'sin-responder' && !texto ? 'Todos han respondido.' : 'Nadie coincide con la búsqueda.';
       }
     };
     buscar?.addEventListener('input', filtrar);
@@ -74,6 +76,40 @@
         eliminar.focus();
       });
     }
+
+    /* Responder y recordar sin salir de la ventana (en su propia página, el formulario normal recarga la página) */
+    if (!detalle.closest('[data-detalle-modal]')) return;
+    qsa('[data-responder], [data-recordar]', detalle).forEach((formulario) => formulario.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const datos = new FormData(formulario);
+      if (evento.submitter?.name) datos.set(evento.submitter.name, evento.submitter.value);
+      const botones = qsa('button[type="submit"]', formulario);
+      botones.forEach((boton) => { boton.disabled = true; });
+      try {
+        const respuesta = await fetch(formulario.action, {
+          method: 'POST', body: datos, credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const resultado = await respuesta.json().catch(() => ({}));
+        if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo guardar. Inténtalo de nuevo.');
+        if (formulario.matches('[data-responder]')) {
+          /* La tarjeta deja de pedir respuesta y la ventana se vuelve a pedir con la respuesta ya guardada */
+          qs(`[data-tarjeta="${detalle.dataset.comunicado}"] [data-tarjeta-responder]`)?.remove();
+          if (origen) abrirDetalle(origen);
+        } else {
+          const nota = qs('.recordar-comunicado__nota', detalle);
+          if (nota) nota.textContent = resultado.mensaje || 'Se recordó el comunicado.';
+        }
+      } catch (problema) {
+        botones.forEach((boton) => { boton.disabled = false; });
+        const error = qs('[data-responder-error]', formulario);
+        if (error) {
+          error.textContent = problema.message;
+          error.hidden = false;
+        } else {
+          window.alert(problema.message);
+        }
+      }
+    }));
   };
   qsa('[data-detalle-comunicado]').forEach(prepararDetalle);
 
@@ -254,6 +290,8 @@
 
   /* =============================================================== Calendario del filtro por fecha */
   const formulario = qs('[data-comunicados-filtros]');
+  /* La categoría se aplica al elegirla */
+  qs('[data-comunicados-categoria]', formulario || document)?.addEventListener('change', () => formulario?.requestSubmit());
   const entrada = qs('[data-fecha-filtro]');
   const botonCalendario = qs('[data-calendario-abrir]');
   const calendario = qs('[data-calendario-filtro]');

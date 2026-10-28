@@ -816,7 +816,8 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
         casos = {
             'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias', 'Calificaciones',
                         'Bitácoras por grupo', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'},
-            'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes', 'Agenda', 'Reuniones con familias'},
+            # El personal también recibe comunicados (2026-10-27)
+            'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'},
         }
         for nombre_rol, esperados in casos.items():
             with self.subTest(rol=nombre_rol):

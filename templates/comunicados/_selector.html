@@ -1,7 +1,8 @@
 {% comment %}
   Selector de destinatarios (static/js/comunicados-form.js lo llena con lo que responde comunicados:destinatarios: solo
-  las personas del alcance de quien envía). A la izquierda, el árbol nivel → grado → grupo → materia; a la derecha, las
-  pestañas Tutores, Estudiantes y Profesores con su lista. En el móvil, las dos partes se alternan con «Grupos» y
+  las personas del alcance de quien envía). A la izquierda, el árbol nivel → grado → grupo → materia (y, si puede
+  enviarle, «Personal del colegio» → rol); a la derecha, las pestañas Tutores, Estudiantes, Profesores y Personal con su
+  lista. En el móvil, las dos partes se alternan con «Grupos» y
   «Personas». «Cancelar» descarta lo que se cambió en esta apertura; «Confirmar» guarda la selección en el formulario.
 {% endcomment %}
 <dialog class="modal modal--selector" data-selector aria-labelledby="selector-titulo" aria-describedby="selector-instruccion">
@@ -48,6 +49,7 @@
           <button type="button" class="segmentado__opcion" data-pestana-movil="tutores" aria-pressed="true">Tutores</button>
           <button type="button" class="segmentado__opcion" data-pestana-movil="estudiantes" aria-pressed="false">Estudiantes</button>
           <button type="button" class="segmentado__opcion" data-pestana-movil="profesores" aria-pressed="false">Profesores</button>
+          <button type="button" class="segmentado__opcion" data-pestana-movil="personal" aria-pressed="false" data-solo-personal hidden>Personal</button>
         </div>
         <div class="selector__panel">
           <label class="selector__buscar">
@@ -70,6 +72,8 @@
           <button type="button" class="selector__pestana" role="tab" aria-selected="true" data-pestana="tutores" id="pestana-tutores">Tutores <span class="selector__pestana-cuenta" data-pestana-cuenta="tutores"></span></button>
           <button type="button" class="selector__pestana" role="tab" aria-selected="false" data-pestana="estudiantes" id="pestana-estudiantes">Estudiantes <span class="selector__pestana-cuenta" data-pestana-cuenta="estudiantes"></span></button>
           <button type="button" class="selector__pestana" role="tab" aria-selected="false" data-pestana="profesores" id="pestana-profesores">Profesores <span class="selector__pestana-cuenta" data-pestana-cuenta="profesores"></span></button>
+          {# El personal no docente: solo para quien puede enviarle (el administrador o Comunicados.enviar_personal) #}
+          <button type="button" class="selector__pestana" role="tab" aria-selected="false" data-pestana="personal" id="pestana-personal" data-solo-personal hidden>Personal <span class="selector__pestana-cuenta" data-pestana-cuenta="personal"></span></button>
         </div>
         <div class="selector__lista-cabecera">
           <h3 class="selector__seccion-titulo" data-lista-titulo>Todos · Tutores</h3>

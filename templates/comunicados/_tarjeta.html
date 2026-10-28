@@ -1,5 +1,6 @@
 {% load comunicados_extras usuarios_extras %}{% comment %}
-  Tarjeta de un comunicado en «Enviados» o en «Todos los comunicados» (con estadísticas: Comunicados/reglas.preparar).
+  Tarjeta de un comunicado en «Enviados» o en «Todos los comunicados» (con estadísticas: Comunicados/reglas.preparar):
+  si está programado, su categoría, si va fijado, su evento y, si pide respuesta, cuántos respondieron.
   En el modo de selección (papelera) aparece su casilla, solo si quien mira puede eliminarlo.
 {% endcomment %}
 <article class="tarjeta-comunicado{% if comunicado.urgente %} tarjeta-comunicado--urgente{% endif %}{% if comunicado.caducado %} tarjeta-comunicado--caducado{% endif %}" data-tarjeta="{{ comunicado.pk }}">
@@ -13,7 +14,11 @@
     <div class="tarjeta-comunicado__cuerpo">
       <div class="tarjeta-comunicado__etiquetas">
         {% if comunicado.urgente %}<span class="etiqueta-urgente">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
-        {% if comunicado.caducado %}<span class="tag">Caducado</span>{% else %}<span class="tag tag--success">Activo</span>{% endif %}
+        {% if comunicado.programado %}<span class="tag tag--info">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Programado · {{ comunicado.publicado_en|date:"j b, H:i" }}</span>
+        {% elif comunicado.caducado %}<span class="tag">Caducado</span>{% else %}<span class="tag tag--success">Activo</span>{% endif %}
+        {% if comunicado.categoria %}<span class="tag tag--tono-{{ comunicado.tono_categoria }}">{{ comunicado.nombre_categoria }}</span>{% endif %}
+        {% if comunicado.fijado %}<span class="tag" title="Fijado">{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %}<span class="visually-hidden">Fijado</span></span>{% endif %}
+        {% if comunicado.tiene_evento %}<span class="tag" title="Evento: {{ comunicado.texto_del_evento }}">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} {{ comunicado.evento_fecha|date:"j b" }}</span>{% endif %}
       </div>
       <h2 class="tarjeta-comunicado__titulo">{{ comunicado.titulo }}</h2>
       <p class="tarjeta-comunicado__extracto">{{ comunicado.descripcion|truncatechars:180 }}</p>
@@ -24,7 +29,7 @@
           <span class="avatar avatar--sm avatar--tone-{{ comunicado.autor_id|tono_de }}" aria-hidden="true">{{ comunicado.autor|iniciales }}</span>
           <span class="tarjeta-comunicado__autor-nombre">{{ comunicado.autor|nombre_visible }}</span>
         </span>
-        <time class="tarjeta-comunicado__fecha" datetime="{{ comunicado.creado|date:'c' }}">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} {{ comunicado.creado|date:"j b Y" }}</time>
+        <time class="tarjeta-comunicado__fecha" datetime="{{ comunicado.publicado_en|date:'c' }}">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} {{ comunicado.publicado_en|date:"j b Y" }}</time>
       </div>
       <div class="tarjeta-comunicado__lectura">
         <div class="tarjeta-comunicado__fila tarjeta-comunicado__fila--suave">
@@ -32,6 +37,7 @@
           <span class="tarjeta-comunicado__porcentaje">{{ comunicado.porcentaje }}%</span>
         </div>
         <progress class="meter tarjeta-comunicado__barra" max="100" value="{{ comunicado.porcentaje }}" aria-label="{{ comunicado.leidos }} de {{ comunicado.total }} destinatarios lo han leído ({{ comunicado.porcentaje }} %)">{{ comunicado.porcentaje }} %</progress>
+        {% if comunicado.pide_respuesta %}<p class="tarjeta-comunicado__fila tarjeta-comunicado__fila--suave">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} {{ comunicado.respondidos }}/{{ comunicado.total }} respondi{{ comunicado.respondidos|pluralize:"ó,eron" }} · {{ comunicado.get_respuesta_display }}</p>{% endif %}
       </div>
       <div class="tarjeta-comunicado__fila tarjeta-comunicado__fila--suave tarjeta-comunicado__destinatarios">
         <span class="tarjeta-comunicado__resumen" title="{{ comunicado.resumen_destinatarios }}">{% include "partials/icon.html" with name="users" icon_class="icon--sm" %} {{ comunicado.resumen_destinatarios }}</span>

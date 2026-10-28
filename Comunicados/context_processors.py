@@ -1,8 +1,8 @@
 """Los comunicados en todas las páginas: los que tiene sin leer quien navega (el contador del menú y la campana de
 notificaciones, que los suma a los mensajes y los lista uno por uno).
 
-`avisos_comunicados.activa` solo si la cuenta recibe comunicados: un profesor con permiso en el sistema, o la cuenta
-de un portal. Se calcula solo si la plantilla lo usa. Los mismos datos, en JSON: vista `resumen` (Comunicados/views.py)."""
+`avisos_comunicados.activa` solo si la cuenta recibe comunicados: un profesor o alguien del personal con permiso en el
+sistema, o la cuenta de un portal. Se calcula solo si la plantilla lo usa. Los mismos datos, en JSON: vista `resumen` (Comunicados/views.py)."""
 from django.db import DatabaseError
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
@@ -41,7 +41,7 @@ def datos_de_avisos(lector, espacio):
         'titulo': copia.comunicado.titulo,
         'autor': reglas.nombre_de_usuario(copia.comunicado.autor),
         'urgente': copia.comunicado.urgente,
-        'hora': _hora(copia.comunicado.creado),
+        'hora': _hora(copia.comunicado.publicado_en),
         'url': reverse(f'{espacio}:recibido', args=[copia.comunicado_id]),
     } for copia in reglas.avisos(lector)]
     return {'pendientes': pendientes, 'urgentes': urgentes, 'avisos': avisos}

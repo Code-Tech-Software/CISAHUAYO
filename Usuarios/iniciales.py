@@ -31,6 +31,7 @@ def _control_escolar():
         | permisos_de_modulos('calificaciones', solo=('ver',))
         | {'Mensajes.usar', 'Mensajes.contactar_familias'}
         | {'Reuniones.registrar'}
+        | {'Comunicados.recibir'}   # el personal también recibe comunicados (2026-10-27)
     )
 
 
@@ -60,7 +61,7 @@ def _coordinacion():
 def _recepcion():
     return {
         'Alumnos.view_alumno', 'Alumnos.add_asistenciageneral', 'Alumnos.view_asistenciageneral',
-        'Alumnos.view_justificacion', 'Mensajes.usar', 'Reuniones.registrar',
+        'Alumnos.view_justificacion', 'Mensajes.usar', 'Reuniones.registrar', 'Comunicados.recibir',
     }
 
 
@@ -75,6 +76,7 @@ def _prefectura():
     return ((permisos_de_modulos('prefectura') - {'Prefectura.corregir_otros'}) | {'Bitacoras.consultar_todas', 'Bitacoras.registrar_todas'}
             | {'Mensajes.usar', 'Mensajes.contactar_familias'}
             | {'Retiros.consultar', 'Retiros.confirmar'}   # retiros de su alcance
+            | {'Comunicados.recibir'}
             | REUNIONES_DIRECTIVAS)
 
 

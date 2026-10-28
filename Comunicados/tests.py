@@ -205,7 +205,8 @@ class EnvioTests(Colegio, BaseTestCase):
         comunicado = Comunicado.objects.get()
         self.assertEqual(comunicado.destinatarios.count(), 4)
         ana = comunicado.destinatarios.get(tutor=self.ana)
-        self.assertEqual(ana.detalle, 'Tutor de Lucía Herrera Campos')   # sin Zoe, fuera del alcance de Laura
+        self.assertEqual(ana.detalle, 'Tutor de Lucía Herrera Campos (2.º A)')   # sin Zoe, fuera del alcance de Laura; con su grupo
+        self.assertEqual(ana.para_quien, 'Lucía Herrera Campos (2.º A)')
         self.assertEqual(comunicado.destinatarios.get(alumno=self.lucia).detalle, '2.º A · Primaria')
         self.assertEqual(comunicado.rol_autor, 'Docente que envía')
         self.assertTrue(LogEntry.objects.filter(object_id=str(comunicado.pk)).exists())
@@ -428,7 +429,7 @@ class PantallasTests(Colegio, BaseTestCase):
         self.assertContains(respuesta, '2 comunicados')
         self.assertContains(respuesta, 'Buscar comunicados…')
         self.assertContains(respuesta, 'Crear comunicado')
-        self.assertContains(respuesta, 'Filtrar por fecha de creación')
+        self.assertContains(respuesta, 'Filtrar por fecha de publicación')
         self.assertContains(respuesta, 'tarjeta-comunicado--urgente', count=1)
         self.assertContains(respuesta, '0/2 leídos')
         self.assertContains(respuesta, '1 tutor · 1 estudiante')
@@ -452,7 +453,7 @@ class PantallasTests(Colegio, BaseTestCase):
     def test_la_ventana_de_crear_y_el_selector(self):
         self.client.force_login(self.laura)
         respuesta = self.client.get(INICIO)
-        for texto in ('Marcar como urgente', 'Elegir destinatarios', 'Archivos (', 'Enviar comunicado', 'Destinatarios del comunicado',
+        for texto in ('Marcar como urgente', 'Elegir destinatarios', 'Archivos (', 'Revisar y enviar', 'Destinatarios del comunicado',
                       '¿A qué niveles, grupos o materias?', 'Marcar todos', 'Desmarcar todos', 'name="clave_envio"'):
             self.assertContains(respuesta, texto)
         self.assertContains(self.client.get(CREAR), 'Crear comunicado')

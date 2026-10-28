@@ -155,7 +155,7 @@ class RolYAlcanceTests(BasePrefecturaTestCase):
         secciones = {s['titulo']: [e['etiqueta'] for e in s['elementos']] for s in navegacion(peticion)['navegacion']}
         self.assertEqual(secciones['Prefectura'], ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Retiros anticipados', 'Seguimiento', 'Reportes'])
         self.assertNotIn(None, secciones)                  # sin «Panel de control»: su inicio es el de prefectura
-        self.assertEqual(secciones['Comunicación'], ['Mensajes', 'Agenda', 'Reuniones con familias'])
+        self.assertEqual(secciones['Comunicación'], ['Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'])   # también recibe comunicados (2026-10-27)
         self.assertEqual(secciones['Sistema'], ['Ajustes'])
         # El administrador conserva su menú: su «Prefectura» es la general (asistencia y conducta del colegio)
         self.client.force_login(self.admin)

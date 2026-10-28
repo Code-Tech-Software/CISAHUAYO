@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 {% comment %}
-  «Crear comunicado» en su propia página: el enlace directo, Ctrl+clic, el buscador de comandos o cuando el servidor
-  devuelve errores sin JavaScript. Es el mismo formulario de la ventana del listado (comunicados/_formulario.html).
+  «Crear comunicado» en su propia página: el enlace directo, Ctrl+clic, el buscador de comandos, «Usar como base» (con
+  ?base=N: el formulario empieza con lo de ese comunicado) o cuando el servidor devuelve errores sin JavaScript. Es el
+  mismo formulario de la ventana del listado (comunicados/_formulario.html).
 {% endcomment %}
 
 {% block title %}Crear comunicado | CISAHUAYO{% endblock %}
 
 {% block extra_head %}
   <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+  <link rel="stylesheet" href="{% static 'css/editor-mensajes.css' %}">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;1,400;1,700&display=swap">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -22,7 +25,7 @@
     <header class="crear-comunicado__cabecera">
       <div>
         <h1 class="crear-comunicado__titulo">Crear comunicado</h1>
-        <p class="crear-comunicado__descripcion">Comparte avisos con tutores, estudiantes y profesores · Puedes enviar a: {{ alcance.descripcion }}</p>
+        <p class="crear-comunicado__descripcion">Comparte avisos con tutores, estudiantes, profesores y el personal · Puedes enviar a: {{ alcance.descripcion }}</p>
       </div>
     </header>
     <div class="crear-comunicado__cuerpo">
@@ -33,5 +36,7 @@
 {% endblock %}
 
 {% block extra_js %}
+  <script src="{% static 'js/caracteres-especiales.js' %}" defer></script>
+  <script src="{% static 'js/editor-mensajes.js' %}" defer></script>
   <script src="{% static 'js/comunicados-form.js' %}" defer></script>
 {% endblock %}

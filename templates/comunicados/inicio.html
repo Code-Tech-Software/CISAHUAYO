@@ -2,8 +2,8 @@
 {% load static comunicados_extras %}
 {% comment %}
   Comunicados (Comunicados/views.py): la misma pantalla en el sistema y en los portales (`base` y `espacio` cambian).
-  Arriba, el título con su contador, el filtro por fecha de creación, el buscador y «Crear comunicado»; debajo, las
-  pestañas (Recibidos, Enviados, Todos los comunicados), el filtro por estado y la cuadrícula de tarjetas. Cada tarjeta
+  Arriba, el título con su contador, el filtro por fecha de publicación, el buscador, la categoría y «Crear comunicado»;
+  debajo, las pestañas (Recibidos, Enviados, Todos los comunicados), el filtro por estado y la cuadrícula de tarjetas. Cada tarjeta
   abre su detalle en una ventana (static/js/comunicados.js); sin JavaScript, en su propia página. La ventana de crear y
   el selector de destinatarios: comunicados/_formulario.html y comunicados/_selector.html (static/js/comunicados-form.js).
 {% endcomment %}
@@ -13,6 +13,11 @@
 {% block extra_head %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/comunicados.css' %}">
+  {% if puede_crear and not sin_niveles %}
+    {# El editor con formato del formulario de crear (el mismo de la mensajería) y Nunito, una de sus fuentes #}
+    <link rel="stylesheet" href="{% static 'css/editor-mensajes.css' %}">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+  {% endif %}
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -39,10 +44,17 @@
       <form class="comunicados__herramientas" method="get" role="search" data-comunicados-filtros>
         {% if vistas %}<input type="hidden" name="vista" value="{{ vista }}">{% endif %}
         {% if estado != "todos" %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
+        <label class="comunicados__categoria">
+          <span class="visually-hidden">Categoría</span>
+          <select class="field__control field__control--select" name="categoria" data-comunicados-categoria>
+            <option value="">Todas las categorías</option>
+            {% for clave, nombre in categorias %}<option value="{{ clave }}"{% if categoria == clave %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+          </select>
+        </label>
         <input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}" data-fecha-filtro data-hoy="{{ hoy|date:'Y-m-d' }}">
         <button type="button" class="comunicados__calendario{% if fecha %} is-activo{% endif %}" data-calendario-abrir
                 aria-haspopup="dialog" aria-expanded="false" aria-controls="calendario-comunicados"
-                aria-label="Filtrar por fecha de creación{% if fecha %}: {{ fecha|date:'j \d\e F \d\e Y'|lower }}{% endif %}" data-tooltip="Filtrar por fecha">
+                aria-label="Filtrar por fecha de publicación{% if fecha %}: {{ fecha|date:'j \d\e F \d\e Y'|lower }}{% endif %}" data-tooltip="Filtrar por fecha">
           {% include "partials/icon.html" with name="calendar" %}
           {% if fecha %}<span class="comunicados__calendario-marca" aria-hidden="true"></span>{% endif %}
         </button>
@@ -66,7 +78,7 @@
 
       {# El calendario del filtro (static/js/comunicados.js lo arma y lo coloca junto al botón) #}
       <div class="calendario comunicados-calendario" id="calendario-comunicados" popover="manual" role="dialog" aria-labelledby="calendario-comunicados-titulo" data-calendario-filtro hidden>
-        <p class="comunicados-calendario__titulo" id="calendario-comunicados-titulo">Filtrar por fecha de creación</p>
+        <p class="comunicados-calendario__titulo" id="calendario-comunicados-titulo">Filtrar por fecha de publicación</p>
         <div class="calendario__cabecera">
           <p class="calendario__mes" data-calendario-mes aria-live="polite"></p>
           <div class="comunicados-calendario__navegacion">
@@ -112,9 +124,10 @@
           <a class="segmentado__opcion{% if clave == estado %} is-activo{% endif %}" href="{% querystring estado=clave page=None %}"{% if clave == estado %} aria-current="true"{% endif %}>{{ nombre }}</a>
         {% endfor %}
       </nav>
-      {% if fecha or texto %}
+      {% if fecha or texto or categoria %}
         <ul class="comunicados__filtros-activos" aria-label="Filtros aplicados">
-          {% if fecha %}<li><a class="comunicados__filtro-activo" href="{% querystring fecha=None page=None %}" aria-label="Quitar el filtro de fecha">Creados el {{ fecha|date:"j b Y" }} {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</a></li>{% endif %}
+          {% if fecha %}<li><a class="comunicados__filtro-activo" href="{% querystring fecha=None page=None %}" aria-label="Quitar el filtro de fecha">Publicados el {{ fecha|date:"j b Y" }} {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</a></li>{% endif %}
+          {% if categoria %}<li><a class="comunicados__filtro-activo" href="{% querystring categoria=None page=None %}" aria-label="Quitar el filtro de categoría">{% for clave, nombre in categorias %}{% if clave == categoria %}{{ nombre }}{% endif %}{% endfor %} {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</a></li>{% endif %}
           {% if texto %}<li><a class="comunicados__filtro-activo" href="{% querystring q=None page=None %}" aria-label="Quitar la búsqueda">«{{ texto|truncatechars:30 }}» {% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</a></li>{% endif %}
         </ul>
       {% endif %}
@@ -162,13 +175,13 @@
           <div class="empty-state__actions"><a class="btn btn--sm" href="?{% if vistas %}vista={{ vista }}{% endif %}">Quitar filtros</a></div>
         {% elif vista == "recibidos" %}
           <p class="empty-state__title">No tienes comunicados</p>
-          <p class="empty-state__text">{% if lector %}Cuando el colegio te envíe un comunicado, aparecerá aquí.{% else %}Solo los profesores (con su ficha vinculada a su cuenta) reciben comunicados en el sistema.{% endif %}</p>
+          <p class="empty-state__text">{% if lector %}Cuando el colegio te envíe un comunicado, aparecerá aquí.{% else %}Solo las cuentas con permiso para consultar comunicados (profesores y personal) los reciben en el sistema.{% endif %}</p>
         {% elif vista == "gestion" %}
           <p class="empty-state__title">Todavía no hay comunicados en el colegio</p>
           <p class="empty-state__text">Los comunicados que envíe cualquier persona aparecerán aquí, con su seguimiento de lectura.</p>
         {% else %}
           <p class="empty-state__title">Todavía no has enviado comunicados</p>
-          <p class="empty-state__text">{% if puede_crear and not sin_niveles %}Crea uno para avisar a tutores, estudiantes o profesores; aquí verás quién lo ha leído.{% else %}Aquí verás los comunicados que envíes y quién los ha leído.{% endif %}</p>
+          <p class="empty-state__text">{% if puede_crear and not sin_niveles %}Crea uno para avisar a tutores, estudiantes, profesores o al personal; aquí verás quién lo ha leído y respondido.{% else %}Aquí verás los comunicados que envíes y quién los ha leído.{% endif %}</p>
           {% if puede_crear and not sin_niveles %}<div class="empty-state__actions"><a class="btn btn--primary btn--sm" href="{% url 'comunicados:crear' %}" data-crear-comunicado>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Crear comunicado</a></div>{% endif %}
         {% endif %}
       </div>
@@ -208,5 +221,9 @@
 
 {% block extra_js %}
   <script src="{% static 'js/comunicados.js' %}" defer></script>
-  {% if puede_crear and not sin_niveles %}<script src="{% static 'js/comunicados-form.js' %}" defer></script>{% endif %}
+  {% if puede_crear and not sin_niveles %}
+    <script src="{% static 'js/caracteres-especiales.js' %}" defer></script>
+    <script src="{% static 'js/editor-mensajes.js' %}" defer></script>
+    <script src="{% static 'js/comunicados-form.js' %}" defer></script>
+  {% endif %}
 {% endblock %}

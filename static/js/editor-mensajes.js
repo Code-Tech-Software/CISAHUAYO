@@ -1717,9 +1717,10 @@
         const texto = rango?.collapsed ? rango.startContainer : null;
         if (texto?.nodeType === Node.TEXT_NODE && texto.data[rango.startOffset - 1] === INVISIBLE) texto.deleteData(rango.startOffset - 1, 1);
       }
-      if (evento.key === 'Enter' && !evento.shiftKey && !mod && !evento.isComposing && !this.cercano('li,td,th')) {
+      /* Intro envía solo donde hay a qué enviar (la mensajería); en los comunicados hace un párrafo nuevo */
+      if (this.opciones.alEnviar && evento.key === 'Enter' && !evento.shiftKey && !mod && !evento.isComposing && !this.cercano('li,td,th')) {
         evento.preventDefault();
-        this.opciones.alEnviar?.();
+        this.opciones.alEnviar();
       }
     }
   }

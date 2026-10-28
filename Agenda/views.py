@@ -23,6 +23,9 @@ from CISAHUAYO import portales
 from CISAHUAYO.permisos import requiere_permisos
 
 from . import alcance, calendario
+from .comunicados import COLOR as COLOR_DE_COMUNICADO
+from .comunicados import COLOR_TEXTO as COLOR_TEXTO_DE_COMUNICADO
+from .comunicados import EventoDeComunicado, eventos_de_comunicados
 from .forms import EventoForm
 from .models import COLEGIO, COLORES, NOMBRE_DE_ALCANCE, EventoAgenda
 
@@ -89,6 +92,9 @@ def _calendario(request, espacio):
         filtro = ''
     desde, hasta = calendario.rango_visible(primero)
     eventos = list(vista.filtrar(vista.eventos(), filtro).filter(fecha_inicio__lte=hasta, fecha_fin__gte=desde))
+    # Los comunicados con evento de quien mira (no son de un nivel: solo sin filtro de nivel)
+    de_comunicados = [] if filtro else eventos_de_comunicados(request, desde, hasta)
+    eventos += de_comunicados
 
     base = espacio.url('calendario')
     def enlace(mes, **extra):
@@ -102,11 +108,12 @@ def _calendario(request, espacio):
         'primero': primero, 'hoy': hoy, 'semanas': calendario.semanas(eventos, primero, hoy), 'carriles': calendario.CARRILES,
         'agenda': agenda, 'eventos_del_mes': sum(len(lista) for _, lista in agenda),
         'opciones': opciones, 'filtro': filtro, 'sin_niveles': not vista.todos and not vista.niveles,
-        'leyenda': [(clave, NOMBRE_DE_ALCANCE[clave], *COLORES[clave]) for clave in alcances],
+        'leyenda': [(clave, NOMBRE_DE_ALCANCE[clave], *COLORES[clave]) for clave in alcances]
+                   + ([('COMUNICADO', 'Comunicados', COLOR_DE_COMUNICADO, COLOR_TEXTO_DE_COMUNICADO)] if de_comunicados else []),
         'anterior': enlace(calendario.mes_anterior(primero)), 'siguiente': enlace(calendario.mes_siguiente(primero)),
         'actual': enlace(hoy.replace(day=1)), 'es_mes_actual': primero == hoy.replace(day=1), 'volver': volver,
         'url_calendario': base, 'url_crear': espacio.url('crear') if vista.gestiona else '',
-        'datos_eventos': [_datos_del_evento(e, espacio, volver) for e in eventos],
+        'datos_eventos': [e.como_dato() if isinstance(e, EventoDeComunicado) else _datos_del_evento(e, espacio, volver) for e in eventos],
     })
 
 

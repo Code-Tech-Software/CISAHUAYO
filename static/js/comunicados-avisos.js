@@ -122,7 +122,7 @@
     flotante.setAttribute('role', datos.urgente ? 'alert' : 'status');
     const texto = elemento('span', 'aviso-flotante__texto');
     texto.append(
-      elemento('span', 'aviso-flotante__titulo', datos.urgente ? 'Comunicado urgente' : 'Comunicado nuevo'),
+      elemento('span', 'aviso-flotante__titulo', datos.recordatorio ? 'Recordatorio de comunicado' : (datos.urgente ? 'Comunicado urgente' : 'Comunicado nuevo')),
       elemento('span', 'aviso-flotante__nombre', datos.titulo),
       elemento('span', 'aviso-flotante__vista', `${datos.autor} · ${datos.vista_previa}`),
     );
@@ -148,7 +148,7 @@
   const avisarNavegador = (datos) => {
     if (!('Notification' in window) || !window.isSecureContext || Notification.permission !== 'granted') return;
     try {
-      const aviso = new Notification(datos.urgente ? `Urgente: ${datos.titulo}` : datos.titulo, {
+      const aviso = new Notification(datos.recordatorio ? `Recordatorio: ${datos.titulo}` : (datos.urgente ? `Urgente: ${datos.titulo}` : datos.titulo), {
         body: `${datos.autor} · ${datos.vista_previa}`, tag: `comunicado-${datos.id}`, icon: logo, requireInteraction: Boolean(datos.urgente),
       });
       aviso.addEventListener('click', () => {
@@ -165,8 +165,10 @@
   document.addEventListener('mensajeria:evento', (evento) => {
     const datos = evento.detail || {};
     if (datos.evento !== 'comunicado') return;
-    agregarALista(datos);
-    ponerPendientes(pendientesActuales() + 1);
+    if (!datos.recordatorio) {   /* un recordatorio ya estaba contado: solo se vuelve a avisar */
+      agregarALista(datos);
+      ponerPendientes(pendientesActuales() + 1);
+    }
     refrescar();
     if (document.visibilityState === 'visible') mostrarFlotante(datos);
     else avisarNavegador(datos);
@@ -186,4 +188,14 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refrescar();
   });
+
+  /* Al cargar, a lo más cada 5 minutos por pestaña: pedir el resumen también publica los comunicados programados que ya
+     llegaron a su hora (Comunicados/avisos.publicar_si_toca), aunque no haya un Cron en el servidor */
+  const LLAVE = 'cisahuayo.comunicados.revisados';
+  let ultima = 0;
+  try { ultima = Number(sessionStorage.getItem(LLAVE)) || 0; } catch (error) { /* sin almacenamiento: se pide siempre */ }
+  if (urlResumen && Date.now() - ultima > 5 * 60 * 1000) {
+    try { sessionStorage.setItem(LLAVE, String(Date.now())); } catch (error) { /* sin almacenamiento */ }
+    refrescar();
+  }
 })();

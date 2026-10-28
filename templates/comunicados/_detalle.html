@@ -1,25 +1,58 @@
 {% load comunicados_extras usuarios_extras %}{% comment %}
   El detalle de un comunicado: en la ventana del listado (?parcial=1) y en su propia página (comunicados/detalle.html).
-  - `gestion` (el autor o el administrador): las cuatro tarjetas de seguimiento y la lista de destinatarios con su
-    estado de lectura. Consultarlo no marca como leído a nadie.
-  - Si no (quien lo recibe): el contenido, el autor, los archivos y solo su propio estado de lectura.
+  - `gestion` (el autor o el administrador): las acciones (corregir, usar como base, exportar, recordar), las tarjetas de
+    seguimiento, las respuestas, la lectura por grupo y la lista de destinatarios con su estado de lectura y su
+    respuesta. Consultarlo no marca como leído a nadie.
+  - Si no (quien lo recibe): el contenido, de cuál de sus hijos trata (un tutor), el evento con «Agregar a mi
+    calendario», el autor, los archivos, su respuesta (si se pide) y su propio estado de lectura.
 {% endcomment %}
 <article class="detalle-comunicado{% if comunicado.urgente %} detalle-comunicado--urgente{% endif %}" data-detalle-comunicado data-comunicado="{{ comunicado.pk }}"{% if not gestion %} data-pendientes="{{ pendientes }}"{% endif %} aria-labelledby="detalle-titulo-{{ comunicado.pk }}">
   <header class="detalle-comunicado__cabecera">
     <span class="detalle-comunicado__icono" aria-hidden="true">{% include "partials/icon.html" with name=comunicado.urgente|yesno:"bell,megaphone" %}</span>
     <div class="detalle-comunicado__encabezado">
-      {% if comunicado.urgente %}<span class="etiqueta-urgente etiqueta-urgente--suave">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
+      <div class="detalle-comunicado__etiquetas">
+        {% if comunicado.urgente %}<span class="etiqueta-urgente etiqueta-urgente--suave">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
+        {% if comunicado.categoria %}<span class="tag tag--tono-{{ comunicado.tono_categoria }}">{{ comunicado.nombre_categoria }}</span>{% endif %}
+        {% if comunicado.fijado %}<span class="tag">{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %} Fijado</span>{% endif %}
+        {% if gestion and comunicado.programado %}<span class="tag tag--info">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Programado</span>{% endif %}
+      </div>
       <h2 class="detalle-comunicado__titulo" id="detalle-titulo-{{ comunicado.pk }}" tabindex="-1" data-detalle-titulo>{{ comunicado.titulo }}</h2>
       <p class="detalle-comunicado__fecha">
         {% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}
-        <time datetime="{{ comunicado.creado|date:'c' }}">{{ comunicado.creado|date:"j \d\e F \d\e Y"|lower }}</time>
-        <span aria-hidden="true">•</span> {{ comunicado.creado|date:"H:i" }}
-        <span aria-hidden="true">•</span> <strong>{{ comunicado.creado|tiempo_relativo }}</strong>
+        {% if comunicado.programado %}Se publicará el {% endif %}<time datetime="{{ comunicado.publicado_en|date:'c' }}">{{ comunicado.publicado_en|date:"j \d\e F \d\e Y"|lower }}</time>
+        <span aria-hidden="true">•</span> {{ comunicado.publicado_en|date:"H:i" }}
+        {% if not comunicado.programado %}<span aria-hidden="true">•</span> <strong>{{ comunicado.publicado_en|tiempo_relativo }}</strong>{% endif %}
+        {% if comunicado.editado %}<span class="detalle-comunicado__editado">· Editado el {{ comunicado.editado|date:"j b, H:i" }}</span>{% endif %}
       </p>
+      {% if not gestion and destinatario.para_quien %}
+        <p class="detalle-comunicado__para">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Sobre: <strong>{{ destinatario.para_quien }}</strong></p>
+      {% endif %}
     </div>
   </header>
 
-  <div class="detalle-comunicado__descripcion">{{ comunicado.descripcion|linebreaks }}</div>
+  {% if gestion %}
+    <nav class="detalle-comunicado__herramientas" aria-label="Acciones del comunicado">
+      {% if puede_editar %}<a class="btn btn--sm" href="{% url 'comunicados:editar' comunicado.pk %}">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Corregir</a>{% endif %}
+      {% if puede_usar_de_base %}<a class="btn btn--sm" href="{% url 'comunicados:crear' %}?base={{ comunicado.pk }}">{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Usar como base</a>{% endif %}
+      <a class="btn btn--sm" href="{% url 'comunicados:exportar' comunicado.pk %}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Lista en Excel</a>
+    </nav>
+  {% endif %}
+
+  <div class="detalle-comunicado__descripcion contenido-comunicado">{{ contenido }}</div>
+
+  {% if comunicado.tiene_evento %}
+    <section class="evento-comunicado" aria-label="Evento">
+      <span class="evento-comunicado__icono" aria-hidden="true">{% include "partials/icon.html" with name="calendar-range" %}</span>
+      <div class="evento-comunicado__texto">
+        <p class="evento-comunicado__titulo">Evento</p>
+        <p class="evento-comunicado__fecha">{{ comunicado.texto_del_evento }}</p>
+      </div>
+      <div class="evento-comunicado__acciones">
+        <a class="btn btn--sm" href="{{ url_calendario }}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar a mi calendario</a>
+        {% if url_agenda %}<a class="btn btn--ghost btn--sm" href="{{ url_agenda }}">Ver en la agenda</a>{% endif %}
+      </div>
+    </section>
+  {% endif %}
 
   {% if adjuntos %}
     <section class="detalle-comunicado__seccion" aria-labelledby="adjuntos-{{ comunicado.pk }}">
@@ -45,6 +78,44 @@
           </li>
         {% endfor %}
       </ul>
+    </section>
+  {% endif %}
+
+  {% if not gestion and comunicado.pide_respuesta %}
+    {# --- La respuesta de quien lo recibe ------------------------------------------------------------------------- #}
+    <section class="respuesta-comunicado{% if destinatario.respondio %} respuesta-comunicado--lista{% endif %}" aria-labelledby="respuesta-{{ comunicado.pk }}" data-respuesta-comunicado>
+      <h3 class="respuesta-comunicado__titulo" id="respuesta-{{ comunicado.pk }}">
+        {% if comunicado.respuesta == "ENTERADO" %}Confirma que lo leíste{% elif comunicado.respuesta == "AUTORIZACION" %}{{ comunicado.pregunta|default:"¿Das tu autorización?" }}{% else %}{{ comunicado.pregunta }}{% endif %}
+      </h3>
+      {% if destinatario.respondio %}
+        <p class="respuesta-comunicado__hecha" data-respuesta-hecha>{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Respondiste: <strong>{{ destinatario.texto_de_respuesta }}</strong> · {{ destinatario.respondido_en|date:"j b Y, H:i" }}</p>
+      {% endif %}
+      {% if comunicado.respuesta != "ENTERADO" or not destinatario.respondio %}
+        <form class="respuesta-comunicado__formulario" method="post" action="{{ url_responder }}" data-responder>
+          {% csrf_token %}
+          {% if comunicado.respuesta == "ENTERADO" %}
+            <button type="submit" class="btn btn--primary" name="respuesta" value="enterado">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Enterado</button>
+          {% elif comunicado.respuesta == "AUTORIZACION" %}
+            <div class="respuesta-comunicado__botones">
+              <button type="submit" class="btn{% if destinatario.respuesta == 'SI' %} btn--primary{% endif %}" name="respuesta" value="si"{% if destinatario.respuesta == 'SI' %} aria-pressed="true"{% endif %}>{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Sí, autorizo</button>
+              <button type="submit" class="btn{% if destinatario.respuesta == 'NO' %} btn--danger{% endif %}" name="respuesta" value="no"{% if destinatario.respuesta == 'NO' %} aria-pressed="true"{% endif %}>{% include "partials/icon.html" with name="x" icon_class="icon--sm" %} No autorizo</button>
+            </div>
+            {% if destinatario.respondio %}<p class="field__hint">Puedes cambiar tu respuesta mientras el comunicado siga disponible.</p>{% endif %}
+          {% else %}
+            <fieldset class="respuesta-comunicado__opciones">
+              <legend class="visually-hidden">{{ comunicado.pregunta }}</legend>
+              {% for opcion in opciones_encuesta %}
+                <label class="choice choice--radio respuesta-comunicado__opcion">
+                  <input class="choice__input" type="radio" name="respuesta" value="{{ opcion.pk }}"{% if destinatario.opcion_id == opcion.pk %} checked{% endif %} required>
+                  <span class="choice__box">{{ opcion.texto }}</span>
+                </label>
+              {% endfor %}
+            </fieldset>
+            <button type="submit" class="btn btn--primary btn--sm">{% if destinatario.respondio %}Cambiar mi respuesta{% else %}Enviar respuesta{% endif %}</button>
+          {% endif %}
+          <p class="field__error" data-responder-error hidden></p>
+        </form>
+      {% endif %}
     </section>
   {% endif %}
 
@@ -78,18 +149,68 @@
         <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="badge-check" %}</span>
         <div>
           <p class="dato-comunicado__etiqueta">Estado</p>
-          {% if comunicado.caducado %}<span class="tag">Caducado</span>{% else %}<span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Activo</span>{% endif %}
+          {% if comunicado.programado %}<span class="tag tag--info">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Programado</span>
+          {% elif comunicado.caducado %}<span class="tag">Caducado</span>
+          {% else %}<span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Activo</span>{% endif %}
           <p class="dato-comunicado__nota">{% if comunicado.expira %}{% if comunicado.caducado %}Caducó{% else %}Se muestra hasta{% endif %} el {{ comunicado.expira|date:"j b Y, H:i" }}{% else %}Sin fecha de expiración{% endif %}</p>
         </div>
       </section>
     </div>
+
+    {% if respuestas %}
+      <section class="seguimiento-comunicado" aria-labelledby="respuestas-{{ comunicado.pk }}">
+        <h3 class="detalle-comunicado__subtitulo" id="respuestas-{{ comunicado.pk }}">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Respuestas · {{ comunicado.get_respuesta_display }}{% if comunicado.pregunta %}: «{{ comunicado.pregunta }}»{% endif %}</h3>
+        <ul class="barras-comunicado" role="list">
+          {% for fila in respuestas.filas %}
+            <li class="barras-comunicado__fila">
+              <span class="barras-comunicado__nombre">{{ fila.texto }}</span>
+              <progress class="meter barras-comunicado__barra" max="100" value="{{ fila.porcentaje }}" aria-label="{{ fila.texto }}: {{ fila.cuantos }} ({{ fila.porcentaje }} %)">{{ fila.porcentaje }} %</progress>
+              <span class="barras-comunicado__cuantos">{{ fila.cuantos }} <span class="barras-comunicado__nota">({{ fila.porcentaje }}%)</span></span>
+            </li>
+          {% endfor %}
+          <li class="barras-comunicado__fila barras-comunicado__fila--suave">
+            <span class="barras-comunicado__nombre">Sin responder</span>
+            <span></span>
+            <span class="barras-comunicado__cuantos">{{ respuestas.sin_responder }}</span>
+          </li>
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if por_grupo %}
+      <section class="seguimiento-comunicado" aria-labelledby="por-grupo-{{ comunicado.pk }}">
+        <h3 class="detalle-comunicado__subtitulo" id="por-grupo-{{ comunicado.pk }}">{% include "partials/icon.html" with name="layers" icon_class="icon--sm" %} Lectura por grupo</h3>
+        <ul class="barras-comunicado" role="list">
+          {% for grupo in por_grupo %}
+            <li class="barras-comunicado__fila">
+              <span class="barras-comunicado__nombre">{{ grupo.nombre }}</span>
+              <progress class="meter barras-comunicado__barra" max="100" value="{{ grupo.porcentaje }}" aria-label="{{ grupo.nombre }}: {{ grupo.leidos }} de {{ grupo.total }} lo leyeron ({{ grupo.porcentaje }} %)">{{ grupo.porcentaje }} %</progress>
+              <span class="barras-comunicado__cuantos">{{ grupo.leidos }}/{{ grupo.total }} <span class="barras-comunicado__nota">({{ grupo.porcentaje }}%{% if comunicado.pide_respuesta %} · {{ grupo.respondidos }} resp.{% endif %})</span></span>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {% if not comunicado.programado %}
+      <section class="recordar-comunicado" aria-label="Recordar a los pendientes">
+        <div class="recordar-comunicado__texto">
+          <p class="recordar-comunicado__titulo">{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Recordar a los pendientes</p>
+          <p class="recordar-comunicado__nota">{% if motivo_sin_recordar %}{{ motivo_sin_recordar }}{% else %}Les llega otra vez el aviso (también al teléfono) a {{ por_recordar }} persona{{ por_recordar|pluralize:"s" }} que {% if comunicado.pide_respuesta %}no ha{{ por_recordar|pluralize:",n" }} respondido{% else %}no lo ha{{ por_recordar|pluralize:",n" }} leído{% endif %}.{% endif %}{% if comunicado.recordatorios %} Se ha recordado {{ comunicado.recordatorios }} vez{{ comunicado.recordatorios|pluralize:",es" }}.{% endif %}</p>
+        </div>
+        <form method="post" action="{% url 'comunicados:recordar' comunicado.pk %}" data-recordar>
+          {% csrf_token %}
+          <button type="submit" class="btn btn--sm"{% if motivo_sin_recordar %} disabled{% endif %}>{% include "partials/icon.html" with name="send" icon_class="icon--sm" %} Recordar</button>
+        </form>
+      </section>
+    {% endif %}
 
     <details class="lista-destinatarios" data-lista-destinatarios{% if destinatarios|length <= 30 %} open{% endif %}>
       <summary class="lista-destinatarios__resumen">
         <span class="lista-destinatarios__icono" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
         <span class="lista-destinatarios__textos">
           <span class="lista-destinatarios__titulo">Lista de destinatarios</span>
-          <span class="lista-destinatarios__conteo">{{ comunicado.leidos }} leído{{ comunicado.leidos|pluralize }} • {{ comunicado.pendientes }} pendiente{{ comunicado.pendientes|pluralize }}</span>
+          <span class="lista-destinatarios__conteo">{{ comunicado.leidos }} leído{{ comunicado.leidos|pluralize }} • {{ comunicado.pendientes }} pendiente{{ comunicado.pendientes|pluralize }}{% if comunicado.pide_respuesta %} • {{ comunicado.respondidos }} respondi{{ comunicado.respondidos|pluralize:"ó,eron" }}{% endif %}</span>
         </span>
         {% include "partials/icon.html" with name="chevron-down" icon_class="lista-destinatarios__flecha" %}
       </summary>
@@ -104,25 +225,29 @@
             <button type="button" class="segmentado__opcion is-activo" data-destinatarios-estado="" aria-pressed="true">Todos</button>
             <button type="button" class="segmentado__opcion" data-destinatarios-estado="leido" aria-pressed="false">Leídos</button>
             <button type="button" class="segmentado__opcion" data-destinatarios-estado="pendiente" aria-pressed="false">Pendientes</button>
+            {% if comunicado.pide_respuesta %}<button type="button" class="segmentado__opcion" data-destinatarios-estado="sin-responder" aria-pressed="false">Sin responder</button>{% endif %}
           </div>
         </div>
       {% endif %}
       <ul class="lista-destinatarios__filas" role="list" data-destinatarios-filas>
         {% for destinatario in destinatarios %}
-          <li class="destinatario-fila" data-nombre="{{ destinatario.nombre|lower }}" data-estado="{{ destinatario.leido_en|yesno:'leido,pendiente' }}">
+          <li class="destinatario-fila" data-nombre="{{ destinatario.nombre|lower }}" data-estado="{{ destinatario.leido_en|yesno:'leido,pendiente' }}"{% if comunicado.pide_respuesta and not destinatario.respondio %} data-sin-responder{% endif %}>
             <span class="avatar avatar--sm avatar--tone-{{ destinatario.pk|tono_de }}" aria-hidden="true">{{ destinatario.nombre|iniciales_de }}</span>
             <span class="destinatario-fila__texto">
               <span class="destinatario-fila__nombre">{{ destinatario.nombre }}</span>
               <span class="destinatario-fila__detalle">{% if destinatario.tipo == "TUTOR" and destinatario.detalle %}{{ destinatario.detalle }}{% else %}{{ destinatario.get_tipo_display }}{% if destinatario.detalle %} · {{ destinatario.detalle }}{% endif %}{% endif %}</span>
             </span>
-            {% if destinatario.leido_en %}
-              <span class="destinatario-fila__estado">
+            <span class="destinatario-fila__estado">
+              {% if comunicado.pide_respuesta %}
+                {% if destinatario.respondio %}<span class="tag tag--primary">{{ destinatario.texto_de_respuesta }}</span>{% else %}<span class="tag">Sin responder</span>{% endif %}
+              {% endif %}
+              {% if destinatario.leido_en %}
                 <span class="tag tag--success">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Leído</span>
                 <time class="destinatario-fila__hora" datetime="{{ destinatario.leido_en|date:'c' }}">{{ destinatario.leido_en|date:"j b Y, H:i" }}</time>
-              </span>
-            {% else %}
-              <span class="destinatario-fila__estado"><span class="tag">Pendiente</span></span>
-            {% endif %}
+              {% else %}
+                <span class="tag">Pendiente</span>
+              {% endif %}
+            </span>
           </li>
         {% endfor %}
       </ul>

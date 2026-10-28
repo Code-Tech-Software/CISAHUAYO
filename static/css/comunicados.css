@@ -2533,3 +2533,661 @@
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Comunicados modernos (pedido del 2026-10-27): el editor con formato, las opciones del formulario (respuesta,
+   publicación, evento y categoría), la revisión antes de enviar, el contenido con formato, el evento, la respuesta de
+   quien lo recibe y el seguimiento (respuestas, lectura por grupo y «Recordar»).
+   ========================================================================== */
+
+/* --- El editor con formato dentro del formulario ------------------------------------------------------------------ */
+.campo-editor {
+  position: relative;
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-field-bg, var(--color-surface));
+}
+
+.campo-editor[hidden] {
+  display: none;
+}
+
+.campo-editor:focus-within {
+  border-color: var(--color-focus);
+  box-shadow: var(--ring-focus);
+}
+
+.campo-contorno.is-invalid .campo-editor {
+  border-color: var(--color-danger);
+}
+
+.campo-editor .editor {
+  --editor-reserva: 5.5rem;   /* solo formato y emojis: aquí no hay botón de enviar */
+}
+
+.campo-editor .editor__area {
+  min-height: 10rem;
+  max-height: min(26rem, 55dvh);
+  padding-top: var(--space-4);
+  font-size: var(--text-base);
+}
+
+.campo-editor .editor__area.is-vacio::before {
+  top: var(--space-4);
+}
+
+.campo-editor .editor__acciones {
+  right: 0.35rem;
+  padding-right: 0;
+}
+
+.campo-editor .editor__acciones::after {
+  display: none;
+}
+
+.campo-editor .editor__barra {
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.campo-contorno--editor .campo-contorno__etiqueta {
+  z-index: 2;
+}
+
+/* --- Archivos que se conservan o se copian -------------------------------------------------------------------------- */
+.archivos-previos {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.archivo-previo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.archivo-previo:has(input:not(:checked)) {
+  opacity: 0.6;
+}
+
+.archivo-previo__icono {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+}
+
+.archivo-previo__texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archivo-previo__nombre {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.archivo-previo__tamano {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.fila-destinatarios--fija .fila-destinatarios__caja {
+  background: var(--color-surface-2);
+}
+
+/* --- Las secciones de opciones (se abren y se cierran) -------------------------------------------------------------- */
+.opciones-comunicado {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.opciones-comunicado__fija {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.opcion-comunicado {
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.opcion-comunicado.is-invalid {
+  border-color: var(--color-danger);
+}
+
+.opcion-comunicado__resumen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  list-style: none;
+}
+
+.opcion-comunicado__resumen::-webkit-details-marker {
+  display: none;
+}
+
+.opcion-comunicado__resumen:hover {
+  background: var(--color-surface-2);
+}
+
+.opcion-comunicado__resumen:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.opcion-comunicado__icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.opcion-comunicado__titulo {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.opcion-comunicado__valor {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.opcion-comunicado__flecha {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.opcion-comunicado[open] .opcion-comunicado__flecha {
+  transform: rotate(180deg);
+}
+
+.opcion-comunicado__cuerpo {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+.segmentado--opciones {
+  border-radius: var(--radius-lg);
+}
+
+.segmentado__opcion--radio {
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.segmentado__opcion--radio input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmentado__opcion--radio.is-activo,
+.segmentado__opcion--radio:has(input:checked) {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.segmentado__opcion--radio:has(input:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.opciones-encuesta {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.opciones-encuesta[hidden] {
+  display: none;
+}
+
+.opciones-encuesta__lista {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.opciones-encuesta__fila {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.opciones-encuesta__fila .field__control {
+  flex: 1;
+}
+
+.formulario-comunicado__evento {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.formulario-comunicado__lugar {
+  grid-column: 1 / -1;
+}
+
+.formulario-comunicado__organizar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* --- Revisión antes de enviar --------------------------------------------------------------------------------------- */
+.revision-comunicado {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.revision-comunicado[hidden],
+.formulario-comunicado__paso[hidden] {
+  display: none;
+}
+
+.revision-comunicado__titulo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-lg);
+}
+
+.revision-comunicado__titulo:focus {
+  outline: none;
+}
+
+.revision-comunicado__resumen {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+}
+
+.revision-comunicado__nota {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.revision-comunicado__tarjeta {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.revision-comunicado__tarjeta--urgente {
+  border-color: var(--urgente-borde, var(--color-warning));
+}
+
+.revision-comunicado__titulo-vista {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+}
+
+.revision-comunicado__linea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+/* --- El detalle: etiquetas, para quién, acciones, contenido con formato y evento -------------------------------- */
+.detalle-comunicado__etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.detalle-comunicado__etiquetas:empty {
+  display: none;
+}
+
+.detalle-comunicado__editado {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.detalle-comunicado__para {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-soft);
+}
+
+.detalle-comunicado__herramientas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.contenido-comunicado {
+  overflow-wrap: anywhere;
+}
+
+.contenido-comunicado a {
+  color: var(--color-primary-text);
+  text-decoration: underline;
+}
+
+.contenido-comunicado img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+.contenido-comunicado table {
+  width: auto;
+  max-width: 100%;
+  border-collapse: collapse;
+}
+
+.contenido-comunicado th,
+.contenido-comunicado td {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border);
+  vertical-align: top;
+}
+
+.contenido-comunicado ul,
+.contenido-comunicado ol {
+  padding-left: var(--space-6);
+}
+
+.contenido-comunicado blockquote {
+  margin-inline: 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-text-soft);
+}
+
+.evento-comunicado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-primary-border, var(--color-border));
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-soft);
+}
+
+.evento-comunicado__icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.evento-comunicado__texto {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.evento-comunicado__titulo {
+  margin: 0;
+  color: var(--color-primary-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.evento-comunicado__fecha {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.evento-comunicado__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* --- La respuesta de quien lo recibe -------------------------------------------------------------------------------- */
+.respuesta-comunicado {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 2px solid var(--color-primary-border, var(--color-primary));
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+}
+
+.respuesta-comunicado--lista {
+  border-color: var(--color-border);
+  border-width: var(--border-width);
+}
+
+.respuesta-comunicado__titulo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-lg);
+}
+
+.respuesta-comunicado__hecha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-success, var(--color-text-soft));
+}
+
+.respuesta-comunicado__formulario {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.respuesta-comunicado__botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.respuesta-comunicado__opciones {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* --- Seguimiento: respuestas, lectura por grupo y «Recordar» -------------------------------------------------------- */
+.seguimiento-comunicado {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.barras-comunicado {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.barras-comunicado__fila {
+  display: grid;
+  grid-template-columns: minmax(7rem, 14rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.barras-comunicado__fila--suave {
+  color: var(--color-text-muted);
+}
+
+.barras-comunicado__nombre {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barras-comunicado__fila--suave .barras-comunicado__nombre {
+  color: inherit;
+}
+
+.barras-comunicado__barra {
+  width: 100%;
+}
+
+.barras-comunicado__cuantos {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.barras-comunicado__nota {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.recordar-comunicado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+
+.recordar-comunicado__texto {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.recordar-comunicado__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.recordar-comunicado__nota {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.recordar-comunicado form {
+  margin: 0;
+}
+
+/* --- Tarjetas y lista ------------------------------------------------------------------------------------------------ */
+.tarjeta-comunicado__para {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.tarjeta-comunicado--fijada {
+  border-top: 3px solid var(--color-primary);
+}
+
+.comunicados__categoria {
+  flex: 0 1 12rem;
+}
+
+.comunicados__categoria .field__control {
+  min-height: 2.75rem;
+}
+
+/* El personal en el árbol del selector */
+.arbol__chip--personal {
+  background: var(--color-tone-3-tint);
+  color: var(--color-tone-3);
+}
+
+.arbol__chip--rol {
+  background: var(--color-tone-6-tint, var(--color-surface-2));
+  color: var(--color-tone-6, var(--color-text-soft));
+}
+
+@media (max-width: 47.99rem) {
+  .formulario-comunicado__evento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .formulario-comunicado__evento > .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .barras-comunicado__fila {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .barras-comunicado__barra {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .comunicados__categoria {
+    flex: 1 1 100%;
+  }
+}

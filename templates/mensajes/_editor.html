@@ -7,7 +7,9 @@
   de abajo. El catálogo de caracteres especiales está en static/js/caracteres-especiales.js.
   Como en Teams (pedido del 2026-10-26), la barra empieza oculta: la muestra el botón «Mostrar opciones de formato»
   (Ctrl+Mayús+F), que va abajo a la derecha junto a emojis, adjuntar documento y el botón de enviar.
-  Parámetros: otro (destinatario), url_imagenes, acepta_imagenes, maximo_imagen_mb.
+  Parámetros: otro (destinatario), url_imagenes, acepta_imagenes, maximo_imagen_mb. Desde el 2026-10-27 también lo usan los
+  comunicados (templates/comunicados/_formulario.html), con: etiqueta_area (su nombre accesible), marcador (el texto de
+  ayuda), describe (el id de su ayuda) y sin_adjuntar (sin el clip de documentos PDF de la mensajería).
 {% endcomment %}
 <div class="editor" data-editor hidden
      data-imagenes-url="{{ url_imagenes }}" data-acepta="{{ acepta_imagenes }}" data-maximo-mb="{{ maximo_imagen_mb }}">
@@ -99,14 +101,17 @@
   </div>
 
   <div class="editor__area" id="editor-area" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="true"
-       aria-label="Mensaje para {{ otro.nombre }}" aria-describedby="atajos-mensaje" data-placeholder="Escribe un mensaje…" data-editor-area></div>
+       aria-label="{% if etiqueta_area %}{{ etiqueta_area }}{% else %}Mensaje para {{ otro.nombre }}{% endif %}" aria-describedby="{{ describe|default:'atajos-mensaje' }}"
+       data-placeholder="{{ marcador|default:'Escribe un mensaje…' }}" data-editor-area></div>
   {# Abajo a la derecha, junto al botón de enviar (como en Teams): formato, emojis y adjuntar #}
   <div class="editor__acciones" data-editor-acciones>
     <button type="button" class="editor__accion" data-editor-formato aria-pressed="false" aria-controls="editor-barra"
             aria-label="Mostrar opciones de formato" data-tooltip="Mostrar opciones de formato (Ctrl+Mayús+F)">{% include "partials/icon.html" with name="formato" %}</button>
     <button type="button" class="editor__accion" data-panel="emojis" aria-haspopup="dialog" aria-expanded="false" aria-label="Emojis" data-tooltip="Emojis">{% include "partials/icon.html" with name="smile" %}</button>
-    {# Adjuntar documentos PDF: lo maneja static/js/mensajes.js (van debajo del texto, no dentro) #}
-    <button type="button" class="editor__accion" data-chat-adjuntar aria-label="Adjuntar documento PDF" data-tooltip="Adjuntar documento PDF">{% include "partials/icon.html" with name="paperclip" %}</button>
+    {% if not sin_adjuntar %}
+      {# Adjuntar documentos PDF: lo maneja static/js/mensajes.js (van debajo del texto, no dentro) #}
+      <button type="button" class="editor__accion" data-chat-adjuntar aria-label="Adjuntar documento PDF" data-tooltip="Adjuntar documento PDF">{% include "partials/icon.html" with name="paperclip" %}</button>
+    {% endif %}
   </div>
   <input type="file" accept="{{ acepta_imagenes }}" hidden data-editor-archivo>
   <p class="editor__estado" role="status" aria-live="polite" data-editor-estado hidden></p>

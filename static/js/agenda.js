@@ -30,7 +30,7 @@
     const dialogo = qs('[data-agenda-detalle]');
     if (typeof dialogo?.showModal !== 'function') return false;
     const evento = eventos().find((dato) => String(dato.id) === enlace.dataset.agendaEvento);
-    if (!evento) return false;
+    if (!evento || evento.comunicado) return false;   /* un comunicado con evento: el enlace lleva al comunicado */
 
     const poner = (nombre, texto) => {
       const nodo = qs(`[data-agenda-detalle-${nombre}]`, dialogo);

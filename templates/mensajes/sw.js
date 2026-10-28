@@ -1,5 +1,6 @@
 {% load static %}/* CISAHUAYO · service worker de las notificaciones push de la mensajería (Mensajes/push.py; se sirve en /sw.js)
 
+   - Desde el 2026-10-27 también avisa de los comunicados (Comunicados/avisos.py): los urgentes se quedan en pantalla.
    - Muestra el aviso de un mensaje nuevo aunque la página esté cerrada: quién escribió y una vista previa. Si el sistema
      está a la vista en este equipo, no lo muestra: la página ya lo avisa (la campana, la conversación y su propio aviso).
    - Al tocar el aviso, abre la conversación (o la pestaña del sistema que ya esté abierta).
@@ -26,6 +27,7 @@ self.addEventListener('push', (evento) => {
       body: datos.texto || 'Tienes un mensaje nuevo.',
       tag: datos.etiqueta || 'mensajes',
       renotify: Boolean(datos.etiqueta),
+      requireInteraction: Boolean(datos.urgente),   /* un comunicado urgente se queda hasta que se atienda */
       icon: ICONO,
       badge: ICONO,
       lang: 'es',

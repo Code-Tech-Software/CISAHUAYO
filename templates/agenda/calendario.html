@@ -88,7 +88,7 @@
                       <p class="agenda-mas__titulo">{{ dia.texto }}</p>
                       <ul class="agenda-mas__lista">
                         {% for evento in dia.eventos %}
-                          <li><a class="agenda-evento agenda-evento--lista" href="{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+                          <li><a class="agenda-evento agenda-evento--lista" href="{% if evento.url_propia %}{{ evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
                             {% if evento.hora_corta %}<span class="agenda-evento__hora">{{ evento.hora_corta }}</span>{% endif %}<span class="agenda-evento__titulo">{{ evento.titulo }}</span>
                           </a></li>
                         {% endfor %}
@@ -100,7 +100,7 @@
             {% endfor %}
             {% for tramo in semana.tramos %}
               <a class="agenda-evento{% if tramo.antes %} is-antes{% endif %}{% if tramo.despues %} is-despues{% endif %}"
-                 href="{{ url_calendario }}?evento={{ tramo.evento.pk }}&amp;volver={{ volver|urlencode }}" data-agenda-evento="{{ tramo.evento.pk }}"
+                 href="{% if tramo.evento.url_propia %}{{ tramo.evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ tramo.evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ tramo.evento.pk }}"
                  style="grid-column: {{ tramo.inicio }} / span {{ tramo.columnas }}; grid-row: {{ tramo.carril|add:2 }}; --color: {{ tramo.evento.color }}; --texto: {{ tramo.evento.color_texto }}"
                  data-tooltip="{{ tramo.evento.titulo }} · {{ tramo.evento.nombre_alcance }} · {% if tramo.evento.varios_dias %}{{ tramo.evento.texto_de_fechas }}{% else %}{{ tramo.evento.texto_de_horario }}{% endif %}">
                 {% if tramo.antes %}<span class="agenda-evento__sigue" aria-hidden="true">‹</span>{% endif %}
@@ -125,7 +125,7 @@
             <ul class="agenda-lista__eventos">
               {% for evento in eventos %}
                 <li>
-                  <a class="agenda-tarjeta" href="{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+                  <a class="agenda-tarjeta" href="{% if evento.url_propia %}{{ evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
                     <span class="agenda-tarjeta__titulo">{{ evento.titulo }}</span>
                     <span class="agenda-tarjeta__datos">
                       <span class="agenda-etiqueta">{{ evento.nombre_alcance }}</span>

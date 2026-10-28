@@ -1,0 +1,55 @@
+{% load alumnos_extras %}{% comment %}
+  La vista rápida de un estudiante en la tabla (Alumnos/views.alumno_vista_rapida; static/js/alumnos-lista.js la pone en
+  el panel lateral): sus datos clave, sus tutores con teléfono, salud, asistencia, promedio y conducta (solo con el permiso
+  de cada módulo), su acceso al portal y su tarjeta, con enlaces al expediente y a la Vista 360.
+{% endcomment %}
+<article class="vista-rapida__contenido" data-titulo="{{ alumno }}">
+  <header class="vista-rapida__cabeza">
+    {% include "partials/avatar.html" with persona=alumno %}
+    <div>
+      <p class="vista-rapida__nombre">{{ alumno }}</p>
+      <p class="text-muted">Ref. {{ alumno.referencia }} · {{ alumno.edad }} año{{ alumno.edad|pluralize }} · <span class="tag tag--{{ alumno.estatus|tono_estatus }}">{{ alumno.get_estatus_display }}</span></p>
+    </div>
+  </header>
+
+  {% if alumno.senales %}
+    <ul class="vista-rapida__senales">
+      {% for senal in alumno.senales %}<li class="alumno-senal-texto alumno-senal-texto--{{ senal.clave }}">{% include "partials/icon.html" with name=senal.icono icon_class="icon--sm" %} {{ senal.texto }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+
+  <dl class="vista-rapida__datos">
+    {# «4.º B Primaria»; si la equivalencia es otra («7.º A» de «1.º A Secundaria»), también #}
+    <div><dt>Grado actual</dt><dd>{% if inscripcion %}{% with equivalente=inscripcion|grado_equivalente %}{% firstof inscripcion.grupo.nombre_de_nivel inscripcion.grado.nombre_de_nivel as nivel %}{{ nivel }}{% if equivalente not in nivel %} · {{ equivalente }}{% endif %}{% endwith %}{% else %}Sin inscripción en el ciclo actual{% endif %}</dd></div>
+    <div><dt>CURP</dt><dd>{{ alumno.curp|default:"—" }}</dd></div>
+    <div><dt>Nacimiento</dt><dd>{{ alumno.fecha_nacimiento|date:"j \d\e F \d\e Y"|lower }}</dd></div>
+    <div><dt>Salud</dt><dd>Sangre {{ alumno.grupo_sanguineo|default:"—" }}{% if alumno.alergias %} · Alergias: {{ alumno.alergias }}{% endif %}</dd></div>
+    {% if ve_asistencia %}
+      <div><dt>Hoy</dt><dd>{{ alumno.asistencia_hoy.texto|default:"—" }}</dd></div>
+      <div><dt>Asistencia del ciclo</dt><dd>{% if alumno.asistencia_ciclo.total %}{{ alumno.asistencia_ciclo.porcentaje }} % · {{ alumno.asistencia_ciclo.faltas }} falta{{ alumno.asistencia_ciclo.faltas|pluralize }}{% else %}Sin registros{% endif %}</dd></div>
+    {% endif %}
+    {% if 'promedio' in claves %}<div><dt>Promedio</dt><dd>{{ alumno.promedio|default:"Sin actas cerradas" }}</dd></div>{% endif %}
+    {% if 'conducta' in claves %}<div><dt>Conducta</dt><dd>{% if alumno.casos_abiertos %}{{ alumno.casos_abiertos }} caso{{ alumno.casos_abiertos|pluralize }} abierto{{ alumno.casos_abiertos|pluralize }}{% else %}Sin casos abiertos{% endif %}</dd></div>{% endif %}
+    <div><dt>Portal</dt><dd>{{ alumno.portal_alumno.texto }}{% if alumno.portal_alumno.ultimo_acceso %} (último: {{ alumno.portal_alumno.ultimo_acceso|date:"d/m/Y H:i" }}){% endif %}</dd></div>
+    <div><dt>Tarjeta</dt><dd>{% if alumno.uid %}Asignada{% else %}Sin tarjeta{% endif %}</dd></div>
+  </dl>
+
+  <section class="vista-rapida__tutores">
+    <h3 class="vista-rapida__subtitulo">Tutores</h3>
+    {% for vinculo in vinculos %}
+      <p class="vista-rapida__tutor">
+        <strong>{{ vinculo.tutor }}</strong>{% if vinculo.tutor_principal %} <span class="tag">Principal</span>{% endif %}<br>
+        <span class="text-muted">{{ vinculo.get_parentesco_display }}</span> ·
+        <a class="link-subtle" href="tel:{{ vinculo.tutor.telefono }}">{{ vinculo.tutor.telefono|telefono }}</a>{% if vinculo.tutor.telefono_alternativo %} · <a class="link-subtle" href="tel:{{ vinculo.tutor.telefono_alternativo }}">{{ vinculo.tutor.telefono_alternativo|telefono }}</a>{% endif %}
+      </p>
+    {% empty %}
+      <p class="text-muted">Sin tutor activo.</p>
+    {% endfor %}
+  </section>
+
+  <footer class="vista-rapida__pie">
+    <a class="btn btn--primary btn--sm" href="{{ alumno.get_absolute_url }}">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Ver expediente</a>
+    <a class="btn btn--sm" href="{% url 'alumnos:vista360' alumno.pk %}">{% include "partials/icon.html" with name="layers" icon_class="icon--sm" %} Vista 360</a>
+    {% if perms.Alumnos.change_alumno and alumno.estatus != 'BAJA' %}<a class="btn btn--ghost btn--sm" href="{% url 'alumnos:editar' alumno.pk %}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>{% endif %}
+  </footer>
+</article>

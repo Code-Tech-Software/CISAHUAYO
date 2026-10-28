@@ -101,6 +101,8 @@ class PerfilUsuario(models.Model):
         'niveles para retiros', default=list, blank=True,
         help_text='Consulta y atiende los retiros anticipados de los estudiantes de estos niveles (si su rol tiene el permiso).',
     )
+    # Cómo prefiere ver algunas pantallas (2026-10-28): {'columnas_estudiantes': [claves]} (Alumnos/columnas.py)
+    preferencias = models.JSONField('preferencias', default=dict, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

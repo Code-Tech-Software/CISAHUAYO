@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from Alumnos import historial
 from Alumnos.academico import alumnos_sin_inscribir, ciclo_actual, grupos_del_grado, motivo_no_inscribible, siguiente_grado, sugerir_ciclo
 from Alumnos.models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion
 from Alumnos.utils import proteger_celda_csv
@@ -112,6 +113,7 @@ def inscripcion_crear(request):
         form = InscripcionForm(request.POST)
         if form.is_valid():
             inscripcion = form.save()
+            historial.anotar(request.user, inscripcion.alumno, f'Lo inscribió en {inscripcion.grupo.nombre_equivalente} ({inscripcion.ciclo}).')
             messages.success(request, f'{inscripcion.alumno} fue inscrito en {inscripcion.grupo} ({inscripcion.ciclo}).')
             return redirect(_url_de_lista(inscripcion.ciclo_id))
         _error_de_formulario(request)
@@ -131,9 +133,14 @@ def inscripcion_crear(request):
 def inscripcion_editar(request, pk):
     inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado'), pk=pk)
     form = InscripcionForm(request.POST if request.method == 'POST' else None, instance=inscripcion)
+    antes = inscripcion.grupo.nombre_equivalente
     if request.method == 'POST':
         if form.is_valid():
             form.save()
+            if inscripcion.grupo.nombre_equivalente != antes:
+                historial.anotar(request.user, inscripcion.alumno, f'Lo cambió de {antes} a {inscripcion.grupo.nombre_equivalente} ({inscripcion.ciclo}).')
+            elif form.changed_data:
+                historial.anotar(request.user, inscripcion.alumno, f'Corrigió su inscripción en {inscripcion.ciclo}.')
             messages.success(request, f'La inscripción de {inscripcion.alumno} se actualizó: {inscripcion.grupo} ({inscripcion.ciclo}).')
             return redirect(_url_de_lista(inscripcion.ciclo_id))
         _error_de_formulario(request)
@@ -160,6 +167,7 @@ def inscripcion_baja(request, pk):
         inscripcion.activa = False
         inscripcion.suspendida_por_baja = False   # baja a mano: no vuelve sola al reactivar al estudiante
         inscripcion.save(update_fields=['activa', 'suspendida_por_baja'])
+        historial.anotar(request.user, inscripcion.alumno, f'Dio de baja su inscripción en {inscripcion.grado} ({inscripcion.ciclo}).')
         messages.success(
             request,
             f'La inscripción de {inscripcion.alumno} en {inscripcion.grado} ({inscripcion.ciclo}) se dio de baja. '
@@ -181,6 +189,7 @@ def inscripcion_reactivar(request, pk):
         inscripcion.activa = True
         inscripcion.suspendida_por_baja = False
         inscripcion.save(update_fields=['activa', 'suspendida_por_baja'])
+        historial.anotar(request.user, inscripcion.alumno, f'Reactivó su inscripción en {inscripcion.grado} ({inscripcion.ciclo}).')
         messages.success(request, f'La inscripción de {inscripcion.alumno} en {inscripcion.grado} ({inscripcion.ciclo}) fue reactivada.')
     return redirect(_url_de_lista(inscripcion.ciclo_id))
 
@@ -363,7 +372,13 @@ def _ejecutar_promocion(request):
         with transaction.atomic():
             Inscripcion.objects.bulk_create(nuevas)
             if egresan:
-                Alumno.objects.filter(pk__in=egresan, estatus='ACTIVO').update(estatus='EGRESADO')
+                egresados = list(Alumno.objects.filter(pk__in=egresan, estatus='ACTIVO').values_list('pk', flat=True))
+                Alumno.objects.filter(pk__in=egresados).update(estatus='EGRESADO')
+            else:
+                egresados = []
+            anotaciones = {i.alumno_id: f'Lo reinscribió en {i.grado} ({destino}) con la promoción de ciclo.' for i in nuevas}
+            anotaciones.update({pk: f'Pasó a «Egresado» con la promoción de ciclo ({origen}).' for pk in egresados})
+            historial.anotar_varios(request.user, anotaciones)
     except IntegrityError:  # alguien inscribió a uno de ellos mientras tanto
         messages.error(request, 'Mientras revisabas, otra persona inscribió a alguno de estos estudiantes. No se guardó nada: vuelve a revisar.')
         return _volver_a_promocion(request, origen, destino)

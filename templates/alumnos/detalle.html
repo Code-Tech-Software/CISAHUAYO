@@ -135,6 +135,9 @@
           Conducta <span class="tabs__count">{{ conducta.registros|length }}</span>
         </button>
       {% endif %}
+      <button type="button" class="tabs__tab" role="tab" id="tab-historial" aria-controls="historial" aria-selected="false">
+        Historial <span class="tabs__count">{{ historial|length }}</span>
+      </button>
       {# Tampoco es una pestaña: el historial de reuniones con la familia (antecedentes y acuerdos que la cuenta puede ver) #}
       {% if perms.Reuniones.registrar or perms.Reuniones.gestionar or perms.Reuniones.todo or perms.Reuniones.participar %}
         <a class="tabs__tab tabs__tab--enlace" href="{% url 'reuniones:estudiante' alumno.pk %}">
@@ -386,6 +389,32 @@
         {% include "conducta/_linea_tiempo.html" %}
       </section>
     {% endif %}
+
+    {# --- Historial de cambios: quién registró, corrigió, cambió su estatus, su grupo o su acceso (Alumnos/historial.py) #}
+    <section class="tabs__panel" role="tabpanel" id="historial" aria-labelledby="tab-historial">
+      <article class="card">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="clock" %}<h2 class="card__title">Historial de cambios</h2>
+        </header>
+        <div class="card__body">
+          {% if historial %}
+            <ol class="historial-alumno">
+              {% for entrada, accion in historial %}
+                <li class="historial-alumno__item">
+                  <span class="historial-alumno__cuando">{{ entrada.action_time|date:"d/m/Y H:i" }}</span>
+                  <div>
+                    <p class="historial-alumno__texto">{{ entrada.change_message }}</p>
+                    <span class="historial-alumno__quien">{% firstof entrada.user.get_full_name entrada.user.get_username %} · {{ accion }}</span>
+                  </div>
+                </li>
+              {% endfor %}
+            </ol>
+          {% else %}
+            <p class="text-muted">Todavía no hay cambios registrados. Desde ahora queda aquí quién registra, corrige sus datos, cambia su estatus, su grupo o su acceso al portal, y cuándo.</p>
+          {% endif %}
+        </div>
+      </article>
+    </section>
   </div>
 
   {# --- Ventanas modales -------------------------------------------------------- #}

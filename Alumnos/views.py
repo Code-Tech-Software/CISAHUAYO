@@ -1,10 +1,12 @@
 import csv
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -13,7 +15,7 @@ from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, pagina
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro
 
-from . import importacion, tabla
+from . import columnas, historial, importacion, lote, tabla
 from .academico import prefetch_inscripciones_actuales, sincronizar_inscripciones
 from .asistencias import con_justificada_general
 from .forms import (
@@ -22,13 +24,15 @@ from .forms import (
     ImportarEstudiantesForm,
     InscribirForm,
     InscripcionInicialForm,
+    LoteEstatusForm,
+    LoteGrupoForm,
     RestablecerContrasenaForm,
     TutoresFormSet,
     ciclo_activo,
     guardar_vinculos,
     iniciales_vinculos,
 )
-from .models import Alumno, AsistenciaGeneral, Tutor, TutorAlumno
+from .models import Alumno, AsistenciaGeneral, Grado, Inscripcion, Tutor, TutorAlumno
 from .utils import ESTADOS_MX, generar_contrasena, proteger_celda_csv
 from .vinculos import prefetch_vinculos_activos
 
@@ -46,6 +50,8 @@ def _credenciales(alumno, contrasena):
     return datos
 SESION_IMPORTACION = 'importacion_estudiantes'                  # el resumen de la última importación (se muestra una vez)
 SESION_IMPORTACION_CREDENCIALES = 'importacion_credenciales'    # sus contraseñas, para descargarlas
+SESION_LOTE_CREDENCIALES = 'lote_credenciales'                  # las contraseñas generadas en lote, para descargarlas
+SESION_COMUNICADO = 'comunicado_a_tutores'                      # los tutores elegidos en la tabla para un comunicado
 
 PASOS_FORMULARIO = (
     {'clave': 'identidad', 'titulo': 'Identidad', 'icono': 'user'},
@@ -59,16 +65,53 @@ PASOS_FORMULARIO = (
 # ---------------------------------------------------------------------------
 # Listado
 # ---------------------------------------------------------------------------
+def _acciones_en_lote(usuario):
+    """Qué acciones en lote puede usar la cuenta (sin ninguna, la tabla no muestra las casillas)."""
+    from Comunicados.alcance import ENVIAR, alcance_de
+    acciones = {
+        'grupo': usuario.has_perm('Alumnos.add_inscripcion') and usuario.has_perm('Alumnos.change_inscripcion'),
+        'estatus': usuario.has_perm('Alumnos.change_alumno'),
+        'contrasenas': usuario.has_perm('Alumnos.change_alumno'),
+        'exportar': usuario.has_perm('Alumnos.view_alumno'),
+        'comunicado': usuario.has_perm(ENVIAR) and alcance_de(usuario).puede_enviar,
+    }
+    acciones['alguna'] = any(acciones.values())
+    return acciones
+
+
+def _contadores(filtro):
+    """Cuántos estudiantes hay en cada nivel y, con un nivel elegido, en cada uno de sus grupos (con los demás filtros)."""
+    from .models import ORDEN_NIVELES
+    base = filtro.filtrar(Alumno.objects.all(), sin=('nivel', 'grado', 'grupo', 'orden'))
+    vigentes = Inscripcion.objects.filter(activa=True, ciclo__activo=True, alumno__in=base.values('pk'))
+    nombres = dict(Grado.NIVEL_CHOICES)
+    por_nivel = dict(vigentes.values_list('grado__nivel').annotate(n=Count('alumno', distinct=True)))
+    niveles = [(nivel, nombres.get(nivel, nivel), por_nivel[nivel]) for nivel in ORDEN_NIVELES if por_nivel.get(nivel)]
+    nivel = filtro.activos.get('nivel')
+    grupos = []
+    if nivel:
+        filas = (vigentes.filter(grado__nivel=nivel).values('grupo').annotate(n=Count('alumno', distinct=True)).order_by())
+        cuenta = {fila['grupo']: fila['n'] for fila in filas}
+        from .models import Grupo
+        for grupo in Grupo.objects.filter(pk__in=cuenta).select_related('grado', 'nombre').academicos():
+            grupos.append((grupo.pk, grupo.nombre_equivalente, cuenta[grupo.pk]))
+    return {'niveles': niveles, 'grupos': grupos}
+
+
 @requiere_permisos('Alumnos.view_alumno')
 def alumno_lista(request):
-    filtro = FiltroAlumnosForm(request.GET)
+    filtro = FiltroAlumnosForm(request.GET, usuario=request.user)
     alumnos = filtro.filtrar(Alumno.objects.all()).prefetch_related(
         prefetch_inscripciones_actuales(), prefetch_vinculos_activos(),
     )
     pagina, rango_paginas, por_pagina = paginar(request, alumnos)
-    # La página guarda la lista: las señales y la asistencia de hoy quedan en los mismos objetos que pinta la tabla
-    ve_asistencia = tabla.preparar_filas(request.user, list(pagina))
+    visibles = columnas.elegidas(request.user)
+    # La página guarda la lista: las señales y los datos de cada columna quedan en los mismos objetos que pinta la tabla
+    filas = list(pagina)
+    tabla.preparar_filas(request.user, filas, con_asistencia='asistencia_hoy' in visibles)
+    columnas.preparar(request.user, filas, visibles)
     orden = filtro.activos.get('orden', 'nombre')
+    acciones = _acciones_en_lote(request.user)
 
     conteos = dict(Alumno.objects.values_list('estatus').annotate(total=Count('pk')))
     estatus_filtros = [
@@ -91,13 +134,34 @@ def alumno_lista(request):
         'filtros_activos': filtros_activos,
         'orden': orden,
         'columnas': tabla.columnas_de_orden(orden),
-        've_asistencia': ve_asistencia,
+        'visibles': visibles,
+        'menu_columnas': [(columna, columna.clave in visibles) for columna in columnas.disponibles(request.user)],
+        'mas_filtros': filtro.mas_activos,
+        'contadores': _contadores(filtro),
+        'acciones_lote': acciones,
+        'form_lote_grupo': LoteGrupoForm() if acciones['grupo'] else None,
+        'form_lote_estatus': LoteEstatusForm() if acciones['estatus'] else None,
+        'consulta': request.GET.urlencode(),
         'ciclo_actual': ciclo_activo(),
         # Tras registrar a un alumno se muestran, una sola vez, sus credenciales de acceso
         'credenciales': request.session.pop(SESION_CREDENCIALES, None),
         # Y, tras importar un archivo, el resumen de lo que pasó con cada fila
         'importacion': request.session.pop(SESION_IMPORTACION, None),
+        'hay_credenciales_lote': bool(request.session.get(SESION_LOTE_CREDENCIALES)),
     })
+
+
+@require_POST
+@requiere_permisos('Alumnos.view_alumno')
+def alumno_columnas(request):
+    """El menú «Columnas»: guarda en el perfil las columnas elegidas (o vuelve a las de siempre)."""
+    if request.POST.get('restablecer'):
+        columnas.guardar(request.user, None)
+    else:
+        columnas.guardar(request.user, request.POST.getlist('columnas'))
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'columnas': columnas.elegidas(request.user)})
+    return redirect(destino_seguro(request, reverse('alumnos:lista')))
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +202,7 @@ def alumno_crear(request):
             else:
                 request.session[SESION_CREDENCIALES] = _credenciales(alumno, form.contrasena_en_claro)
                 detalle = f' e inscrito en {inscrito.grado}' if inscrito else ''
+                historial.anotar(request.user, alumno, f'Registró al estudiante{detalle}.', historial.ALTA)
                 messages.success(request, f'{alumno} fue registrado correctamente{detalle}.')
                 return redirect('alumnos:lista')
         messages.error(request, 'Revisa los pasos marcados: hay datos por corregir.')
@@ -159,11 +224,13 @@ def alumno_editar(request, pk):
         tutores = TutoresFormSet(request.POST, prefix='tutores')
 
         if all([form.is_valid(), tutores.is_valid()]):
+            vinculos_antes = _vinculos_de(alumno)
             try:
                 with transaction.atomic():
                     form.save()
                     guardar_vinculos(alumno, tutores)
                     suspendidas, restauradas = sincronizar_inscripciones(alumno, estatus_anterior)
+                    _anotar_edicion(request.user, alumno, form, estatus_anterior, vinculos_antes)
             except IntegrityError:
                 form.add_error(None, 'No se pudo guardar: algún dato único ya pertenece a otro registro.')
             else:
@@ -175,6 +242,25 @@ def alumno_editar(request, pk):
         tutores = TutoresFormSet(initial=iniciales_vinculos(alumno), prefix='tutores')
 
     return render(request, 'alumnos/form.html', _contexto_formulario(request, form, tutores, alumno=alumno))
+
+
+def _vinculos_de(alumno):
+    return set(TutorAlumno.objects.filter(alumno=alumno).values_list('tutor_id', 'parentesco', 'tutor_principal', 'activo'))
+
+
+def _anotar_edicion(usuario, alumno, form, estatus_anterior, vinculos_antes):
+    """El historial de una edición: qué datos cambiaron, el estatus y si cambiaron sus tutores."""
+    partes = []
+    cambios = historial.campos_cambiados(form, excluir={'estatus'})
+    if cambios:
+        partes.append(f'Corrigió {cambios}')
+    if alumno.estatus != estatus_anterior:
+        partes.append(f'cambió su estatus de «{dict(Alumno.ESTATUS_CHOICES).get(estatus_anterior, estatus_anterior)}» a «{alumno.get_estatus_display()}»')
+    if _vinculos_de(alumno) != vinculos_antes:
+        partes.append('actualizó sus tutores')
+    if partes:
+        texto = '; '.join(partes)
+        historial.anotar(usuario, alumno, texto[0].upper() + texto[1:] + '.')
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +311,25 @@ def alumno_detalle(request, pk):
         # La baja tiene su propia acción: el menú ofrece solo los demás estatus
         'estatus_opciones': [(v, e) for v, e in Alumno.ESTATUS_CHOICES if v != 'BAJA'],
         'conducta': _conducta_de(request, alumno),
+        'historial': [(entrada, historial.nombre_de_accion(entrada)) for entrada in historial.de(alumno)],
+    })
+
+
+@require_GET
+@requiere_permisos('Alumnos.view_alumno')
+def alumno_vista_rapida(request, pk):
+    """La vista rápida de la tabla: los datos clave en un panel lateral (static/js/alumnos-lista.js la pide al tocar el
+    nombre), sin salir de la lista."""
+    alumno = get_object_or_404(Alumno.objects.prefetch_related(prefetch_inscripciones_actuales(), prefetch_vinculos_activos()), pk=pk)
+    filas = [alumno]
+    ve_asistencia = request.user.has_perm('Alumnos.view_asistenciageneral')
+    tabla.preparar_filas(request.user, filas, con_asistencia=ve_asistencia)
+    claves = ['portal'] + (['asistencia_ciclo'] if ve_asistencia else []) + [c for c in ('promedio', 'conducta')
+                                                                            if columnas.POR_CLAVE[c].permiso(request.user)]
+    columnas.preparar(request.user, filas, claves)
+    return render(request, 'alumnos/_vista_rapida.html', {
+        'alumno': alumno, 'inscripcion': (alumno.inscripciones_actuales or [None])[0], 'vinculos': alumno.vinculos_activos,
+        've_asistencia': ve_asistencia, 'claves': claves,
     })
 
 
@@ -283,6 +388,8 @@ def alumno_estatus(request, pk):
             alumno.estatus = estatus
             alumno.save(update_fields=['estatus'])
             suspendidas, restauradas = sincronizar_inscripciones(alumno, anterior)
+            if estatus != anterior:
+                historial.anotar(request.user, alumno, f'Cambió su estatus de «{dict(Alumno.ESTATUS_CHOICES)[anterior]}» a «{alumno.get_estatus_display()}».')
         messages.success(request, f'{alumno} ahora está en estatus «{alumno.get_estatus_display()}».'
                                   f'{_texto_de_inscripciones(suspendidas, restauradas)}')
     return redirect(destino_seguro(request, alumno.get_absolute_url()))   # la Vista 360 pide volver a ella
@@ -302,6 +409,7 @@ def alumno_baja(request, pk):
             alumno.estatus = 'BAJA'
             alumno.save(update_fields=['estatus'])
             suspendidas, _ = sincronizar_inscripciones(alumno, anterior)
+            historial.anotar(request.user, alumno, 'Lo dio de baja.' + _texto_de_inscripciones(suspendidas, []), historial.BAJA)
         messages.success(
             request,
             f'{alumno} fue dado de baja.{_texto_de_inscripciones(suspendidas, [])} '
@@ -319,6 +427,7 @@ def alumno_reactivar(request, pk):
             alumno.estatus = 'ACTIVO'
             alumno.save(update_fields=['estatus'])
             _, restauradas = sincronizar_inscripciones(alumno, 'BAJA')
+            historial.anotar(request.user, alumno, 'Lo reactivó.' + _texto_de_inscripciones([], restauradas))
         messages.success(request, f'{alumno} fue reactivado.{_texto_de_inscripciones([], restauradas)}')
     return redirect('alumnos:lista')
 
@@ -335,6 +444,7 @@ def alumno_contrasena(request, pk):
     nueva = form.cleaned_data['contrasena'] or generar_contrasena()
     alumno.establecer_contrasena(nueva)
     alumno.save(update_fields=['contrasena', 'contrasena_visible', 'intentos_fallidos', 'bloqueado_hasta'])
+    historial.anotar(request.user, alumno, 'Le asignó una contraseña nueva para el portal.')
     request.session[SESION_CREDENCIALES] = _credenciales(alumno, nueva)
     messages.success(request, f'Se asignó una nueva contraseña a {alumno}.')
     return redirect(alumno)
@@ -346,9 +456,12 @@ def alumno_portal(request, pk):
     """Activa, desactiva o desbloquea el acceso del estudiante al portal de estudiantes."""
     alumno = get_object_or_404(Alumno, pk=pk)
     try:
-        messages.success(request, portales.administrar_acceso(alumno, request.POST.get('accion', '')))
+        resultado = portales.administrar_acceso(alumno, request.POST.get('accion', ''))
     except ValueError as error:
         messages.error(request, str(error))
+    else:
+        historial.anotar(request.user, alumno, f'Portal: {resultado}')
+        messages.success(request, resultado)
     return redirect(alumno)
 
 
@@ -359,6 +472,7 @@ def alumno_inscribir(request, pk):
     form = InscribirForm(request.POST, alumno=alumno)
     if form.is_valid():
         inscripcion = form.save()
+        historial.anotar(request.user, alumno, f'Lo inscribió en {inscripcion.grupo.nombre_equivalente} ({inscripcion.ciclo}).')
         messages.success(request, f'{alumno} fue inscrito en {inscripcion.grado} ({inscripcion.ciclo}).')
     else:
         error = next(iter(form.non_field_errors()), None) or next(
@@ -381,10 +495,12 @@ def _grado_equivalente(inscripcion):
 @require_GET
 @requiere_permisos('Alumnos.view_alumno')
 def alumno_exportar(request):
-    filtro = FiltroAlumnosForm(request.GET)
+    filtro = FiltroAlumnosForm(request.GET, usuario=request.user)
     alumnos = filtro.filtrar(Alumno.objects.all()).prefetch_related(
         prefetch_inscripciones_actuales(), prefetch_vinculos_activos(),
     )
+    if request.GET.get('formato') == 'xlsx':
+        return _excel_de_estudiantes(request.user, list(alumnos), f'estudiantes-{timezone.localdate():%Y-%m-%d}.xlsx')
 
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="estudiantes-{timezone.localdate():%Y-%m-%d}.csv"'
@@ -561,3 +677,200 @@ def tutor_buscar(request):
             'alumnos': [str(v.alumno) for v in tutor.vinculos_vigentes[:3]],
         })
     return JsonResponse({'resultados': resultados})
+
+
+# ---------------------------------------------------------------------------
+# Excel con las columnas que se ven (la tabla filtrada o los elegidos en lote)
+# ---------------------------------------------------------------------------
+def _excel_de_estudiantes(usuario, alumnos, nombre):
+    from CISAHUAYO.xlsx import ENCABEZADO, TITULO, Celda, Hoja, libro
+    visibles = columnas.elegidas(usuario)
+    tabla.preparar_filas(usuario, alumnos, con_asistencia='asistencia_hoy' in visibles)
+    columnas.preparar(usuario, alumnos, visibles)
+
+    def fecha(momento):
+        return timezone.localtime(momento).replace(tzinfo=None) if momento else None
+
+    encabezados, anchos = ['Referencia', 'Estudiante'], [12, 34]
+    por_columna = {
+        'grado': (['Nivel', 'Grado'], [14, 10]),
+        'asistencia_hoy': (['Asistencia hoy'], [16]),
+        'asistencia_ciclo': (['% asistencia del ciclo', 'Faltas', 'Justificadas'], [12, 8, 12]),
+        'promedio': (['Promedio'], [10]),
+        'conducta': (['Casos de conducta abiertos'], [12]),
+        'tutor': (['Tutor principal', 'Parentesco', 'Teléfono'], [30, 14, 14]),
+        'edad': (['Edad'], [8]),
+        'portal': (['Portal del estudiante', 'Último acceso del estudiante', 'Portal del tutor', 'Último acceso del tutor'], [20, 18, 20, 18]),
+        'tarjeta': (['Tarjeta de entrada'], [16]),
+        'estatus': (['Estatus'], [12]),
+    }
+    for clave in visibles:
+        encabezados += por_columna[clave][0]
+        anchos += por_columna[clave][1]
+    filas = [[Celda('Estudiantes', TITULO)], [f'Generado el {timezone.localtime():%d/%m/%Y %H:%M} · {len(alumnos)} estudiantes'], [],
+             [Celda(texto, ENCABEZADO) for texto in encabezados]]
+    for alumno in alumnos:
+        inscripcion = (alumno.inscripciones_actuales or [None])[0]
+        vinculo = (alumno.vinculos_activos or [None])[0]
+        fila = [alumno.referencia, str(alumno)]
+        for clave in visibles:
+            if clave == 'grado':
+                fila += [inscripcion.grado.get_nivel_display() if inscripcion else '', _grado_equivalente(inscripcion) or 'Sin inscripción']
+            elif clave == 'asistencia_hoy':
+                fila.append((alumno.asistencia_hoy or {}).get('texto', ''))
+            elif clave == 'asistencia_ciclo':
+                datos = alumno.asistencia_ciclo or {}
+                fila += [datos.get('porcentaje'), datos.get('faltas'), datos.get('justificadas')]
+            elif clave == 'promedio':
+                fila.append(float(alumno.promedio) if alumno.promedio is not None else None)
+            elif clave == 'conducta':
+                fila.append(alumno.casos_abiertos)
+            elif clave == 'tutor':
+                fila += [str(vinculo.tutor) if vinculo else 'Sin tutor', vinculo.get_parentesco_display() if vinculo else '',
+                         vinculo.tutor.telefono if vinculo else '']
+            elif clave == 'edad':
+                fila.append(alumno.edad)
+            elif clave == 'portal':
+                de_alumno, de_tutor = alumno.portal_alumno, alumno.portal_tutor
+                fila += [de_alumno.texto, fecha(de_alumno.ultimo_acceso), de_tutor.texto if de_tutor else 'Sin tutor',
+                         fecha(de_tutor.ultimo_acceso) if de_tutor else None]
+            elif clave == 'tarjeta':
+                fila.append('Asignada' if alumno.uid else 'Sin tarjeta')
+            elif clave == 'estatus':
+                fila.append(alumno.get_estatus_display())
+        filas.append(fila)
+    respuesta = HttpResponse(libro([Hoja('Estudiantes', filas, anchos=anchos)]),
+                             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    respuesta['Cache-Control'] = 'private, no-store'
+    return respuesta
+
+
+# ---------------------------------------------------------------------------
+# Imprimir la lista (por grupo), con columnas en blanco
+# ---------------------------------------------------------------------------
+@require_GET
+@requiere_permisos('Alumnos.view_alumno')
+def alumno_imprimir(request):
+    """La lista filtrada en una hoja para imprimir, un grupo por página, con columnas en blanco para el pase de lista o las
+    firmas. El título, cuántas columnas y si lleva «Firma» se eligen arriba (no se imprimen)."""
+    filtro = FiltroAlumnosForm(request.GET, usuario=request.user)
+    alumnos = list(filtro.filtrar(Alumno.objects.all()).prefetch_related(prefetch_inscripciones_actuales()))
+    titulo = ' '.join(request.GET.get('titulo', '').split())[:60] or 'Pase de lista'
+    try:
+        en_blanco = min(max(int(request.GET.get('columnas', 10)), 0), 20)
+    except ValueError:
+        en_blanco = 10
+    con_firma = request.GET.get('firma') == '1'
+    grupos = {}
+    for alumno in alumnos:
+        inscripcion = (alumno.inscripciones_actuales or [None])[0]
+        grupos.setdefault(inscripcion.grupo if inscripcion else None, []).append(alumno)
+
+    def orden(par):
+        grupo = par[0]
+        if grupo is None:
+            return (1, 0, 0, '')
+        from .models import ORDEN_NIVELES
+        nivel = grupo.grado.nivel
+        return (0, ORDEN_NIVELES.index(nivel) if nivel in ORDEN_NIVELES else 9, grupo.grado.numero, str(grupo.nombre))
+
+    hojas = []
+    for grupo, lista in sorted(grupos.items(), key=orden):
+        lista.sort(key=lambda a: (a.apellido_paterno, a.apellido_materno, a.nombre))
+        hojas.append({'grupo': grupo, 'alumnos': lista})
+    conservar = request.GET.copy()
+    for clave in ('titulo', 'columnas', 'firma', 'page', 'por_pagina'):
+        conservar.pop(clave, None)
+    return render(request, 'alumnos/lista_hoja.html', {
+        'hojas': hojas, 'titulo': titulo, 'en_blanco': range(en_blanco), 'numero_en_blanco': en_blanco, 'con_firma': con_firma,
+        'ciclo': ciclo_activo(), 'generado': timezone.localtime(), 'conservar': list(conservar.lists()),
+        'volver': f"{reverse('alumnos:lista')}?{conservar.urlencode()}" if conservar else reverse('alumnos:lista'),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Acciones en lote (Alumnos/lote.py)
+# ---------------------------------------------------------------------------
+def _elegidos(request):
+    ids = [int(pk) for pk in request.POST.getlist('alumnos') if pk.isdigit()][:lote.MAXIMO]
+    return list(Alumno.objects.filter(pk__in=ids).prefetch_related(prefetch_inscripciones_actuales(), prefetch_vinculos_activos())
+                .order_by('apellido_paterno', 'apellido_materno', 'nombre'))
+
+
+def _resumen_de_omitidos(omitidos):
+    if not omitidos:
+        return ''
+    muestra = ' '.join(omitidos[:3])
+    return f' No se pudo con {len(omitidos)}: {muestra}' + (' …' if len(omitidos) > 3 else '')
+
+
+@require_POST
+@requiere_permisos('Alumnos.view_alumno')
+def alumno_lote(request):
+    from django.core.exceptions import PermissionDenied
+    volver = destino_seguro(request, reverse('alumnos:lista'))
+    accion = request.POST.get('accion', '')
+    permitidas = _acciones_en_lote(request.user)
+    if accion not in ('grupo', 'estatus', 'contrasenas', 'exportar', 'comunicado'):
+        messages.error(request, 'Elige una acción.')
+        return redirect(volver)
+    if not permitidas[accion]:
+        raise PermissionDenied
+    alumnos = _elegidos(request)
+    if not alumnos:
+        messages.error(request, 'Elige al menos a un estudiante en la tabla.')
+        return redirect(volver)
+
+    if accion == 'grupo':
+        form = LoteGrupoForm(request.POST)
+        if not form.is_valid():
+            errores = [e for lista in form.errors.values() for e in lista]
+            messages.error(request, f'No se cambió a nadie: {" ".join(errores)}')
+            return redirect(volver)
+        datos = form.cleaned_data
+        hechos, omitidos = lote.inscribir_o_cambiar(alumnos, ciclo=datos['ciclo'], grado=datos['grado'], grupo=datos['grupo'], usuario=request.user)
+        texto = f'{len(hechos)} estudiante{"s" if len(hechos) != 1 else ""} en {datos["grupo"].nombre_equivalente} ({datos["ciclo"]}).'
+        (messages.success if hechos else messages.warning)(request, texto + _resumen_de_omitidos(omitidos))
+    elif accion == 'estatus':
+        form = LoteEstatusForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, 'Elige el nuevo estatus.')
+            return redirect(volver)
+        cambiados, sin_cambio = lote.cambiar_estatus(alumnos, estatus=form.cleaned_data['estatus'], usuario=request.user)
+        nombre = dict(Alumno.ESTATUS_CHOICES)[form.cleaned_data['estatus']]
+        messages.success(request, f'{len(cambiados)} estudiante{"s" if len(cambiados) != 1 else ""} ahora en «{nombre}».'
+                                  + (f' {len(sin_cambio)} ya lo estaba{"n" if len(sin_cambio) != 1 else ""}.' if sin_cambio else ''))
+    elif accion == 'contrasenas':
+        filas = lote.generar_contrasenas(alumnos, usuario=request.user)
+        request.session[SESION_LOTE_CREDENCIALES] = filas
+        messages.success(request, f'Se generaron {len(filas)} contraseñas nuevas. Descárgalas ahora: solo se guardan mientras dure tu sesión.')
+    elif accion == 'exportar':
+        return _excel_de_estudiantes(request.user, alumnos, f'estudiantes-elegidos-{timezone.localdate():%Y-%m-%d}.xlsx')
+    elif accion == 'comunicado':
+        tutores = lote.tutores_de(alumnos)
+        if not tutores:
+            messages.error(request, 'Los estudiantes elegidos no tienen tutores activos.')
+            return redirect(volver)
+        request.session[SESION_COMUNICADO] = tutores
+        return redirect(f"{reverse('comunicados:crear')}?desde=estudiantes")
+    return redirect(volver)
+
+
+@require_GET
+@requiere_permisos('Alumnos.change_alumno')
+def alumno_lote_credenciales(request):
+    """Las contraseñas generadas en lote (en esta sesión), en CSV."""
+    filas = request.session.get(SESION_LOTE_CREDENCIALES)
+    if not filas:
+        messages.info(request, 'No hay contraseñas generadas recientemente que descargar.')
+        return redirect('alumnos:lista')
+    respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
+    respuesta['Content-Disposition'] = f'attachment; filename="contrasenas-{timezone.localdate():%Y-%m-%d}.csv"'
+    respuesta['Cache-Control'] = 'private, no-store'
+    respuesta.write('\ufeff')
+    escritor = csv.writer(respuesta)
+    escritor.writerow(['Referencia', 'Nombre', 'Grado', 'Correo (con el que entra)', 'Contraseña'])
+    for fila in filas:
+        escritor.writerow([proteger_celda_csv(valor) for valor in fila])
+    return respuesta

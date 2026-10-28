@@ -1,0 +1,75 @@
+{% load alumnos_extras %}{% comment %}
+  Una celda de la tabla de estudiantes según su columna (`clave`, Alumnos/columnas.py). Del contexto: alumno, inscripcion
+  (la del ciclo actual) y vinculo (su tutor principal).
+{% endcomment %}{% if clave == 'grado' %}
+  <td class="table__cell" data-label="Grado actual">
+    {% if inscripcion %}
+      {# La equivalencia en la continuidad escolar (7.º A, K2 B); el grado de su nivel queda en la descripción emergente #}
+      <span data-tooltip="{% firstof inscripcion.grupo.nombre_de_nivel inscripcion.grado.nombre_de_nivel %}">{{ inscripcion|grado_equivalente }}</span>
+    {% else %}
+      <span class="text-muted">Sin inscripción</span>
+    {% endif %}
+  </td>
+{% elif clave == 'asistencia_hoy' %}
+  {# Su entrada al colegio hoy (Alumnos/tabla.py · asistencia_de_hoy) #}
+  <td class="table__cell" data-label="Asistencia hoy">
+    {% with dato=alumno.asistencia_hoy %}
+      {% if dato.tono %}<span class="tag{% if dato.tono != 'neutral' %} tag--{{ dato.tono }}{% endif %}"{% if dato.detalle %} data-tooltip="{{ dato.detalle }}"{% endif %}>{{ dato.texto }}</span>
+      {% else %}<span class="text-muted"{% if dato.detalle %} data-tooltip="{{ dato.detalle }}"{% endif %}>{{ dato.texto|default:"—" }}</span>{% endif %}
+    {% endwith %}
+  </td>
+{% elif clave == 'asistencia_ciclo' %}
+  <td class="table__cell" data-label="Asistencia del ciclo">
+    {% with dato=alumno.asistencia_ciclo %}
+      {% if dato and dato.total %}
+        <span class="cell-stack">
+          <span class="cell-stack__main alumnos-porcentaje{% if dato.porcentaje < 85 %} alumnos-porcentaje--bajo{% endif %}">{{ dato.porcentaje }} %</span>
+          <span class="cell-stack__sub">{{ dato.faltas }} falta{{ dato.faltas|pluralize }}{% if dato.justificadas %} ({{ dato.justificadas }} justificada{{ dato.justificadas|pluralize }}){% endif %}</span>
+        </span>
+      {% else %}<span class="text-muted">{% if inscripcion %}Sin registros{% else %}—{% endif %}</span>{% endif %}
+    {% endwith %}
+  </td>
+{% elif clave == 'promedio' %}
+  <td class="table__cell table__cell--num" data-label="Promedio">
+    {% if alumno.promedio is not None %}<strong class="alumnos-promedio{% if alumno.promedio < 6 %} alumnos-promedio--bajo{% endif %}">{{ alumno.promedio }}</strong>
+    {% else %}<span class="text-muted" data-tooltip="Sin actas cerradas en el ciclo">—</span>{% endif %}
+  </td>
+{% elif clave == 'conducta' %}
+  <td class="table__cell" data-label="Conducta">
+    {% if alumno.casos_abiertos %}<a class="tag tag--warning" href="{{ alumno.get_absolute_url }}#conducta">{{ alumno.casos_abiertos }} abierto{{ alumno.casos_abiertos|pluralize }}</a>
+    {% else %}<span class="text-muted">Ninguno</span>{% endif %}
+  </td>
+{% elif clave == 'tutor' %}
+  <td class="table__cell" data-label="Tutor principal">
+    {% if vinculo %}
+      <span class="cell-stack">
+        <span class="cell-stack__main">{{ vinculo.tutor }}</span>
+        <span class="cell-stack__sub">{{ vinculo.get_parentesco_display }}</span>
+        <span class="cell-stack__sub"><a class="link-subtle" href="tel:{{ vinculo.tutor.telefono }}">{{ vinculo.tutor.telefono|telefono }}</a></span>
+      </span>
+    {% else %}
+      <span class="tag tag--warning">Sin tutor</span>
+    {% endif %}
+  </td>
+{% elif clave == 'edad' %}
+  <td class="table__cell" data-label="Edad">{{ alumno.edad }} año{{ alumno.edad|pluralize }}</td>
+{% elif clave == 'portal' %}
+  <td class="table__cell" data-label="Portal">
+    <ul class="alumnos-portal">
+      {% for quien, portal in alumno|portales_de_la_fila %}
+        <li class="alumnos-portal__fila{% if not portal %} is-sin-tutor{% elif not portal.puede_entrar %} is-sin-acceso{% elif not portal.ultimo_acceso %} is-nunca{% endif %}"
+            data-tooltip="{% if not portal %}Sin tutor activo{% elif not portal.puede_entrar %}{{ portal.estado.texto }}{% elif portal.ultimo_acceso %}Entró por última vez el {{ portal.ultimo_acceso|date:'d/m/Y H:i' }}{% else %}Puede entrar, pero nunca ha entrado{% endif %}">
+          <span class="alumnos-portal__quien">{{ quien }}</span> {% if portal %}{{ portal.texto }}{% else %}—{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </td>
+{% elif clave == 'tarjeta' %}
+  <td class="table__cell" data-label="Tarjeta">
+    {% if alumno.uid %}<span class="tag tag--success" data-tooltip="UID {{ alumno.uid }}">Asignada</span>{% else %}<span class="tag tag--warning">Sin tarjeta</span>{% endif %}
+  </td>
+{% elif clave == 'estatus' %}
+  <td class="table__cell" data-label="Estatus">
+    <span class="tag tag--{{ alumno.estatus|tono_estatus }}">{{ alumno.get_estatus_display }}</span>
+  </td>
+{% endif %}

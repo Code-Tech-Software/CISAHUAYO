@@ -13,8 +13,8 @@ from CISAHUAYO.pruebas import PRUEBAS, BaseTestCase, crear_alumno, crear_tutor, 
 
 def celda_del_tutor(html, alumno):
     """El HTML de la celda «Tutor principal» de la fila de ese estudiante."""
-    fila = re.search(r'<tr class="table__row">(?:(?!</tr>).)*?%s(?:(?!</tr>).)*?</tr>' % re.escape(alumno.get_absolute_url()), html, re.S).group(0)
-    return re.search(r'<td class="table__cell table__col--wide" data-label="Tutor principal">(.*?)</td>', fila, re.S).group(1)
+    fila = re.search(r'<tr class="table__row"[^>]*>(?:(?!</tr>).)*?%s(?:(?!</tr>).)*?</tr>' % re.escape(alumno.get_absolute_url()), html, re.S).group(0)
+    return re.search(r'<td class="table__cell" data-label="Tutor principal">(.*?)</td>', fila, re.S).group(1)
 
 
 @PRUEBAS

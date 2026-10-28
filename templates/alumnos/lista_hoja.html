@@ -1,0 +1,64 @@
+{% load static alumnos_extras %}<!doctype html>
+{% comment %}
+  La lista de estudiantes para imprimir (Alumnos/views.alumno_imprimir): la de la tabla con sus filtros, un grupo por
+  página, numerada y en orden alfabético, con columnas en blanco para el pase de lista o las firmas. Arriba se eligen el
+  título, cuántas columnas y si lleva «Firma» (eso no se imprime).
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titulo }} | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/alumnos-imprimir.css' %}">
+</head>
+<body>
+  <form class="opciones" method="get">
+    {% for nombre, valores in conservar %}{% for valor in valores %}<input type="hidden" name="{{ nombre }}" value="{{ valor }}">{% endfor %}{% endfor %}
+    <label>Título <input type="text" name="titulo" value="{{ titulo }}" maxlength="60"></label>
+    <label>Columnas en blanco <input type="number" name="columnas" value="{{ numero_en_blanco }}" min="0" max="20"></label>
+    <label class="opciones__casilla"><input type="checkbox" name="firma" value="1"{% if con_firma %} checked{% endif %}> Columna «Firma»</label>
+    <button type="submit">Actualizar</button>
+    <button type="button" class="opciones__imprimir" data-imprimir>Imprimir o guardar en PDF</button>
+    <a href="{{ volver }}">Volver a la lista</a>
+  </form>
+
+  {% for hoja in hojas %}
+    <section class="hoja">
+      <header class="hoja__cabeza">
+        <img class="hoja__logo" src="{% static 'img/logointer.svg' %}" alt="">
+        <div>
+          <p class="hoja__colegio">Colegio Interamericano de Sahuayo{% if ciclo %} · Ciclo escolar {{ ciclo }}{% endif %}</p>
+          <h1 class="hoja__titulo">{{ titulo }}{% if hoja.grupo %} · {{ hoja.grupo.nombre_equivalente }}{% endif %}</h1>
+          <p class="hoja__grupo">{% if hoja.grupo %}{% firstof hoja.grupo.nombre_de_nivel hoja.grupo.grado %}{% else %}Sin inscripción en el ciclo actual{% endif %} · {{ hoja.alumnos|length }} estudiante{{ hoja.alumnos|length|pluralize }}</p>
+        </div>
+        <p class="hoja__fecha">Fecha: ____________________</p>
+      </header>
+      <table class="hoja__tabla">
+        <thead>
+          <tr>
+            <th class="hoja__numero">N.º</th>
+            <th class="hoja__nombre">Estudiante</th>
+            {% for _ in en_blanco %}<th class="hoja__blanco"></th>{% endfor %}
+            {% if con_firma %}<th class="hoja__firma">Firma</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for alumno in hoja.alumnos %}
+            <tr>
+              <td class="hoja__numero">{{ forloop.counter }}</td>
+              <td class="hoja__nombre">{{ alumno.apellido_paterno }} {{ alumno.apellido_materno }} {{ alumno.nombre }}</td>
+              {% for _ in en_blanco %}<td class="hoja__blanco"></td>{% endfor %}
+              {% if con_firma %}<td class="hoja__firma"></td>{% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <footer class="hoja__pie">Impreso el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</footer>
+    </section>
+  {% empty %}
+    <p class="vacio">No hay estudiantes con esos filtros.</p>
+  {% endfor %}
+  <script src="{% static 'js/hoja-imprimir.js' %}" defer></script>
+</body>
+</html>

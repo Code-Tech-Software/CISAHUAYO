@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% load static alumnos_extras %}
+{% comment %}
+  La tabla de estudiantes (Alumnos/views.alumno_lista). Desde el 2026-10-28:
+  - Las columnas se eligen en el menú «Columnas» (Alumnos/columnas.py; las de asistencia, calificaciones y conducta solo
+    con el permiso de su módulo) y ya no dependen del ancho de la pantalla: si no caben, la tabla se desplaza de lado.
+  - Filtros por nivel y grupo y, en «Más filtros», situación, sexo, datos incompletos, atención, nuevo ingreso y portal;
+    contadores por nivel y grupo; la búsqueda encuentra también el teléfono del tutor.
+  - Excel con las columnas que se ven, la lista para imprimir por grupo, acciones en lote sobre los elegidos y la vista
+    rápida al tocar el nombre (static/js/alumnos-lista.js; sin JavaScript, el nombre abre el expediente).
+{% endcomment %}
 
 {% block title %}Estudiantes | CISAHUAYO{% endblock %}
 
@@ -21,6 +30,16 @@
     {% include "alumnos/_importacion.html" %}
   {% endif %}
 
+  {% if hay_credenciales_lote and perms.Alumnos.change_alumno %}
+    <div class="alert alert--warning" role="status">
+      {% include "partials/icon.html" with name="key" icon_class="alert__icon" %}
+      <div class="alert__body">
+        <p><strong>Contraseñas generadas en lote.</strong> Descárgalas y entrégalas: solo se guardan mientras dure tu sesión.</p>
+        <p><a class="btn btn--sm" href="{% url 'alumnos:lote_credenciales' %}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Descargar contraseñas (CSV)</a></p>
+      </div>
+    </div>
+  {% endif %}
+
   <header class="page-header">
     <div>
       <h1 class="page-header__title">Estudiantes</h1>
@@ -30,9 +49,16 @@
     </div>
     <div class="page-header__actions">
       {% if perms.Alumnos.view_alumno and pagina.paginator.count %}
-        <a class="btn" href="{% url 'alumnos:exportar' %}{% querystring page=None %}">
+        <a class="btn" href="{% url 'alumnos:imprimir' %}{% querystring page=None por_pagina=None %}" target="_blank" rel="noopener">
+          {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %}
+          Imprimir lista
+        </a>
+        <a class="btn" href="{% url 'alumnos:exportar' %}{% querystring page=None por_pagina=None formato='xlsx' %}" data-tooltip="Con las columnas que ves y los filtros aplicados">
           {% include "partials/icon.html" with name="download" icon_class="icon--sm" %}
-          Exportar CSV
+          Excel
+        </a>
+        <a class="btn btn--ghost" href="{% url 'alumnos:exportar' %}{% querystring page=None por_pagina=None %}">
+          CSV
         </a>
       {% endif %}
       {% if perms.Alumnos.add_alumno %}
@@ -60,7 +86,7 @@
     {% endfor %}
   </nav>
 
-  <form class="filters" method="get" role="search" aria-label="Buscar y filtrar estudiantes" data-autosubmit>
+  <form class="filters alumnos-filtros" method="get" role="search" aria-label="Buscar y filtrar estudiantes" data-autosubmit>
     {% if filtros_activos.estatus %}<input type="hidden" name="estatus" value="{{ filtros_activos.estatus }}">{% endif %}
     {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
     <div class="filters__search">
@@ -69,22 +95,38 @@
       {{ filtro.q }}
     </div>
     <div class="filters__field">
+      <label class="visually-hidden" for="{{ filtro.nivel.id_for_label }}">{{ filtro.nivel.label }}</label>
+      {{ filtro.nivel }}
+    </div>
+    <div class="filters__field">
       <label class="visually-hidden" for="{{ filtro.grado.id_for_label }}">{{ filtro.grado.label }}</label>
       {{ filtro.grado }}
     </div>
     <div class="filters__field">
-      <label class="visually-hidden" for="{{ filtro.situacion.id_for_label }}">{{ filtro.situacion.label }}</label>
-      {{ filtro.situacion }}
+      <label class="visually-hidden" for="{{ filtro.grupo.id_for_label }}">{{ filtro.grupo.label }}</label>
+      {{ filtro.grupo }}
     </div>
     {% comment %}
-      El orden se elige tocando los encabezados de la tabla. Donde alguno no se ve (en el teléfono la tabla se vuelve
-      tarjetas; en tableta y laptop se oculta la edad), con esta lista; en pantallas anchas queda oculta, pero conserva el
-      orden al filtrar.
+      El orden se elige tocando los encabezados de la tabla. Donde no se ven (en el teléfono la tabla se vuelve tarjetas),
+      con esta lista; en pantallas anchas queda oculta, pero conserva el orden al filtrar.
     {% endcomment %}
     <div class="filters__field alumnos-orden-movil">
       <label class="visually-hidden" for="{{ filtro.orden.id_for_label }}">{{ filtro.orden.label }}</label>
       {{ filtro.orden }}
     </div>
+    <details class="alumnos-filtros__mas"{% if mas_filtros %} open{% endif %}>
+      <summary class="btn btn--ghost btn--sm">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %} Más filtros{% if mas_filtros %} <span class="badge">{{ mas_filtros }}</span>{% endif %}</summary>
+      <div class="alumnos-filtros__panel">
+        {% for nombre in filtro.MAS_FILTROS %}
+          {% for campo in filtro %}{% if campo.name == nombre %}
+            <div class="filters__field">
+              <label class="field__label" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+              {{ campo }}
+            </div>
+          {% endif %}{% endfor %}
+        {% endfor %}
+      </div>
+    </details>
     <div class="filters__actions">
       <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Buscar</button>
       {% if filtros_activos %}
@@ -93,33 +135,92 @@
     </div>
   </form>
 
+  {# Cuántos hay en cada nivel y, con un nivel elegido, en cada grupo (con los demás filtros) #}
+  {% if contadores.niveles %}
+    <nav class="alumnos-contadores" aria-label="Estudiantes por nivel y grupo">
+      <ul class="alumnos-contadores__fila">
+        {% for clave, nombre, total in contadores.niveles %}
+          <li><a class="alumnos-contador{% if filtros_activos.nivel == clave %} is-activo{% endif %}" href="{% if filtros_activos.nivel == clave %}{% querystring nivel=None grado=None grupo=None page=None %}{% else %}{% querystring nivel=clave grado=None grupo=None page=None %}{% endif %}"{% if filtros_activos.nivel == clave %} aria-current="true"{% endif %}>{{ nombre }} <span class="alumnos-contador__numero">{{ total }}</span></a></li>
+        {% endfor %}
+      </ul>
+      {% if contadores.grupos %}
+        <ul class="alumnos-contadores__fila alumnos-contadores__fila--grupos">
+          {% for pk, nombre, total in contadores.grupos %}
+            <li><a class="alumnos-contador alumnos-contador--grupo{% if filtros_activos.grupo.pk == pk %} is-activo{% endif %}" href="{% if filtros_activos.grupo.pk == pk %}{% querystring grupo=None page=None %}{% else %}{% querystring grupo=pk grado=None page=None %}{% endif %}"{% if filtros_activos.grupo.pk == pk %} aria-current="true"{% endif %}>{{ nombre }} <span class="alumnos-contador__numero">{{ total }}</span></a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </nav>
+  {% endif %}
+
   {% if pagina.paginator.count %}
-    <p class="results-summary" role="status">
-      {{ pagina.paginator.count }} estudiante{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}
-    </p>
+    <div class="alumnos-resumen">
+      <p class="results-summary" role="status">
+        {{ pagina.paginator.count }} estudiante{{ pagina.paginator.count|pluralize }}{% if filtros_activos %} con los filtros aplicados{% endif %}
+      </p>
+      {# El menú «Columnas»: se guarda en el perfil de la cuenta (Alumnos/views.alumno_columnas) #}
+      <details class="alumnos-columnas" data-columnas>
+        <summary class="btn btn--ghost btn--sm">{% include "partials/icon.html" with name="layers" icon_class="icon--sm" %} Columnas</summary>
+        <form class="alumnos-columnas__panel" method="post" action="{% url 'alumnos:columnas' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <p class="alumnos-columnas__titulo">Columnas de la tabla</p>
+          <ul class="alumnos-columnas__lista">
+            {% for columna, visible in menu_columnas %}
+              <li>
+                <label class="alumnos-columnas__opcion">
+                  <input type="checkbox" name="columnas" value="{{ columna.clave }}"{% if visible %} checked{% endif %}>
+                  <span><strong>{{ columna.titulo }}</strong><span class="text-muted">{{ columna.descripcion }}</span></span>
+                </label>
+              </li>
+            {% endfor %}
+          </ul>
+          <div class="alumnos-columnas__acciones">
+            <button type="submit" class="btn btn--primary btn--sm">Aplicar</button>
+            <button type="submit" class="btn btn--ghost btn--sm" name="restablecer" value="1">Las de siempre</button>
+          </div>
+        </form>
+      </details>
+    </div>
 
     <div class="table-card">
-      {# Entre tableta y escritorio, si no cabe, se desplaza de lado (la edad y el tutor solo se muestran en pantallas anchas) #}
       <div class="scroll-x">
-      <table class="table tabla-estudiantes">
+      <table class="table tabla-estudiantes{% if acciones_lote.alguna %} tabla-estudiantes--con-lote{% endif %}" data-alumnos-tabla>
         <caption class="visually-hidden">Lista de estudiantes</caption>
         <thead class="table__head">
           <tr>
+            {% if acciones_lote.alguna %}
+              <th class="table__th tabla-estudiantes__casilla" scope="col">
+                <input type="checkbox" class="alumnos-casilla" aria-label="Elegir a todos los de esta página" data-lote-todos>
+              </th>
+            {% endif %}
             {% include "alumnos/_encabezado_orden.html" with titulo="Estudiante" columna=columnas.nombre %}
-            {% include "alumnos/_encabezado_orden.html" with titulo="Grado actual" columna=columnas.grado %}
-            {% if ve_asistencia %}<th class="table__th" scope="col">Asistencia hoy</th>{% endif %}
-            <th class="table__th table__col--wide" scope="col">Tutor principal</th>
-            {% include "alumnos/_encabezado_orden.html" with titulo="Edad" columna=columnas.edad clase="table__col--wide" %}
-            <th class="table__th" scope="col">Estatus</th>
+            {% for clave in visibles %}
+              {% if clave == 'grado' %}{% include "alumnos/_encabezado_orden.html" with titulo="Grado actual" columna=columnas.grado %}
+              {% elif clave == 'edad' %}{% include "alumnos/_encabezado_orden.html" with titulo="Edad" columna=columnas.edad %}
+              {% elif clave == 'asistencia_hoy' %}<th class="table__th" scope="col">Asistencia hoy</th>
+              {% elif clave == 'asistencia_ciclo' %}<th class="table__th" scope="col">Asistencia del ciclo</th>
+              {% elif clave == 'promedio' %}<th class="table__th table__th--num" scope="col">Promedio</th>
+              {% elif clave == 'conducta' %}<th class="table__th" scope="col">Conducta</th>
+              {% elif clave == 'tutor' %}<th class="table__th" scope="col">Tutor principal</th>
+              {% elif clave == 'portal' %}<th class="table__th" scope="col">Portal</th>
+              {% elif clave == 'tarjeta' %}<th class="table__th" scope="col">Tarjeta</th>
+              {% elif clave == 'estatus' %}<th class="table__th" scope="col">Estatus</th>{% endif %}
+            {% endfor %}
             <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
           </tr>
         </thead>
         <tbody class="table__body">
           {% for alumno in pagina %}
             {% with inscripcion=alumno.inscripciones_actuales.0 vinculo=alumno.vinculos_activos.0 %}
-              <tr class="table__row">
+              <tr class="table__row" data-lote-renglon>
+                {% if acciones_lote.alguna %}
+                  <td class="table__cell tabla-estudiantes__casilla">
+                    <input type="checkbox" class="alumnos-casilla" name="alumnos" value="{{ alumno.pk }}" form="lote" aria-label="Elegir a {{ alumno }}" data-lote-fila>
+                  </td>
+                {% endif %}
                 <td class="table__cell table__cell--main">
-                  <a class="person" href="{{ alumno.get_absolute_url }}">
+                  <a class="person" href="{{ alumno.get_absolute_url }}" data-vista-rapida="{% url 'alumnos:vista_rapida' alumno.pk %}">
                     {% include "partials/avatar.html" with persona=alumno %}
                     <span class="person__text">
                       <span class="person__name">{{ alumno }}</span>
@@ -127,7 +228,7 @@
                     </span>
                   </a>
                   {% if alumno.senales %}
-                    {# Señales rápidas, solo las que aplican: requiere atención, alergias, CURP y fotografía #}
+                    {# Señales rápidas, solo las que aplican: requiere atención, retiro, reunión, alergias, CURP y fotografía #}
                     <ul class="alumno-senales" aria-label="Señales de {{ alumno }}">
                       {% for senal in alumno.senales %}
                         <li>
@@ -140,38 +241,7 @@
                     </ul>
                   {% endif %}
                 </td>
-                <td class="table__cell" data-label="Grado actual">
-                  {% if inscripcion %}
-                    {# La equivalencia en la continuidad escolar (7.º A, K2 B); el grado de su nivel queda en la descripción emergente. El ciclo no se repite: es el actual, el del encabezado #}
-                    <span data-tooltip="{% firstof inscripcion.grupo.nombre_de_nivel inscripcion.grado.nombre_de_nivel %}">{{ inscripcion|grado_equivalente }}</span>
-                  {% else %}
-                    <span class="text-muted">Sin inscripción</span>
-                  {% endif %}
-                </td>
-                {% if ve_asistencia %}
-                  {# Su entrada al colegio hoy (Alumnos/tabla.py · asistencia_de_hoy) #}
-                  <td class="table__cell" data-label="Asistencia hoy">
-                    {% with dato=alumno.asistencia_hoy %}
-                      {% if dato.tono %}<span class="tag{% if dato.tono != 'neutral' %} tag--{{ dato.tono }}{% endif %}"{% if dato.detalle %} data-tooltip="{{ dato.detalle }}"{% endif %}>{{ dato.texto }}</span>
-                      {% else %}<span class="text-muted"{% if dato.detalle %} data-tooltip="{{ dato.detalle }}"{% endif %}>{{ dato.texto }}</span>{% endif %}
-                    {% endwith %}
-                  </td>
-                {% endif %}
-                <td class="table__cell table__col--wide" data-label="Tutor principal">
-                  {% if vinculo %}
-                    <span class="cell-stack">
-                      <span class="cell-stack__main">{{ vinculo.tutor }}</span>
-                      <span class="cell-stack__sub">{{ vinculo.get_parentesco_display }}</span>
-                      <span class="cell-stack__sub"><a class="link-subtle" href="tel:{{ vinculo.tutor.telefono }}">{{ vinculo.tutor.telefono|telefono }}</a></span>
-                    </span>
-                  {% else %}
-                    <span class="tag tag--warning">Sin tutor</span>
-                  {% endif %}
-                </td>
-                <td class="table__cell table__col--wide" data-label="Edad">{{ alumno.edad }} año{{ alumno.edad|pluralize }}</td>
-                <td class="table__cell" data-label="Estatus">
-                  <span class="tag tag--{{ alumno.estatus|tono_estatus }}">{{ alumno.get_estatus_display }}</span>
-                </td>
+                {% for clave in visibles %}{% include "alumnos/_celda.html" %}{% endfor %}
                 <td class="table__cell table__cell--actions">
                   <a class="btn btn--ghost btn--icon btn--sm" href="{{ alumno.get_absolute_url }}" aria-label="Ver perfil de {{ alumno }}" data-tooltip="Ver perfil">
                     {% include "partials/icon.html" with name="eye" icon_class="icon--sm" %}
@@ -205,6 +275,61 @@
     </div>
 
     {% include "partials/pagination.html" with pagina=pagina rango=rango_paginas etiqueta="estudiantes" por_pagina=por_pagina opciones=opciones_por_pagina %}
+
+    {# --- Acciones en lote: la barra aparece al elegir a alguien (static/js/alumnos-lista.js) ------------------------ #}
+    {% if acciones_lote.alguna %}
+      <form class="alumnos-lote" id="lote" method="post" action="{% url 'alumnos:lote' %}" data-lote hidden>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <p class="alumnos-lote__cuenta" role="status"><strong data-lote-cuenta>0</strong> elegido<span data-lote-plural>s</span></p>
+        <div class="alumnos-lote__acciones">
+          {% if acciones_lote.grupo %}<button type="button" class="btn btn--sm" data-modal-open="modal-lote-grupo">{% include "partials/icon.html" with name="graduation-cap" icon_class="icon--sm" %} Inscribir o cambiar de grupo</button>{% endif %}
+          {% if acciones_lote.estatus %}<button type="button" class="btn btn--sm" data-modal-open="modal-lote-estatus">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Cambiar estatus</button>{% endif %}
+          {% if acciones_lote.contrasenas %}<button type="submit" class="btn btn--sm" name="accion" value="contrasenas" data-lote-confirmar="Se generará una contraseña nueva para cada estudiante elegido: la anterior dejará de funcionar. ¿Continuar?">{% include "partials/icon.html" with name="key" icon_class="icon--sm" %} Generar contraseñas</button>{% endif %}
+          {% if acciones_lote.exportar %}<button type="submit" class="btn btn--sm" name="accion" value="exportar">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Excel</button>{% endif %}
+          {% if acciones_lote.comunicado %}<button type="submit" class="btn btn--sm" name="accion" value="comunicado">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %} Comunicado a sus tutores</button>{% endif %}
+          <button type="button" class="btn btn--ghost btn--sm" data-lote-limpiar>Quitar selección</button>
+        </div>
+
+        {% if form_lote_grupo %}
+          <dialog class="modal" id="modal-lote-grupo" aria-labelledby="modal-lote-grupo-titulo" data-modal>
+            <div class="modal__panel">
+              <header class="modal__header">
+                <h2 class="modal__title" id="modal-lote-grupo-titulo">Inscribir o cambiar de grupo</h2>
+                <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+              </header>
+              <div class="modal__body form-grid">
+                <p class="form-grid__full text-muted">A los elegidos que no estén inscritos en ese ciclo se les inscribe; a los que ya lo están, se les cambia a este grado y grupo. Los dados de baja o egresados se omiten.</p>
+                {% include "partials/field.html" with campo=form_lote_grupo.ciclo clase="form-grid__full" %}
+                {% include "partials/field.html" with campo=form_lote_grupo.grado %}
+                {% include "partials/field.html" with campo=form_lote_grupo.grupo %}
+              </div>
+              <footer class="modal__footer">
+                <button type="button" class="btn" data-modal-close>Cancelar</button>
+                <button type="submit" class="btn btn--primary" name="accion" value="grupo">Aplicar a los elegidos</button>
+              </footer>
+            </div>
+          </dialog>
+        {% endif %}
+        {% if form_lote_estatus %}
+          <dialog class="modal" id="modal-lote-estatus" aria-labelledby="modal-lote-estatus-titulo" data-modal>
+            <div class="modal__panel">
+              <header class="modal__header">
+                <h2 class="modal__title" id="modal-lote-estatus-titulo">Cambiar el estatus</h2>
+                <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+              </header>
+              <div class="modal__body">
+                {% include "partials/field.html" with campo=form_lote_estatus.estatus %}
+              </div>
+              <footer class="modal__footer">
+                <button type="button" class="btn" data-modal-close>Cancelar</button>
+                <button type="submit" class="btn btn--primary" name="accion" value="estatus">Aplicar a los elegidos</button>
+              </footer>
+            </div>
+          </dialog>
+        {% endif %}
+      </form>
+    {% endif %}
   {% elif filtros_activos %}
     <div class="table-card">
       <div class="empty-state">
@@ -230,6 +355,17 @@
     </div>
   {% endif %}
 
+  {# La vista rápida (static/js/alumnos-lista.js la llena con Alumnos/views.alumno_vista_rapida) #}
+  <dialog class="modal vista-rapida" id="vista-rapida" aria-labelledby="vista-rapida-titulo" data-modal data-vista-rapida-panel>
+    <div class="modal__panel vista-rapida__panel">
+      <header class="modal__header">
+        <h2 class="modal__title" id="vista-rapida-titulo">Vista rápida</h2>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+      </header>
+      <div class="modal__body" data-vista-rapida-cuerpo aria-live="polite"></div>
+    </div>
+  </dialog>
+
   {# Una sola ventana de confirmación para todas las filas: baja-lista.js le pone el estudiante que corresponde #}
   {% if perms.Alumnos.delete_alumno %}
     <dialog class="modal" id="modal-baja" aria-labelledby="modal-baja-titulo" data-modal>
@@ -254,4 +390,6 @@
 
 {% block extra_js %}
   <script src="{% static 'js/baja-lista.js' %}" defer></script>
+  <script src="{% static 'js/grupo-del-grado.js' %}" defer></script>
+  <script src="{% static 'js/alumnos-lista.js' %}" defer></script>
 {% endblock %}

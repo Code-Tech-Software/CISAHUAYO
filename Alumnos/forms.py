@@ -1,7 +1,7 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
-from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.utils import timezone
 
 from .academico import ciclo_actual as ciclo_activo, motivo_no_inscribible
@@ -595,6 +595,38 @@ class InscribirForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.ModelForm):
 
 
 # ---------------------------------------------------------------------------
+# Acciones en lote desde la tabla (Alumnos/lote.py)
+# ---------------------------------------------------------------------------
+class LoteGrupoForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.Form):
+    """Inscribir a los elegidos o cambiarlos de grupo: el ciclo (el actual o uno próximo), el grado y el grupo."""
+
+    ciclo = CicloChoiceField(CicloEscolar.objects.none(), label='Ciclo escolar', empty_label='Selecciona un ciclo')
+    grado = GradoChoiceField(Grado.objects.none(), label='Grado', empty_label='Selecciona un grado')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import q_ciclo
+        self.fields['ciclo'].queryset = CicloEscolar.objects.filter(q_ciclo('VIGENTE')).order_by('fecha_inicio')
+        self.fields['grado'].queryset = grados_disponibles()
+        self.agregar_campo_grupo()
+        if not self.is_bound:
+            self.fields['ciclo'].initial = ciclo_activo()
+        self.aplicar_estilo()
+
+    def clean(self):
+        return self.limpiar_grupo(super().clean())
+
+
+class LoteEstatusForm(EstiloCamposMixin, forms.Form):
+    estatus = forms.ChoiceField(label='Nuevo estatus', choices=[(v, e) for v, e in Alumno.ESTATUS_CHOICES if v != 'BAJA'],
+                                help_text='Para dar de baja, usa la acción de cada estudiante.')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+
+# ---------------------------------------------------------------------------
 # Listado: filtros
 # ---------------------------------------------------------------------------
 class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
@@ -629,18 +661,50 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
         ('sin_inscripcion', 'Sin inscripción en el ciclo actual'),
         ('sin_tutor', 'Sin tutor activo'),
     ]
+    # Los de «Más filtros» (2026-10-28)
+    DATOS_CHOICES = [
+        ('', 'Cualquier dato'),
+        ('sin_foto', 'Sin fotografía'),
+        ('curp_invalida', 'CURP que falta o no es válida'),
+        ('sin_tarjeta', 'Sin tarjeta de entrada'),
+        ('con_alergias', 'Con alergias registradas'),
+    ]
+    PORTAL_CHOICES = [
+        ('', 'Cualquier acceso al portal'),
+        ('sin_acceso', 'El estudiante no tiene acceso'),
+        ('nunca_entro', 'El estudiante nunca ha entrado'),
+        ('tutor_nunca', 'Ningún tutor ha entrado'),
+    ]
+    MAS_FILTROS = ('situacion', 'sexo', 'datos', 'atencion', 'ingreso', 'portal')
 
     q = forms.CharField(required=False, label='Buscar', widget=forms.TextInput(attrs={
-        'type': 'search', 'placeholder': 'Nombre, referencia, CURP o tutor…', 'autocomplete': 'off',
+        'type': 'search', 'placeholder': 'Nombre, referencia, CURP, tutor o su teléfono…', 'autocomplete': 'off',
     }))
     estatus = forms.ChoiceField(required=False, choices=[('', 'Todos'), *Alumno.ESTATUS_CHOICES], label='Estatus')
+    nivel = forms.ChoiceField(required=False, choices=[('', 'Todos los niveles'), *Grado.NIVEL_CHOICES], label='Nivel')
     grado = GradoEquivalenteChoiceField(Grado.objects.academicos(), required=False, empty_label='Todos los grados', label='Grado actual')
+    grupo = forms.ModelChoiceField(Grupo.objects.none(), required=False, empty_label='Todos los grupos', label='Grupo')
     situacion = forms.ChoiceField(required=False, choices=SITUACION_CHOICES, label='Situación')
+    sexo = forms.ChoiceField(required=False, choices=[('', 'Cualquier sexo'), *Alumno.SEXO_CHOICES], label='Sexo')
+    datos = forms.ChoiceField(required=False, choices=DATOS_CHOICES, label='Datos')
+    atencion = forms.ChoiceField(required=False, choices=[('', 'Con o sin alertas'), ('si', 'Requieren atención')], label='Atención')
+    ingreso = forms.ChoiceField(required=False, choices=[('', 'Cualquier ingreso'), ('nuevo', 'Nuevo ingreso (este ciclo)')], label='Ingreso')
+    portal = forms.ChoiceField(required=False, choices=PORTAL_CHOICES, label='Portal')
     orden = forms.ChoiceField(required=False, choices=ORDEN_CHOICES, label='Ordenar por')
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, usuario=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.usuario = usuario
+        self.fields['grupo'].queryset = grupos_disponibles()
+        self.fields['grupo'].label_from_instance = lambda grupo: f'{grupo.nombre_equivalente} · {grupo.grado.get_nivel_display()}'
+        # «Requieren atención» es la lista del panel de control: solo con permiso de asistencia o de calificaciones
+        if usuario is None or not self._ve_alertas():
+            del self.fields['atencion']
         self.aplicar_estilo()
+
+    def _ve_alertas(self):
+        from Calificaciones.reglas import ve_todas
+        return self.usuario.has_perm('Alumnos.view_asistenciageneral') or ve_todas(self.usuario)
 
     @property
     def activos(self):
@@ -648,22 +712,43 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
         self.is_valid()
         return {k: v for k, v in getattr(self, 'cleaned_data', {}).items() if v}
 
-    def filtrar(self, queryset):
-        datos = self.activos
+    @property
+    def mas_activos(self):
+        """Cuántos de «Más filtros» se están usando (abre el panel y lo dice en su botón)."""
+        return sum(1 for clave in self.MAS_FILTROS if self.activos.get(clave))
 
-        for palabra in datos.get('q', '').split():
-            queryset = queryset.filter(
-                Q(nombre__icontains=palabra)
-                | Q(apellido_paterno__icontains=palabra)
-                | Q(apellido_materno__icontains=palabra)
-                | Q(referencia__icontains=palabra)
-                | Q(curp__icontains=palabra)
-                | Q(uid__icontains=palabra)
-                | Q(correo_electronico__icontains=palabra)
-                | Q(tutores_relacionados__tutor__nombre__icontains=palabra)
-                | Q(tutores_relacionados__tutor__apellido_paterno__icontains=palabra)
-                | Q(tutores_relacionados__tutor__apellido_materno__icontains=palabra)
-            )
+    @staticmethod
+    def _por_palabra(palabra):
+        condicion = (
+            Q(nombre__icontains=palabra)
+            | Q(apellido_paterno__icontains=palabra)
+            | Q(apellido_materno__icontains=palabra)
+            | Q(referencia__icontains=palabra)
+            | Q(curp__icontains=palabra)
+            | Q(uid__icontains=palabra)
+            | Q(correo_electronico__icontains=palabra)
+            | Q(tutores_relacionados__tutor__nombre__icontains=palabra)
+            | Q(tutores_relacionados__tutor__apellido_paterno__icontains=palabra)
+            | Q(tutores_relacionados__tutor__apellido_materno__icontains=palabra)
+        )
+        digitos = ''.join(c for c in palabra if c.isdigit())
+        if len(digitos) >= 4:   # el teléfono del tutor (como se escriba: «353 111 2233» o «3531112233»)
+            condicion |= (Q(tutores_relacionados__tutor__telefono__icontains=digitos)
+                          | Q(tutores_relacionados__tutor__telefono_alternativo__icontains=digitos))
+        return condicion
+
+    def filtrar(self, queryset, sin=()):
+        """Los estudiantes con los filtros (sin los de `sin`: los contadores por nivel y grupo no se filtran a sí mismos)."""
+        datos = {clave: valor for clave, valor in self.activos.items() if clave not in sin}
+
+        texto = datos.get('q', '')
+        digitos = ''.join(c for c in texto if c.isdigit())
+        if texto and len(digitos) >= 4 and all(c.isdigit() or c in ' -().+' for c in texto):
+            # Un teléfono escrito con espacios o guiones («353 111 2233»): se busca completo, no palabra por palabra
+            queryset = queryset.filter(self._por_palabra(digitos))
+        else:
+            for palabra in texto.split():
+                queryset = queryset.filter(self._por_palabra(palabra))
 
         if datos.get('estatus'):
             queryset = queryset.filter(estatus=datos['estatus'])
@@ -671,8 +756,22 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
             queryset = queryset.exclude(estatus='BAJA')  # las bajas se consultan en su propio filtro
 
         inscrito_actual = Q(inscripciones__activa=True, inscripciones__ciclo__activo=True)
+        if datos.get('nivel'):
+            queryset = queryset.filter(inscrito_actual, inscripciones__grado__nivel=datos['nivel'])
         if datos.get('grado'):
             queryset = queryset.filter(inscrito_actual, inscripciones__grado=datos['grado'])
+        if datos.get('grupo'):
+            queryset = queryset.filter(inscrito_actual, inscripciones__grupo=datos['grupo'])
+        if datos.get('sexo'):
+            queryset = queryset.filter(sexo=datos['sexo'])
+        queryset = self._por_datos(queryset, datos.get('datos'))
+        if datos.get('atencion') and self.usuario is not None:
+            from .tabla import alertas_de_seguimiento
+            queryset = queryset.filter(pk__in=list(alertas_de_seguimiento(self.usuario)))
+        if datos.get('ingreso') == 'nuevo':
+            ciclo = ciclo_activo()
+            queryset = queryset.filter(fecha_ingreso__gte=ciclo.fecha_inicio) if ciclo else queryset.none()
+        queryset = self._por_portal(queryset, datos.get('portal'))
 
         situacion = datos.get('situacion')
         if situacion == 'inscritos':
@@ -688,6 +787,31 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
         if orden in ('grado', '-grado'):
             return self._por_grado(queryset.distinct(), descendente=orden == '-grado')
         return queryset.distinct().order_by(*self.ORDENES[orden])
+
+    @staticmethod
+    def _por_datos(queryset, valor):
+        from .utils import CURP_RE
+        if valor == 'sin_foto':
+            return queryset.filter(Q(fotografia='') | Q(fotografia__isnull=True))
+        if valor == 'curp_invalida':
+            return queryset.exclude(curp__regex=CURP_RE.pattern)
+        if valor == 'sin_tarjeta':
+            return queryset.filter(Q(uid__isnull=True) | Q(uid=''))
+        if valor == 'con_alergias':
+            return queryset.exclude(alergias__regex=r'^\s*$')
+        return queryset
+
+    @staticmethod
+    def _por_portal(queryset, valor):
+        sin_correo = Q(correo_electronico__isnull=True) | Q(correo_electronico='')
+        if valor == 'sin_acceso':
+            return queryset.filter(Q(acceso_portal=False) | sin_correo)
+        if valor == 'nunca_entro':
+            return queryset.filter(acceso_portal=True, ultimo_acceso__isnull=True).exclude(sin_correo)
+        if valor == 'tutor_nunca':
+            entraron = TutorAlumno.objects.filter(alumno=OuterRef('pk'), activo=True, tutor__estatus='ACTIVO', tutor__ultimo_acceso__isnull=False)
+            return queryset.filter(~Exists(entraron))
+        return queryset
 
     @staticmethod
     def _por_grado(queryset, descendente=False):

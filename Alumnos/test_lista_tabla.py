@@ -160,8 +160,10 @@ class TablaDeEstudiantesTests(BaseTestCase):
 
     # --- La equivalencia en la fila, en el filtro y en la exportación ------------------------------------------------
     def test_el_ciclo_no_se_repite_en_cada_fila(self):
-        respuesta = self.client.get(LISTA)
-        self.assertContains(respuesta, self.insc_ana.ciclo.nombre, count=1)   # solo en el encabezado de la página
+        html = self.client.get(LISTA).content.decode()
+        self.assertIn(f'Ciclo escolar {self.insc_ana.ciclo.nombre}', html)   # en el encabezado de la página
+        cuerpo = html[html.index('<tbody'):html.index('</tbody>')]
+        self.assertNotIn(self.insc_ana.ciclo.nombre, cuerpo)                 # y no en cada fila
 
     def test_el_filtro_de_grados_usa_la_equivalencia(self):
         html = self.client.get(LISTA).content.decode()

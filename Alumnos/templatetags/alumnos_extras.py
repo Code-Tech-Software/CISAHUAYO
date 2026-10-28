@@ -66,3 +66,9 @@ def grado_equivalente(inscripcion):
     if not inscripcion:
         return ''
     return inscripcion.grupo.nombre_equivalente if inscripcion.grupo_id else inscripcion.grado.nombre_equivalente
+
+
+@register.filter
+def portales_de_la_fila(alumno):
+    """[(«Estudiante», su Portal), («Tutor», el de su tutor principal o None)] para la columna «Portal» (Alumnos/columnas.py)."""
+    return [('Estudiante', getattr(alumno, 'portal_alumno', None)), ('Tutor', getattr(alumno, 'portal_tutor', None))]

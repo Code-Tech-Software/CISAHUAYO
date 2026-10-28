@@ -162,6 +162,18 @@ def _formulario(request, form=None, base=None, comunicado=None):
     return contexto
 
 
+def _desde_estudiantes(request):
+    """«Comunicado a sus tutores» desde la tabla de estudiantes (Alumnos/views.alumno_lote): el formulario abre con esos
+    tutores ya elegidos (se pueden cambiar). Al enviar se revisa el alcance de quien envía, como siempre."""
+    if request.GET.get('desde') != 'estudiantes':
+        return None
+    from Alumnos.views import SESION_COMUNICADO
+    tutores = [pk for pk in request.session.pop(SESION_COMUNICADO, None) or [] if isinstance(pk, int)]
+    if not tutores:
+        return None
+    return _Datos({'destinatarios': json.dumps({'tutores': tutores, 'estudiantes': [], 'profesores': [], 'personal': []})})
+
+
 def _categoria_pedida(request):
     categoria = request.GET.get('categoria', '')
     return categoria if categoria in dict(Comunicado.CATEGORIAS) else ''
@@ -286,7 +298,7 @@ def crear(request):
         return redirect('comunicados:inicio')
     base = _base_pedida(request)
     if request.method == 'GET':
-        return render(request, 'comunicados/crear.html', _formulario(request, base=base))
+        return render(request, 'comunicados/crear.html', _formulario(request, form=_desde_estudiantes(request), base=base))
 
     form = ComunicadoForm(request.POST, archivos=request.FILES.getlist('archivos'))
     rechazo = None

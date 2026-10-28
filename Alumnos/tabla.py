@@ -188,9 +188,9 @@ def senales_de(alumno, hoy, alerta=None, retiro=None, reunion=None):
     return senales
 
 
-def preparar_filas(usuario, alumnos):
-    """Pone en cada estudiante de la página sus señales y, si la cuenta puede consultar la asistencia, su asistencia de
-    hoy (`alumno.asistencia_hoy`). Devuelve si se muestra la columna de asistencia."""
+def preparar_filas(usuario, alumnos, con_asistencia=True):
+    """Pone en cada estudiante de la página sus señales y, si la cuenta puede consultar la asistencia (y se muestra la
+    columna: `con_asistencia`), su asistencia de hoy (`alumno.asistencia_hoy`). Devuelve si la cuenta ve la asistencia."""
     hoy = timezone.localdate()
     ve_asistencia = usuario.has_perm('Alumnos.view_asistenciageneral')
     if not alumnos:
@@ -198,7 +198,7 @@ def preparar_filas(usuario, alumnos):
     alertas = alertas_de_seguimiento(usuario)
     retiros = retiros_de_hoy(usuario, alumnos, hoy)
     reuniones = reuniones_proximas(usuario, alumnos, hoy)
-    asistencia = asistencia_de_hoy(alumnos, hoy) if ve_asistencia else {}
+    asistencia = asistencia_de_hoy(alumnos, hoy) if ve_asistencia and con_asistencia else {}
     for alumno in alumnos:
         alumno.senales = senales_de(alumno, hoy, alertas.get(alumno.pk), retiros.get(alumno.pk), reuniones.get(alumno.pk))
         alumno.asistencia_hoy = asistencia.get(alumno.pk)

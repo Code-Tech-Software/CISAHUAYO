@@ -1,0 +1,167 @@
+/* CISAHUAYO · la lista de estudiantes para imprimir (templates/alumnos/lista_hoja.html): carta vertical, un grupo por
+   página, con columnas en blanco para el pase de lista o las firmas. Las opciones de arriba no se imprimen. */
+@page {
+  size: letter portrait;
+  margin: 10mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: #fff;
+  color: #111827;
+  font: 12px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.opciones label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.opciones input[type="text"] {
+  width: 14rem;
+}
+
+.opciones input[type="number"] {
+  width: 4rem;
+}
+
+.opciones input,
+.opciones button {
+  padding: 5px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.opciones button {
+  background: #fff;
+  cursor: pointer;
+}
+
+.opciones .opciones__imprimir {
+  border-color: #1f5f66;
+  background: #1f5f66;
+  color: #fff;
+  font-weight: 600;
+}
+
+.opciones a {
+  color: #1f5f66;
+}
+
+.hoja + .hoja {
+  margin-top: 24px;
+  break-before: page;
+}
+
+.hoja__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hoja__logo {
+  width: 40px;
+  height: 40px;
+}
+
+.hoja__colegio,
+.hoja__grupo {
+  margin: 0;
+  color: #4b5563;
+  font-size: 11px;
+}
+
+.hoja__titulo {
+  margin: 0;
+  font-size: 19px;
+}
+
+.hoja__fecha {
+  margin: 0 0 0 auto;
+  color: #4b5563;
+}
+
+.hoja__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.hoja__tabla th,
+.hoja__tabla td {
+  height: 22px;
+  padding: 3px 5px;
+  border: 1px solid #9ca3af;
+  text-align: left;
+  vertical-align: middle;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hoja__tabla th {
+  background: #f3f4f6;
+  font-size: 11px;
+}
+
+.hoja__tabla tr {
+  break-inside: avoid;
+}
+
+.hoja__numero {
+  width: 2.2rem;
+  text-align: center !important;
+}
+
+.hoja__nombre {
+  width: 15rem;
+}
+
+.hoja__firma {
+  width: 8rem;
+}
+
+.hoja__pie {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 10px;
+  text-align: right;
+}
+
+.vacio {
+  color: #4b5563;
+}
+
+@media print {
+  body {
+    padding: 0;
+  }
+
+  .opciones {
+    display: none;
+  }
+
+  .hoja + .hoja {
+    margin-top: 0;
+  }
+}

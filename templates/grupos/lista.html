@@ -35,7 +35,7 @@
   </header>
 
   {% if ciclo %}
-    <p class="results-summary" role="status">{{ total_grupos }} grupo{{ total_grupos|pluralize }} · {{ total_inscritos }} estudiante{{ total_inscritos|pluralize }} inscrito{{ total_inscritos|pluralize }} en el ciclo {{ ciclo }}</p>
+    <p class="results-summary" role="status">{{ total_grupos }} grupo{{ total_grupos|pluralize }} · {{ total_inscritos }} estudiante{{ total_inscritos|pluralize }} inscrito{{ total_inscritos|pluralize }} en el ciclo {{ ciclo }}{% if de_grados_ocultos %} · {{ de_grados_ocultos }} de grados ocultos no se muestra{{ de_grados_ocultos|pluralize:"n" }}{% if perms.Alumnos.view_grado %} (<a href="{% url 'grados:lista' %}?visibilidad=ocultos">ver en Grados</a>){% endif %}{% endif %}</p>
   {% else %}
     <div class="alert alert--warning alert--spaced" role="note">
       {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}

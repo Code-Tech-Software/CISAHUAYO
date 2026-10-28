@@ -133,6 +133,7 @@
                             </optgroup>
                           {% endfor %}
                         </select>
+                        {% if fila.siguiente_oculto %}<p class="field__hint">{{ fila.siguiente_oculto.nombre_de_nivel }} está oculto: muéstralo en Grados para reinscribir ahí.</p>{% endif %}
                       </td>
                     </tr>
                   {% endfor %}

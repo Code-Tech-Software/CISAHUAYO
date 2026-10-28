@@ -24,6 +24,7 @@
           <h1 class="identity__name" id="perfil-nombre">{{ grado.nombre_de_nivel }}</h1>
           <p class="identity__line">
             <span class="tag tag--{{ tono }}">{{ grado.activo|yesno:"Activo,Dado de baja" }}</span>
+            {% if not grado.visible %}<span class="tag tag--warning">Oculto</span>{% endif %}
             {% if grado.equivalencia_frase %}<span title="Equivalencia en la continuidad escolar">{{ grado.equivalencia_frase }}</span>{% endif %}
             {% if ciclo %}
               <span class="text-muted">{{ total_inscritos }} estudiante{{ total_inscritos|pluralize }} en el ciclo {{ ciclo }}</span>
@@ -87,6 +88,10 @@
         <div class="identity__fact"><dt>Ciclo consultado</dt><dd>{{ ciclo|default:"—" }}</dd></div>
         <div class="identity__fact"><dt>Materias</dt><dd>{{ total_materias }}</dd></div>
         <div class="identity__fact">
+          <dt>Visible en el sistema</dt>
+          <dd>{% include "grados/_visibilidad.html" with en_detalle=True %}</dd>
+        </div>
+        <div class="identity__fact">
           <dt>Pasa a</dt>
           <dd>{% if siguiente %}<a href="{{ siguiente.get_absolute_url }}">{{ siguiente.nombre_de_nivel }}</a>{% else %}<span class="text-muted">Último grado</span>{% endif %}</dd>
         </div>
@@ -105,6 +110,13 @@
           <button type="submit" class="btn btn--sm">Reactivar grado</button>
         </form>
       {% endif %}
+    </div>
+  {% endif %}
+
+  {% if not grado.visible %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="eye-off" icon_class="alert__icon" %}
+      <p class="alert__body"><strong>Grado oculto.</strong> No se ofrece en ninguna lista, selector ni filtro del sitio, ni para inscribir. Sus grupos, inscripciones y registros se conservan y aquí se siguen consultando.</p>
     </div>
   {% endif %}
 
@@ -133,9 +145,9 @@
 
     {# --- Alumnos: los del grado, grupo por grupo ---------------------------------- #}
     <section class="tabs__panel" role="tabpanel" id="alumnos" aria-labelledby="tab-alumnos">
-      {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo or bajas_del_ciclo %}
+      {% if perms.Alumnos.add_inscripcion and puede_inscribir and ciclo or bajas_del_ciclo %}
         <div class="panel-actions">
-          {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo %}
+          {% if perms.Alumnos.add_inscripcion and puede_inscribir and ciclo %}
             <a class="btn btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>
               {% include "partials/icon.html" with name="user-plus" icon_class="icon--sm" %} Inscribir estudiante
             </a>
@@ -229,7 +241,7 @@
             <p class="empty-state__text">
               {% if ciclo %}Cuando inscribas estudiantes en {{ grado.nombre_de_nivel }}, aparecerán aquí como la lista del grado.{% else %}Crea un ciclo escolar para poder inscribir estudiantes.{% endif %}
             </p>
-            {% if perms.Alumnos.add_inscripcion and grado.activo and ciclo %}
+            {% if perms.Alumnos.add_inscripcion and puede_inscribir and ciclo %}
               <a class="btn btn--primary btn--sm" href="{% url 'inscripciones:crear' %}?ciclo={{ ciclo.pk }}&amp;grado={{ grado.pk }}" data-modal-form>Inscribir estudiante</a>
             {% endif %}
           </div>
@@ -500,4 +512,5 @@
 {% block extra_js %}
   <script src="{% static 'js/materias.js' %}" defer></script>
   <script src="{% static 'js/profesores.js' %}" defer></script>
+  <script src="{% static 'js/grados-visibilidad.js' %}" defer></script>
 {% endblock %}

@@ -274,7 +274,7 @@ class RecreoCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.ciclo = ciclo
         self.recreos_pedidos = []   # (día, inicio, fin) de cada día marcado, ya validados
-        self.fields['grupos'].queryset = Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre').academicos()
+        self.fields['grupos'].queryset = Grupo.objects.disponibles().select_related('grado', 'nombre').academicos()
         self.agregar_horas_por_dia()
         self.aplicar_estilo()
         for campo in ('grupos', 'dias'):

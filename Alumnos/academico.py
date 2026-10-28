@@ -78,10 +78,10 @@ def materias_por_asignar(grado, ciclo):
 
 
 def grados_por_asignar(materia, ciclo):
-    """Grados activos que todavía no imparten (de forma vigente) la materia en el ciclo, en orden escolar: solo el
-    suyo (una materia la imparte un solo grado) o, si todavía no tiene, cualquiera."""
+    """Grados disponibles (activos y visibles) que todavía no imparten (de forma vigente) la materia en el ciclo, en
+    orden escolar: solo el suyo (una materia la imparte un solo grado) o, si todavía no tiene, cualquiera."""
     vigentes = MateriaGrado.objects.filter(ciclo=ciclo, materia=materia, activa=True).values('grado_id')
-    grados = Grado.objects.filter(activo=True).exclude(pk__in=vigentes)
+    grados = Grado.objects.disponibles().exclude(pk__in=vigentes)
     if materia.grado_id:
         grados = grados.filter(pk=materia.grado_id)
     return grados.academicos()

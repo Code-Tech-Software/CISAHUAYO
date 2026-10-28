@@ -334,7 +334,7 @@ def asignar(request):
         return redirect(destino)
 
     materias = list(Materia.objects.filter(pk__in=solo_numeros(request.POST.getlist('materia')), activa=True))
-    grados = list(Grado.objects.filter(pk__in=solo_numeros(request.POST.getlist('grado')), activo=True))
+    grados = list(Grado.objects.disponibles().filter(pk__in=solo_numeros(request.POST.getlist('grado'))))   # ni de baja ni ocultos
     if not materias or not grados:
         messages.error(request, 'Elige al menos una materia y un grado.')
         return redirect(destino)

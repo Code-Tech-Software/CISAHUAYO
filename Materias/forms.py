@@ -9,7 +9,7 @@ from django.utils.functional import cached_property
 from Alumnos.academico import asegurar_en_el_plan, motivo_para_no_cambiar_de_grado, pasar_al_grado
 from Alumnos.docentes import mensaje_fuera_de_nivel
 from Alumnos.forms import CicloChoiceField, EstiloCamposMixin
-from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Profesor, orden_de_nivel
+from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Profesor, orden_de_nivel, q_grado_disponible
 from Alumnos.utils import compactar_espacios
 
 from .claves import clave_sugerida
@@ -72,10 +72,11 @@ class MateriaForm(EstiloCamposMixin, forms.ModelForm):
         self.profesores_quitados = []   # al pasar a otro grado, los que no dan clases en su nivel
         self.pide_confirmacion = False  # se eligió el grado pero no el profesor, y falta confirmarlo
 
-        # El grado que la imparte: uno solo. Al editar se ofrece también el suyo aunque esté dado de baja.
-        grados = Grado.objects.filter(activo=True)
+        # El grado que la imparte: uno solo, de los disponibles (activos y visibles). Al editar se ofrece también el suyo
+        # aunque esté dado de baja u oculto (se conserva al guardar otros cambios).
+        grados = Grado.objects.disponibles()
         if self.instance.grado_id:
-            grados = Grado.objects.filter(Q(activo=True) | Q(pk=self.instance.grado_id))
+            grados = Grado.objects.filter(q_grado_disponible() | Q(pk=self.instance.grado_id))
         campo = self.fields['grado']
         campo.queryset = grados.academicos()
         campo.empty_label = None
@@ -88,7 +89,7 @@ class MateriaForm(EstiloCamposMixin, forms.ModelForm):
             if ciclo is None:
                 self.motivo_sin_plan = 'No hay un ciclo escolar actual'
             elif not self.hay_grados:
-                self.motivo_sin_plan = 'Todavía no hay grados activos'
+                self.motivo_sin_plan = 'Todavía no hay grados activos y visibles'
         self.agrega_al_plan = self.creando and not self.motivo_sin_plan
         if self.agrega_al_plan:
             campo.help_text = f'Una materia la imparte un solo grado. Queda en su plan del ciclo {ciclo}.'
@@ -239,7 +240,7 @@ class FiltroMateriasForm(EstiloCamposMixin, forms.Form):
         # Los grados agrupados por nivel (<optgroup>), y al final las materias que todavía no tienen grado
         nombres = dict(Grado.NIVEL_CHOICES)
         grupos = {}
-        for grado in Grado.objects.academicos():
+        for grado in Grado.objects.visibles().academicos():
             grupos.setdefault(nombres[grado.nivel], []).append((str(grado.pk), str(grado) if grado.activo else f'{grado} (de baja)'))
         self.fields['grado'].choices = [('', 'Todos los grados'), *grupos.items(), ('SIN_GRADO', 'Sin grado')]
         if ciclo is None:

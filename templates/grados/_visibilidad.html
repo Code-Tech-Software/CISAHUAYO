@@ -1,0 +1,21 @@
+{% comment %}
+  «Visible en el sistema» de un grado (2026-10-28), en su tarjeta del listado y en su perfil: el interruptor para quien
+  puede cambiar grados (Grados/views.grado_visibilidad lo vuelve a revisar) y, para los demás, solo su estado. Apagado, el
+  grado no se ofrece en ninguna lista, selector ni filtro del sitio. static/js/grados-visibilidad.js lo guarda al
+  cambiarlo; sin JavaScript queda el botón «Guardar». Parámetros: grado, en_detalle (en el perfil).
+{% endcomment %}
+<div class="grado-visibilidad{% if en_detalle %} grado-visibilidad--detalle{% endif %}">
+  {% if perms.Alumnos.change_grado %}
+    <form class="grado-visibilidad__form" method="post" action="{% url 'grados:visibilidad' grado.pk %}" data-visibilidad>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <label class="grado-visibilidad__etiqueta">
+        <input class="switch" type="checkbox" role="switch" name="visible" value="1"{% if grado.visible %} checked{% endif %}
+               aria-label="Visible en el sistema: {{ grado.nombre_de_nivel }}">
+        <span{% if en_detalle %} class="visually-hidden"{% endif %}>Visible en el sistema</span>
+      </label>
+      <button type="submit" class="btn btn--sm" data-visibilidad-guardar>Guardar</button>
+    </form>
+  {% endif %}
+  <span class="tag tag--{{ grado.visible|yesno:'success,warning' }}">{{ grado.visible|yesno:'Visible,Oculto' }}</span>
+</div>

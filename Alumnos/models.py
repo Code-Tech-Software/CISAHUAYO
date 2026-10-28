@@ -275,10 +275,33 @@ def orden_de_nivel(campo='nivel'):
     )
 
 
+def q_grado_disponible(prefijo=''):
+    """La condición de un grado que se ofrece para algo nuevo (inscribir, armar el plan, elegirlo en un formulario): activo
+    (no dado de baja) y visible en el sistema (2026-10-28). `prefijo` es la ruta al grado desde otro modelo ('grado__',
+    'grupo__grado__').
+
+    Solo para las opciones: los registros que ya tienen el grado (inscripciones, calificaciones, historial) se consultan
+    sin ella y conservan su nombre aunque esté oculto.
+    """
+    return models.Q(**{f'{prefijo}activo': True, f'{prefijo}visible': True})
+
+
 class GradoQuerySet(models.QuerySet):
     def academicos(self):
         """Orden escolar: por nivel (preescolar a preparatoria) y, dentro de cada nivel, por número."""
         return self.order_by(orden_de_nivel(), 'numero')
+
+    def disponibles(self):
+        """Los que se pueden elegir para algo nuevo: activos y visibles (ver `q_grado_disponible`)."""
+        return self.filter(q_grado_disponible())
+
+    def visibles(self):
+        """Sin los ocultos: para los filtros que también ofrecen los dados de baja (para consultar su historial)."""
+        return self.filter(visible=True)
+
+    def niveles(self):
+        """Los niveles que tienen alguno de estos grados (un conjunto)."""
+        return set(self.order_by().values_list('nivel', flat=True).distinct())
 
 
 class Grado(models.Model):
@@ -291,6 +314,12 @@ class Grado(models.Model):
     nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, verbose_name='Nivel')
     numero = models.PositiveSmallIntegerField(verbose_name='Grado')
     activo = models.BooleanField(default=True, verbose_name='Activo')
+    # Mostrar u ocultar sin dar de baja (2026-10-28): en bachillerato, los grados del semestre A o los del B. Oculto, no
+    # se ofrece en ninguna lista, selector ni filtro del sitio, pero sus grupos, inscripciones y registros quedan intactos.
+    visible = models.BooleanField(
+        default=True, verbose_name='Visible en el sistema',
+        help_text='Oculto, no se ofrece como opción en ninguna parte del sitio; sus registros se conservan y se siguen consultando.',
+    )
     equivalencia = models.CharField(
         max_length=8, blank=True, default='', verbose_name='Equivalencia',
         help_text='Cómo se nombra el grado en la continuidad escolar, sin importar el nivel: un número (1.º de secundaria '
@@ -303,6 +332,11 @@ class Grado(models.Model):
         """Su nombre en todo el sitio: la equivalencia en la continuidad escolar («7.º», «K1»; pedido del 2026-10-20). Sin
         ninguna, el de su nivel («1.º Secundaria»)."""
         return self.nombre_equivalente
+
+    @property
+    def disponible(self):
+        """Se puede elegir para algo nuevo: activo y visible (ver `q_grado_disponible`)."""
+        return self.activo and self.visible
 
     @property
     def tiene_historial(self):
@@ -469,6 +503,10 @@ class GrupoQuerySet(models.QuerySet):
     def academicos(self):
         """Orden escolar: por nivel, por número de grado y por el orden del nombre (A, B…)."""
         return self.order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
+
+    def disponibles(self):
+        """Los que se pueden elegir para algo nuevo: activos y de un grado disponible (activo y visible)."""
+        return self.filter(q_grado_disponible('grado__'), activo=True)
 
 
 class Grupo(models.Model):

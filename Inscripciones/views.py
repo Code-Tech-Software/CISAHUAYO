@@ -225,11 +225,12 @@ def _plan_de_promocion(origen, destino):
     """Qué pasaría con los alumnos del ciclo de origen, grado por grado.
 
     Solo se reinscribe a quien tiene inscripción activa en el origen, sigue activo y todavía no tiene
-    inscripción en el destino. Devuelve (filas en orden escolar, grados activos disponibles).
+    inscripción en el destino. Devuelve (filas en orden escolar, grados de destino disponibles: activos y visibles).
     """
     grados = list(Grado.objects.academicos())
     posicion = {grado.pk: indice for indice, grado in enumerate(grados)}
     activos = [grado for grado in grados if grado.activo]
+    disponibles = [grado for grado in activos if grado.visible]
     ya_inscritos = set(Inscripcion.objects.filter(ciclo=destino).values_list('alumno_id', flat=True))
 
     filas = {}
@@ -248,10 +249,13 @@ def _plan_de_promocion(origen, destino):
 
     plan = sorted(filas.values(), key=lambda fila: posicion[fila['grado'].pk])
     for fila in plan:
+        # El siguiente se busca entre todos los activos (un oculto no se salta para proponer el que le sigue), pero solo
+        # se propone si está visible: a un grado oculto no se reinscribe (2026-10-28)
         siguiente = siguiente_grado(fila['grado'], activos)
         fila['cantidad'] = len(fila['alumnos'])
-        fila['sugerido'] = str(siguiente.pk) if siguiente else 'omitir'
-    return plan, activos
+        fila['sugerido'] = str(siguiente.pk) if siguiente and siguiente.visible else 'omitir'
+        fila['siguiente_oculto'] = siguiente if siguiente and not siguiente.visible else None
+    return plan, disponibles
 
 
 def _grupos_de_destino(activos):

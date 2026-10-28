@@ -21,7 +21,7 @@ from Alumnos.horarios import (
     minutos_por_profesor,
     minutos_semanales,
 )
-from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Profesor, ProfesorMateria, orden_de_nivel
+from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Profesor, ProfesorMateria, orden_de_nivel, q_grado_disponible
 from Alumnos.utils import ESTADOS_MX, proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
@@ -250,7 +250,7 @@ def profesor_detalle(request, pk):
     pendientes = []
     if ciclo and editable:
         sin_profesor = (
-            MateriaGrado.objects.filter(ciclo=ciclo, activa=True, profesor__isnull=True, materia__activa=True, grado__activo=True)
+            MateriaGrado.objects.filter(q_grado_disponible('grado__'), ciclo=ciclo, activa=True, profesor__isnull=True, materia__activa=True)
             .filter(grado__nivel__in=profesor.niveles.values('nivel'))
             .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')

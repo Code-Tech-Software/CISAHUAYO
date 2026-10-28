@@ -5,7 +5,7 @@ from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.utils import timezone
 
 from .academico import ciclo_actual as ciclo_activo, motivo_no_inscribible
-from .models import Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Tutor, TutorAlumno, orden_de_nivel
+from .models import Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Tutor, TutorAlumno, orden_de_nivel, q_grado_disponible
 from .utils import (
     CURP_RE,
     compactar_espacios as _compactar,
@@ -459,8 +459,9 @@ class GradoEquivalenteChoiceField(GradoChoiceField):
 
 
 def grados_disponibles(incluir=None):
-    """Grados que se pueden elegir al inscribir: los activos (y `incluir`, aunque ya no lo esté), en orden escolar."""
-    condicion = Q(activo=True)
+    """Grados que se pueden elegir al inscribir: los activos y visibles (y `incluir`, el que ya tiene lo que se edita,
+    aunque esté dado de baja u oculto: se conserva, pero no se ofrece para algo nuevo), en orden escolar."""
+    condicion = q_grado_disponible()
     if incluir is not None:
         condicion |= Q(pk=incluir.pk)
     return Grado.objects.filter(condicion).academicos()
@@ -488,8 +489,8 @@ class GrupoChoiceField(forms.ModelChoiceField):
 
 
 def grupos_disponibles(incluir=None):
-    """Grupos activos de grados activos (y `incluir`, aunque ya no lo esté), en orden escolar."""
-    condicion = Q(activo=True, grado__activo=True)
+    """Grupos activos de grados activos y visibles (y `incluir`, aunque ya no lo esté), en orden escolar."""
+    condicion = Q(q_grado_disponible('grado__'), activo=True)
     if incluir is not None:
         condicion |= Q(pk=incluir.pk)
     return Grupo.objects.filter(condicion).select_related('grado', 'nombre').academicos()
@@ -682,7 +683,7 @@ class FiltroAlumnosForm(EstiloCamposMixin, forms.Form):
     }))
     estatus = forms.ChoiceField(required=False, choices=[('', 'Todos'), *Alumno.ESTATUS_CHOICES], label='Estatus')
     nivel = forms.ChoiceField(required=False, choices=[('', 'Todos los niveles'), *Grado.NIVEL_CHOICES], label='Nivel')
-    grado = GradoEquivalenteChoiceField(Grado.objects.academicos(), required=False, empty_label='Todos los grados', label='Grado actual')
+    grado = GradoEquivalenteChoiceField(Grado.objects.visibles().academicos(), required=False, empty_label='Todos los grados', label='Grado actual')
     grupo = forms.ModelChoiceField(Grupo.objects.none(), required=False, empty_label='Todos los grupos', label='Grupo')
     situacion = forms.ChoiceField(required=False, choices=SITUACION_CHOICES, label='Situación')
     sexo = forms.ChoiceField(required=False, choices=[('', 'Cualquier sexo'), *Alumno.SEXO_CHOICES], label='Sexo')

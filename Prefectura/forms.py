@@ -38,8 +38,10 @@ class AlcanceForm(EstiloCamposMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Los grupos disponibles y los que ya tenía (aunque su grado esté oculto o de baja: no se pierden al guardar)
+        conservar = [pk for pk in self.initial.get('grupos') or [] if str(pk).isdigit()]
         self.fields['grupos'].queryset = (
-            Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre')
+            Grupo.objects.filter(Q(pk__in=Grupo.objects.disponibles()) | Q(pk__in=conservar)).select_related('grado', 'nombre')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
         )
         self.aplicar_estilo()

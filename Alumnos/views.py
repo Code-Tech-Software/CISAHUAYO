@@ -85,6 +85,8 @@ def _contadores(filtro):
     base = filtro.filtrar(Alumno.objects.all(), sin=('nivel', 'grado', 'grupo', 'orden'))
     vigentes = Inscripcion.objects.filter(activa=True, ciclo__activo=True, alumno__in=base.values('pk'))
     nombres = dict(Grado.NIVEL_CHOICES)
+    # Los contadores son filtros: los de un grado oculto no se ofrecen (sus estudiantes siguen en la tabla)
+    vigentes = vigentes.filter(grado__visible=True)
     por_nivel = dict(vigentes.values_list('grado__nivel').annotate(n=Count('alumno', distinct=True)))
     niveles = [(nivel, nombres.get(nivel, nivel), por_nivel[nivel]) for nivel in ORDEN_NIVELES if por_nivel.get(nivel)]
     nivel = filtro.activos.get('nivel')

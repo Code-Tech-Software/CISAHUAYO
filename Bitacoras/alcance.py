@@ -106,7 +106,8 @@ class Alcance:
         if self.propio and self.profesor is not None:
             condicion |= Q(pk__in=MateriaGrado.objects.filter(profesor=self.profesor).values('grupo'))
         condicion |= Q(pk__in=self.entradas(anuladas=True).values('grupo'))
-        return (Grupo.objects.filter(condicion).select_related('grado', 'nombre')
+        # Es un filtro: sin los grupos de grados ocultos (sus entradas se siguen viendo con «Todos mis grupos»)
+        return (Grupo.objects.filter(condicion, grado__visible=True).select_related('grado', 'nombre')
                 .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre'))
 
     def ve_estudiante(self, alumno):
@@ -135,7 +136,8 @@ class Alcance:
             condicion |= self.condicion(nivel='grado__nivel', grupo='grupo')
         if self.propio and self.profesor is not None:
             condicion |= Q(profesor=self.profesor)
-        return (MateriaGrado.objects.filter(condicion, ciclo=ciclo, activa=True, materia__activa=True)
+        # Una entrada nueva no se registra en un grado oculto (sus entradas anteriores se siguen consultando)
+        return (MateriaGrado.objects.filter(condicion, ciclo=ciclo, activa=True, materia__activa=True, grado__visible=True)
                 .select_related('materia', 'profesor', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado')
                 .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre'))
 

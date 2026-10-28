@@ -80,8 +80,8 @@ class Alcance:
         return grupo is not None and (grupo.pk in self.grupos or grupo.grado.nivel in self.niveles)
 
     def grupos_visibles(self):
-        """Los grupos activos del alcance, en orden escolar (para las listas de filtros)."""
-        grupos = Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre')
+        """Los grupos activos del alcance, de grados activos y visibles, en orden escolar (para las listas de filtros)."""
+        grupos = Grupo.objects.disponibles().select_related('grado', 'nombre')
         grupos = grupos.filter(self.condicion(nivel='grado__nivel', grupo='pk'))
         return grupos.order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
 

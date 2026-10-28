@@ -108,13 +108,19 @@ class Celda:
 # ---------------------------------------------------------------------------
 # Qué materias, qué periodo y qué días
 # ---------------------------------------------------------------------------
+def _sin_grados_ocultos(asignaciones, ciclo):
+    """En el ciclo actual o en uno próximo, sin las materias de los grados ocultos (2026-10-28: no se ofrecen para pasar
+    lista ni capturar mientras lo estén); en uno cerrado (historial), todas."""
+    return asignaciones if ciclo.estado == 'CERRADO' else asignaciones.filter(grado__visible=True)
+
+
 def asignaciones_del_profesor(profesor, ciclo=None):
     """Las materias (una por grupo) que el profesor imparte en el ciclo (el actual si no se indica)."""
     ciclo = ciclo or ciclo_actual()
     if profesor is None or ciclo is None:
         return MateriaGrado.objects.none()
     return (
-        MateriaGrado.objects.filter(profesor=profesor, ciclo=ciclo, activa=True, materia__activa=True)
+        _sin_grados_ocultos(MateriaGrado.objects.filter(profesor=profesor, ciclo=ciclo, activa=True, materia__activa=True), ciclo)
         .select_related('materia', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado')
         .order_by('materia__nombre', 'grupo__grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre')
     )
@@ -127,7 +133,7 @@ def asignaciones_del_ciclo(ciclo=None):
     if ciclo is None:
         return MateriaGrado.objects.none()
     return (
-        MateriaGrado.objects.filter(ciclo=ciclo, activa=True, materia__activa=True)
+        _sin_grados_ocultos(MateriaGrado.objects.filter(ciclo=ciclo, activa=True, materia__activa=True), ciclo)
         .select_related('materia', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado', 'profesor')
         .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')
     )

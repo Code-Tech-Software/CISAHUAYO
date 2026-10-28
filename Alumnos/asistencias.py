@@ -118,9 +118,9 @@ def niveles_sin_clases(fecha):
 
 
 def _niveles_del_colegio():
-    """Los niveles con grados activos (sin ninguno, los cuatro): un día es sin clases para todo el colegio cuando lo es
-    para todos ellos."""
-    return set(Grado.objects.filter(activo=True).values_list('nivel', flat=True)) or set(NIVELES)
+    """Los niveles con grados disponibles (activos y visibles; sin ninguno, los cuatro): un día es sin clases para todo
+    el colegio cuando lo es para todos ellos."""
+    return Grado.objects.disponibles().niveles() or set(NIVELES)
 
 
 def _de_todo_el_colegio(niveles):

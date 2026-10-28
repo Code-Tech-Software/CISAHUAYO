@@ -22,8 +22,8 @@ NOMBRES_DE_NIVEL = dict(Grado.NIVEL_CHOICES)
 
 
 def niveles_configurados():
-    """[(clave, nombre)] de los niveles con grados activos (sin ninguno, todos), en orden escolar."""
-    activos = set(Grado.objects.filter(activo=True).values_list('nivel', flat=True)) or set(NOMBRES_DE_NIVEL)
+    """[(clave, nombre)] de los niveles con grados disponibles (activos y visibles; sin ninguno, todos), en orden escolar."""
+    activos = Grado.objects.disponibles().niveles() or set(NOMBRES_DE_NIVEL)
     return [(nivel, NOMBRES_DE_NIVEL[nivel]) for nivel in ORDEN_NIVELES if nivel in activos]
 
 
@@ -152,9 +152,10 @@ def filtros_de(datos, hoy=None):
 
     ciclo = filtros.ciclo
     if ciclo is not None:
+        # Los de baja con inscritos en el ciclo, sí (su historial); los ocultos, nunca (2026-10-28)
         con_inscritos = Q(inscripciones__ciclo=ciclo)
-        filtros.grados = list(Grado.objects.filter(Q(activo=True) | con_inscritos).distinct().academicos())
-        filtros.grupos = list(Grupo.objects.filter(Q(activo=True, grado__activo=True) | con_inscritos)
+        filtros.grados = list(Grado.objects.filter(Q(activo=True) | con_inscritos, visible=True).distinct().academicos())
+        filtros.grupos = list(Grupo.objects.filter(Q(activo=True, grado__activo=True) | con_inscritos, grado__visible=True)
                               .select_related('grado', 'nombre').distinct().academicos())
         filtros.periodos = list(Periodo.objects.filter(ciclo=ciclo).order_by('fecha_inicio', 'nombre'))
     if filtros.nivel:

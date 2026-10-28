@@ -10,11 +10,13 @@ from django.utils import timezone
 from Alumnos.asistencias import NOMBRES_DE_NIVEL, dias_de_clases
 from Alumnos.models import (
     ORDEN_NIVELES, CicloEscolar, DiaNoLectivo, Grado, Grupo, HorarioMateria, Inscripcion, MateriaGrado, Periodo, Recreo,
+    q_grado_disponible,
 )
 
 
 def _grados_activos():
-    return list(Grado.objects.filter(activo=True).academicos())
+    """Los grados disponibles (activos y visibles)."""
+    return list(Grado.objects.disponibles().academicos())
 
 
 def _grupos_activos(grados):
@@ -38,12 +40,13 @@ def por_grado_y_grupo(ciclo):
             conteos[clave]['activas'] += fila['activas']
             conteos[clave]['bajas'] += fila['bajas']
 
+    # Los disponibles y los que tienen inscripciones en el ciclo (aunque estén de baja u ocultos: son su registro)
     con_inscripciones = {grado_id for grado_id, grupo_id in conteos if grupo_id is None}
-    grados = Grado.objects.filter(Q(activo=True) | Q(pk__in=con_inscripciones)).academicos()
+    grados = Grado.objects.filter(q_grado_disponible() | Q(pk__in=con_inscripciones)).academicos()
     grupos_inscritos = {grupo_id for _, grupo_id in conteos if grupo_id}
     grupos = defaultdict(list)
     for grupo in (
-        Grupo.objects.filter(Q(activo=True) | Q(pk__in=grupos_inscritos), grado__in=grados)
+        Grupo.objects.filter(Q(activo=True, grado__visible=True) | Q(pk__in=grupos_inscritos), grado__in=grados)
         .select_related('grado', 'nombre').order_by('nombre__orden', 'nombre__nombre')
     ):
         grupos[grupo.grado_id].append({'grupo': grupo, **conteos[(grupo.grado_id, grupo.pk)]})
@@ -59,10 +62,10 @@ def por_grado_y_grupo(ciclo):
 # Días de clase
 # ---------------------------------------------------------------------------
 def dias_de_clase_por_nivel(ciclo, hoy=None):
-    """Por nivel con grados activos: los días de clase del ciclo (sin días sin clases de ese nivel ni fines de semana
-    sin horario) y cuántos van hasta hoy."""
+    """Por nivel con grados disponibles (activos y visibles): los días de clase del ciclo (sin días sin clases de ese
+    nivel ni fines de semana sin horario) y cuántos van hasta hoy."""
     hoy = hoy or timezone.localdate()
-    niveles = set(Grado.objects.filter(activo=True).values_list('nivel', flat=True))
+    niveles = Grado.objects.disponibles().niveles()
     filas = []
     for nivel in ORDEN_NIVELES:
         if nivel not in niveles:

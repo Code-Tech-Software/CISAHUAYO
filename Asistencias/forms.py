@@ -25,8 +25,8 @@ from Alumnos.models import (
 
 
 def _grupos_vigentes():
-    """Los grupos activos de grados activos, en orden escolar (para los filtros por grupo)."""
-    return Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre').academicos()
+    """Los grupos activos de grados disponibles (activos y visibles), en orden escolar (para los filtros por grupo)."""
+    return Grupo.objects.disponibles().select_related('grado', 'nombre').academicos()
 
 FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
 HORA = forms.TimeInput(attrs={'type': 'time'}, format='%H:%M')
@@ -82,7 +82,7 @@ class FiltroDiaForm(EstiloCamposMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['grado'].queryset = Grado.objects.academicos()
+        self.fields['grado'].queryset = Grado.objects.visibles().academicos()
         self.fields['grupo'].queryset = _grupos_vigentes()
         self.aplicar_estilo()
 
@@ -363,7 +363,7 @@ class FiltroJustificacionesForm(EstiloCamposMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['grado'].queryset = Grado.objects.academicos()
+        self.fields['grado'].queryset = Grado.objects.visibles().academicos()
         self.aplicar_estilo()
 
     @property
@@ -412,7 +412,7 @@ class FiltroReporteForm(EstiloCamposMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['grado'].queryset = Grado.objects.academicos()
+        self.fields['grado'].queryset = Grado.objects.visibles().academicos()
         self.fields['grupo'].queryset = _grupos_vigentes()
         self.aplicar_estilo()
 

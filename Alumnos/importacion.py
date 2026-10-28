@@ -162,23 +162,23 @@ def _clave_de_grado(texto):
 
 
 class _Grados:
-    """Los grados y grupos activos, para reconocer «1.º Primaria», «1.º A Primaria», «primero de secundaria» o una
+    """Los grados y grupos disponibles (activos y visibles), para reconocer «1.º Primaria», «1.º A Primaria», «primero de secundaria» o una
     equivalencia («7», «K1»), también con el grupo («7.º A», «K1 B»: como lo exporta la tabla de estudiantes). La
     equivalencia es la guardada en Grados o, si no tiene, la habitual de su nivel. Devuelve el grupo: el que se escribió
     o, si el grado tiene uno solo, ese."""
 
     def __init__(self):
         self.indice = {}
-        for grado in Grado.objects.filter(activo=True):
+        for grado in Grado.objects.disponibles():
             nivel = clave_de_texto(grado.get_nivel_display())
             for clave in (f'{grado.numero} {nivel}', f'{nivel} {grado.numero}', f'{grado.numero}{nivel}'):
                 self.indice[clave] = grado
         # Primero las equivalencias guardadas y luego las habituales: una guardada nunca la tapa la habitual de otro grado
-        for grado in sorted(Grado.objects.filter(activo=True), key=lambda g: not g.equivalencia):
+        for grado in sorted(Grado.objects.disponibles(), key=lambda g: not g.equivalencia):
             if grado.equivalencia_efectiva:
                 self.indice.setdefault(clave_de_texto(grado.equivalencia_efectiva), grado)
         por_equivalencia = {}
-        for grupo in Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre'):
+        for grupo in Grupo.objects.disponibles().select_related('grado', 'nombre'):
             nivel, numero = clave_de_texto(grupo.grado.get_nivel_display()), grupo.grado.numero
             letra = clave_de_texto(grupo.nombre.nombre)
             for clave in (f'{numero} {letra} {nivel}', f'{numero} {nivel} {letra}', f'{nivel} {numero} {letra}'):

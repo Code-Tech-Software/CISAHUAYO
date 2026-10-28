@@ -151,7 +151,7 @@ def transferir(request):
         return redirect(destino_url)
 
     asignaciones = list(
-        asignaciones_vigentes(ciclo).filter(profesor=origen)
+        asignaciones_vigentes(ciclo, con_ocultos=True).filter(profesor=origen)
         .select_related('materia', 'grado', 'ciclo', 'profesor').prefetch_related('horarios')
     )
     if not asignaciones:

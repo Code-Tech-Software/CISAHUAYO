@@ -874,8 +874,9 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
         self.fields['ciclo'].queryset = CicloEscolar.objects.order_by('-fecha_inicio')
         self.fields['periodo'].queryset = Periodo.objects.select_related('ciclo').order_by('-ciclo__fecha_inicio', orden_de_nivel('nivel'), 'fecha_inicio')
         self.fields['periodo'].label_from_instance = lambda p: f'{p.nombre} · {p.get_nivel_display()} · {p.ciclo}'
-        self.fields['grado'].queryset = Grado.objects.academicos()
-        self.fields['grupo'].queryset = Grupo.objects.select_related('grado', 'nombre').order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
+        # Sin los grados ocultos (2026-10-28); los dados de baja sí, para consultar su historial
+        self.fields['grado'].queryset = Grado.objects.visibles().academicos()
+        self.fields['grupo'].queryset = Grupo.objects.filter(grado__visible=True).select_related('grado', 'nombre').order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
         if alcance is not None and not alcance.total:
             # Una cuenta de prefectura solo elige entre lo de su alcance (y el servidor solo le muestra eso)
             grupos = alcance.grupos_visibles()

@@ -95,6 +95,8 @@ def horario_lista(request):
         Grupo.objects.filter(Q(activo=True, grado__activo=True) | Q(pk__in=estadisticas))
         .select_related('grado', 'nombre').academicos()
     )
+    if not (ciclo and ciclo.estado == 'CERRADO'):
+        grupos = grupos.filter(grado__visible=True)   # los de grados ocultos, solo en el historial (2026-10-28)
     niveles = []
     for nivel, del_nivel in groupby(grupos, key=lambda grupo: grupo.grado.nivel):
         filas = []

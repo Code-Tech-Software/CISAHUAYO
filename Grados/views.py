@@ -27,8 +27,12 @@ from Alumnos.utils import proteger_celda_csv
 from Alumnos.vinculos import prefetch_vinculos_activos
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro
+from Usuarios.seguridad import ACCION_CAMBIO, registrar
 
 from .forms import GradoForm, NivelCompletoForm
+
+# El filtro de visibilidad del listado (2026-10-28): Todos · Visibles · Ocultos
+VISIBILIDADES = {'': None, 'visibles': True, 'ocultos': False}
 
 
 def _conteos(modelo, ciclo, contar='pk', **filtros):
@@ -85,6 +89,9 @@ def _pendientes_por_grado(ciclo):
 @requiere_permisos('Alumnos.view_grado')
 def grado_lista(request):
     viendo_bajas = request.GET.get('estado') == 'BAJA'
+    visibilidad = request.GET.get('visibilidad', '')
+    if visibilidad not in VISIBILIDADES:
+        visibilidad = ''
     ciclos = list(CicloEscolar.objects.all())
     pedido = request.GET.get('ciclo', '')
     # Sin elegir, el ciclo actual (mientras se prepara el próximo, se puede consultar ese)
@@ -94,7 +101,9 @@ def grado_lista(request):
     pendientes = {} if viendo_bajas else _pendientes_por_grado(ciclo)
     vigentes = {} if viendo_bajas else inscritos_vigentes_por_grado()
 
-    grados = Grado.objects.filter(activo=not viendo_bajas).academicos().prefetch_related(_grupos_activos())
+    del_estado = Grado.objects.filter(activo=not viendo_bajas)
+    grados = del_estado if VISIBILIDADES[visibilidad] is None else del_estado.filter(visible=VISIBILIDADES[visibilidad])
+    grados = grados.academicos().prefetch_related(_grupos_activos())
     niveles = []
     for nivel, del_nivel in groupby(grados, key=lambda grado: grado.nivel):
         filas = [
@@ -113,7 +122,14 @@ def grado_lista(request):
         })
 
     conteos = dict(Grado.objects.order_by().values_list('activo').annotate(total=Count('pk')))
+    por_visibilidad = dict(del_estado.order_by().values_list('visible').annotate(total=Count('pk')))
     return render(request, 'grados/lista.html', {
+        'visibilidad': visibilidad,
+        'visibilidades': [
+            ('', 'Todos', sum(por_visibilidad.values())),
+            ('visibles', 'Visibles', por_visibilidad.get(True, 0)),
+            ('ocultos', 'Ocultos', por_visibilidad.get(False, 0)),
+        ],
         'niveles': niveles,
         'ciclos': ciclos,
         'ciclo': ciclo,
@@ -293,6 +309,7 @@ def grado_detalle(request, pk):
         'varios_grupos': len(grupos) > 1,
         'horas_semanales': formatear_duracion(minutos) if minutos else '',
         'plan_editable': editable and grado.activo,
+        'puede_inscribir': grado.disponible,   # a un grado oculto o de baja no se inscribe
         'profesores_activos': list(Profesor.objects.filter(estatus='ACTIVO')) if editable and grado.activo else [],
         'sin_profesor': sum(1 for asignacion in materias_vigentes if not asignacion.profesor_id),
         'materias_por_asignar': list(materias_por_asignar(grado, ciclo)) if ciclo and editable and grado.activo else [],
@@ -355,6 +372,35 @@ def grado_reactivar(request, pk):
         for grupo in grado.grupos.filter(activo=True):
             extender_plan_al_grupo(grupo)   # vuelven sus materias suspendidas con la baja
         messages.success(request, f'El grado {grado.nombre_de_nivel} fue reactivado.')
+    return redirect(volver)
+
+
+# ---------------------------------------------------------------------------
+# Visible en el sistema (2026-10-28): mostrar u ocultar sin dar de baja
+# ---------------------------------------------------------------------------
+@require_POST
+@requiere_permisos('Alumnos.change_grado')
+def grado_visibilidad(request, pk):
+    """Muestra u oculta el grado (`visible`: '1' lo muestra; sin él, lo oculta: así funciona también el interruptor sin
+    JavaScript). Oculto, no se ofrece en ninguna lista, selector ni filtro del sitio; sus grupos, inscripciones,
+    calificaciones y demás registros quedan como estaban. Al mostrarlo vuelve a aparecer en todas partes."""
+    grado = get_object_or_404(Grado, pk=pk)
+    volver = destino_seguro(request, reverse('grados:lista'))
+    visible = request.POST.get('visible') == '1'
+    if grado.visible == visible:
+        messages.info(request, f'El grado {grado.nombre_de_nivel} ya estaba {"visible" if visible else "oculto"}.')
+        return redirect(volver)
+    grado.visible = visible
+    grado.save(update_fields=['visible'])
+    registrar(request.user, grado, ACCION_CAMBIO, 'Lo mostró en el sistema.' if visible else 'Lo ocultó del sistema.')
+    if visible:
+        messages.success(request, f'El grado {grado.nombre_de_nivel} vuelve a estar visible: aparece otra vez en todas las listas, selectores y filtros.')
+    else:
+        messages.success(
+            request,
+            f'El grado {grado.nombre_de_nivel} quedó oculto: ya no se ofrece en ninguna lista, selector ni filtro. '
+            'Sus grupos, inscripciones y registros se conservan; vuelve a mostrarlo desde el filtro «Ocultos».',
+        )
     return redirect(volver)
 
 

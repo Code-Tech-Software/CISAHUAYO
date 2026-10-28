@@ -32,20 +32,31 @@
     </div>
   </header>
 
-  {# Los grados dados de baja no se mezclan con los vigentes: tienen su propio filtro #}
-  <nav class="pills" aria-label="Filtrar por estatus">
-    <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% url 'grados:lista' %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>
-      Activos <span class="pill__count">{{ total_activos }}</span>
-    </a>
-    <a class="pill{% if viendo_bajas %} is-active{% endif %}" href="{% url 'grados:lista' %}?estado=BAJA"{% if viendo_bajas %} aria-current="true"{% endif %}>
-      Bajas <span class="pill__count">{{ total_bajas }}</span>
-    </a>
-  </nav>
+  <div class="grados-filtros">
+    {# Los grados dados de baja no se mezclan con los vigentes: tienen su propio filtro #}
+    <nav class="pills" aria-label="Filtrar por estatus">
+      <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% url 'grados:lista' %}{% if visibilidad %}?visibilidad={{ visibilidad }}{% endif %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>
+        Activos <span class="pill__count">{{ total_activos }}</span>
+      </a>
+      <a class="pill{% if viendo_bajas %} is-active{% endif %}" href="{% url 'grados:lista' %}?estado=BAJA{% if visibilidad %}&amp;visibilidad={{ visibilidad }}{% endif %}"{% if viendo_bajas %} aria-current="true"{% endif %}>
+        Bajas <span class="pill__count">{{ total_bajas }}</span>
+      </a>
+    </nav>
+    {# Visible en el sistema (2026-10-28): los ocultos solo se ven aquí, para volver a mostrarlos #}
+    <nav class="pills" aria-label="Filtrar por visibilidad en el sistema">
+      {% for clave, nombre, total in visibilidades %}
+        <a class="pill{% if visibilidad == clave %} is-active{% endif %}" href="{% if clave %}{% querystring visibilidad=clave %}{% else %}{% querystring visibilidad=None %}{% endif %}"{% if visibilidad == clave %} aria-current="true"{% endif %}>
+          {{ nombre }} <span class="pill__count">{{ total }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+  </div>
 
   {% if not viendo_bajas and niveles %}
     {% if ciclos|length > 1 %}
       {# Mientras se prepara el ciclo próximo, se consulta ese: inscritos, materias y lo que falta de cada grado #}
       <form class="toolbar" method="get" data-autosubmit>
+        {% if visibilidad %}<input type="hidden" name="visibilidad" value="{{ visibilidad }}">{% endif %}
         <label class="toolbar__label" for="selector-ciclo">Ciclo escolar</label>
         <select class="field__control field__control--select toolbar__select" id="selector-ciclo" name="ciclo">
           {% if not ciclo %}<option value="" selected>Elige un ciclo</option>{% endif %}
@@ -76,7 +87,7 @@
         {% for fila in nivel.filas %}
           <li>
             {# Siempre las mismas cuatro líneas (de una sola línea cada una): todas las tarjetas miden lo mismo #}
-            <article class="grade-card grade-card--acciones-arriba grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}">
+            <article class="grade-card grade-card--acciones-arriba grade-card--tone-{{ fila.grado.nivel|nivel_tono }}{% if not fila.grado.activo %} is-inactive{% endif %}{% if not fila.grado.visible %} is-oculto{% endif %}">
               <span class="grade-card__number" aria-hidden="true">{{ fila.grado.numero }}.º</span>
               <div class="grade-card__body">
                 <h3 class="grade-card__name grade-card__linea"><a class="grade-card__link" href="{{ fila.grado.get_absolute_url }}">{{ fila.grado.nombre_de_nivel }}</a></h3>
@@ -97,6 +108,7 @@
                     {% endif %}
                   </p>
                 {% endif %}
+                {% include "grados/_visibilidad.html" with grado=fila.grado %}
               </div>
               {% if perms.Alumnos.change_grado or perms.Alumnos.delete_grado and not viendo_bajas %}
                 <div class="grade-card__actions">
@@ -132,7 +144,13 @@
     <div class="table-card">
       <div class="empty-state">
         {% include "partials/icon.html" with name="layers" icon_class="icon--lg empty-state__icon" %}
-        {% if viendo_bajas %}
+        {% if visibilidad == 'ocultos' %}
+          <p class="empty-state__title">No hay grados ocultos{% if viendo_bajas %} entre los dados de baja{% endif %}</p>
+          <p class="empty-state__text">Con «Visible en el sistema» apagado, un grado deja de ofrecerse en todo el sitio sin darse de baja; aparecerá aquí para volver a mostrarlo.</p>
+        {% elif visibilidad == 'visibles' %}
+          <p class="empty-state__title">No hay grados visibles{% if viendo_bajas %} entre los dados de baja{% endif %}</p>
+          <p class="empty-state__text">Todos están ocultos: búscalos en el filtro «Ocultos» para volver a mostrarlos.</p>
+        {% elif viendo_bajas %}
           <p class="empty-state__title">No hay grados dados de baja</p>
           <p class="empty-state__text">Los grados que des de baja aparecerán aquí y podrás reactivarlos.</p>
         {% else %}
@@ -174,4 +192,5 @@
 
 {% block extra_js %}
   <script src="{% static 'js/baja-lista.js' %}" defer></script>
+  <script src="{% static 'js/grados-visibilidad.js' %}" defer></script>
 {% endblock %}

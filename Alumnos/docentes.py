@@ -136,9 +136,12 @@ def con_habilitados(asignaciones):
 # ---------------------------------------------------------------------------
 # Carga de trabajo
 # ---------------------------------------------------------------------------
-def asignaciones_vigentes(ciclo):
-    """Asignaciones del ciclo que de verdad se imparten: activas, de una materia y un grado vigentes."""
-    return MateriaGrado.objects.filter(ciclo=ciclo, activa=True, materia__activa=True, grado__activo=True)
+def asignaciones_vigentes(ciclo, con_ocultos=False):
+    """Asignaciones del ciclo que de verdad se imparten: activas, de una materia y un grado vigentes. Sin las de los
+    grados ocultos (no se ofrecen en el tablero ni cuentan en la carga mientras lo estén), salvo `con_ocultos` (pasarle
+    a otro profesor todas las materias de alguien: también las de esos grados)."""
+    asignaciones = MateriaGrado.objects.filter(ciclo=ciclo, activa=True, materia__activa=True, grado__activo=True)
+    return asignaciones if con_ocultos else asignaciones.filter(grado__visible=True)
 
 
 def estado_de_carga(minutos, total_materias, maximo_horas):

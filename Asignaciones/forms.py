@@ -32,7 +32,7 @@ class FiltroAsignacionesForm(EstiloCamposMixin, forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['grado'].queryset = Grado.objects.all().academicos()
+        self.fields['grado'].queryset = Grado.objects.visibles().academicos()
         self.fields['profesor'].queryset = Profesor.objects.all()
         self.aplicar_estilo()
 

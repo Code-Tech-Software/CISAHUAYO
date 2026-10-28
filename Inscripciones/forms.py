@@ -95,7 +95,7 @@ class FiltroInscripcionesForm(EstiloCamposMixin, forms.Form):
         'type': 'search', 'placeholder': 'Nombre, referencia o CURP del estudiante…', 'autocomplete': 'off',
     }))
     ciclo = CicloChoiceField(CicloEscolar.objects.all(), required=False, empty_label='Todos los ciclos', label='Ciclo escolar')
-    grado = GradoChoiceField(Grado.objects.academicos(), required=False, empty_label='Todos los grados', label='Grado')
+    grado = GradoChoiceField(Grado.objects.visibles().academicos(), required=False, empty_label='Todos los grados', label='Grado')
     estado = forms.ChoiceField(required=False, choices=[('', 'Activas'), ('BAJA', 'Bajas')], label='Estado')
     orden = forms.ChoiceField(required=False, choices=ORDEN_CHOICES, label='Ordenar por')
 

@@ -369,7 +369,8 @@ class Alcance:
         con_estudiantes = {grupo for _, grupo in detalles.values() if grupo}
         asignaciones = [a for propias in clases.values() for a in propias]
         con_profesor = {a.grupo_id for a in asignaciones}
-        grupos = Grupo.objects.filter(pk__in=con_estudiantes | con_profesor).select_related('grado', 'nombre').order_by(
+        # Sin los grupos de grados ocultos (2026-10-28): sus personas siguen en la lista, para elegirlas una por una
+        grupos = Grupo.objects.filter(pk__in=con_estudiantes | con_profesor, grado__visible=True).select_related('grado', 'nombre').order_by(
             orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre')
         materias = {}
         ciclo = self.ciclo()

@@ -162,7 +162,7 @@ class EventoExterno:
 # ---------------------------------------------------------------------------
 def _niveles_del_colegio():
     from Alumnos.models import Grado
-    return set(Grado.objects.filter(activo=True).values_list('nivel', flat=True)) or set(ORDEN_NIVELES)
+    return Grado.objects.disponibles().niveles() or set(ORDEN_NIVELES)
 
 
 def _seguidos(anterior, siguiente):

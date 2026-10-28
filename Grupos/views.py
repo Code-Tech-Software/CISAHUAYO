@@ -34,7 +34,9 @@ def grupo_lista(request):
         materias = _conteo_por_grupo(plan)
         sin_profesor = _conteo_por_grupo(plan.filter(profesor__isnull=True))
 
-    grupos = Grupo.objects.filter(activo=True, grado__activo=True).select_related('grado', 'nombre').academicos()
+    grupos = Grupo.objects.disponibles().select_related('grado', 'nombre').academicos()
+    # Los de grados ocultos no se listan (2026-10-28): se consultan desde su grado, en Grados
+    de_grados_ocultos = Grupo.objects.filter(activo=True, grado__activo=True, grado__visible=False).count()
     niveles = []
     for nivel, del_nivel in groupby(grupos, key=lambda grupo: grupo.grado.nivel):
         filas = [
@@ -57,6 +59,7 @@ def grupo_lista(request):
         'ciclo': ciclo,
         'niveles': niveles,
         'total_grupos': sum(len(nivel['filas']) for nivel in niveles),
+        'de_grados_ocultos': de_grados_ocultos,
         'total_inscritos': sum(nivel['inscritos'] for nivel in niveles),
         'catalogo': list(catalogo),
     })

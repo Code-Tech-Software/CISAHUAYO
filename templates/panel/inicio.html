@@ -35,6 +35,8 @@
 
     {% include "ciclos/_aviso_cambio.html" %}
 
+    {% if con_agenda %}{% include "agenda/_proximos.html" %}{% endif %}
+
     {% if filtros.ciclo %}
       {% url 'inicio' as accion %}
       {% include "panel/_filtros.html" with accion=accion %}

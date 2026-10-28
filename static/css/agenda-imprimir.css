@@ -1,0 +1,157 @@
+/* CISAHUAYO · el mes de la agenda para imprimir (templates/agenda/imprimir.html): una hoja horizontal, con los colores
+   de cada evento (se imprimen aunque el navegador quite los fondos) y sin menús. */
+@page {
+  size: letter landscape;
+  margin: 10mm;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: #fff;
+  color: #111827;
+  font: 12px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.hoja__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hoja__logo {
+  width: 44px;
+  height: 44px;
+}
+
+.hoja__colegio {
+  margin: 0;
+  color: #4b5563;
+  font-size: 11px;
+}
+
+.hoja__titulo {
+  margin: 0;
+  font-size: 22px;
+}
+
+.hoja__filtro {
+  margin: 2px 0 0;
+  color: #4b5563;
+}
+
+.hoja__acciones {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.hoja__boton {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #2f737c;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hoja__volver {
+  color: #2f737c;
+}
+
+.hoja__mes {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.hoja__mes th {
+  padding: 4px;
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.hoja__mes td {
+  height: 88px;
+  padding: 3px;
+  border: 1px solid #d1d5db;
+  vertical-align: top;
+}
+
+.hoja__mes td.is-fuera {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.hoja__dia {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 700;
+}
+
+.hoja__evento {
+  display: block;
+  margin-bottom: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--color);
+  color: var(--texto);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.hoja__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hoja__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hoja__marca {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 2px;
+  background: var(--color);
+  vertical-align: -1px;
+}
+
+.hoja__fecha {
+  margin: 0;
+  color: #6b7280;
+  font-size: 10px;
+}
+
+@media print {
+  body {
+    padding: 0;
+  }
+
+  .hoja__acciones {
+    display: none;
+  }
+}

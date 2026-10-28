@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
-{% comment %}La confirmación antes de eliminar un evento (en una ventana sobre el calendario o como página).{% endcomment %}
+{% comment %}
+  La confirmación antes de eliminar un evento (en una ventana sobre el calendario o como página). Si es de una serie (se
+  repite), se elige si se elimina solo ese o ese y los siguientes. Queda en la Bitácora de cambios.
+{% endcomment %}
 
 {% block title %}Eliminar evento · Agenda | CISAHUAYO{% endblock %}
 
@@ -18,7 +21,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">¿Eliminar «{{ evento.titulo }}»?</h1>
-      <p class="page-header__description">Se quitará de la agenda de todos los que lo ven. Esta acción no se puede deshacer.</p>
+      <p class="page-header__description">Se quitará de la agenda de todos los que lo ven. No se puede deshacer, pero queda anotado en la Bitácora de cambios.</p>
     </div>
   </header>
 
@@ -29,6 +32,13 @@
       <div class="card__body">
         <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
         <p class="agenda-ficha__resumen"><strong>{{ evento.titulo }}</strong><br>{{ evento.texto_de_fechas }} · {{ evento.texto_de_horario }}</p>
+        {% if evento.serie %}
+          <fieldset class="agenda-serie">
+            <legend class="field__label">{{ evento.repeticion|default:"Este evento se repite" }}</legend>
+            <label class="choice choice--check"><input class="choice__input" type="radio" name="alcance" value="este" checked><span class="choice__box">Solo este</span></label>
+            <label class="choice choice--check"><input class="choice__input" type="radio" name="alcance" value="siguientes"><span class="choice__box">Este y los siguientes de la serie ({{ siguientes }} en total)</span></label>
+          </fieldset>
+        {% endif %}
       </div>
     </section>
     <div class="action-bar">

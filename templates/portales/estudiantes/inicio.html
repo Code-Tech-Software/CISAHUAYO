@@ -17,5 +17,7 @@
     </div>
   </header>
 
+  {% if con_agenda %}{% include "agenda/_proximos.html" %}{% endif %}
+
   {% include "portales/_estudiante.html" with quien="Tu" %}
 {% endblock %}

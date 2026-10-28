@@ -1,0 +1,18 @@
+{% comment %}
+  Un evento en las listas de la agenda (la del mes en el teléfono, la semana, los próximos y la búsqueda). Abre su ventana
+  de detalle (static/js/agenda.js) o, si es de otro módulo con su propia página (un comunicado, una reunión), esa página.
+  Parámetros: evento, url_calendario, volver y con_fecha (en la búsqueda, también su fecha).
+{% endcomment %}
+<li>
+  <a class="agenda-tarjeta" href="{% if evento.url_propia %}{{ evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+    <span class="agenda-tarjeta__titulo">
+      {% if evento.tipo or evento.es_externo %}<span class="agenda-tarjeta__icono" aria-hidden="true">{% include "partials/icon.html" with name=evento.icono icon_class="icon--sm" %}</span>{% endif %}
+      {{ evento.titulo }}
+      {% if evento.importante %}<span class="agenda-tarjeta__importante" title="Se recordará un día antes">{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %}<span class="visually-hidden">Importante</span></span>{% endif %}
+    </span>
+    <span class="agenda-tarjeta__datos">
+      <span class="agenda-etiqueta">{{ evento.nombre_alcance }}</span>
+      {% if con_fecha or evento.varios_dias %}{{ evento.texto_de_fechas }} · {% endif %}{{ evento.texto_de_horario }}{% if evento.lugar %} · {{ evento.lugar }}{% endif %}
+    </span>
+  </a>
+</li>

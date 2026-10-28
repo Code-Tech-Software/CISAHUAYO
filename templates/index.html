@@ -26,6 +26,8 @@
     </div>
   </section>
 
+  {% if con_agenda %}{% include "agenda/_proximos.html" %}{% endif %}
+
   <h2 class="section-title">Accesos rápidos</h2>
   <div class="tile-grid">
     {% for seccion in navegacion %}

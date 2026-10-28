@@ -46,7 +46,8 @@ def contraste(fondo, texto):
 
 
 def ids_del_mes(respuesta):
-    return [dato['id'] for dato in respuesta.context['datos_eventos']]
+    """Los eventos propios de la agenda del mes (sin los de otros módulos: días sin clases, comunicados, reuniones…)."""
+    return [int(dato['id']) for dato in respuesta.context['datos_eventos'] if dato['id'].isdigit()]
 
 
 # ---------------------------------------------------------------------------

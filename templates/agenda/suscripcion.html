@@ -1,0 +1,70 @@
+{% extends base %}
+{% load static %}
+{% comment %}
+  «En mi teléfono» (Agenda/views.suscripcion): el enlace secreto con que el calendario del teléfono (Google, iPhone,
+  Outlook) se suscribe a la agenda de esta persona y se actualiza solo; cómo agregarlo y «Generar un enlace nuevo» (el
+  anterior deja de funcionar). En el sistema y en los portales.
+{% endcomment %}
+
+{% block title %}Agenda en mi teléfono | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/agenda.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
+  {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ url_calendario }}">Agenda</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">En mi teléfono</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">La agenda en tu teléfono</h1>
+      <p class="page-header__description">Suscribe el calendario de tu teléfono o de tu computadora a tu agenda del colegio: los eventos, los días sin clases y lo demás que ves aquí aparecen ahí solos y se actualizan cuando algo cambia (el teléfono lo vuelve a revisar cada pocas horas).</p>
+    </div>
+  </header>
+
+  <div class="info-grid agenda-suscripcion">
+    <section class="card" aria-labelledby="titulo-enlace">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="link" %}<h2 class="card__title" id="titulo-enlace">Tu enlace</h2>
+      </header>
+      <div class="card__body">
+        <div class="agenda-suscripcion__enlace">
+          <input class="field__control" type="text" value="{{ enlace }}" readonly aria-label="Tu enlace para suscribirte" id="enlace-agenda">
+          <button type="button" class="btn btn--primary" data-copy="#enlace-agenda">{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Copiar</button>
+        </div>
+        <p class="agenda-suscripcion__boton"><a class="btn" href="{{ webcal }}">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} Abrir en el calendario de este equipo</a></p>
+        <p class="field__hint">Es personal: quien lo tenga puede ver tu agenda. No lo compartas.{% if suscripcion.usada_en %} Tu calendario lo leyó por última vez el {{ suscripcion.usada_en|date:"j b Y, H:i" }}.{% endif %}</p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-como">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="info" %}<h2 class="card__title" id="titulo-como">Cómo agregarlo</h2>
+      </header>
+      <div class="card__body agenda-suscripcion__pasos">
+        <p><strong>iPhone o iPad:</strong> toca «Abrir en el calendario de este equipo» y luego «Suscribirse». O en Ajustes › Calendario › Cuentas › Añadir cuenta › Otra › Añadir calendario suscrito, pega el enlace.</p>
+        <p><strong>Google Calendar (Android o computadora):</strong> en calendar.google.com, junto a «Otros calendarios» toca «+» › «Desde URL», pega el enlace y toca «Añadir calendario». En el teléfono aparece solo.</p>
+        <p><strong>Outlook:</strong> Agregar calendario › Suscribirse desde la web, y pega el enlace.</p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-nuevo">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="refresh-cw" %}<h2 class="card__title" id="titulo-nuevo">¿Lo compartiste por error?</h2>
+      </header>
+      <div class="card__body">
+        <p>Genera un enlace nuevo: el anterior deja de funcionar en todos los calendarios que lo usaban y tendrás que volver a suscribirte con el nuevo.</p>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn--danger-text">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Generar un enlace nuevo</button>
+        </form>
+      </div>
+    </section>
+  </div>
+{% endblock %}

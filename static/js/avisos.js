@@ -55,14 +55,16 @@
   /* ------------------------------------------------------------------ contadores */
   /* El número de la campana: mensajes, comunicados, avisos de retiros y de reuniones sin leer (static/js/reuniones-avisos.js
      pone los suyos en data-reuniones-sin-leer), en el portal de tutores, los avisos de asistencia (data-asistencia-sin-leer:
-     llegan al cerrar el día, sin tiempo real) y, para quien modera, los mensajes reportados (data-reportados-pendientes) */
+     llegan al cerrar el día, sin tiempo real), los recordatorios de la agenda (data-agenda-sin-ver: los eventos importantes
+     de hoy y mañana, al cargar la página) y, para quien modera, los mensajes reportados (data-reportados-pendientes) */
   const pintarCampana = () => {
     const comunicados = Number(raiz.dataset.comunicadosSinLeer) || 0;
     const retiros = Number(raiz.dataset.retirosSinLeer) || 0;
     const reuniones = Number(raiz.dataset.reunionesSinLeer) || 0;
     const asistencia = Number(raiz.dataset.asistenciaSinLeer) || 0;
     const reportados = Number(raiz.dataset.reportadosPendientes) || 0;
-    const n = mensajes + comunicados + retiros + reuniones + asistencia + reportados;
+    const agenda = Number(raiz.dataset.agendaSinVer) || 0;
+    const n = mensajes + comunicados + retiros + reuniones + asistencia + reportados + agenda;
     if (total) {
       total.textContent = String(n);
       total.hidden = !n;
@@ -74,6 +76,7 @@
     if (reuniones) partes.push(`${reuniones} aviso${reuniones === 1 ? '' : 's'} de reuniones sin leer`);
     if (asistencia) partes.push(`${asistencia} aviso${asistencia === 1 ? '' : 's'} de asistencia sin leer`);
     if (reportados) partes.push(`${reportados} mensaje${reportados === 1 ? '' : 's'} reportado${reportados === 1 ? '' : 's'}`);
+    if (agenda) partes.push(`${agenda} recordatorio${agenda === 1 ? '' : 's'} de la agenda`);
     boton?.setAttribute('aria-label', ['Notificaciones', ...partes].join(', '));
     document.title = n ? `(${n}) ${tituloBase}` : tituloBase;
   };
@@ -97,8 +100,9 @@
     const deReuniones = raiz.querySelector('[data-reuniones-lista]');
     const deAsistencia = raiz.querySelector('[data-asistencia-lista]');
     const deReportados = raiz.querySelector('[data-reportados-lista]');
+    const deAgenda = raiz.querySelector('[data-agenda-lista]');
     vacio.hidden = Boolean(lista.children.length || deComunicados?.children.length || deRetiros?.children.length || deReuniones?.children.length
-      || deAsistencia?.children.length || deReportados?.children.length);
+      || deAsistencia?.children.length || deReportados?.children.length || deAgenda?.children.length);
   };
 
   /* Los comunicados cambiaron (static/js/comunicados-avisos.js): se vuelve a pintar el número y el estado vacío */

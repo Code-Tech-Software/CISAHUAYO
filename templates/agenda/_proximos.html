@@ -1,0 +1,28 @@
+{% load static %}{% comment %}
+  «Próximos eventos» en el inicio del sistema y de los portales (Agenda/reglas.proximos): lo que viene en las siguientes
+  dos semanas de la agenda de quien entra (eventos, días sin clases, comunicados con evento, reuniones…), con el día
+  («Hoy», «Mañana», «Jueves») y un enlace a la agenda. Parámetros: proximos y url_agenda.
+{% endcomment %}
+<section class="card proximos-agenda" aria-labelledby="proximos-agenda-titulo">
+  <header class="card__header card__header--icon proximos-agenda__cabeza">
+    {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="proximos-agenda-titulo">Próximos eventos</h2>
+    <a class="btn btn--ghost btn--sm proximos-agenda__ver" href="{{ url_agenda }}">Ver la agenda</a>
+  </header>
+  {% if proximos %}
+    <ul class="proximos-agenda__lista" role="list">
+      {% for item in proximos %}
+        {% with evento=item.evento %}
+          <li class="proximos-agenda__item" style="--color: {{ evento.color }}">
+            <span class="proximos-agenda__dia{% if item.dia == 'Hoy' %} is-hoy{% endif %}">{{ item.dia }}</span>
+            <a class="proximos-agenda__evento" href="{{ item.url }}">
+              <span class="proximos-agenda__titulo">{{ evento.titulo }}</span>
+              <span class="proximos-agenda__datos">{% if evento.varios_dias %}{{ evento.texto_de_fechas }} · {% endif %}{{ evento.texto_de_horario }}{% if evento.lugar %} · {{ evento.lugar }}{% endif %}</span>
+            </a>
+          </li>
+        {% endwith %}
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="proximos-agenda__nada">No hay nada en la agenda en las próximas dos semanas.</p>
+  {% endif %}
+</section>

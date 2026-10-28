@@ -123,8 +123,11 @@ def inicio(request):
     p = permisos_de(request.user)
     aviso_ciclo = _seguro(aviso_del_cambio_de_ciclo, request.user)
     aviso_ciclo = None if isinstance(aviso_ciclo, dict) and aviso_ciclo.get('error') else aviso_ciclo
+    from Agenda.fuentes import Persona
+    from Agenda.reglas import para_el_inicio
+    agenda = para_el_inicio(Persona(usuario=request.user))   # «Próximos eventos» (2026-10-27)
     if not any(p[c] for c in ('estudiantes', 'asistencia', 'calificaciones', 'conducta', 'retiros', 'comunicados')):
-        return render(request, 'index.html', {'aviso_ciclo': aviso_ciclo})
+        return render(request, 'index.html', {'aviso_ciclo': aviso_ciclo, **agenda})
 
     filtros = _filtros(request)
     datos = {'filtros': filtros, 'p': p, 'generado': timezone.localtime(), 'aviso_ciclo': aviso_ciclo}
@@ -159,7 +162,7 @@ def inicio(request):
             datos['periodos_de_seguimiento'] = [(NOMBRES_DE_NIVEL[n], ev) for n, ev in evaluaciones.items()]
         datos['actividad'] = _seguro(indicadores.actividad, request.user, filtros, p)
         datos['atencion'] = _atencion(filtros, p, datos)
-    datos.update(motivos=seguimiento.MOTIVOS, prioridades=seguimiento.PRIORIDADES)
+    datos.update(motivos=seguimiento.MOTIVOS, prioridades=seguimiento.PRIORIDADES, **agenda)
     return render(request, 'panel/inicio.html', datos)
 
 

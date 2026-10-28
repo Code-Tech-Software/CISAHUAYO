@@ -17,18 +17,15 @@
   consulta. El autor y el administrador conservan el histórico con sus estadísticas.
 - Gestionar: el administrador, todos; los demás, solo los suyos (pertenecer al mismo nivel no deja ver los de otros).
 """
-import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
-from html import unescape
+from datetime import timedelta
 
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from django.utils.html import escape, linebreaks
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 from Alumnos.models import ORDEN_NIVELES
@@ -122,33 +119,7 @@ def preparar_contenido(usuario, descripcion, html='', comunicado=None):
     return texto, limpio, imagenes
 
 
-_URL = re.compile(r'(?<![\w/@.])((?:https?://|www\.)[^\s<]+)', re.IGNORECASE)
-_COLA_DE_URL = '.,;:!?)]}\'"'
-
-
-def _enlace(coincidencia):
-    visible, cola = coincidencia.group(1), ''
-    while visible and visible[-1] in _COLA_DE_URL:
-        visible, cola = visible[:-1], visible[-1] + cola
-    direccion = enriquecido.limpiar_enlace(unescape(visible))
-    if not direccion:
-        return coincidencia.group(0)
-    return f'<a href="{escape(direccion)}" target="_blank" rel="noopener noreferrer nofollow">{visible}</a>{cola}'
-
-
-def enlazar(html):
-    """Las direcciones escritas en el texto («https://…», «www.…») se vuelven enlaces que se abren en otra pestaña (las
-    que ya son enlaces se quedan como están). `html` ya está limpio y escapado."""
-    partes, dentro_de_enlace = re.split(r'(<[^>]+>)', html), 0
-    for indice, parte in enumerate(partes):
-        if parte.startswith('<'):
-            if re.match(r'<a[\s>]', parte, re.IGNORECASE):
-                dentro_de_enlace += 1
-            elif parte.lower().startswith('</a'):
-                dentro_de_enlace = max(0, dentro_de_enlace - 1)
-        elif not dentro_de_enlace:
-            partes[indice] = _URL.sub(_enlace, parte)
-    return ''.join(partes)
+enlazar = enriquecido.enlazar   # las direcciones del texto, como enlaces (Mensajes/enriquecido.py)
 
 
 def contenido_visible(comunicado, url_de_imagen):
@@ -156,7 +127,7 @@ def contenido_visible(comunicado, url_de_imagen):
     en párrafos; con las direcciones como enlaces."""
     if comunicado.html:
         return mark_safe(enlazar(enriquecido.presentar(comunicado.html, url_de_imagen)))
-    return mark_safe(enlazar(linebreaks(comunicado.descripcion, autoescape=True)))
+    return mark_safe(enriquecido.texto_con_enlaces(comunicado.descripcion))
 
 
 def html_para_editar(comunicado, url_de_imagen):
@@ -677,50 +648,14 @@ def eliminar(usuario, comunicado):
 # ---------------------------------------------------------------------------
 # «Agregar a mi calendario» (.ics)
 # ---------------------------------------------------------------------------
-def _texto_ics(texto):
-    return (texto or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\r\n', '\n').replace('\n', '\\n')
-
-
-def _plegar(linea):
-    """Los renglones de un .ics no pasan de 75 bytes: los largos siguen en el siguiente, empezando con un espacio."""
-    if len(linea.encode('utf-8')) <= 75:
-        return linea
-    partes, actual = [], ''
-    for caracter in linea:
-        if len((actual + caracter).encode('utf-8')) > (75 if not partes else 74):
-            partes.append(actual)
-            actual = caracter
-        else:
-            actual += caracter
-    partes.append(actual)
-    return '\r\n '.join(partes)
-
-
-def _utc(momento):
-    return momento.astimezone(dt_timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-
-
 def calendario_ics(comunicado, url=''):
-    """El evento del comunicado como archivo de calendario (iPhone, Android, Outlook y Google lo abren)."""
-    lineas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CISAHUAYO//Comunicados//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-              'BEGIN:VEVENT', f'UID:comunicado-{comunicado.pk}@cisahuayo', f'DTSTAMP:{_utc(timezone.now())}']
-    if comunicado.evento_hora_inicio:
-        inicio = timezone.make_aware(datetime.combine(comunicado.evento_fecha, comunicado.evento_hora_inicio))
-        fin = (timezone.make_aware(datetime.combine(comunicado.evento_fecha, comunicado.evento_hora_fin))
-               if comunicado.evento_hora_fin else inicio + timedelta(hours=1))
-        lineas += [f'DTSTART:{_utc(inicio)}', f'DTEND:{_utc(fin)}']
-    else:
-        lineas += [f'DTSTART;VALUE=DATE:{comunicado.evento_fecha:%Y%m%d}',
-                   f'DTEND;VALUE=DATE:{comunicado.evento_fecha + timedelta(days=1):%Y%m%d}']
-    lineas.append(f'SUMMARY:{_texto_ics(comunicado.titulo)}')
-    descripcion = comunicado.descripcion[:1000] + (f'\n\n{url}' if url else '')
-    lineas.append(f'DESCRIPTION:{_texto_ics(descripcion)}')
-    if comunicado.evento_lugar:
-        lineas.append(f'LOCATION:{_texto_ics(comunicado.evento_lugar)}')
-    if url:
-        lineas.append(f'URL:{url}')
-    lineas += ['END:VEVENT', 'END:VCALENDAR']
-    return '\r\n'.join(_plegar(linea) for linea in lineas) + '\r\n'
+    """El evento del comunicado como archivo de calendario (CISAHUAYO/ics.py: iPhone, Android, Outlook y Google lo abren)."""
+    from CISAHUAYO.ics import EventoIcs, calendario
+    return calendario([EventoIcs(
+        uid=f'comunicado-{comunicado.pk}@cisahuayo', titulo=comunicado.titulo, fecha_inicio=comunicado.evento_fecha,
+        hora_inicio=comunicado.evento_hora_inicio, hora_fin=comunicado.evento_hora_fin, descripcion=comunicado.descripcion,
+        lugar=comunicado.evento_lugar, url=url,
+    )])
 
 
 def eventos_para_la_agenda(lector=None, autor=None, desde=None, hasta=None):

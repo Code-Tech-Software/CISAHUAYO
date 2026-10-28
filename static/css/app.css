@@ -5925,3 +5925,100 @@ body {
     animation: none;
   }
 }
+
+/* --- «Próximos eventos» de la agenda en el inicio del sistema y de los portales (templates/agenda/_proximos.html) */
+.proximos-agenda {
+  margin-block: var(--space-5);
+}
+
+.panel .proximos-agenda {
+  margin-block: 0;
+}
+
+.proximos-agenda__ver {
+  margin-left: auto;
+}
+
+.proximos-agenda__lista {
+  display: grid;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+}
+
+.proximos-agenda__item {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+.proximos-agenda__item + .proximos-agenda__item {
+  border-top: var(--border);
+}
+
+.proximos-agenda__dia {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.proximos-agenda__dia.is-hoy {
+  color: var(--color-primary-text);
+}
+
+.proximos-agenda__evento {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border-left: 4px solid var(--color);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.proximos-agenda__evento:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.proximos-agenda__titulo {
+  overflow: hidden;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proximos-agenda__datos {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.proximos-agenda__nada {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Recordatorios de la agenda en la campana (Agenda/context_processors.py) */
+.aviso__avatar--agenda {
+  --avatar-tone: var(--color-primary-text);
+  --avatar-tint: var(--color-primary-soft);
+}
+
+.notificaciones__lista--agenda {
+  margin-bottom: var(--space-1);
+  padding-bottom: var(--space-1);
+  border-bottom: var(--border);
+}
+
+@media (max-width: 35.99rem) {
+  .proximos-agenda__item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+  }
+}

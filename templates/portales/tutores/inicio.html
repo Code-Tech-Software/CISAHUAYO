@@ -18,6 +18,8 @@
     </div>
   </header>
 
+  {% if con_agenda %}{% include "agenda/_proximos.html" %}{% endif %}
+
   {% if estudiantes %}
     <h2 class="portal-heading">Tus estudiantes</h2>
     <div class="portal-kids">

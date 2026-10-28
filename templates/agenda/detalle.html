@@ -1,8 +1,9 @@
 {% extends base %}
 {% load static %}
 {% comment %}
-  El detalle de un evento como página (sin JavaScript o desde un enlace directo; con él se abre en una ventana sobre el
-  calendario). En el sistema y en los portales; editar y eliminar solo para quien gestiona la agenda.
+  El detalle de un evento como página (sin JavaScript o desde un enlace directo, como el de un recordatorio; con él se
+  abre en una ventana sobre el calendario). En el sistema y en los portales: «Agregar a mi calendario» para todos;
+  duplicar, editar y eliminar solo para quien gestiona la agenda.
 {% endcomment %}
 
 {% block title %}{{ evento.titulo }} · Agenda | CISAHUAYO{% endblock %}
@@ -23,6 +24,7 @@
   <article class="card agenda-ficha" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
     <header class="card__header agenda-ficha__cabeza">
       <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
+      {% if evento.tipo %}<span class="agenda-etiqueta">{% include "partials/icon.html" with name=evento.icono icon_class="icon--sm" %} {{ evento.nombre_tipo }}</span>{% endif %}
       <h1 class="agenda-ficha__titulo">{{ evento.titulo }}</h1>
     </header>
     <div class="card__body">
@@ -30,12 +32,16 @@
         <div><dt>{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}<span class="visually-hidden">Fechas</span></dt><dd>{{ evento.texto_de_fechas }}</dd></div>
         <div><dt>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}<span class="visually-hidden">Horario</span></dt><dd>{{ evento.texto_de_horario }}</dd></div>
         {% if evento.lugar %}<div><dt>{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %}<span class="visually-hidden">Lugar</span></dt><dd>{{ evento.lugar }}</dd></div>{% endif %}
+        {% if evento.repeticion %}<div><dt>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %}<span class="visually-hidden">Se repite</span></dt><dd>{{ evento.repeticion }}{% if de_la_serie %} ({{ de_la_serie }} fechas){% endif %}</dd></div>{% endif %}
       </dl>
-      {% if evento.descripcion %}<p class="agenda-detalle__descripcion">{{ evento.descripcion|linebreaksbr }}</p>{% endif %}
+      {% if descripcion %}<div class="agenda-detalle__descripcion">{{ descripcion }}</div>{% endif %}
+      {% if evento.importante %}<p class="agenda-detalle__importante">{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Se recuerda un día antes en la campana y en el teléfono.</p>{% endif %}
     </div>
     <footer class="card__footer agenda-ficha__pie">
       <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la agenda</a>
+      <a class="btn btn--ghost" href="{{ url_ics }}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar a mi calendario</a>
       {% if gestiona %}
+        <a class="btn btn--ghost" href="{% url 'agenda:crear' %}?copiar={{ evento.pk }}&amp;volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Duplicar</a>
         <a class="btn btn--danger-text" href="{% url 'agenda:eliminar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar</a>
         <a class="btn btn--primary" href="{% url 'agenda:editar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
       {% endif %}

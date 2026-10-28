@@ -1,13 +1,14 @@
 {% extends base %}
 {% load static %}
 {% comment %}
-  Agenda / Calendario (Agenda/views.py): el mes de lunes a domingo con los eventos en sus días (los de varios días como
-  barras que cruzan días, semanas y meses) y, en el teléfono, la agenda del mes ordenada por fecha. El color de cada
-  evento sale de su alcance y siempre va con el nombre del nivel (leyenda, ventana de detalle). Es la misma pantalla en
-  el sistema y en los portales (`base`); registrar, editar y eliminar solo con Agenda.gestionar (`gestiona`).
+  Agenda / Calendario (Agenda/views.py): por mes (de lunes a domingo, con los eventos de varios días como barras y, en el
+  teléfono, la agenda del mes ordenada por fecha), por semana o la lista de próximos, con búsqueda. El color de cada
+  evento sale de su alcance (o de su módulo: días sin clases, comunicados, reuniones, calificaciones, ciclo) y siempre va
+  con su nombre (leyenda, ventana de detalle); el icono, de su tipo. Es la misma pantalla en el sistema y en los portales
+  (`base`); registrar, editar, duplicar y eliminar solo con Agenda.gestionar (`gestiona`).
 {% endcomment %}
 
-{% block title %}Agenda · {{ primero|date:"F Y"|capfirst }} | CISAHUAYO{% endblock %}
+{% block title %}Agenda · {{ titulo }} | CISAHUAYO{% endblock %}
 {% block clase_pagina %} page--ancha{% endblock %}
 
 {% block extra_head %}
@@ -25,22 +26,18 @@
   <div class="agenda" data-agenda>
     <header class="agenda-cabeza">
       <div class="agenda-cabeza__mes">
-        <h1 class="agenda-cabeza__titulo" id="agenda-titulo">{{ primero|date:"F Y"|capfirst }}</h1>
-        <nav class="agenda-nav" aria-label="Cambiar de mes">
-          <a class="btn btn--icon btn--sm" href="{{ anterior }}" aria-label="Mes anterior" data-tooltip="Mes anterior" data-agenda-navegar>{% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}</a>
-          <a class="btn btn--sm{% if es_mes_actual %} is-actual{% endif %}" href="{{ actual }}" data-agenda-navegar>Hoy</a>
-          <a class="btn btn--icon btn--sm" href="{{ siguiente }}" aria-label="Mes siguiente" data-tooltip="Mes siguiente" data-agenda-navegar>{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</a>
-        </nav>
+        <h1 class="agenda-cabeza__titulo" id="agenda-titulo">{{ titulo }}</h1>
+        {% if not texto %}
+          <nav class="agenda-nav" aria-label="Cambiar de {% if modo == 'semana' %}semana{% elif modo == 'lista' %}fechas{% else %}mes{% endif %}">
+            {% if anterior %}<a class="btn btn--icon btn--sm" href="{{ anterior }}" aria-label="{% if modo == 'semana' %}Semana anterior{% else %}Mes anterior{% endif %}" data-tooltip="{% if modo == 'semana' %}Semana anterior{% else %}Mes anterior{% endif %}" data-agenda-navegar>{% include "partials/icon.html" with name="chevron-left" icon_class="icon--sm" %}</a>{% endif %}
+            <a class="btn btn--sm{% if es_actual %} is-actual{% endif %}" href="{{ actual }}" data-agenda-navegar>Hoy</a>
+            {% if siguiente %}<a class="btn btn--icon btn--sm" href="{{ siguiente }}" aria-label="{% if modo == 'semana' %}Semana siguiente{% elif modo == 'lista' %}Los siguientes{% else %}Mes siguiente{% endif %}" data-tooltip="{% if modo == 'semana' %}Semana siguiente{% elif modo == 'lista' %}Los siguientes{% else %}Mes siguiente{% endif %}" data-agenda-navegar>{% include "partials/icon.html" with name="chevron-right" icon_class="icon--sm" %}</a>{% endif %}
+          </nav>
+        {% endif %}
       </div>
       <div class="agenda-cabeza__acciones">
-        <form class="agenda-filtro" method="get" action="{{ url_calendario }}" data-agenda-filtro>
-          <input type="hidden" name="mes" value="{{ primero|date:'Y-m' }}">
-          <label class="visually-hidden" for="agenda-nivel">Nivel educativo</label>
-          <select class="field__control field__control--select" id="agenda-nivel" name="nivel" data-agenda-nivel>
-            {% for clave, nombre in opciones %}<option value="{{ clave }}"{% if clave == filtro %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
-          </select>
-          <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
-        </form>
+        <a class="btn btn--ghost btn--sm" href="{{ url_imprimir }}" target="_blank" rel="noopener" data-tooltip="Imprimir el mes o guardarlo en PDF">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %}<span class="agenda-cabeza__texto"> Imprimir</span></a>
+        <a class="btn btn--ghost btn--sm" href="{{ url_suscripcion }}" data-tooltip="Ver la agenda en el calendario de tu teléfono">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %}<span class="agenda-cabeza__texto"> En mi teléfono</span></a>
         {% if gestiona %}
           <a class="btn btn--primary btn--sm" href="{{ url_crear }}?volver={{ volver|urlencode }}" data-modal-form>
             {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Nuevo evento
@@ -49,8 +46,35 @@
       </div>
     </header>
 
-    <ul class="agenda-leyenda" aria-label="Colores por nivel educativo">
-      {% for clave, nombre, color, texto in leyenda %}
+    <div class="agenda-barra">
+      <nav class="agenda-vistas" aria-label="Ver la agenda por">
+        {% for clave, nombre, url in vistas %}
+          <a class="agenda-vistas__opcion{% if clave == modo and not texto %} is-activo{% endif %}" href="{{ url }}"{% if clave == modo and not texto %} aria-current="page"{% endif %} data-agenda-navegar>{{ nombre }}</a>
+        {% endfor %}
+      </nav>
+      <form class="agenda-filtro" method="get" action="{{ url_calendario }}" role="search" data-agenda-filtro>
+        {% if modo != 'mes' %}<input type="hidden" name="vista" value="{{ modo }}">{% endif %}
+        {% if modo == 'mes' %}<input type="hidden" name="mes" value="{{ primero|date:'Y-m' }}">{% endif %}
+        <label class="agenda-buscar">
+          <span class="visually-hidden">Buscar en la agenda</span>
+          {% include "partials/icon.html" with name="search" icon_class="icon--sm agenda-buscar__icono" %}
+          <input class="field__control" type="search" name="q" value="{{ texto }}" placeholder="Buscar: junta, festival…" maxlength="80" autocomplete="off" data-agenda-buscar>
+        </label>
+        <label class="visually-hidden" for="agenda-nivel">Nivel educativo</label>
+        <select class="field__control field__control--select" id="agenda-nivel" name="nivel" data-agenda-nivel>
+          {% for clave, nombre in opciones %}<option value="{{ clave }}"{% if clave == filtro %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+        </select>
+        <label class="visually-hidden" for="agenda-tipo">Tipo de evento</label>
+        <select class="field__control field__control--select" id="agenda-tipo" name="tipo" data-agenda-nivel>
+          <option value="">Todos los tipos</option>
+          {% for clave, nombre in tipos %}<option value="{{ clave }}"{% if clave == tipo %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn btn--sm">Filtrar</button></noscript>
+      </form>
+    </div>
+
+    <ul class="agenda-leyenda" aria-label="Colores de la agenda">
+      {% for clave, nombre, color, texto_color in leyenda %}
         <li class="agenda-leyenda__item"><span class="agenda-leyenda__marca" style="--color: {{ color }}" aria-hidden="true"></span>{{ nombre }}</li>
       {% endfor %}
     </ul>
@@ -61,89 +85,147 @@
     <p class="agenda-cargando" role="status" data-agenda-cargando hidden><span class="agenda-cargando__giro" aria-hidden="true"></span> Cargando…</p>
 
     <div class="agenda-cuerpo" data-agenda-cuerpo>
-      {% if not eventos_del_mes %}
-        <p class="agenda-vacio" role="status">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} No hay eventos en {{ primero|date:"F"|lower }}{% if filtro %} con este filtro{% endif %}.</p>
-      {% endif %}
-
-      {# --- El mes (computadora y tableta) --------------------------------------------------------------- #}
-      <div class="agenda-mes" aria-labelledby="agenda-titulo">
-        <div class="agenda-mes__encabezado" aria-hidden="true">
-          <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
-        </div>
-        {% for semana in semanas %}
-          <div class="agenda-semana" style="--carriles: {{ semana.carriles }}">
-            {% for dia in semana.dias %}
-              <div class="agenda-dia{% if not dia.en_mes %} is-fuera{% endif %}{% if dia.es_hoy %} is-hoy{% endif %}{% if dia.columna > 5 %} is-fin{% endif %}" style="grid-column: {{ dia.columna }}">
-                {% if gestiona %}
-                  <a class="agenda-dia__nuevo" href="{{ url_crear }}?fecha={{ dia.fecha|date:'Y-m-d' }}&amp;volver={{ volver|urlencode }}" data-modal-form tabindex="-1" aria-hidden="true"></a>
-                  <a class="agenda-dia__numero" href="{{ url_crear }}?fecha={{ dia.fecha|date:'Y-m-d' }}&amp;volver={{ volver|urlencode }}" data-modal-form
-                     aria-label="{{ dia.texto }}{% if dia.es_hoy %} (hoy){% endif %}: nuevo evento" data-tooltip="Nuevo evento el {{ dia.fecha|date:'j \d\e F'|lower }}"{% if dia.es_hoy %} aria-current="date"{% endif %}>{{ dia.fecha.day }}</a>
-                {% else %}
-                  <span class="agenda-dia__numero"{% if dia.es_hoy %} aria-current="date"{% endif %}>{{ dia.fecha.day }}<span class="visually-hidden"> de {{ dia.fecha|date:"F"|lower }}{% if dia.es_hoy %} (hoy){% endif %}</span></span>
-                {% endif %}
-                {% if dia.ocultos %}
-                  <details class="agenda-mas">
-                    <summary class="agenda-mas__boton">+{{ dia.ocultos }} evento{{ dia.ocultos|pluralize }}</summary>
-                    <div class="agenda-mas__panel">
-                      <p class="agenda-mas__titulo">{{ dia.texto }}</p>
-                      <ul class="agenda-mas__lista">
-                        {% for evento in dia.eventos %}
-                          <li><a class="agenda-evento agenda-evento--lista" href="{% if evento.url_propia %}{{ evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
-                            {% if evento.hora_corta %}<span class="agenda-evento__hora">{{ evento.hora_corta }}</span>{% endif %}<span class="agenda-evento__titulo">{{ evento.titulo }}</span>
-                          </a></li>
-                        {% endfor %}
-                      </ul>
-                    </div>
-                  </details>
-                {% endif %}
-              </div>
-            {% endfor %}
-            {% for tramo in semana.tramos %}
-              <a class="agenda-evento{% if tramo.antes %} is-antes{% endif %}{% if tramo.despues %} is-despues{% endif %}"
-                 href="{% if tramo.evento.url_propia %}{{ tramo.evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ tramo.evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ tramo.evento.pk }}"
-                 style="grid-column: {{ tramo.inicio }} / span {{ tramo.columnas }}; grid-row: {{ tramo.carril|add:2 }}; --color: {{ tramo.evento.color }}; --texto: {{ tramo.evento.color_texto }}"
-                 data-tooltip="{{ tramo.evento.titulo }} · {{ tramo.evento.nombre_alcance }} · {% if tramo.evento.varios_dias %}{{ tramo.evento.texto_de_fechas }}{% else %}{{ tramo.evento.texto_de_horario }}{% endif %}">
-                {% if tramo.antes %}<span class="agenda-evento__sigue" aria-hidden="true">‹</span>{% endif %}
-                {% if tramo.evento.hora_corta and not tramo.antes %}<span class="agenda-evento__hora">{{ tramo.evento.hora_corta }}</span>{% endif %}
-                <span class="agenda-evento__titulo">{{ tramo.evento.titulo }}</span>
-                <span class="visually-hidden"> · {{ tramo.evento.nombre_alcance }} · {{ tramo.evento.texto_de_fechas }} · {{ tramo.evento.texto_de_horario }}</span>
-                {% if tramo.despues %}<span class="agenda-evento__sigue agenda-evento__sigue--fin" aria-hidden="true">›</span>{% endif %}
-              </a>
-            {% endfor %}
+      {% if texto %}
+        {# --- Resultados de la búsqueda --------------------------------------------------------------------------- #}
+        <p class="agenda-aviso" role="status">{{ encontrados }} evento{{ encontrados|pluralize }} en el año anterior y el siguiente · <a href="{{ url_calendario }}" data-agenda-navegar>Quitar la búsqueda</a></p>
+        {% if futuros %}
+          <h2 class="agenda-seccion">Próximos</h2>
+          <ul class="agenda-lista__eventos agenda-lista__eventos--busqueda">
+            {% for evento in futuros %}{% include "agenda/_tarjeta.html" with con_fecha=True %}{% endfor %}
+          </ul>
+        {% endif %}
+        {% if pasados %}
+          <h2 class="agenda-seccion">Ya pasaron</h2>
+          <ul class="agenda-lista__eventos agenda-lista__eventos--busqueda">
+            {% for evento in pasados %}{% include "agenda/_tarjeta.html" with con_fecha=True %}{% endfor %}
+          </ul>
+        {% endif %}
+        {% if not futuros and not pasados %}
+          <div class="empty-state empty-state--inline">
+            {% include "partials/icon.html" with name="search" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">Ningún evento coincide con «{{ texto }}»</p>
+            <p class="empty-state__text">Prueba con otra palabra{% if filtro or tipo %} o quita el filtro de nivel o de tipo{% endif %}.</p>
           </div>
-        {% endfor %}
-      </div>
+        {% endif %}
 
-      {# --- La agenda del mes (teléfono): ordenada por fecha ------------------------------------------------ #}
-      <div class="agenda-lista" aria-label="Eventos de {{ primero|date:'F Y'|lower }}">
-        {% for fecha, eventos in agenda %}
+      {% elif modo == 'semana' %}
+        {# --- La semana: un renglón por día ----------------------------------------------------------------------- #}
+        <div class="agenda-semanal">
+          {% for fecha, eventos in dias_de_la_semana %}
+            <section class="agenda-lista__dia agenda-semanal__dia{% if fecha == hoy %} is-hoy{% endif %}{% if fecha.weekday > 4 %} is-fin{% endif %}">
+              <h2 class="agenda-lista__fecha">
+                <span class="agenda-lista__numero">{{ fecha.day }}</span>
+                <span>{{ fecha|date:"l"|capfirst }}{% if fecha == hoy %} · Hoy{% endif %}</span>
+                {% if gestiona %}<a class="btn btn--ghost btn--icon btn--sm agenda-semanal__nuevo" href="{{ url_crear }}?fecha={{ fecha|date:'Y-m-d' }}&amp;volver={{ volver|urlencode }}" data-modal-form aria-label="Nuevo evento el {{ fecha|date:'j \d\e F'|lower }}" data-tooltip="Nuevo evento">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %}</a>{% endif %}
+              </h2>
+              {% if eventos %}
+                <ul class="agenda-lista__eventos">
+                  {% for evento in eventos %}{% include "agenda/_tarjeta.html" %}{% endfor %}
+                </ul>
+              {% else %}
+                <p class="agenda-semanal__nada">Sin eventos</p>
+              {% endif %}
+            </section>
+          {% endfor %}
+        </div>
+
+      {% elif modo == 'lista' %}
+        {# --- Próximos: los siguientes 60 días, cada evento una vez -------------------------------------------- #}
+        <p class="agenda-aviso">Del {{ desde|date:"j \d\e F"|lower }} al {{ hasta|date:"j \d\e F \d\e Y"|lower }}</p>
+        {% for fecha, eventos in lista %}
           <section class="agenda-lista__dia{% if fecha == hoy %} is-hoy{% endif %}">
             <h2 class="agenda-lista__fecha">
               <span class="agenda-lista__numero">{{ fecha.day }}</span>
-              <span>{{ fecha|date:"l"|capfirst }}{% if fecha == hoy %} · Hoy{% endif %}</span>
+              <span>{{ fecha|date:"l j \d\e F"|lower|capfirst }}{% if fecha == hoy %} · Hoy{% endif %}</span>
             </h2>
             <ul class="agenda-lista__eventos">
-              {% for evento in eventos %}
-                <li>
-                  <a class="agenda-tarjeta" href="{% if evento.url_propia %}{{ evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
-                    <span class="agenda-tarjeta__titulo">{{ evento.titulo }}</span>
-                    <span class="agenda-tarjeta__datos">
-                      <span class="agenda-etiqueta">{{ evento.nombre_alcance }}</span>
-                      {% if evento.varios_dias %}{{ evento.texto_de_fechas }} · {% endif %}{{ evento.texto_de_horario }}{% if evento.lugar %} · {{ evento.lugar }}{% endif %}
-                    </span>
-                  </a>
-                </li>
-              {% endfor %}
+              {% for evento in eventos %}{% include "agenda/_tarjeta.html" %}{% endfor %}
             </ul>
           </section>
         {% empty %}
           <div class="empty-state empty-state--inline">
             {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
-            <p class="empty-state__title">Sin eventos en {{ primero|date:"F"|lower }}</p>
-            <p class="empty-state__text">{% if filtro %}Prueba con «Todos los niveles».{% else %}Cuando se registren eventos aparecerán aquí.{% endif %}</p>
+            <p class="empty-state__title">No hay eventos en estas fechas</p>
+            <p class="empty-state__text">{% if filtro or tipo %}Prueba sin el filtro de nivel o de tipo.{% else %}Cuando se registren eventos aparecerán aquí.{% endif %}</p>
           </div>
         {% endfor %}
-      </div>
+
+      {% else %}
+        {% if not eventos_del_mes %}
+          <p class="agenda-vacio" role="status">{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} No hay eventos en {{ primero|date:"F"|lower }}{% if filtro or tipo %} con este filtro{% endif %}.</p>
+        {% endif %}
+
+        {# --- El mes (computadora y tableta) ------------------------------------------------------------- #}
+        <div class="agenda-mes" aria-labelledby="agenda-titulo">
+          <div class="agenda-mes__encabezado" aria-hidden="true">
+            <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+          </div>
+          {% for semana in semanas %}
+            <div class="agenda-semana" style="--carriles: {{ semana.carriles }}">
+              {% for dia in semana.dias %}
+                <div class="agenda-dia{% if not dia.en_mes %} is-fuera{% endif %}{% if dia.es_hoy %} is-hoy{% endif %}{% if dia.columna > 5 %} is-fin{% endif %}" style="grid-column: {{ dia.columna }}">
+                  {% if gestiona %}
+                    <a class="agenda-dia__nuevo" href="{{ url_crear }}?fecha={{ dia.fecha|date:'Y-m-d' }}&amp;volver={{ volver|urlencode }}" data-modal-form tabindex="-1" aria-hidden="true"></a>
+                    <a class="agenda-dia__numero" href="{{ url_crear }}?fecha={{ dia.fecha|date:'Y-m-d' }}&amp;volver={{ volver|urlencode }}" data-modal-form
+                       aria-label="{{ dia.texto }}{% if dia.es_hoy %} (hoy){% endif %}: nuevo evento" data-tooltip="Nuevo evento el {{ dia.fecha|date:'j \d\e F'|lower }}"{% if dia.es_hoy %} aria-current="date"{% endif %}>{{ dia.fecha.day }}</a>
+                  {% else %}
+                    <span class="agenda-dia__numero"{% if dia.es_hoy %} aria-current="date"{% endif %}>{{ dia.fecha.day }}<span class="visually-hidden"> de {{ dia.fecha|date:"F"|lower }}{% if dia.es_hoy %} (hoy){% endif %}</span></span>
+                  {% endif %}
+                  {% if dia.ocultos %}
+                    <details class="agenda-mas">
+                      <summary class="agenda-mas__boton">+{{ dia.ocultos }} evento{{ dia.ocultos|pluralize }}</summary>
+                      <div class="agenda-mas__panel">
+                        <p class="agenda-mas__titulo">{{ dia.texto }}</p>
+                        <ul class="agenda-mas__lista">
+                          {% for evento in dia.eventos %}
+                            <li><a class="agenda-evento agenda-evento--lista" href="{% if evento.url_propia %}{{ evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ evento.pk }}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+                              {% if evento.hora_corta %}<span class="agenda-evento__hora">{{ evento.hora_corta }}</span>{% endif %}<span class="agenda-evento__titulo">{{ evento.titulo }}</span>
+                            </a></li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    </details>
+                  {% endif %}
+                </div>
+              {% endfor %}
+              {% for tramo in semana.tramos %}
+                <a class="agenda-evento{% if tramo.antes %} is-antes{% endif %}{% if tramo.despues %} is-despues{% endif %}"
+                   href="{% if tramo.evento.url_propia %}{{ tramo.evento.url_propia }}{% else %}{{ url_calendario }}?evento={{ tramo.evento.pk }}&amp;volver={{ volver|urlencode }}{% endif %}" data-agenda-evento="{{ tramo.evento.pk }}"
+                   style="grid-column: {{ tramo.inicio }} / span {{ tramo.columnas }}; grid-row: {{ tramo.carril|add:2 }}; --color: {{ tramo.evento.color }}; --texto: {{ tramo.evento.color_texto }}"
+                   data-tooltip="{{ tramo.evento.titulo }} · {{ tramo.evento.nombre_alcance }} · {% if tramo.evento.varios_dias %}{{ tramo.evento.texto_de_fechas }}{% else %}{{ tramo.evento.texto_de_horario }}{% endif %}">
+                  {% if tramo.antes %}<span class="agenda-evento__sigue" aria-hidden="true">‹</span>{% endif %}
+                  {% if tramo.evento.tipo or tramo.evento.es_externo %}<span class="agenda-evento__icono" aria-hidden="true">{% include "partials/icon.html" with name=tramo.evento.icono icon_class="icon--sm" %}</span>{% endif %}
+                  {% if tramo.evento.hora_corta and not tramo.antes %}<span class="agenda-evento__hora">{{ tramo.evento.hora_corta }}</span>{% endif %}
+                  <span class="agenda-evento__titulo">{{ tramo.evento.titulo }}</span>
+                  <span class="visually-hidden"> · {{ tramo.evento.nombre_alcance }} · {{ tramo.evento.texto_de_fechas }} · {{ tramo.evento.texto_de_horario }}</span>
+                  {% if tramo.despues %}<span class="agenda-evento__sigue agenda-evento__sigue--fin" aria-hidden="true">›</span>{% endif %}
+                </a>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+
+        {# --- La agenda del mes (teléfono): ordenada por fecha -------------------------------------------------- #}
+        <div class="agenda-lista" aria-label="Eventos de {{ primero|date:'F Y'|lower }}">
+          {% for fecha, eventos in agenda %}
+            <section class="agenda-lista__dia{% if fecha == hoy %} is-hoy{% endif %}">
+              <h2 class="agenda-lista__fecha">
+                <span class="agenda-lista__numero">{{ fecha.day }}</span>
+                <span>{{ fecha|date:"l"|capfirst }}{% if fecha == hoy %} · Hoy{% endif %}</span>
+              </h2>
+              <ul class="agenda-lista__eventos">
+                {% for evento in eventos %}{% include "agenda/_tarjeta.html" %}{% endfor %}
+              </ul>
+            </section>
+          {% empty %}
+            <div class="empty-state empty-state--inline">
+              {% include "partials/icon.html" with name="calendar" icon_class="icon--lg empty-state__icon" %}
+              <p class="empty-state__title">Sin eventos en {{ primero|date:"F"|lower }}</p>
+              <p class="empty-state__text">{% if filtro or tipo %}Prueba sin el filtro de nivel o de tipo.{% else %}Cuando se registren eventos aparecerán aquí.{% endif %}</p>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
 
     {# --- Ventana de detalle (static/js/agenda.js la llena con los datos de abajo; sin JavaScript, cada evento abre su página) #}
@@ -152,6 +234,7 @@
         <header class="modal__header agenda-detalle__cabeza">
           <div>
             <span class="agenda-etiqueta agenda-etiqueta--color" data-agenda-detalle-alcance></span>
+            <span class="agenda-etiqueta" data-agenda-detalle-tipo hidden></span>
             <h2 class="modal__title" id="agenda-detalle-titulo" data-agenda-detalle-titulo></h2>
           </div>
           <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar" data-tooltip="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
@@ -161,15 +244,21 @@
             <div><dt>{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}<span class="visually-hidden">Fechas</span></dt><dd data-agenda-detalle-fechas></dd></div>
             <div><dt>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}<span class="visually-hidden">Horario</span></dt><dd data-agenda-detalle-horario></dd></div>
             <div data-agenda-detalle-con-lugar><dt>{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %}<span class="visually-hidden">Lugar</span></dt><dd data-agenda-detalle-lugar></dd></div>
+            <div data-agenda-detalle-con-repeticion hidden><dt>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %}<span class="visually-hidden">Se repite</span></dt><dd data-agenda-detalle-repeticion></dd></div>
           </dl>
-          <p class="agenda-detalle__descripcion" data-agenda-detalle-descripcion></p>
+          <div class="agenda-detalle__descripcion" data-agenda-detalle-descripcion></div>
+          <p class="agenda-detalle__importante" data-agenda-detalle-importante hidden>{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Se recordará un día antes.</p>
         </div>
-        {% if gestiona %}
-          <footer class="modal__footer">
-            <a class="btn btn--danger-text" href="#" data-modal-form data-agenda-detalle-eliminar>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar</a>
-            <a class="btn btn--primary" href="#" data-modal-form data-agenda-detalle-editar>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
-          </footer>
-        {% endif %}
+        <footer class="modal__footer agenda-detalle__pie">
+          <a class="btn btn--ghost" href="#" data-agenda-detalle-calendario>{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar a mi calendario</a>
+          {% if gestiona %}
+            <span class="agenda-detalle__gestion">
+              <a class="btn btn--ghost" href="#" data-modal-form data-agenda-detalle-duplicar>{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Duplicar</a>
+              <a class="btn btn--danger-text" href="#" data-modal-form data-agenda-detalle-eliminar>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar</a>
+              <a class="btn btn--primary" href="#" data-modal-form data-agenda-detalle-editar>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
+            </span>
+          {% endif %}
+        </footer>
       </div>
     </dialog>
     {{ datos_eventos|json_script:"agenda-eventos" }}

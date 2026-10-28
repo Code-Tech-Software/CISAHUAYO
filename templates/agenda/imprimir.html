@@ -1,0 +1,55 @@
+{% load static %}<!doctype html>
+{% comment %}
+  El mes de la agenda en una hoja limpia (Agenda/views.imprimir): para el periódico mural o para guardarla en PDF desde
+  el diálogo de impresión. Todos los eventos de cada día (sin «+N más»), con su color y la leyenda; sin menús. Al abrirse
+  pide imprimir (static/js/agenda-imprimir.js).
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda · {{ primero|date:"F Y"|capfirst }} | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/agenda-imprimir.css' %}">
+</head>
+<body>
+  <header class="hoja__cabeza">
+    <img class="hoja__logo" src="{% static 'img/logointer.svg' %}" alt="">
+    <div>
+      <p class="hoja__colegio">Colegio Interamericano de Sahuayo</p>
+      <h1 class="hoja__titulo">Agenda · {{ primero|date:"F Y"|capfirst }}</h1>
+      {% if filtro or tipo %}<p class="hoja__filtro">{{ filtro }}{% if filtro and tipo %} · {% endif %}{{ tipo }}</p>{% endif %}
+    </div>
+    <nav class="hoja__acciones">
+      <button type="button" class="hoja__boton" data-imprimir>Imprimir o guardar en PDF</button>
+      <a class="hoja__volver" href="{{ volver }}">Volver a la agenda</a>
+    </nav>
+  </header>
+
+  <table class="hoja__mes">
+    <thead><tr><th>Lunes</th><th>Martes</th><th>Miércoles</th><th>Jueves</th><th>Viernes</th><th>Sábado</th><th>Domingo</th></tr></thead>
+    <tbody>
+      {% for semana in semanas %}
+        <tr>
+          {% for fecha, en_mes, eventos in semana %}
+            <td class="{% if not en_mes %}is-fuera{% endif %}">
+              <span class="hoja__dia">{{ fecha.day }}</span>
+              {% for evento in eventos %}
+                <span class="hoja__evento" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">{% if evento.hora_corta and evento.fecha_inicio == fecha %}<b>{{ evento.hora_corta }}</b> {% endif %}{{ evento.titulo }}</span>
+              {% endfor %}
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <footer class="hoja__pie">
+    <ul class="hoja__leyenda">
+      {% for clave, nombre, color, texto in leyenda %}<li><span class="hoja__marca" style="--color: {{ color }}"></span>{{ nombre }}</li>{% endfor %}
+    </ul>
+    <p class="hoja__fecha">Impreso el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</p>
+  </footer>
+  <script src="{% static 'js/agenda-imprimir.js' %}" defer></script>
+</body>
+</html>

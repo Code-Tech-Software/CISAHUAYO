@@ -75,8 +75,9 @@ def rango_visible(primero):
 
 
 def _orden(evento):
+    # El último criterio, como texto: junto a los eventos del colegio van los de otros módulos (Agenda/fuentes.py)
     return (evento.fecha_inicio, -(evento.fecha_fin - evento.fecha_inicio).days, not evento.todo_el_dia,
-            evento.hora_inicio or time.min, evento.titulo, evento.pk)
+            evento.hora_inicio or time.min, evento.titulo, str(evento.pk))
 
 
 def semanas(eventos, primero, hoy, carriles=CARRILES):

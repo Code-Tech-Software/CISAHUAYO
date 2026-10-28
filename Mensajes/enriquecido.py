@@ -13,7 +13,7 @@ tienen su propia ruta protegida).
 Enlaces: solo http, https, mailto y tel; se abren en otra pestaña sin dar acceso a la página de origen.
 """
 import re
-from html import escape
+from html import escape, unescape
 from html.parser import HTMLParser
 
 # Etiquetas que se conservan (con sus atributos permitidos, abajo)
@@ -286,6 +286,44 @@ def limpiar(html, imagenes_validas=None, url_de_imagen=None):
 def presentar(html, url_de_imagen):
     """El HTML guardado, listo para mostrarse a quien mira (se vuelve a limpiar: lo guardado tampoco se da por bueno)."""
     return limpiar(html, url_de_imagen=url_de_imagen)[0]
+
+
+# ---------------------------------------------------------------------------
+# Direcciones escritas en el texto, como enlaces (comunicados y agenda, 2026-10-27)
+# ---------------------------------------------------------------------------
+_URL = re.compile(r'(?<![\w/@.])((?:https?://|www\.)[^\s<]+)', re.IGNORECASE)
+_COLA_DE_URL = '.,;:!?)]}\'"'
+
+
+def _enlace(coincidencia):
+    visible, cola = coincidencia.group(1), ''
+    while visible and visible[-1] in _COLA_DE_URL:
+        visible, cola = visible[:-1], visible[-1] + cola
+    direccion = limpiar_enlace(unescape(visible))
+    if not direccion:
+        return coincidencia.group(0)
+    return f'<a href="{escape(direccion)}" target="_blank" rel="noopener noreferrer nofollow">{visible}</a>{cola}'
+
+
+def enlazar(html):
+    """Las direcciones escritas en el texto («https://…», «www.…») se vuelven enlaces que se abren en otra pestaña (las
+    que ya son enlaces se quedan como están). `html` ya está limpio y escapado."""
+    partes, dentro_de_enlace = re.split(r'(<[^>]+>)', html), 0
+    for indice, parte in enumerate(partes):
+        if parte.startswith('<'):
+            if re.match(r'<a[\s>]', parte, re.IGNORECASE):
+                dentro_de_enlace += 1
+            elif parte.lower().startswith('</a'):
+                dentro_de_enlace = max(0, dentro_de_enlace - 1)
+        elif not dentro_de_enlace:
+            partes[indice] = _URL.sub(_enlace, parte)
+    return ''.join(partes)
+
+
+def texto_con_enlaces(texto):
+    """Un texto plano en párrafos (escapado), con sus direcciones como enlaces."""
+    from django.utils.html import linebreaks
+    return enlazar(linebreaks(texto or '', autoescape=True))
 
 
 # ---------------------------------------------------------------------------

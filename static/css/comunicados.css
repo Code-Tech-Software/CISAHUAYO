@@ -1331,6 +1331,12 @@
   margin: 0;
 }
 
+/* Los campos van dentro del paso «editar» (la revisión antes de enviar es el otro): la misma separación que el formulario */
+.formulario-comunicado__paso {
+  display: grid;
+  gap: var(--space-6);
+}
+
 /* Campo con la etiqueta sobre su borde (Título, Descripción) */
 .campo-contorno {
   position: relative;
@@ -2651,7 +2657,7 @@
 /* --- Las secciones de opciones (se abren y se cierran) -------------------------------------------------------------- */
 .opciones-comunicado {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .opciones-comunicado__fija {

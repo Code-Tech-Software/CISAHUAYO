@@ -132,6 +132,7 @@ TEMPLATES = [
                 'Retiros.context_processors.retiros',
                 'Reuniones.context_processors.reuniones',
                 'Asistencias.context_processors.avisos_asistencia',
+                'Agenda.context_processors.avisos_agenda',
             ],
         },
     },

@@ -22,12 +22,16 @@ SOLO_CON_SESION = {
     'cuenta:contrasena': 'cada persona cambia su propia contraseña',
     'ajustes:inicio': 'cada persona elige cómo ve el sistema (tema de color y menú lateral)',
     'agenda:calendario': 'la agenda (y el detalle de un evento, ?evento=): cada quien ve solo los eventos de sus niveles y los de todo el colegio',
+    'agenda:evento_ics': 'agregar un evento a su propio calendario: solo si ese evento está en su agenda (si no, 404)',
+    'agenda:suscripcion': 'el enlace personal para ver su propia agenda en el calendario del teléfono',
+    'agenda:imprimir': 'el mes de su propia agenda en una hoja para imprimir',
 }
 SIN_SESION = {
     'login': 'iniciar sesión',
     'logout': 'cerrar sesión',
     'service_worker': 'el service worker de las notificaciones push: solo código, sin datos (Mensajes/views.py)',
     'manifiesto': 'el manifiesto para agregar el sistema a la pantalla de inicio: sin datos (Mensajes/views.py)',
+    'agenda:suscripcion_ics': 'el calendario del teléfono lo lee sin sesión: lo protege el enlace secreto y solo trae la agenda de su dueño',
 }
 # Responden JSON con su propia comprobación de sesión y permiso (la pantalla de entrada no puede redirigir al login)
 CON_COMPROBACION_PROPIA = {
@@ -101,9 +105,12 @@ class NingunaRutaSeAbreSinAutorizacionTests(BaseTestCase):
     def test_las_rutas_solo_con_sesion_responden_a_quien_tiene_sesion(self):
         cuenta = Client()
         cuenta.force_login(self.sin_permisos)
+        argumentos = {nombre: args for nombre, _, _, args in self.rutas}
         for nombre in SOLO_CON_SESION:
             with self.subTest(nombre=nombre):
-                self.assertEqual(cuenta.get(reverse(nombre)).status_code, 200)
+                # Las que piden un registro (el .ics de un evento) responden 404: no hay ninguno con ese número
+                esperado = 404 if argumentos[nombre] else 200
+                self.assertEqual(cuenta.get(reverse(nombre, kwargs=argumentos[nombre])).status_code, esperado)
 
     def test_cada_ruta_declara_los_permisos_que_exige_o_esta_en_la_lista_de_excepciones(self):
         sin_declarar = []

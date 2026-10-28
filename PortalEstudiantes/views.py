@@ -16,8 +16,11 @@ TIPO = portales.ESTUDIANTE
 
 @portales.portal_requerido(TIPO)
 def inicio(request):
+    from Agenda.fuentes import Persona
+    from Agenda.reglas import para_el_inicio
     return render(request, 'portales/estudiantes/inicio.html', {
         **portales.contexto(request), **resumen(request.cuenta_portal, semana=fecha_de(request.GET.get('semana'))),
+        **para_el_inicio(Persona(alumno=request.cuenta_portal)),   # «Próximos eventos» (2026-10-27)
     })
 
 

@@ -22,9 +22,12 @@ def _vinculos(tutor):
 @portales.portal_requerido(TIPO)
 def inicio(request):
     vinculos = _vinculos(request.cuenta_portal).order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')
+    from Agenda.fuentes import Persona
+    from Agenda.reglas import para_el_inicio
     return render(request, 'portales/tutores/inicio.html', {
         **portales.contexto(request),
         'estudiantes': [{'vinculo': vinculo, **resumen(vinculo.alumno, completo=False)} for vinculo in vinculos],
+        **para_el_inicio(Persona(tutor=request.cuenta_portal)),   # «Próximos eventos» (2026-10-27)
     })
 
 

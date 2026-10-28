@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
 {% comment %}
-  Registrar o editar un evento (Agenda/forms.py). Se abre en una ventana sobre el calendario (data-modal-form) o como
-  página. Sin «Todo el día» se piden las horas (static/js/agenda-formulario.js las muestra u oculta).
+  Registrar, duplicar o editar un evento (Agenda/forms.py). Se abre en una ventana sobre el calendario (data-modal-form)
+  o como página. Sin «Todo el día» se piden las horas; con «Repetir», hasta cuándo (static/js/agenda-formulario.js
+  muestra u oculta cada parte). Al editar uno de una serie se elige si los cambios van también a los siguientes.
 {% endcomment %}
 
 {% block title %}{% if evento %}Editar evento{% else %}Nuevo evento{% endif %} · Agenda | CISAHUAYO{% endblock %}
@@ -20,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if evento %}Editar «{{ evento.titulo }}»{% else %}Nuevo evento{% endif %}</h1>
+      <h1 class="page-header__title">{% if evento %}Editar «{{ evento.titulo }}»{% elif original %}Duplicar «{{ original.titulo }}»{% else %}Nuevo evento{% endif %}</h1>
       <p class="page-header__description">El color sale del alcance. Los eventos de todo el colegio se ven en todos los niveles. La agenda es informativa: no cambia asistencias, calificaciones ni días sin clases.</p>
     </div>
   </header>
@@ -38,7 +39,8 @@
       <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.titulo clase="form-grid__full" %}
         {% include "partials/field.html" with campo=form.alcance %}
-        {% include "partials/field.html" with campo=form.lugar %}
+        {% include "partials/field.html" with campo=form.tipo %}
+        {% include "partials/field.html" with campo=form.lugar clase="form-grid__full" %}
         {% include "partials/field.html" with campo=form.fecha_inicio %}
         {% include "partials/field.html" with campo=form.fecha_fin %}
         <div class="field form-grid__full">
@@ -51,6 +53,33 @@
           {% include "partials/field.html" with campo=form.hora_fin %}
         </div>
         {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
+        <div class="field form-grid__full">
+          <label class="choice choice--check" for="{{ form.importante.id_for_label }}">
+            {{ form.importante }}<span class="choice__box">{{ form.importante.label|capfirst }}</span>
+          </label>
+          <p class="field__hint">{{ form.importante.help_text }}</p>
+        </div>
+        {% if form.repetir %}
+          <div class="agenda-repetir form-grid__full" data-agenda-repeticion>
+            {% include "partials/field.html" with campo=form.repetir %}
+            <div class="agenda-repetir__hasta" data-agenda-repetir-hasta{% if not form.repetir.value %} hidden{% endif %}>
+              {% include "partials/field.html" with campo=form.repetir_hasta %}
+              <label class="choice choice--check" for="{{ form.saltar_sin_clases.id_for_label }}">
+                {{ form.saltar_sin_clases }}<span class="choice__box">{{ form.saltar_sin_clases.label }}</span>
+              </label>
+              <p class="field__hint">Se crea un evento por cada fecha (como máximo un año). Después se puede corregir o eliminar uno solo o ese y los siguientes.</p>
+            </div>
+          </div>
+        {% endif %}
+        {% if form.es_de_una_serie %}
+          <div class="field form-grid__full agenda-serie">
+            <p class="field__label">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} {{ evento.repeticion|default:"Este evento se repite" }}</p>
+            <label class="choice choice--check" for="{{ form.toda_la_serie.id_for_label }}">
+              {{ form.toda_la_serie }}<span class="choice__box">{{ form.toda_la_serie.label }}</span>
+            </label>
+            <p class="field__hint">{{ form.toda_la_serie.help_text }}</p>
+          </div>
+        {% endif %}
       </div>
     </section>
     <div class="action-bar">

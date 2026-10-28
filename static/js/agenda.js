@@ -1,8 +1,11 @@
 /* CISAHUAYO · Agenda / Calendario (templates/agenda/calendario.html)
 
    - Al tocar un evento se abre su ventana de detalle con los datos que ya trae la página (#agenda-eventos). Sin
-     JavaScript, o con Ctrl/Cmd+clic, el enlace lleva a la página del evento.
-   - Editar y Eliminar (solo quien gestiona) cierran el detalle y abren su formulario en la ventana de modal-form.js.
+     JavaScript, o con Ctrl/Cmd+clic, el enlace lleva a la página del evento. Un comunicado o una reunión llevan a su
+     propia página. La ventana solo muestra las acciones que ese evento tiene (agregar a mi calendario, y para quien
+     gestiona: duplicar, editar y eliminar).
+   - Editar, Duplicar y Eliminar cierran el detalle y abren su formulario en la ventana de modal-form.js.
+   - La vista (mes, semana, próximos), el nivel, el tipo y la búsqueda también se cambian sin recargar.
    - Cambiar de mes o de nivel trae el mes nuevo sin recargar toda la página: mientras llega, lo actual se atenúa con
      «Cargando…»; si falla, queda un aviso con «Reintentar». La dirección cambia, así que Atrás y Adelante funcionan.
    - «+N eventos» se cierra al tocar fuera o con Escape, y solo uno queda abierto a la vez.
@@ -30,7 +33,7 @@
     const dialogo = qs('[data-agenda-detalle]');
     if (typeof dialogo?.showModal !== 'function') return false;
     const evento = eventos().find((dato) => String(dato.id) === enlace.dataset.agendaEvento);
-    if (!evento || evento.comunicado) return false;   /* un comunicado con evento: el enlace lleva al comunicado */
+    if (!evento || evento.navega) return false;   /* un comunicado o una reunión: el enlace lleva a su página */
 
     const poner = (nombre, texto) => {
       const nodo = qs(`[data-agenda-detalle-${nombre}]`, dialogo);
@@ -43,13 +46,26 @@
     poner('fechas', evento.fechas);
     poner('horario', evento.horario);
     poner('lugar', evento.lugar);
-    poner('descripcion', evento.descripcion);
-    const conLugar = qs('[data-agenda-detalle-con-lugar]', dialogo);
-    if (conLugar) conLugar.hidden = !evento.lugar;
-    const editar = qs('[data-agenda-detalle-editar]', dialogo);
-    const eliminar = qs('[data-agenda-detalle-eliminar]', dialogo);
-    if (editar && evento.editar) editar.href = evento.editar;
-    if (eliminar && evento.eliminar) eliminar.href = evento.eliminar;
+    poner('repeticion', evento.repeticion);
+    poner('tipo', evento.tipo);
+    /* La descripción ya viene escapada del servidor, con sus direcciones como enlaces (Agenda/reglas.descripcion_html) */
+    const descripcion = qs('[data-agenda-detalle-descripcion]', dialogo);
+    if (descripcion) descripcion.innerHTML = evento.descripcionHtml || '';
+    const mostrar = (nombre, visible) => {
+      const nodo = qs(`[data-agenda-detalle-${nombre}]`, dialogo);
+      if (nodo) nodo.hidden = !visible;
+    };
+    mostrar('con-lugar', evento.lugar);
+    mostrar('con-repeticion', evento.repeticion);
+    mostrar('tipo', evento.tipo);
+    mostrar('importante', evento.importante);
+    /* Cada acción, solo si ese evento la tiene (los días sin clases o las fechas de calificaciones no se editan aquí) */
+    ['editar', 'eliminar', 'duplicar', 'calendario'].forEach((accion) => {
+      const boton = qs(`[data-agenda-detalle-${accion}]`, dialogo);
+      if (!boton) return;
+      boton.hidden = !evento[accion];
+      if (evento[accion]) boton.href = evento[accion];
+    });
 
     origen = enlace;
     document.dispatchEvent(new CustomEvent('app:close-menus'));
@@ -127,6 +143,7 @@
   /* Tras cambiar el contenido, el foco vuelve al mismo control (mes anterior, Hoy, mes siguiente o el nivel) */
   const enfocar = (foco) => {
     if (foco === 'nivel') qs('[data-agenda-nivel]')?.focus();
+    else if (foco === 'buscar') qs('[data-agenda-buscar]')?.focus();
     else if (Number.isInteger(foco)) raiz.querySelectorAll('[data-agenda-navegar]')[foco]?.focus();
   };
 
@@ -157,8 +174,8 @@
   const sinModificadores = (evento) => evento.button === 0 && !evento.metaKey && !evento.ctrlKey && !evento.shiftKey && !evento.altKey;
 
   raiz.addEventListener('click', (evento) => {
-    /* Editar o eliminar desde el detalle: se cierra el detalle y modal-form.js abre el formulario */
-    const accion = evento.target.closest('[data-agenda-detalle-editar], [data-agenda-detalle-eliminar]');
+    /* Editar, duplicar o eliminar desde el detalle: se cierra el detalle y modal-form.js abre el formulario */
+    const accion = evento.target.closest('[data-agenda-detalle-editar], [data-agenda-detalle-eliminar], [data-agenda-detalle-duplicar]');
     if (accion) {
       origen = null;
       accion.closest('dialog')?.close();
@@ -179,7 +196,14 @@
     if (enlace && abrirDetalle(enlace)) evento.preventDefault();
   });
 
-  /* El nivel se aplica al elegirlo (sin JavaScript queda el botón «Filtrar») */
+  /* El nivel y el tipo se aplican al elegirlos; la búsqueda, al enviarla (sin JavaScript queda el botón «Filtrar») */
+  const destinoDe = (formulario) => {
+    const destino = new URL(formulario.action, location.href);
+    const datos = new URLSearchParams();
+    new FormData(formulario).forEach((valor, nombre) => { if (String(valor).trim()) datos.set(nombre, String(valor).trim()); });
+    destino.search = datos.toString();
+    return destino.href;
+  };
   raiz.addEventListener('change', (evento) => {
     const nivel = evento.target.closest('[data-agenda-nivel]');
     if (!nivel) return;
@@ -188,10 +212,13 @@
       formulario.submit();
       return;
     }
-    const destino = new URL(formulario.action, location.href);
-    destino.search = new URLSearchParams(new FormData(formulario)).toString();
-    if (!nivel.value) destino.searchParams.delete('nivel');
-    cargar(destino.href, { foco: 'nivel' });
+    cargar(destinoDe(formulario), { foco: 'nivel' });
+  });
+  raiz.addEventListener('submit', (evento) => {
+    const formulario = evento.target.closest('[data-agenda-filtro]');
+    if (!formulario || !window.fetch || !window.DOMParser) return;
+    evento.preventDefault();
+    cargar(destinoDe(formulario), { foco: 'buscar' });
   });
 
   /* Atrás y Adelante entre meses ya vistos */

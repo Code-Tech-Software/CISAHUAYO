@@ -559,6 +559,273 @@ a.agenda-dia__numero:hover {
   display: none;
 }
 
+/* --- Vista (mes, semana, próximos), búsqueda y filtros ------------------------------------------------------- */
+.agenda-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.agenda-vistas {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: var(--border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+}
+
+.agenda-vistas__opcion {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.875rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.agenda-vistas__opcion:hover {
+  color: var(--color-text-strong);
+}
+
+.agenda-vistas__opcion:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.agenda-vistas__opcion.is-activo {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.agenda-buscar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.agenda-buscar__icono {
+  position: absolute;
+  left: 0.6rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.agenda-filtro .agenda-buscar .field__control {
+  width: 15rem;
+  padding-left: 2rem;
+}
+
+/* En los botones de la cabecera, el texto se oculta en el teléfono (queda el icono con su ayuda) */
+@media (max-width: 35.99rem) {
+  .agenda-cabeza__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* --- La semana, los próximos y la búsqueda ---------------------------------------------------------------- */
+.agenda-seccion {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.agenda-lista__eventos--busqueda {
+  padding-left: 0;
+}
+
+.agenda-semanal {
+  display: grid;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.agenda-semanal__dia {
+  padding: var(--space-3) var(--space-4);
+}
+
+.agenda-semanal__dia + .agenda-semanal__dia {
+  border-top: var(--border);
+}
+
+.agenda-semanal__dia.is-fin {
+  background: var(--color-surface-2);
+}
+
+.agenda-semanal__dia.is-hoy {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.agenda-semanal__nuevo {
+  margin-left: auto;
+}
+
+.agenda-semanal__nada {
+  margin: 0;
+  padding-left: 2.5rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* --- Icono del tipo y «importante» -------------------------------------------------------------------------- */
+.agenda-evento__icono {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.agenda-evento__icono .icon {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* Los iconos van en el renglón del título (la campanita sigue al texto aunque este ocupe dos renglones) */
+.agenda-tarjeta__icono,
+.agenda-tarjeta__importante {
+  display: inline-flex;
+  vertical-align: -0.15em;
+}
+
+.agenda-tarjeta__icono {
+  color: var(--color);
+}
+
+.agenda-tarjeta__importante {
+  color: var(--color-warning);
+}
+
+.agenda-detalle__importante {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--color-warning);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.agenda-detalle__importante[hidden] {
+  display: none;
+}
+
+/* La descripción del detalle trae sus direcciones como enlaces */
+.agenda-detalle__descripcion a,
+.agenda-ficha a.enlace-externo {
+  overflow-wrap: anywhere;
+}
+
+.agenda-detalle__cabeza .agenda-etiqueta + .agenda-etiqueta {
+  margin-left: 0.25rem;
+  background: var(--color-surface-2);
+  color: var(--color-text-soft);
+}
+
+.agenda-detalle__pie {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.agenda-detalle__pie [hidden] {
+  display: none;
+}
+
+.agenda-detalle__gestion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* --- Formulario: repetir y series ------------------------------------------------------------------------------ */
+.agenda-repetir {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.agenda-repetir__hasta {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.agenda-repetir__hasta[hidden] {
+  display: none;
+}
+
+.agenda-repetir__hasta .field {
+  width: min(100%, 16rem);
+}
+
+.agenda-repetir__hasta .field__hint {
+  margin: 0;
+}
+
+.agenda-serie {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.agenda-serie .field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+/* --- «En mi teléfono» --------------------------------------------------------------------------------------- */
+.agenda-suscripcion {
+  align-items: start;
+}
+
+.agenda-suscripcion__enlace {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.agenda-suscripcion__enlace .field__control {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+}
+
+.agenda-suscripcion__boton {
+  margin: var(--space-3) 0;
+}
+
+.agenda-suscripcion__pasos {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.agenda-suscripcion__pasos p {
+  margin: 0;
+}
+
 /* --- Computadora y tableta: el mes; teléfono: la agenda ---------------------------------------------------- */
 @media (min-width: 48rem) {
   .agenda-mes {
@@ -571,16 +838,22 @@ a.agenda-dia__numero:hover {
 }
 
 @media (max-width: 47.99rem) {
-  .agenda-cabeza__acciones {
-    width: 100%;
-  }
-
+  .agenda-barra,
   .agenda-filtro {
-    flex: 1;
+    width: 100%;
   }
 
-  .agenda-filtro .field__control {
+  .agenda-filtro .field__control,
+  .agenda-filtro .agenda-buscar .field__control {
     width: 100%;
+  }
+
+  .agenda-filtro > select {
+    flex: 1 1 8rem;
+  }
+
+  .agenda-buscar {
+    flex: 1 1 100%;
   }
 }
 

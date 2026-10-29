@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Reabrir {{ semestre.en_frase }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ semestre.ciclo.get_absolute_url }}">{{ semestre.ciclo }}</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">{{ semestre.nombre }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Reabrir</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Reabrir {{ semestre.en_frase }}</h1>
+      <p class="page-header__description">Ciclo {{ semestre.ciclo }}, cerrado el {{ semestre.cerrado_en|date:"d/m/Y H:i" }}{% if semestre.cerrado_por %} por {{ semestre.cerrado_por.get_full_name|default:semestre.cerrado_por.username }}{% endif %}.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <div class="alert alert--warning" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body">Vuelve a estar abierto: se podrán reabrir sus actas (cada una con su propio motivo) y corregir exámenes finales. El cierre anterior queda en la bitácora con tu motivo, y al volver a cerrarlo se registrará qué calificaciones definitivas cambiaron.</p>
+    </div>
+    <section class="card">
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.motivo clase="form-grid__full" %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      <button type="submit" class="btn btn--danger">Reabrir {{ semestre.en_frase }}</button>
+    </div>
+  </form>
+{% endblock %}

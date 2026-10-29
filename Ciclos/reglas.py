@@ -182,6 +182,11 @@ def pendientes_de_cierre(ciclo, usuario):
     agregar('Casos de conducta con revisión vencida',
             registros.exclude(estado=RegistroConducta.CERRADO).filter(fecha_revision__lt=hoy).count(),
             f"{reverse('conducta:lista')}?estado=vencidos&ciclo={ciclo.pk}", usuario.has_perm(VER))
+    # Bachillerato por semestres: los extraordinarios y regularizaciones se pueden seguir capturando después del cierre
+    from Calificaciones.semestres import procesos_abiertos_del_ciclo
+    for semestre, cantidad in procesos_abiertos_del_ciclo(ciclo).items():
+        agregar(f'Extraordinarios o regularizaciones pendientes del {semestre.en_frase}', cantidad,
+                reverse('ciclos:semestre', args=[semestre.pk]), usuario.has_perm('Alumnos.view_cicloescolar'))
     return pendientes
 
 

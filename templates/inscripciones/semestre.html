@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Pasar al semestre B | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inscripciones:lista' %}">Inscripciones a grupos</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Pasar al semestre B</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Pasar al semestre B</h1>
+      <p class="page-header__description">Pasa a los estudiantes de preparatoria de los grados del semestre A al grado siguiente, dentro del ciclo {{ ciclo }}. Su inscripción del semestre A no se da de baja: queda como «Semestre concluido», con sus calificaciones, y sus extraordinarios o regularizaciones se siguen capturando.</p>
+    </div>
+  </header>
+
+  {% if semestre_a and not semestre_a.cerrado %}
+    <div class="alert alert--info" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">El semestre A sigue {{ semestre_a.get_estado_display|lower }}. Puedes pasar a los estudiantes antes de cerrarlo: seguirán en las listas de sus materias del semestre A hasta que se cierre.</p>
+    </div>
+  {% endif %}
+  {% if semestre_b and semestre_b.estado == 'PENDIENTE' %}
+    <div class="alert alert--info" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">El semestre B todavía no se abre: sus periodos no se capturan hasta abrirlo en <a href="{{ ciclo.get_absolute_url }}#semestres">Ciclos escolares</a>.</p>
+    </div>
+  {% endif %}
+
+  {% if plan %}
+    <form method="post" class="form-page" novalidate>
+      {% csrf_token %}
+      <section class="card" aria-labelledby="sem-paso-1">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="sem-paso-1">1. Revisa grado por grado</h2>
+        </header>
+        <div class="table-card table-card--flush">
+          <table class="table">
+            <caption class="visually-hidden">Grado del semestre B al que pasan los estudiantes de cada grado del semestre A</caption>
+            <thead class="table__head">
+              <tr>
+                <th class="table__th" scope="col">Grado del semestre A</th>
+                <th class="table__th" scope="col">Estudiantes</th>
+                <th class="table__th" scope="col">Pasan a</th>
+              </tr>
+            </thead>
+            <tbody class="table__body">
+              {% for fila in plan %}
+                <tr class="table__row">
+                  <td class="table__cell table__cell--main">{{ fila.grado }}</td>
+                  <td class="table__cell" data-label="Estudiantes">
+                    <span class="cell-stack">
+                      <span class="cell-stack__main">{{ fila.cantidad }} por pasar</span>
+                      {% if fila.no_activos %}<span class="cell-stack__sub">{{ fila.no_activos }} sin estatus activo (no pasan)</span>{% endif %}
+                    </span>
+                  </td>
+                  <td class="table__cell" data-label="Pasan a">
+                    <select class="field__control field__control--select" name="grado_{{ fila.grado.pk }}"
+                            aria-label="Grado al que pasan los estudiantes de {{ fila.grado }}"{% if not fila.cantidad %} disabled{% endif %}>
+                      <option value="omitir">No pasar</option>
+                      {% for grado in destinos %}
+                        <option value="{{ grado.pk }}"{% if fila.sugerido == grado.pk|stringformat:"s" %} selected{% endif %}>{{ grado }}</option>
+                      {% endfor %}
+                    </select>
+                    {% if fila.siguiente_oculto %}<p class="field__hint">{{ fila.siguiente_oculto.nombre_de_nivel }} está oculto: muéstralo en Grados para pasar a los estudiantes ahí.</p>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="card__foot text-muted">Cada estudiante pasa al grupo que se llama igual (1.º A → 2.º A), si existe; si no, al primero del grado. Si alguien no debe pasar, cámbialo después desde su inscripción.</p>
+      </section>
+
+      <section class="card" aria-labelledby="sem-paso-2">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="calendar" %}<h2 class="card__title" id="sem-paso-2">2. Confirma</h2>
+        </header>
+        <div class="card__body form-grid">
+          <div class="field">
+            <label class="field__label" for="sem-fecha">Fecha de inscripción al semestre B</label>
+            <input class="field__control" type="date" id="sem-fecha" name="fecha" value="{{ hoy|date:'Y-m-d' }}" max="{{ hoy|date:'Y-m-d' }}">
+          </div>
+        </div>
+      </section>
+
+      <footer class="action-bar">
+        <a class="btn btn--ghost" href="{% url 'inscripciones:lista' %}">Cancelar</a>
+        <button type="submit" class="btn btn--primary"{% if not total %} disabled{% endif %}>
+          {% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Pasar {{ total }} estudiante{{ total|pluralize }} al semestre B
+        </button>
+      </footer>
+    </form>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="graduation-cap" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay estudiantes en grados del semestre A</p>
+        <p class="empty-state__text">En el ciclo {{ ciclo }} no hay inscripciones activas en 1.º, 3.º o 5.º de preparatoria por pasar al semestre B.</p>
+        <div class="empty-state__actions"><a class="btn btn--sm" href="{% url 'inscripciones:lista' %}">Ver inscripciones</a></div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

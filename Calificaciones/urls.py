@@ -16,6 +16,10 @@ urlpatterns = [
     path('calificaciones/actas/<int:pk>/historial/', views.historial, name='historial'),
     path('calificaciones/actas/<int:pk>/concentrado/', views.concentrado_imprimir, name='concentrado_imprimir'),
     path('calificaciones/actas/<int:pk>/concentrado/excel/', views.concentrado_excel, name='concentrado_excel'),
+    # Bachillerato por semestres: exámenes del semestre y su hoja (para imprimir y en Excel)
+    path('calificaciones/semestre/<int:pk>/guardar/', views.semestre_guardar, name='semestre_guardar'),
+    path('calificaciones/semestre/<int:pk>/imprimir/', views.semestre_imprimir, name='semestre_imprimir'),
+    path('calificaciones/semestre/<int:pk>/excel/', views.semestre_excel, name='semestre_excel'),
 
     # Sistema › Ajustes › Calificaciones: rubros, porcentajes y reglas de cada materia
     path('ajustes/calificaciones/', views_configuracion.configuracion, name='configuracion'),

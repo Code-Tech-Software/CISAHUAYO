@@ -128,9 +128,9 @@ class ListaTests(BaseTestCase):
 
     def test_conteos_de_las_pestanas_respetan_el_resto_de_filtros(self):
         conteos = self.pedir().context['conteos']
-        self.assertEqual(conteos, {'activas': 2, 'bajas': 1})
-        self.assertEqual(self.pedir(ciclo='').context['conteos'], {'activas': 3, 'bajas': 1})
-        self.assertEqual(self.pedir(q='zamora').context['conteos'], {'activas': 1, 'bajas': 0})
+        self.assertEqual(conteos, {'activas': 2, 'bajas': 1, 'concluidas': 0})
+        self.assertEqual(self.pedir(ciclo='').context['conteos'], {'activas': 3, 'bajas': 1, 'concluidas': 0})
+        self.assertEqual(self.pedir(q='zamora').context['conteos'], {'activas': 1, 'bajas': 0, 'concluidas': 0})
 
     def test_busca_por_nombre_referencia_y_curp(self):
         self.assertEqual(self.apellidos(q='ana zamora'), ['Zamora'])

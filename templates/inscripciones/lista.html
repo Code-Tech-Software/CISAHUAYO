@@ -26,6 +26,12 @@
         </a>
       {% endif %}
       {% if perms.Alumnos.add_inscripcion %}
+        {% if paso_de_semestre %}
+          <a class="btn" href="{% url 'inscripciones:semestre' %}">
+            {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
+            Pasar al semestre B
+          </a>
+        {% endif %}
         <a class="btn" href="{% url 'inscripciones:promocion' %}">
           {% include "partials/icon.html" with name="trending-up" icon_class="icon--sm" %}
           Reinscribir en bloque
@@ -66,16 +72,22 @@
 
   {# Las bajas no se mezclan con las inscripciones vigentes: tienen su propio filtro #}
   <nav class="pills" aria-label="Filtrar por estado">
-    <a class="pill{% if not viendo_bajas %} is-active{% endif %}" href="{% querystring estado=None page=None %}"{% if not viendo_bajas %} aria-current="true"{% endif %}>
+    <a class="pill{% if not viendo_bajas and not viendo_concluidas %} is-active{% endif %}" href="{% querystring estado=None page=None %}"{% if not viendo_bajas and not viendo_concluidas %} aria-current="true"{% endif %}>
       Activas <span class="pill__count">{{ conteos.activas }}</span>
     </a>
     <a class="pill{% if viendo_bajas %} is-active{% endif %}" href="{% querystring estado='BAJA' page=None %}"{% if viendo_bajas %} aria-current="true"{% endif %}>
       Bajas <span class="pill__count">{{ conteos.bajas }}</span>
     </a>
+    {# Preparatoria por semestres: la inscripción del semestre A que pasó al B (no es una baja) #}
+    {% if conteos.concluidas or viendo_concluidas %}
+      <a class="pill{% if viendo_concluidas %} is-active{% endif %}" href="{% querystring estado='CONCLUIDA' page=None %}"{% if viendo_concluidas %} aria-current="true"{% endif %}>
+        Semestre concluido <span class="pill__count">{{ conteos.concluidas }}</span>
+      </a>
+    {% endif %}
   </nav>
 
   <form class="filters" method="get" role="search" aria-label="Buscar y filtrar inscripciones" data-autosubmit>
-    {% if viendo_bajas %}<input type="hidden" name="estado" value="BAJA">{% endif %}
+    {% if viendo_bajas %}<input type="hidden" name="estado" value="BAJA">{% elif viendo_concluidas %}<input type="hidden" name="estado" value="CONCLUIDA">{% endif %}
     {% if por_pagina != por_pagina_defecto %}<input type="hidden" name="por_pagina" value="{{ por_pagina }}">{% endif %}
     <div class="filters__search">
       <label class="visually-hidden" for="{{ filtro.q.id_for_label }}">Buscar inscripciones</label>
@@ -139,7 +151,11 @@
                 <td class="table__cell table__col--wide" data-label="Ciclo">{{ inscripcion.ciclo }}</td>
                 <td class="table__cell table__col--wide" data-label="Inscrito el">{{ inscripcion.fecha_inscripcion|date:"j M Y" }}</td>
                 <td class="table__cell" data-label="Estado">
-                  <span class="tag tag--{{ inscripcion.activa|yesno:'success,danger' }}">{{ inscripcion.activa|yesno:"Activa,Baja" }}</span>
+                  {% if inscripcion.concluida %}
+                    <span class="tag tag--info" title="Pasó al semestre siguiente del mismo ciclo">Semestre concluido</span>
+                  {% else %}
+                    <span class="tag tag--{{ inscripcion.activa|yesno:'success,danger' }}">{{ inscripcion.activa|yesno:"Activa,Baja" }}</span>
+                  {% endif %}
                 </td>
                 <td class="table__cell table__cell--actions">
                   {% if inscripcion.activa %}
@@ -156,7 +172,7 @@
                         {% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}
                       </button>
                     {% endif %}
-                  {% elif perms.Alumnos.change_inscripcion %}
+                  {% elif perms.Alumnos.change_inscripcion and not inscripcion.concluida %}
                     <form method="post" action="{% url 'inscripciones:reactivar' inscripcion.pk %}">
                       {% csrf_token %}
                       <button type="submit" class="btn btn--sm">Reactivar</button>

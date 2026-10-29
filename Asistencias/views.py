@@ -783,14 +783,17 @@ def alumno(request, pk):
     alumno = get_object_or_404(Alumno, pk=pk)
     ciclos = list(CicloEscolar.objects.filter(inscripciones__alumno=alumno).distinct())
     ciclo = elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
-    inscripcion = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo).select_related('grado', 'grupo__nombre', 'grupo__grado', 'ciclo').first() if ciclo else None
+    inscripcion = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo, concluida=False).select_related('grado', 'grupo__nombre', 'grupo__grado', 'ciclo').first() if ciclo else None
+    # En preparatoria por semestres, el ciclo puede tener también la inscripción del semestre A (concluida): su
+    # asistencia es del mismo ciclo y se suma aquí
+    del_ciclo = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo) if ciclo else Inscripcion.objects.none()
 
     contexto = {
         'seccion': 'reporte', 'alumno': alumno, 'ciclos': ciclos, 'ciclo': ciclo, 'inscripcion': inscripcion,
         'resumen': None, 'pagina': None, 'por_materia': [],
     }
     if inscripcion:
-        generales = con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(inscripcion=inscripcion))).order_by('-fecha')
+        generales = con_justificada_general(sin_dias_suspendidos(AsistenciaGeneral.objects.filter(inscripcion__in=del_ciclo))).order_by('-fecha')
         resumen = conteos(generales)
         resumen['porcentaje'] = porcentaje(resumen['presentes'], resumen['retardos'], resumen['registros'])
         resumen['sin_justificar'] = resumen['faltas'] - resumen['justificadas']
@@ -798,7 +801,7 @@ def alumno(request, pk):
 
         del_dia = defaultdict(list)
         for registro in con_justificada_materia(
-            AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha__in=[g.fecha for g in pagina])
+            AsistenciaMateria.objects.filter(inscripcion__in=del_ciclo, fecha__in=[g.fecha for g in pagina])
         ).select_related('materia_grado__materia').order_by('materia_grado__materia__nombre'):
             del_dia[registro.fecha].append(registro)
         for general in pagina:
@@ -806,7 +809,7 @@ def alumno(request, pk):
 
         por_materia = []
         filas = (
-            con_justificada_materia(sin_dias_suspendidos(AsistenciaMateria.objects.filter(inscripcion=inscripcion))).order_by().values('materia_grado__materia__nombre', 'materia_grado__materia__clave')
+            con_justificada_materia(sin_dias_suspendidos(AsistenciaMateria.objects.filter(inscripcion__in=del_ciclo))).order_by().values('materia_grado__materia__nombre', 'materia_grado__materia__clave')
             .annotate(
                 registros=Count('pk'), presentes=Count('pk', filter=Q(estado='PRESENTE')), retardos=Count('pk', filter=Q(estado='RETARDO')),
                 faltas=Count('pk', filter=Q(estado='FALTA')), justificadas=Count('pk', filter=Q(estado='FALTA', justificada=True)),
@@ -818,7 +821,7 @@ def alumno(request, pk):
             por_materia.append(fila)
         # La bitácora: las capturas y correcciones que hizo una persona, con lo que había antes (las más recientes)
         cambios = list(
-            CambioAsistencia.objects.filter(inscripcion=inscripcion).select_related('materia_grado__materia', 'usuario')
+            CambioAsistencia.objects.filter(inscripcion__in=del_ciclo).select_related('materia_grado__materia', 'usuario')
             .order_by('-creado', '-pk')[:CAMBIOS_EN_EL_HISTORIAL + 1]
         )
         for cambio in cambios:

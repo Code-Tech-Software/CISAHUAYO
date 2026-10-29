@@ -3,16 +3,20 @@
 Todo es del ciclo actual y de la inscripción vigente: el horario del grupo con sus recesos, las clases de hoy, la
 asistencia general (sin los días de una suspensión autorizada; las faltas justificadas se cuentan aparte) y las
 calificaciones de los periodos ya cerrados. Solo se muestran las actas cerradas: mientras un periodo está en captura
-sus calificaciones pueden cambiar.
+sus calificaciones pueden cambiar. En bachillerato por semestres (2026-10-28), además, el resultado de cada semestre
+cerrado del ciclo (examen final, extraordinario, regularización y definitiva), con los mismos números que la hoja
+semestral de Calificaciones.
 """
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 
 from Alumnos.asistencias import con_justificada_general, conteos, motivo_sin_clases, porcentaje, sin_dias_suspendidos
 from Alumnos.horarios import cuadricula, recreos_del_grupo
-from Alumnos.models import AsistenciaGeneral, MateriaGrado, Periodo
+from Alumnos.models import NIVEL_POR_SEMESTRES, AsistenciaGeneral, MateriaGrado
+from Alumnos.periodos import periodos_para_grado
 from Alumnos.semanas import Calendario, bloques_de_semana
 
 INCIDENCIAS_RECIENTES = 6
@@ -116,7 +120,7 @@ class Calificaciones:
 def _calificaciones(inscripcion):
     from Calificaciones.models import ActaCalificaciones
 
-    periodos = list(Periodo.objects.filter(ciclo=inscripcion.ciclo, nivel=inscripcion.grado.nivel).order_by('fecha_inicio', 'nombre'))
+    periodos = list(periodos_para_grado(inscripcion.ciclo, inscripcion.grado))
     asignaciones = list(
         MateriaGrado.objects.filter(grupo=inscripcion.grupo, ciclo=inscripcion.ciclo, activa=True)
         .select_related('materia', 'profesor').order_by('materia__nombre')
@@ -141,6 +145,49 @@ def _calificaciones(inscripcion):
         promedio_general=_promedio([fila.promedio for fila in filas]),
         cerrados=sum(1 for valor in por_periodo if valor is not None),
     )
+
+
+# ---------------------------------------------------------------------------
+# Bachillerato por semestres: los semestres cerrados del ciclo
+# ---------------------------------------------------------------------------
+@dataclass
+class SemestreDelPortal:
+    semestre: object
+    grupo: object
+    filas: list = field(default_factory=list)
+
+
+def semestrales(alumno, ciclo):
+    """Por cada semestre del ciclo que ya se cerró y en el que estuvo inscrito: sus materias con el promedio de
+    periodos, el examen final (o la exención), la final ordinaria, el extraordinario, la regularización, la definitiva
+    y el estado. Mientras un semestre está abierto no se muestra: sus resultados todavía pueden cambiar."""
+    from Calificaciones import calculo_semestral as cs
+    from Calificaciones import semestres as reglas_semestres
+    lista = []
+    inscripciones = (alumno.inscripciones.filter(Q(activa=True) | Q(concluida=True), ciclo=ciclo, grado__nivel=NIVEL_POR_SEMESTRES)
+                     .select_related('grado', 'ciclo', 'grupo__nombre', 'grupo__grado'))
+    for inscripcion in inscripciones:
+        semestre = reglas_semestres.semestre_de_grado_en(inscripcion.grado, ciclo)
+        if semestre is None or not semestre.cerrado:
+            continue
+        asignaciones = list(MateriaGrado.objects.filter(grupo=inscripcion.grupo, ciclo=ciclo, activa=True)
+                            .select_related('materia', 'profesor', 'grado', 'grupo__nombre', 'grupo__grado').order_by('materia__nombre'))
+        hojas = reglas_semestres.hojas(asignaciones, semestre)
+        datos = SemestreDelPortal(semestre=semestre, grupo=inscripcion.grupo)
+        for asignacion in asignaciones:
+            fila = next((f for f in hojas[asignacion.pk].filas if f.inscripcion.pk == inscripcion.pk), None)
+            if fila is None:
+                continue
+            r = fila.resultado
+            datos.filas.append({
+                'materia': asignacion.materia.nombre, 'profesor': asignacion.profesor.nombre_completo if asignacion.profesor_id else '',
+                'promedio': cs.texto(r.promedio), 'exento': r.final_por_exencion, 'final': cs.texto(r.examen_final),
+                'ordinaria': cs.texto(r.ordinaria), 'extraordinario': cs.texto(r.extraordinario), 'regularizacion': cs.texto(r.regularizacion),
+                'definitiva': cs.texto(r.definitiva), 'estado': r.estado_texto,
+                'estilo': 'aprobada' if r.aprobada else ('reprobada' if r.reprobada else 'pendiente'),
+            })
+        lista.append(datos)
+    return sorted(lista, key=lambda s: s.semestre.clave)
 
 
 def calificaciones_de(inscripcion):
@@ -182,6 +229,7 @@ def resumen(alumno, completo=True, semana=None):
         info = calendario.info(fecha, nivel)
         de_la_semana = bloques if info.lunes == calendario.info(ahora.date(), nivel).lunes else _horario(inscripcion, fecha, calendario)
         datos.update({
+            'semestrales': semestrales(alumno, ciclo) if nivel == NIVEL_POR_SEMESTRES else [],
             'cuadricula': cuadricula(de_la_semana),
             'etiqueta_horario': (f'Horario de {inscripcion.grupo}, {info.nombre.lower()}, del {info.rango}' if info.alternada
                                  else f'Horario semanal de {inscripcion.grupo} en el ciclo {ciclo}'),

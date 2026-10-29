@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Semestres del ciclo {{ ciclo }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ciclos:lista' %}">Ciclos escolares</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ ciclo.get_absolute_url }}">{{ ciclo }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Semestres</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Semestres de bachillerato</h1>
+      <p class="page-header__description">Ciclo {{ ciclo }} ({{ ciclo.fecha_inicio|date:"d/m/Y" }} al {{ ciclo.fecha_fin|date:"d/m/Y" }}). Cada semestre tiene sus fechas, sus periodos de evaluación y su cierre.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card" aria-labelledby="seccion-semestres">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="calendar-range" %}<h2 class="card__title" id="seccion-semestres">Fechas</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.a_inicio %}
+        {% include "partials/field.html" with campo=form.a_fin %}
+        {% include "partials/field.html" with campo=form.b_inicio %}
+        {% include "partials/field.html" with campo=form.b_fin %}
+      </div>
+      {% with por_asignar=form.periodos_por_asignar %}
+        {% if por_asignar %}
+          <p class="card__foot text-muted">Los periodos de preparatoria que todavía no tienen semestre se asignan al que contiene su fecha de inicio: {% for periodo in por_asignar %}{{ periodo.nombre }} ({{ periodo.fecha_inicio|date:"d/m" }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+        {% endif %}
+      {% endwith %}
+    </section>
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{{ ciclo.get_absolute_url }}#semestres">Cancelar</a>
+      <button type="submit" class="btn btn--primary">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar</button>
+    </footer>
+  </form>
+{% endblock %}

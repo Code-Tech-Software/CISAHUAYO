@@ -47,6 +47,13 @@
     </div>
   {% endif %}
 
+  {% if bloqueo_reapertura %}
+    <div class="alert alert--info cal-estado__aviso" role="note">
+      {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+      <p class="alert__body">{{ bloqueo_reapertura }}</p>
+    </div>
+  {% endif %}
+
   {% if puede_cerrar or puede_reabrir %}
     <div class="cal-estado__cierre">
       {% if puede_cerrar %}

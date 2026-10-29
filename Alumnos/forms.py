@@ -590,7 +590,7 @@ class InscribirForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.ModelForm):
             raise ValidationError(motivo)
         ciclo = datos.get('ciclo')
         # La restricción alumno+ciclo queda fuera de la validación del ModelForm (alumno no es campo).
-        if ciclo and Inscripcion.objects.filter(alumno=self.instance.alumno, ciclo=ciclo).exists():
+        if ciclo and Inscripcion.objects.filter(alumno=self.instance.alumno, ciclo=ciclo, concluida=False).exists():
             raise ValidationError('El estudiante ya está inscrito en este ciclo escolar.')
         return datos
 

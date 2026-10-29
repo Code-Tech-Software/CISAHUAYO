@@ -30,6 +30,13 @@
 
   {% include "ajustes/_pestanas.html" %}
 
+  {% if bloqueo_semestre %}
+    <div class="alert alert--info" role="note">
+      {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+      <p class="alert__body">{{ bloqueo_semestre }}</p>
+    </div>
+  {% endif %}
+
   {% if base %}
     <nav class="pills pills--section cal-versiones" aria-label="Versiones de la configuración">
       <a class="pill{% if elegida == base %} is-active{% endif %}" href="?ciclo={{ ciclo.pk }}"{% if elegida == base %} aria-current="page"{% endif %}>Todo el ciclo</a>

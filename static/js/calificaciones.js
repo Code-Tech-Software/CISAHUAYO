@@ -160,6 +160,11 @@
       }
       elemento.textContent = valor || (elemento.dataset.vacio ?? (elemento.classList.contains('cal-promedio') ? 'Sin calificar' : '—'));
     });
+    /* Hoja semestral: el examen que corresponde capturar ahora se habilita (y el que ya no, se bloquea) */
+    fila.querySelectorAll('[data-habilita]').forEach((entrada) => {
+      const clave = `habilita-${entrada.dataset.habilita}`;
+      if (clave in datos && !pendientes.has(entrada.dataset.clave)) entrada.disabled = datos[clave] !== '1';
+    });
   };
 
   const resumenDeErrores = () => {

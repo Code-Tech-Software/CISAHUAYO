@@ -11,7 +11,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from Alumnos import historial
-from Alumnos.academico import alumnos_sin_inscribir, ciclo_actual, grupos_del_grado, motivo_no_inscribible, siguiente_grado, sugerir_ciclo
+from Alumnos.academico import (
+    alumnos_sin_inscribir, ciclo_actual, grupos_del_grado, motivo_no_inscribible, pasar_al_semestre, plan_de_paso_de_semestre, siguiente_grado,
+    sugerir_ciclo,
+)
 from Alumnos.models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Inscripcion
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
@@ -47,7 +50,8 @@ def inscripcion_lista(request):
     # Los conteos de las pestañas respetan los demás filtros
     conteos = filtro.filtrar(Inscripcion.objects.all(), con_estado=False).order_by().aggregate(
         activas=Count('pk', filter=Q(activa=True)),
-        bajas=Count('pk', filter=Q(activa=False)),
+        bajas=Count('pk', filter=Q(activa=False, concluida=False)),
+        concluidas=Count('pk', filter=Q(concluida=True)),
     )
 
     # Resumen del ciclo elegido: cuántos alumnos hay por nivel y cuántos faltan por inscribir
@@ -77,6 +81,8 @@ def inscripcion_lista(request):
         'opciones_por_pagina': OPCIONES_POR_PAGINA,
         'conteos': conteos,
         'viendo_bajas': activos.get('estado') == 'BAJA',
+        'viendo_concluidas': activos.get('estado') == 'CONCLUIDA',
+        'paso_de_semestre': actual is not None and actual.semestres.exists(),
         'resumen': resumen,
         'ciclo_actual': actual,
         # El ciclo actual es el valor por defecto: elegirlo no cuenta como un filtro aplicado
@@ -132,6 +138,9 @@ def inscripcion_crear(request):
 @requiere_permisos('Alumnos.change_inscripcion')
 def inscripcion_editar(request, pk):
     inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado'), pk=pk)
+    if inscripcion.concluida:
+        messages.info(request, f'La inscripción de {inscripcion.alumno} en {inscripcion.grupo} es de un semestre concluido: se conserva como historia y no se edita.')
+        return redirect(_url_de_lista(inscripcion.ciclo_id))
     form = InscripcionForm(request.POST if request.method == 'POST' else None, instance=inscripcion)
     antes = inscripcion.grupo.nombre_equivalente
     if request.method == 'POST':
@@ -161,7 +170,9 @@ def inscripcion_editar(request, pk):
 def inscripcion_baja(request, pk):
     """Baja lógica: la inscripción deja de contar, pero se conserva (y se puede reactivar)."""
     inscripcion = get_object_or_404(Inscripcion.objects.select_related('alumno', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado'), pk=pk)
-    if not inscripcion.activa:
+    if inscripcion.concluida:
+        messages.info(request, f'La inscripción de {inscripcion.alumno} en {inscripcion.grupo} es de un semestre concluido: no se da de baja.')
+    elif not inscripcion.activa:
         messages.info(request, f'La inscripción de {inscripcion.alumno} ya estaba dada de baja.')
     else:
         inscripcion.activa = False
@@ -183,6 +194,8 @@ def inscripcion_reactivar(request, pk):
     motivo = motivo_no_inscribible(inscripcion.alumno)
     if inscripcion.activa:
         messages.info(request, f'La inscripción de {inscripcion.alumno} ya está activa.')
+    elif inscripcion.concluida:
+        messages.error(request, f'{inscripcion.alumno} ya pasó al semestre siguiente: su inscripción en {inscripcion.grupo} queda como historia y no se reactiva.')
     elif motivo:
         messages.error(request, f'No se pudo reactivar la inscripción. {motivo}')
     else:
@@ -213,7 +226,7 @@ def inscripcion_exportar(request):
         escritor.writerow([proteger_celda_csv(valor) for valor in [
             alumno.referencia, alumno.apellido_paterno, alumno.apellido_materno, alumno.nombre,
             inscripcion.ciclo.nombre, str(inscripcion.grado), f'{inscripcion.fecha_inscripcion:%d/%m/%Y}',
-            'Activa' if inscripcion.activa else 'Baja',
+            inscripcion.estado_texto,
         ]])
     return respuesta
 
@@ -391,9 +404,57 @@ def _ejecutar_promocion(request):
     if nuevas:
         partes.append(f'Se reinscribió a {len(nuevas)} estudiante{"s" if len(nuevas) != 1 else ""} en {destino}.')
     if egresan:
-        partes.append(f'{len(egresan)} estudiante{"s" if len(egresan) != 1 else ""} pasó{"" if len(egresan) == 1 else "aron"} a estatus «Egresado».')
+        partes.append(f'{len(egresan)} estudiante{"s" if len(egresan) != 1 else ""} {"pasó" if len(egresan) == 1 else "pasaron"} a estatus «Egresado».')
     if partes:
         messages.success(request, ' '.join(partes))
     else:
         messages.info(request, 'No había estudiantes por reinscribir con esas opciones.')
     return redirect(_url_de_lista(destino.pk))
+
+
+# ---------------------------------------------------------------------------
+# Preparatoria por semestres: paso del semestre A al B en el mismo ciclo (2026-10-28)
+# ---------------------------------------------------------------------------
+@requiere_permisos('Alumnos.add_inscripcion')
+def inscripcion_semestre(request):
+    """Pasa a los estudiantes de los grados del semestre A al grado siguiente (semestre B) en el ciclo actual. La
+    inscripción del semestre A queda concluida (no es una baja): sus calificaciones, extraordinarios y regularizaciones
+    siguen en las materias de ese semestre."""
+    ciclo = ciclo_actual()
+    if ciclo is None:
+        messages.error(request, 'No hay un ciclo escolar actual.')
+        return redirect('inscripciones:lista')
+    plan, destinos = plan_de_paso_de_semestre(ciclo)
+    if request.method == 'POST':
+        por_id = {str(g.pk): g for g in destinos}
+        decisiones = {}
+        for fila in plan:
+            valor = request.POST.get(f"grado_{fila['grado'].pk}", 'omitir')
+            if valor == 'omitir':
+                continue
+            if valor not in por_id:
+                messages.error(request, 'Alguno de los grados de destino ya no está disponible. Revisa y vuelve a intentarlo.')
+                return redirect('inscripciones:semestre')
+            decisiones[fila['grado'].pk] = por_id[valor]
+        form = PromocionForm({'fecha': request.POST.get('fecha', '')})
+        form.is_valid()
+        fecha = form.cleaned_data.get('fecha') or timezone.localdate()
+        try:
+            nuevas = pasar_al_semestre(plan, decisiones, fecha)
+        except IntegrityError:
+            messages.error(request, 'Mientras revisabas, otra persona cambió alguna de estas inscripciones. No se guardó nada: vuelve a revisar.')
+            return redirect('inscripciones:semestre')
+        if nuevas:
+            historial.anotar_varios(request.user, {i.alumno_id: f'Pasó al semestre B: {i.grupo.nombre_equivalente} ({ciclo}).' for i in nuevas})
+            messages.success(request, f'{len(nuevas)} estudiante{"s" if len(nuevas) != 1 else ""} {"pasó" if len(nuevas) == 1 else "pasaron"} al semestre B. '
+                                      'Sus inscripciones del semestre A quedaron como «Semestre concluido».')
+        else:
+            messages.info(request, 'No había estudiantes por pasar con esas opciones.')
+        return redirect(_url_de_lista(ciclo.pk))
+
+    semestres = {s.clave: s for s in ciclo.semestres.all()}
+    return render(request, 'inscripciones/semestre.html', {
+        'ciclo': ciclo, 'plan': plan, 'destinos': destinos, 'total': sum(f['cantidad'] for f in plan),
+        'semestre_a': semestres.get('A'), 'semestre_b': semestres.get('B'),
+        'hoy': timezone.localdate(),
+    })

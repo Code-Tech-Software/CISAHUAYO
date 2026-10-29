@@ -713,3 +713,74 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* --- Hoja semestral de bachillerato (2026-10-28) ---------------------------------------------------------------------- */
+.cal-semestre__periodo {
+  min-width: 5.5rem;
+}
+
+.cal-semestre__situacion {
+  min-width: 8rem;
+  font-size: var(--text-xs);
+  white-space: normal !important;
+}
+
+.cal-semestre__marca {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-regular);
+}
+
+.cal-matriz__nombre .cal-semestre__marca {
+  display: inline;
+  margin-left: var(--space-1);
+}
+
+.cal-semestre__exencion {
+  color: var(--color-success);
+  font-weight: var(--weight-semibold);
+}
+
+.cal-semestre__no-cuenta,
+.cal-semestre__no-cuenta .cal-entrada {
+  color: var(--color-text-subtle);
+  text-decoration: line-through;
+}
+
+.cal-semestre .cal-entrada:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-soft);
+  cursor: not-allowed;
+}
+
+.cal-estado-fila--proceso {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.cal-estado-fila--reprobada {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.cal-movimientos {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+
+.cal-movimientos__titulo {
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+}
+
+.cal-semestre-hoja th,
+.cal-semestre-hoja td {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.cal-semestre-hoja td:nth-child(2) {
+  text-align: left;
+}

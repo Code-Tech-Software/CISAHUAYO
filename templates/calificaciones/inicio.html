@@ -47,7 +47,16 @@
   {% else %}
     {% include "calificaciones/_selector.html" %}
 
-    {% if not periodo %}
+    {% if vista_semestre %}
+      {% include "calificaciones/_semestre.html" %}
+      {% if captura_semestre %}
+        <div class="cal-guardado" data-guardado role="status" aria-live="polite" hidden>
+          <span class="cal-guardado__texto" data-guardado-texto></span>
+          <button type="button" class="btn btn--sm" data-reintentar hidden>Reintentar</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-descartar hidden>Descartar</button>
+        </div>
+      {% endif %}
+    {% elif not periodo %}
       <div class="table-card">
         <div class="empty-state">
           {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}

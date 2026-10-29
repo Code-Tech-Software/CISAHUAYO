@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Confirmación de «Cerrar semestre A/B» (en la ventana modal con data-modal-form o como página): el resumen de materias
+  y estudiantes —completas, pendientes y procesos abiertos— y lo que impide cerrarlo.
+{% endcomment %}
+
+{% block title %}Cerrar {{ semestre.en_frase }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ semestre.ciclo.get_absolute_url }}">{{ semestre.ciclo }}</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">{{ semestre.nombre }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Cerrar</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Cerrar {{ semestre.en_frase }}</h1>
+      <p class="page-header__description">Ciclo {{ semestre.ciclo }} · {{ datos.materias|length }} materia{{ datos.materias|length|pluralize }} · {{ datos.periodos|length }} periodo{{ datos.periodos|length|pluralize }}.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <ul class="semestre-resumen">
+      <li><strong>{{ datos.total_completas }}</strong> calificaci{{ datos.total_completas|pluralize:"ón,ones" }} completa{{ datos.total_completas|pluralize }} (con definitiva)</li>
+      <li><strong>{{ datos.pendientes }}</strong> pendiente{{ datos.pendientes|pluralize }} de la evaluación ordinaria (periodos o examen final)</li>
+      <li><strong>{{ datos.procesos_abiertos }}</strong> extraordinario{{ datos.procesos_abiertos|pluralize }} o regularizaci{{ datos.procesos_abiertos|pluralize:"ón,ones" }} abiert{{ datos.procesos_abiertos|pluralize:"o,os" }}</li>
+    </ul>
+    {% if problemas %}
+      <div class="alert alert--warning" role="alert">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <div class="alert__body">
+          <p><strong>Todavía no se puede cerrar.</strong> Falta resolver:</p>
+          <ul>{% for problema in problemas %}<li>{{ problema }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert--info" role="note">
+        {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+        <p class="alert__body">Se bloquean los periodos, rubros, porcentajes, actas y exámenes finales del {{ semestre.en_frase }}. Las consultas, reportes e historial siguen disponibles.{% if datos.procesos_abiertos %} Los {{ datos.procesos_abiertos }} extraordinarios o regularizaciones abiertos se podrán seguir capturando, y el semestre se mostrará con procesos pendientes hasta que concluyan.{% endif %} El ciclo {{ semestre.ciclo }} y el otro semestre no cambian.</p>
+      </div>
+    {% endif %}
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">Cancelar</a>
+      {% if not problemas %}<button type="submit" class="btn btn--primary">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Cerrar {{ semestre.en_frase }}</button>{% endif %}
+    </div>
+  </form>
+{% endblock %}

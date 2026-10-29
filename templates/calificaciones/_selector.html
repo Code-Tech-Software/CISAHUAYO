@@ -36,11 +36,12 @@
   {% endif %}
   <div class="filters__field">
     <label class="field__label" for="cal-periodo">Periodo</label>
-    <select class="field__control field__control--select" id="cal-periodo" name="periodo" data-cal-periodo{% if not periodos %} disabled{% endif %}>
-      {% for opcion in periodos %}<option value="{{ opcion.pk }}"{% if opcion.pk == periodo.pk %} selected{% endif %}>{{ opcion.nombre }} · {{ opcion.estado_display|lower }}</option>{% endfor %}
+    <select class="field__control field__control--select" id="cal-periodo" name="periodo" data-cal-periodo{% if not periodos and not semestre %} disabled{% endif %}>
+      {% for opcion in periodos %}<option value="{{ opcion.pk }}"{% if opcion.pk == periodo.pk and not vista_semestre %} selected{% endif %}>{{ opcion.nombre }} · {{ opcion.estado_display|lower }}</option>{% endfor %}
+      {% if semestre %}<option value="semestre"{% if vista_semestre %} selected{% endif %}>Cierre del {{ semestre.en_frase }} · {{ semestre.get_estado_display|lower }}</option>{% endif %}
     </select>
   </div>
-  {% if pestana and pestana != 'resumen' %}<input type="hidden" name="pestana" value="{{ pestana }}">{% endif %}
+  {% if pestana and pestana != 'resumen' and not vista_semestre %}<input type="hidden" name="pestana" value="{{ pestana }}">{% endif %}
   <div class="filters__actions">
     <button type="submit" class="btn btn--primary btn--sm" data-cal-ver>Ver</button>
   </div>

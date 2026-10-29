@@ -7,11 +7,14 @@ estudiantes se inscriben en un grupo.
 import re
 from datetime import date, timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone
 
-from .models import ORDEN_NIVELES, Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Materia, MateriaGrado, q_ciclo
+from .models import (
+    NIVEL_POR_SEMESTRES, ORDEN_NIVELES, SEMESTRE_A, SEMESTRE_B, Alumno, CicloEscolar, Grado, Grupo, Inscripcion, Materia, MateriaGrado,
+    q_ciclo,
+)
 
 # Número máximo de grado por nivel (en preparatoria caben semestres o años).
 LIMITE_GRADOS = {'PREESCOLAR': 3, 'PRIMARIA': 6, 'SECUNDARIA': 3, 'PREPARATORIA': 6}
@@ -416,6 +419,60 @@ def sincronizar_inscripciones(alumno, estatus_anterior):
     if estatus_anterior == 'BAJA' and alumno.estatus != 'BAJA':
         return [], restaurar_inscripciones(alumno)
     return [], []
+
+
+# ---------------------------------------------------------------------------
+# Preparatoria por semestres: paso del semestre A al B dentro del mismo ciclo (2026-10-28)
+# ---------------------------------------------------------------------------
+def plan_de_paso_de_semestre(ciclo):
+    """Por cada grado del semestre A con estudiantes inscritos (activos) en el ciclo: sus inscripciones y el grado del
+    semestre B que se propone (el siguiente: 1.º → 2.º, 3.º → 4.º…), solo si está activo y visible. Devuelve (filas,
+    grados de destino posibles: los del semestre B activos y visibles)."""
+    grados = list(Grado.objects.filter(nivel=NIVEL_POR_SEMESTRES, activo=True).order_by('numero'))
+    destinos = [g for g in grados if g.semestre == SEMESTRE_B and g.visible]
+    filas = {}
+    inscripciones = (Inscripcion.objects.filter(ciclo=ciclo, activa=True, grado__nivel=NIVEL_POR_SEMESTRES)
+                     .select_related('alumno', 'grado', 'grupo__nombre', 'grupo__grado')
+                     .order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre'))
+    for inscripcion in inscripciones:
+        if inscripcion.grado.semestre != SEMESTRE_A:
+            continue
+        fila = filas.setdefault(inscripcion.grado_id, {'grado': inscripcion.grado, 'inscripciones': [], 'no_activos': 0})
+        if inscripcion.alumno.estatus != 'ACTIVO':
+            fila['no_activos'] += 1
+        else:
+            fila['inscripciones'].append(inscripcion)
+    plan = sorted(filas.values(), key=lambda fila: fila['grado'].numero)
+    for fila in plan:
+        siguiente = next((g for g in grados if g.numero == fila['grado'].numero + 1), None)
+        fila['cantidad'] = len(fila['inscripciones'])
+        fila['sugerido'] = str(siguiente.pk) if siguiente in destinos else 'omitir'
+        fila['siguiente_oculto'] = siguiente if siguiente is not None and not siguiente.visible else None
+    return plan, destinos
+
+
+@transaction.atomic
+def pasar_al_semestre(plan, decisiones, fecha):
+    """Aplica el paso de semestre: `decisiones` = {id del grado de origen: grado de destino}; los grados que no están
+    no pasan. La inscripción del semestre A queda concluida (no es una baja: conserva su grupo, sus calificaciones y su
+    historial) y se crea la del B en el grupo que se llama igual (A → A), si existe. Devuelve las inscripciones nuevas.
+    Si mientras tanto alguien cambió alguna de esas inscripciones, no se guarda nada (IntegrityError)."""
+    nuevas, concluir = [], []
+    for fila in plan:
+        destino = decisiones.get(fila['grado'].pk)
+        if destino is None or not fila['inscripciones']:
+            continue
+        grupos = {grupo.nombre_id: grupo for grupo in grupos_del_grado(destino)}
+        principal = next(iter(grupos.values()))
+        for inscripcion in fila['inscripciones']:
+            concluir.append(inscripcion.pk)
+            nuevas.append(Inscripcion(alumno_id=inscripcion.alumno_id, ciclo_id=inscripcion.ciclo_id, grado=destino, fecha_inscripcion=fecha,
+                                      grupo=grupos.get(inscripcion.grupo.nombre_id, principal)))
+    concluidas = Inscripcion.objects.filter(pk__in=concluir, activa=True, concluida=False).update(activa=False, concluida=True)
+    if concluidas != len(concluir):
+        raise IntegrityError('Alguna inscripción cambió mientras tanto.')
+    Inscripcion.objects.bulk_create(nuevas)
+    return nuevas
 
 
 def motivo_no_inscribible(alumno):

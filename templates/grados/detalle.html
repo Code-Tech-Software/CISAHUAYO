@@ -197,7 +197,7 @@
                       <a class="person" href="{{ alumno.get_absolute_url }}">
                         {% include "partials/avatar.html" with persona=alumno %}
                         <span class="person__text">
-                          <span class="person__name">{{ alumno }}{% if not inscripcion.activa %} <span class="tag">Baja</span>{% endif %}</span>
+                          <span class="person__name">{{ alumno }}{% if inscripcion.concluida %} <span class="tag tag--info">Semestre concluido</span>{% elif not inscripcion.activa %} <span class="tag">Baja</span>{% endif %}</span>
                           <span class="person__meta">Ref. {{ alumno.referencia }}{% if alumno.estatus != 'ACTIVO' %} · {{ alumno.get_estatus_display }}{% endif %}</span>
                         </span>
                       </a>

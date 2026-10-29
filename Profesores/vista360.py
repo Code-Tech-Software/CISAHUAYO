@@ -78,12 +78,15 @@ def calificaciones_por_cerrar(asignaciones, hoy=None):
         return []
     por_nivel = defaultdict(list)
     for periodo in Periodo.objects.filter(ciclo=asignaciones[0].ciclo_id, nivel__in={a.grado.nivel for a in asignaciones},
-                                          fecha_inicio__lte=hoy).order_by('fecha_inicio'):
+                                          fecha_inicio__lte=hoy).select_related('semestre').order_by('fecha_inicio'):
         por_nivel[periodo.nivel].append(periodo)
     actas = {(a.asignacion_id, a.periodo_id): a for a in ActaCalificaciones.objects.filter(asignacion__in=asignaciones)}
     pendientes = []
     for asignacion in asignaciones:
+        semestre = asignacion.grado.semestre   # preparatoria por semestres: solo los periodos de su semestre
         for periodo in por_nivel[asignacion.grado.nivel]:
+            if semestre and periodo.semestre_id and periodo.semestre.clave != semestre:
+                continue
             acta = actas.get((asignacion.pk, periodo.pk))
             if acta is None or not acta.cerrada:
                 pendientes.append({

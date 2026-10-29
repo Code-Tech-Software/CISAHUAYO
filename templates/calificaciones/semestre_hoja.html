@@ -1,0 +1,88 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Hoja semestral de una materia lista para imprimir o guardar en PDF (hoja horizontal, tema claro): ciclo y semestre,
+  periodos, promedio, examen final, final ordinaria, extraordinario, regularización, definitiva y estado. Con ?pdf=1 abre
+  solo el diálogo de impresión.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ h.semestre }} · {{ h.materia }} · {{ h.grupo }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+  <style>@page { size: A4 landscape; margin: 10mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a las calificaciones</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte cal-hoja">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Calificaciones semestrales</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Generado</dt><dd>{{ h.generado|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
+        <div><dt>Generado por</dt><dd>{{ h.usuario }}</dd></div>
+      </dl>
+    </header>
+    <section class="reporte__seccion cal-concentrado">
+      <div class="cal-concentrado__encabezado">
+        <p class="cal-concentrado__nivel">Nivel {{ h.nivel|lower }} · Ciclo escolar {{ h.ciclo }} · {{ h.semestre }}</p>
+        <p class="cal-concentrado__titulo">Calificaciones semestrales por materia</p>
+        {% if not h.cerrado %}<p class="cal-concentrado__provisional">Provisional</p>{% endif %}
+      </div>
+      <dl class="cal-concentrado__datos">
+        <div><dt>Asignatura</dt><dd>{{ h.materia }}</dd></div>
+        <div><dt>Grupo</dt><dd>{{ h.grupo }}</dd></div>
+        <div><dt>Profesor</dt><dd>{{ h.docente }}</dd></div>
+        <div><dt>Estado</dt><dd>{{ h.estado }}</dd></div>
+      </dl>
+      <table class="cal-concentrado__tabla cal-semestre-hoja">
+        <thead>
+          <tr>
+            <th scope="col">No.</th><th scope="col">Nombre</th>
+            {% for periodo in h.periodos %}<th scope="col">{{ periodo }}</th>{% endfor %}
+            <th scope="col">Promedio</th><th scope="col">Examen final</th><th scope="col">Final ordinaria</th>
+            <th scope="col">Extraordinario</th><th scope="col">Regularización</th><th scope="col">Definitiva</th><th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in h.filas %}
+            <tr>
+              <td>{{ f.numero }}</td><td>{{ f.nombre }}</td>
+              {% for p in f.periodos %}<td>{{ p|default:"·" }}</td>{% endfor %}
+              <td>{{ f.promedio|default:"—" }}</td><td>{{ f.final|default:"—" }}</td><td>{{ f.ordinaria|default:"—" }}</td>
+              <td>{{ f.extraordinario|default:"—" }}</td><td>{{ f.regularizacion|default:"—" }}</td>
+              <td class="cal-concentrado__final">{{ f.definitiva|default:"—" }}</td><td>{{ f.estado }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="{{ h.periodos|length|add:9 }}">El grupo no tiene estudiantes inscritos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="text-muted cal-nota">Los promedios y resultados se truncan a dos decimales; la exención (9.5) y la aprobación (6.0) se deciden con el valor exacto.</p>
+      <div class="cal-concentrado__firmas">
+        <div><span class="cal-concentrado__linea"></span><p>Firma del profesor</p><p class="text-muted">{{ h.docente }}</p></div>
+        <div><span class="cal-concentrado__linea"></span><p>Vo.Bo. Coordinación</p></div>
+        <div><span class="cal-concentrado__linea"></span><p>Vo.Bo. Dirección</p></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

@@ -173,4 +173,46 @@
       </div>
     </section>
   {% endif %}
+
+  {# --- Bachillerato: resultado de cada semestre cerrado (2026-10-28) --------------------------------------------- #}
+  {% for s in semestrales %}
+    <section class="card portal-section" aria-labelledby="titulo-semestre-{{ s.semestre.clave }}">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="graduation-cap" %}<h2 class="card__title" id="titulo-semestre-{{ s.semestre.clave }}">{{ s.semestre.nombre }} · {{ s.grupo }}</h2>
+      </header>
+      <div class="card__body">
+        <p class="portal-section__lead">Resultado del semestre: el promedio de los periodos, el examen final (exento con 9.5 o más), la calificación final ordinaria y, si hizo falta, el extraordinario y la regularización.</p>
+        <div class="portal-grades-wrap" role="region" aria-label="Resultado del {{ s.semestre.nombre|lower }}" tabindex="0">
+          <table class="portal-grades">
+            <thead>
+              <tr>
+                <th scope="col">Materia</th>
+                <th scope="col" class="portal-grades__num">Promedio</th>
+                <th scope="col" class="portal-grades__num">Examen final</th>
+                <th scope="col" class="portal-grades__num">Final ordinaria</th>
+                <th scope="col" class="portal-grades__num">Extraordinario</th>
+                <th scope="col" class="portal-grades__num">Regularización</th>
+                <th scope="col" class="portal-grades__num">Definitiva</th>
+                <th scope="col">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in s.filas %}
+                <tr>
+                  <th scope="row"><span class="portal-grades__subject">{{ f.materia }}</span>{% if f.profesor %}<span class="portal-grades__teacher">{{ f.profesor }}</span>{% endif %}</th>
+                  <td class="portal-grades__num">{{ f.promedio|default:"—" }}</td>
+                  <td class="portal-grades__num">{% if f.exento %}Exento{% else %}{{ f.final|default:"—" }}{% endif %}</td>
+                  <td class="portal-grades__num">{{ f.ordinaria|default:"—" }}</td>
+                  <td class="portal-grades__num">{{ f.extraordinario|default:"—" }}</td>
+                  <td class="portal-grades__num">{{ f.regularizacion|default:"—" }}</td>
+                  <td class="portal-grades__num portal-grades__avg{% if f.estilo == 'reprobada' %} is-failing{% endif %}">{{ f.definitiva|default:"—" }}</td>
+                  <td>{{ f.estado }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  {% endfor %}
 {% endif %}

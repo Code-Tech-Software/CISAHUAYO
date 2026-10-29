@@ -81,15 +81,21 @@ def ciclo_de(fecha):
 
 
 def inscripcion_en(alumno, fecha):
-    """La inscripción del estudiante en el ciclo de esa fecha: la vigente o, si ya se desactivó, la que tuvo."""
+    """La inscripción del estudiante en el ciclo de esa fecha: la vigente o, si ya se desactivó, la que tuvo. En
+    preparatoria por semestres puede tener dos en el ciclo: la del semestre en que cae la fecha."""
     ciclo = ciclo_de(fecha)
     if ciclo is None:
         return None
-    return (
+    inscripciones = list(
         Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo)
         .select_related('ciclo', 'grado', 'grupo__nombre', 'grupo__grado')
-        .order_by('-activa', '-fecha_inscripcion').first()
+        .order_by('-activa', '-fecha_inscripcion')
     )
+    if len(inscripciones) > 1:
+        previas = sorted((i for i in inscripciones if i.fecha_inscripcion <= fecha), key=lambda i: i.fecha_inscripcion, reverse=True)
+        if previas:
+            return previas[0]
+    return inscripciones[0] if inscripciones else None
 
 
 def inscripcion_actual(alumno):

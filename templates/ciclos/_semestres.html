@@ -1,0 +1,54 @@
+{% comment %}
+  Semestres de bachillerato del ciclo (pedido del 2026-10-28): fechas, estado y acciones diferenciadas —«Abrir semestre
+  A/B», «Cerrar semestre A/B» y, en su página, «Reabrir»—, independientes de «Cerrar el ciclo». Parámetros: semestres,
+  ciclo, impide_cerrar.
+{% endcomment %}
+<article class="card info-grid__wide" id="semestres" aria-labelledby="titulo-semestres">
+  <header class="card__header card__header--icon">
+    {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="titulo-semestres">Semestres de bachillerato</h2>
+    {% if perms.Alumnos.change_cicloescolar and ciclo.estado != 'CERRADO' %}
+      <a class="btn btn--sm card__header-action" href="{% url 'ciclos:semestres' ciclo.pk %}" data-modal-form>
+        {% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %} {% if semestres %}Fechas de los semestres{% else %}Configurar semestres{% endif %}
+      </a>
+    {% endif %}
+  </header>
+  {% if semestres %}
+    <ul class="semestres">
+      {% for semestre in semestres %}
+        <li class="semestre-card semestre-card--{{ semestre.estado|lower }}">
+          <div class="semestre-card__cuerpo">
+            <p class="semestre-card__nombre">
+              <a class="link-subtle" href="{% url 'ciclos:semestre' semestre.pk %}">{{ semestre.nombre }}</a>
+              <span class="tag tag--{% if semestre.abierto %}success{% elif semestre.cerrado %}neutral{% else %}info{% endif %}">{{ semestre.get_estado_display }}</span>
+              {% if semestre.cerrado and semestre.procesos_abiertos %}<span class="tag tag--warning">{{ semestre.procesos_abiertos }} proceso{{ semestre.procesos_abiertos|pluralize }} pendiente{{ semestre.procesos_abiertos|pluralize }}</span>{% elif semestre.cerrado %}<span class="tag tag--success">Concluido</span>{% endif %}
+            </p>
+            <p class="semestre-card__meta">{{ semestre.fecha_inicio|date:"j M Y" }} – {{ semestre.fecha_fin|date:"j M Y" }} · {% if semestre.lista_periodos %}{{ semestre.lista_periodos|length }} periodo{{ semestre.lista_periodos|length|pluralize }}{% else %}sin periodos{% endif %}</p>
+            {% if semestre.cerrado and semestre.procesos_abiertos %}
+              <p class="semestre-card__nota">La evaluación ordinaria está cerrada; siguen abiertos extraordinarios o regularizaciones, que se capturan en Calificaciones.</p>
+            {% elif semestre.cerrado %}
+              <p class="semestre-card__nota">Cerrado el {{ semestre.cerrado_en|date:"j \d\e F \d\e Y"|lower }}{% if semestre.cerrado_por %} por {{ semestre.cerrado_por.get_full_name|default:semestre.cerrado_por.username }}{% endif %}.</p>
+            {% endif %}
+          </div>
+          <div class="semestre-card__acciones">
+            <a class="btn btn--sm btn--ghost" href="{% url 'ciclos:semestre' semestre.pk %}">Ver resumen</a>
+            {% if perms.Alumnos.change_cicloescolar and ciclo.estado != 'CERRADO' %}
+              {% if semestre.estado == 'PENDIENTE' %}
+                <form method="post" action="{% url 'ciclos:semestre_abrir' semestre.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn--sm btn--primary">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Abrir {{ semestre.en_frase }}</button>
+                </form>
+              {% elif semestre.abierto %}
+                <a class="btn btn--sm btn--primary" href="{% url 'ciclos:semestre_cerrar' semestre.pk %}" data-modal-form>{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Cerrar {{ semestre.en_frase }}</a>
+              {% endif %}
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="card__foot text-muted">Cerrar un semestre bloquea su evaluación ordinaria (periodos, rubros, porcentajes y exámenes finales); no cierra el ciclo, el otro semestre ni los periodos de los demás niveles.{% if impide_cerrar %} Para cerrar el ciclo, ambos semestres deben estar cerrados.{% endif %}</p>
+  {% else %}
+    <div class="card__body">
+      <p class="text-muted">En preparatoria cada grado es un semestre: 1.º, 3.º y 5.º se cursan en el semestre A, y 2.º, 4.º y 6.º en el B. Configura las fechas de los dos semestres para calcular la calificación semestral (exámenes finales, extraordinarios y regularización) y cerrarlos por separado.</p>
+    </div>
+  {% endif %}
+</article>

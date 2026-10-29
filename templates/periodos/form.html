@@ -53,6 +53,7 @@
         {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
         {% include "partials/field.html" with campo=form.fecha_inicio %}
         {% include "partials/field.html" with campo=form.fecha_fin %}
+        {% if form.semestre %}{% include "partials/field.html" with campo=form.semestre %}{% endif %}
       </div>
     </section>
 

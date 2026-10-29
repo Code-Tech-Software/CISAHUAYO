@@ -13,8 +13,12 @@
   captura directa como conducta (`CalificacionRubro`) y, por estudiante, las faltas capturadas a mano y el punto de
   academia (`AjusteDelEstudiante`). Una celda vacía es «pendiente» (no hay registro); un cero sí es calificación.
 - **Bitácora** (`CambioCalificacion`, `CambioConfiguracion`): quién cambió qué, cuándo, el valor anterior y el nuevo.
+- **Bachillerato por semestres** (pedido del 2026-10-28): sobre las calificaciones de los periodos, los exámenes del
+  semestre (`ExamenSemestral`: final, extraordinario y regularización, cada uno por separado) y la bitácora del
+  semestre (`CambioSemestre`: apertura, cierre, reapertura con motivo y cada examen capturado).
 
-Los cálculos viven en Calificaciones/calculo.py (puros) y las reglas de negocio en Calificaciones/reglas.py.
+Los cálculos viven en Calificaciones/calculo.py y Calificaciones/calculo_semestral.py (puros) y las reglas de negocio
+en Calificaciones/reglas.py y Calificaciones/semestres.py.
 """
 from decimal import Decimal
 
@@ -23,7 +27,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 
-from Alumnos.models import CicloEscolar, Inscripcion, Materia, MateriaGrado, Periodo
+from Alumnos.models import CicloEscolar, Inscripcion, Materia, MateriaGrado, Periodo, Semestre
 
 CERO, DIEZ = Decimal('0'), Decimal('10')
 CALIFICACION = [MinValueValidator(CERO), MaxValueValidator(DIEZ)]
@@ -263,6 +267,56 @@ class CambioConfiguracion(models.Model):
     configuracion = models.ForeignKey(ConfiguracionEvaluacion, on_delete=models.CASCADE, related_name='cambios')
     descripcion = models.TextField()
     cambios = models.JSONField(default=list, blank=True)   # [[qué, antes, después], …]
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha', '-pk']
+        default_permissions = ()
+
+
+class ExamenSemestral(models.Model):
+    """Un examen del semestre de un estudiante en una materia de su grupo: el final, el extraordinario o la
+    regularización. Cada uno se guarda por separado (no se sobrescriben entre sí) y cada cambio queda en la bitácora del
+    semestre. El examen final de quien queda exento no se captura: lo asigna el cálculo (calculo_semestral.py)."""
+
+    FINAL, EXTRAORDINARIO, REGULARIZACION = 'FINAL', 'EXTRAORDINARIO', 'REGULARIZACION'
+    TIPOS = [(FINAL, 'Examen final'), (EXTRAORDINARIO, 'Extraordinario'), (REGULARIZACION, 'Regularización')]
+
+    asignacion = models.ForeignKey(MateriaGrado, on_delete=models.PROTECT, related_name='examenes_semestrales', verbose_name='Materia del grupo')
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.PROTECT, related_name='examenes_semestrales')
+    tipo = models.CharField(max_length=15, choices=TIPOS, verbose_name='Examen')
+    valor = models.DecimalField(max_digits=4, decimal_places=2, validators=CALIFICACION, verbose_name='Calificación')
+    modificado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Examen semestral'
+        verbose_name_plural = 'Exámenes semestrales'
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=['asignacion', 'inscripcion', 'tipo'], name='examen_semestral_unico')]
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} · {self.asignacion.materia} · {self.valor}'
+
+
+class CambioSemestre(models.Model):
+    """Bitácora de un semestre de bachillerato: apertura, cierre (con los resultados que quedaron), reapertura (con
+    motivo y lo que estaba cerrado), cambio de fechas y cada examen capturado o corregido (antes y después)."""
+
+    APERTURA, CIERRE, REAPERTURA, FECHAS, EXAMEN = 'APERTURA', 'CIERRE', 'REAPERTURA', 'FECHAS', 'EXAMEN'
+    ACCIONES = [(APERTURA, 'Apertura'), (CIERRE, 'Cierre'), (REAPERTURA, 'Reapertura'), (FECHAS, 'Fechas'), (EXAMEN, 'Examen')]
+
+    semestre = models.ForeignKey(Semestre, on_delete=models.CASCADE, related_name='cambios')
+    accion = models.CharField(max_length=12, choices=ACCIONES)
+    asignacion = models.ForeignKey(MateriaGrado, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    inscripcion = models.ForeignKey(Inscripcion, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    que = models.CharField(max_length=200)
+    anterior = models.CharField(max_length=60, blank=True)
+    nuevo = models.CharField(max_length=60, blank=True)
+    motivo = models.TextField(blank=True)
+    datos = models.JSONField(default=dict, blank=True)
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
     fecha = models.DateTimeField(auto_now_add=True)
 

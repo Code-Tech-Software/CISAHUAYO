@@ -1,0 +1,108 @@
+{% comment %}
+  Hoja semestral de bachillerato (pedido del 2026-10-28): por estudiante, la calificación de cada periodo (de las actas
+  cerradas), el promedio, si está exento o tiene derecho a examen final, el examen final, la final ordinaria, el
+  extraordinario, la regularización, la definitiva y el estado. Cada examen se captura solo cuando corresponde
+  (calificaciones.js lo guarda al salir de la celda y habilita el siguiente); lo calculado se actualiza al guardar.
+{% endcomment %}
+<section class="card cal-estado" aria-label="Estado del semestre">
+  <dl class="cal-estado__datos">
+    <div><dt>Materia</dt><dd>{{ asignacion.materia }}</dd></div>
+    <div><dt>Grupo</dt><dd>{{ asignacion.grupo }}</dd></div>
+    <div><dt>Docente</dt><dd>{{ asignacion.profesor|default:"Sin docente asignado" }}</dd></div>
+    <div><dt>Semestre</dt><dd>{{ semestre.nombre }} · {{ ciclo }} <span class="tag{% if semestre.abierto %} tag--success{% endif %}">{{ semestre.get_estado_display }}</span></dd></div>
+    <div><dt>Periodos</dt><dd>{% for periodo in hoja.periodos %}{{ periodo.nombre }}{% if not forloop.last %} · {% endif %}{% empty %}<span class="tag tag--warning">Sin periodos</span>{% endfor %}</dd></div>
+    <div><dt>Resultado</dt><dd>{{ conteo_semestre.aprobadas }} aprobada{{ conteo_semestre.aprobadas|pluralize }}{% if conteo_semestre.reprobadas %} · {{ conteo_semestre.reprobadas }} reprobada{{ conteo_semestre.reprobadas|pluralize }}{% endif %}{% if conteo_semestre.pendientes %} · {{ conteo_semestre.pendientes }} pendiente{{ conteo_semestre.pendientes|pluralize }}{% endif %}{% if conteo_semestre.procesos %} · {{ conteo_semestre.procesos }} en extraordinario o regularización{% endif %}</dd></div>
+  </dl>
+  {% if aviso_semestre %}
+    <div class="alert alert--info cal-estado__aviso" role="note">
+      {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+      <p class="alert__body">{{ aviso_semestre }}</p>
+    </div>
+  {% endif %}
+  {% if hoja.periodos_sin_cerrar and hoja.filas %}
+    <div class="alert alert--warning cal-estado__aviso" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body">Las calificaciones de periodo cuentan cuando su acta está cerrada. Sin cerrar: {% for periodo in hoja.periodos_sin_cerrar %}{{ periodo.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}. Mientras tanto no hay promedio ni resultado (un periodo pendiente nunca cuenta como cero).</p>
+    </div>
+  {% endif %}
+</section>
+
+<div class="cal-barra">
+  <p class="text-muted">Exento con promedio de 9.5 o más; examen final con 6.0 a 9.4 (final ordinaria = promedio 50 % + examen 50 %); con menos de 6.0, extraordinario directo.</p>
+  <div class="cal-barra__acciones">
+    <a class="btn btn--sm" href="{% url 'calificaciones:semestre_imprimir' asignacion.pk %}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir</a>
+    <a class="btn btn--sm" href="{% url 'calificaciones:semestre_imprimir' asignacion.pk %}?pdf=1" target="_blank" rel="noopener">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+    <a class="btn btn--sm" href="{% url 'calificaciones:semestre_excel' asignacion.pk %}">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} Excel</a>
+  </div>
+</div>
+
+{% if not filas_semestre %}
+  <div class="table-card">
+    <div class="empty-state">
+      {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+      <p class="empty-state__title">El grupo no tiene estudiantes inscritos</p>
+    </div>
+  </div>
+{% else %}
+  <div class="table-card cal-tabla" data-cal-tabla>
+    <div class="cal-tabla__desplazable">
+      <table class="cal-matriz cal-semestre"{% if captura_semestre %} data-captura data-url-guardar="{{ url_guardar_semestre }}" data-acta="semestre-{{ asignacion.pk }}"{% endif %}>
+        <caption class="visually-hidden">Calificaciones del {{ semestre.en_frase }} de {{ asignacion.materia }}, {{ asignacion.grupo }}</caption>
+        <thead>
+          <tr>
+            <th scope="col" class="cal-matriz__num">N.º</th>
+            <th scope="col" class="cal-matriz__nombre">Estudiante</th>
+            {% for periodo in hoja.periodos %}<th scope="col" class="cal-semestre__periodo">{{ periodo.nombre }}</th>{% endfor %}
+            <th scope="col">Promedio<span class="cal-matriz__sub">de periodos</span></th>
+            <th scope="col">Situación</th>
+            <th scope="col">Examen final</th>
+            <th scope="col">Final ordinaria<span class="cal-matriz__sub">50 % + 50 %</span></th>
+            <th scope="col">Extraordinario</th>
+            <th scope="col">Regularización</th>
+            <th scope="col" class="cal-final">Definitiva</th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fila in filas_semestre %}
+            <tr data-inscripcion="{{ fila.inscripcion.pk }}" data-fila>
+              <td class="cal-matriz__num">{{ fila.numero }}</td>
+              <th scope="row" class="cal-matriz__nombre" data-nombre title="{{ fila.nombre }}">{{ fila.nombre }}{% if fila.inscripcion.concluida %} <span class="cal-semestre__marca" title="Ya pasó al semestre siguiente">pasó al B</span>{% endif %}</th>
+              {% for valor in fila.periodos_texto %}<td class="cal-calculada">{{ valor|default:"·" }}</td>{% endfor %}
+              <td class="cal-promedio" data-calc="promedio">{{ fila.calc.promedio|default:"—" }}</td>
+              <td class="cal-calculada cal-semestre__situacion" data-calc="situacion">{{ fila.calc.situacion }}</td>
+              {% for celda in fila.celdas %}
+                {% if forloop.counter == 2 %}<td class="cal-promedio" data-calc="ordinaria">{{ fila.calc.ordinaria|default:"—" }}</td>{% endif %}
+                {% if celda.exencion %}
+                  <td class="cal-celda cal-celda--fija cal-semestre__exencion" title="Asignado por exención: igual al promedio de periodos">{{ celda.valor }}<span class="cal-semestre__marca">exención</span></td>
+                {% elif celda.entrada %}
+                  <td class="cal-celda{% if celda.no_cuenta %} cal-semestre__no-cuenta{% endif %}">
+                    <input class="cal-entrada" type="text" inputmode="decimal" autocomplete="off" maxlength="6" value="{{ celda.valor }}" data-celda data-tipo="examen" data-id="{{ celda.tipo_examen }}" data-inscripcion="{{ celda.inscripcion }}" data-clave="{{ celda.clave }}" data-anterior="{{ celda.valor }}" data-habilita="{{ celda.tipo_examen }}"{% if not celda.editable %} disabled{% endif %} aria-label="{{ celda.etiqueta }}">
+                  </td>
+                {% else %}
+                  <td class="cal-celda cal-celda--fija{% if celda.no_cuenta %} cal-semestre__no-cuenta{% endif %}"{% if celda.no_cuenta %} title="Capturado, pero con los periodos de hoy no cuenta"{% endif %}>{{ celda.valor|default:"·" }}</td>
+                {% endif %}
+              {% endfor %}
+              <td class="cal-final" data-calc="definitiva">{{ fila.calc.definitiva|default:"—" }}</td>
+              <td class="cal-matriz__estado"><span class="cal-estado-fila cal-estado-fila--{{ fila.calc.estado_clave }}" data-calc="estado" data-estado-clave="{{ fila.calc.estado_clave }}">{{ fila.calc.estado }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="text-muted cal-nota">
+    Las calificaciones de periodo son las de las actas cerradas, calculadas como siempre. El promedio y los resultados se truncan a dos decimales; la exención y la aprobación se deciden con el valor exacto (9.4966… se muestra 9.49 y no exenta). Solo se corrige el último examen capturado; los anteriores quedan como historia.
+  </p>
+{% endif %}
+
+{% if movimientos_semestre %}
+  <details class="card cal-movimientos">
+    <summary class="cal-movimientos__titulo">Exámenes capturados o corregidos ({{ movimientos_semestre|length }})</summary>
+    <ul class="semestre-lista">
+      {% for cambio in movimientos_semestre %}
+        <li><span>{{ cambio.inscripcion.alumno|default:"—" }}</span><span>{{ cambio.que }}: {{ cambio.anterior|default:"vacío" }} → {{ cambio.nuevo|default:"vacío" }}</span><span class="text-muted">{{ cambio.fecha|date:"d/m/Y H:i" }} · {{ cambio.usuario.get_full_name|default:cambio.usuario.username|default:"—" }}</span></li>
+      {% endfor %}
+    </ul>
+  </details>
+{% endif %}

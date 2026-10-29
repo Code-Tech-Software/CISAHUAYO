@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from Alumnos.academico import activar_ciclo, sugerir_ciclo
 from Alumnos.forms import EstiloCamposMixin
-from Alumnos.models import CicloEscolar, q_ciclo
+from Alumnos.models import NIVEL_POR_SEMESTRES, CicloEscolar, Periodo, Semestre, q_ciclo
 from Alumnos.utils import compactar_espacios
 
 from .reglas import avisos_de_datos, fuera_del_rango
@@ -110,3 +112,63 @@ class FiltroCiclosForm(forms.Form):
         if estado:
             queryset = queryset.filter(q_ciclo(estado))
         return queryset.order_by('-fecha_inicio')
+
+
+# ---------------------------------------------------------------------------
+# Semestres de bachillerato (2026-10-28)
+# ---------------------------------------------------------------------------
+FECHA_SEMESTRE = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
+
+
+class SemestresForm(EstiloCamposMixin, forms.Form):
+    """Las fechas del semestre A y del B de un ciclo: dentro del ciclo, el A antes que el B y sin empalmarse. Las de un
+    semestre cerrado ya no cambian, y los periodos que ya tiene asignados deben seguir dentro de sus fechas."""
+
+    a_inicio = forms.DateField(label='Semestre A: inicio', widget=FECHA_SEMESTRE, error_messages={'required': 'Indica cuándo empieza.'})
+    a_fin = forms.DateField(label='Semestre A: fin', widget=FECHA_SEMESTRE, error_messages={'required': 'Indica cuándo termina.'})
+    b_inicio = forms.DateField(label='Semestre B: inicio', widget=FECHA_SEMESTRE, error_messages={'required': 'Indica cuándo empieza.'})
+    b_fin = forms.DateField(label='Semestre B: fin', widget=FECHA_SEMESTRE, error_messages={'required': 'Indica cuándo termina.'})
+
+    def __init__(self, *args, ciclo, **kwargs):
+        self.ciclo = ciclo
+        self.existentes = {s.clave: s for s in Semestre.objects.filter(ciclo=ciclo)}
+        inicial = kwargs.setdefault('initial', {})
+        for clave in ('A', 'B'):
+            if clave in self.existentes:
+                inicial.setdefault(f'{clave.lower()}_inicio', self.existentes[clave].fecha_inicio)
+                inicial.setdefault(f'{clave.lower()}_fin', self.existentes[clave].fecha_fin)
+        if not self.existentes:   # propuesta: el ciclo partido a la mitad
+            mitad = ciclo.fecha_inicio + (ciclo.fecha_fin - ciclo.fecha_inicio) / 2
+            inicial.update({'a_inicio': ciclo.fecha_inicio, 'a_fin': mitad, 'b_inicio': mitad + timedelta(days=1), 'b_fin': ciclo.fecha_fin})
+        super().__init__(*args, **kwargs)
+        self.aplicar_estilo()
+
+    def clean(self):
+        datos = super().clean()
+        if self.errors:
+            return datos
+        ciclo = self.ciclo
+        fechas = {'A': (datos['a_inicio'], datos['a_fin']), 'B': (datos['b_inicio'], datos['b_fin'])}
+        for clave, (inicio, fin) in fechas.items():
+            campo = clave.lower()
+            if fin <= inicio:
+                self.add_error(f'{campo}_fin', 'Debe terminar después de empezar.')
+            if inicio < ciclo.fecha_inicio or fin > ciclo.fecha_fin:
+                self.add_error(f'{campo}_inicio', f'Debe quedar dentro del ciclo ({ciclo.fecha_inicio:%d/%m/%Y} al {ciclo.fecha_fin:%d/%m/%Y}).')
+            existente = self.existentes.get(clave)
+            if existente is not None and existente.cerrado and (existente.fecha_inicio, existente.fecha_fin) != (inicio, fin):
+                self.add_error(f'{campo}_inicio', f'El {existente.en_frase} está cerrado: sus fechas ya no cambian.')
+            if existente is not None:
+                fuera = [p.nombre for p in Periodo.objects.filter(semestre=existente).order_by('fecha_inicio')
+                         if p.fecha_inicio < inicio or p.fecha_fin > fin]
+                if fuera:
+                    self.add_error(f'{campo}_inicio', f'Quedarían fuera sus periodos: {", ".join(fuera)}.')
+        if not self.errors and fechas['A'][1] >= fechas['B'][0]:
+            self.add_error('b_inicio', 'El semestre B empieza después de que termina el A.')
+        datos['fechas'] = fechas
+        return datos
+
+    @property
+    def periodos_por_asignar(self):
+        """Los periodos de preparatoria del ciclo que todavía no tienen semestre (se asignan por su fecha de inicio)."""
+        return list(Periodo.objects.filter(ciclo=self.ciclo, nivel=NIVEL_POR_SEMESTRES, semestre__isnull=True).order_by('fecha_inicio'))

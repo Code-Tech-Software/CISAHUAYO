@@ -280,12 +280,12 @@ def grado_detalle(request, pk):
     historial = (
         Inscripcion.objects.filter(grado=grado).order_by()
         .values('ciclo_id', 'ciclo__nombre', 'ciclo__fecha_inicio', 'ciclo__activo')
-        .annotate(activas=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False)))
+        .annotate(activas=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False, concluida=False)))
         .order_by('-ciclo__fecha_inicio')
     )
     siguiente = siguiente_grado(grado, list(Grado.objects.filter(activo=True).academicos()))
     bajas_del_ciclo = (
-        Inscripcion.objects.filter(grado=grado, ciclo=ciclo, activa=False).count() if ciclo else 0
+        Inscripcion.objects.filter(grado=grado, ciclo=ciclo, activa=False, concluida=False).count() if ciclo else 0
     )
     por_grupo = {}
     for inscripcion in activas:

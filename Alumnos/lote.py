@@ -30,7 +30,7 @@ def inscribir_o_cambiar(alumnos, *, ciclo, grado, grupo, usuario):
         if motivo:
             omitidos.append(motivo)
             continue
-        actual = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo).select_related('grado', 'grupo__nombre', 'grupo__grado').first()
+        actual = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo, concluida=False).select_related('grado', 'grupo__nombre', 'grupo__grado').first()
         if actual is None:
             Inscripcion.objects.create(alumno=alumno, ciclo=ciclo, grado=grado, grupo=grupo, fecha_inscripcion=timezone.localdate())
             historial.anotar(usuario, alumno, f'Lo inscribió en {destino} (acción en lote).')

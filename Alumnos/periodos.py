@@ -6,10 +6,20 @@ abierto o cerrado a mano además de por sus fechas.
 """
 from datetime import timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.formats import date_format
 
 from .models import ORDEN_NIVELES, Grado, Periodo
+
+
+def periodos_para_grado(ciclo, grado):
+    """Los periodos con que se califican las materias del grado en el ciclo: los de su nivel y, en preparatoria por
+    semestres (2026-10-28), solo los de su semestre (más los que todavía no tengan semestre asignado)."""
+    periodos = Periodo.objects.filter(ciclo=ciclo, nivel=grado.nivel)
+    if grado.semestre:
+        periodos = periodos.filter(Q(semestre__isnull=True) | Q(semestre__clave=grado.semestre))
+    return periodos.order_by('fecha_inicio', 'nombre')
 
 
 def periodos_abiertos(nivel, ciclo=None, fecha=None):
@@ -70,7 +80,7 @@ def periodos_por_nivel(ciclo, hoy=None):
     hoy = hoy or timezone.localdate()
     por_nivel = {nivel: [] for nivel in ORDEN_NIVELES}
     if ciclo is not None:
-        for periodo in Periodo.objects.filter(ciclo=ciclo).order_by('fecha_inicio', 'nombre'):
+        for periodo in Periodo.objects.filter(ciclo=ciclo).select_related('semestre').order_by('fecha_inicio', 'nombre'):
             por_nivel.setdefault(periodo.nivel, []).append(periodo)
     nombres = dict(Grado.NIVEL_CHOICES)
     niveles = []

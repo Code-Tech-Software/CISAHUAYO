@@ -108,32 +108,36 @@ class Celda:
 # ---------------------------------------------------------------------------
 # Qué materias, qué periodo y qué días
 # ---------------------------------------------------------------------------
-def _sin_grados_ocultos(asignaciones, ciclo):
+def _sin_grados_ocultos(asignaciones, ciclo, conservar=()):
     """En el ciclo actual o en uno próximo, sin las materias de los grados ocultos (2026-10-28: no se ofrecen para pasar
-    lista ni capturar mientras lo estén); en uno cerrado (historial), todas."""
-    return asignaciones if ciclo.estado == 'CERRADO' else asignaciones.filter(grado__visible=True)
+    lista ni capturar mientras lo estén); en uno cerrado (historial), todas. `conservar`: grados ocultos que sí se
+    incluyen (en Calificaciones, los de un semestre de bachillerato ya cerrado: sus actas son registros y sus
+    extraordinarios se siguen capturando)."""
+    if ciclo.estado == 'CERRADO':
+        return asignaciones
+    return asignaciones.filter(Q(grado__visible=True) | Q(grado__in=list(conservar)))
 
 
-def asignaciones_del_profesor(profesor, ciclo=None):
+def asignaciones_del_profesor(profesor, ciclo=None, conservar=()):
     """Las materias (una por grupo) que el profesor imparte en el ciclo (el actual si no se indica)."""
     ciclo = ciclo or ciclo_actual()
     if profesor is None or ciclo is None:
         return MateriaGrado.objects.none()
     return (
-        _sin_grados_ocultos(MateriaGrado.objects.filter(profesor=profesor, ciclo=ciclo, activa=True, materia__activa=True), ciclo)
+        _sin_grados_ocultos(MateriaGrado.objects.filter(profesor=profesor, ciclo=ciclo, activa=True, materia__activa=True), ciclo, conservar)
         .select_related('materia', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado')
         .order_by('materia__nombre', 'grupo__grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre')
     )
 
 
-def asignaciones_del_ciclo(ciclo=None):
+def asignaciones_del_ciclo(ciclo=None, conservar=()):
     """Todas las materias (una por grupo) del ciclo (el actual si no se indica), en orden escolar: lo que consulta la
     administración."""
     ciclo = ciclo or ciclo_actual()
     if ciclo is None:
         return MateriaGrado.objects.none()
     return (
-        _sin_grados_ocultos(MateriaGrado.objects.filter(ciclo=ciclo, activa=True, materia__activa=True), ciclo)
+        _sin_grados_ocultos(MateriaGrado.objects.filter(ciclo=ciclo, activa=True, materia__activa=True), ciclo, conservar)
         .select_related('materia', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado', 'profesor')
         .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')
     )
@@ -161,10 +165,13 @@ def fuera_de_la_ventana(fecha, hoy, ventana):
     return ventana is not None and fecha < hoy - timedelta(days=ventana)
 
 
-def inscripciones_de(asignacion):
-    """Los estudiantes de la materia: inscritos (activos) en su grupo y ciclo, con estatus activo."""
+def inscripciones_de(asignacion, con_concluidas=False):
+    """Los estudiantes de la materia: inscritos (activos) en su grupo y ciclo, con estatus activo. Con
+    `con_concluidas`, también los que ya pasaron al semestre siguiente (preparatoria): siguen en las calificaciones de
+    las materias de su semestre, pero ya no en el pase de lista."""
+    inscritos = Q(activa=True) | Q(concluida=True) if con_concluidas else Q(activa=True)
     return (
-        Inscripcion.objects.filter(grupo=asignacion.grupo, ciclo=asignacion.ciclo, activa=True, alumno__estatus='ACTIVO')
+        Inscripcion.objects.filter(inscritos, grupo=asignacion.grupo, ciclo=asignacion.ciclo, alumno__estatus='ACTIVO')
         .select_related('alumno')
         .order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')
     )

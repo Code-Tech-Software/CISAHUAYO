@@ -1,5 +1,7 @@
 """Gestión académica › Calificaciones: elegir materia (de un grupo) y periodo, y trabajar en sus pestañas —Resumen,
-Procedimientos, Exámenes y Concentrado—; agregar actividades, guardar capturas, cerrar, reabrir y exportar.
+Procedimientos, Exámenes y Concentrado—; agregar actividades, guardar capturas, cerrar, reabrir y exportar. En las materias
+de un semestre de bachillerato, la opción «Cierre del semestre» del selector de periodo muestra la hoja semestral:
+periodos, promedio, exención, examen final, final ordinaria, extraordinario, regularización y definitiva (2026-10-28).
 
 Un docente solo abre sus materias y quien tiene «ver o gestionar todas», todas las del colegio; lo que no se puede
 abrir responde 403 aunque se teclee la dirección. Toda captura se valida otra vez en el servidor (Calificaciones/reglas.py).
@@ -16,13 +18,14 @@ from django.utils.http import urlencode
 from django.views.decorators.http import require_POST
 
 from Alumnos.academico import ciclo_actual
-from Alumnos.models import Grado
+from Alumnos.models import Grado, MateriaGrado
 from Alumnos.utils import slug
 from CISAHUAYO.permisos import requiere_alguno
 from CISAHUAYO.xlsx import ENCABEZADO, SECCION, TITULO, Celda, Hoja, libro
 from Usuarios.docentes import profesor_de
 
-from . import reglas
+from . import calculo_semestral as cs
+from . import reglas, semestres
 from .forms import TIPOS_DE_ACTIVIDAD, ActividadForm, MotivoForm
 from .models import ActaCalificaciones, Actividad, Rubro
 
@@ -90,6 +93,12 @@ def inicio(request):
         'asignacion': asignacion, 'grupos': grupos, 'materias_del_grupo': [a for a in asignaciones if a.grupo_id == asignacion.grupo_id],
         'periodos': periodos, 'periodo': periodo, 'pestana': pestana,
     })
+    # Bachillerato por semestres: la hoja semestral en lugar de un periodo
+    semestre = semestres.semestre_de_asignacion(asignacion)
+    contexto['semestre'] = semestre
+    if semestre is not None and request.GET.get('periodo') == 'semestre':
+        contexto.update(periodo=None, vista_semestre=True, **contexto_semestral(asignacion, semestre, usuario))
+        return render(request, 'calificaciones/inicio.html', contexto)
     if periodo is None:
         return render(request, 'calificaciones/inicio.html', contexto)
 
@@ -97,9 +106,11 @@ def inicio(request):
     tabla = reglas.tabla(acta)
     motivo = reglas.motivo_de_solo_lectura(acta, usuario, tabla.configuracion)
     puede_cerrar = reglas.puede_cerrar(usuario, asignacion) and not acta.cerrada
+    bloqueo_reapertura = reglas.bloqueo_de_reapertura(acta) if acta.cerrada else ''
     contexto.update({
         'acta': acta, 'tabla': tabla, 'editable': not motivo, 'solo_lectura': motivo,
-        'puede_cerrar': puede_cerrar, 'puede_reabrir': acta.cerrada and reglas.puede_reabrir(usuario, asignacion),
+        'puede_cerrar': puede_cerrar, 'puede_reabrir': acta.cerrada and not bloqueo_reapertura and reglas.puede_reabrir(usuario, asignacion),
+        'bloqueo_reapertura': bloqueo_reapertura if reglas.puede_reabrir(usuario, asignacion) else '',
         'problemas_para_cerrar': reglas.problemas_para_cerrar(acta, tabla) if puede_cerrar else [],
         'columnas': columnas_del_resumen(tabla),
         'url_guardar': reverse('calificaciones:guardar', args=[acta.pk]),
@@ -354,6 +365,10 @@ def reabrir(request, pk):
     if not acta.cerrada:
         messages.info(request, 'Esas calificaciones no están cerradas.')
         return redirect(url_del_acta(acta))
+    bloqueo = reglas.bloqueo_de_reapertura(acta)
+    if bloqueo:
+        messages.error(request, bloqueo)
+        return redirect(url_del_acta(acta))
     form = MotivoForm(request.POST if request.method == 'POST' else None)
     if request.method == 'POST':
         if form.is_valid():
@@ -433,3 +448,168 @@ def concentrado_excel(request, pk):
     respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
     return respuesta
 
+
+# ---------------------------------------------------------------------------
+# Bachillerato por semestres: la hoja semestral (pedido del 2026-10-28)
+# ---------------------------------------------------------------------------
+EXAMENES = (cs.FINAL, cs.EXTRAORDINARIO, cs.REGULARIZACION)
+# El color del estado de cada estudiante (las mismas clases que el resumen del periodo)
+CLAVE_DE_ESTADO = {
+    cs.PENDIENTE_PERIODOS: 'sin', cs.PENDIENTE_FINAL: 'incompleto', cs.PENDIENTE_EXTRAORDINARIO: 'proceso',
+    cs.PENDIENTE_REGULARIZACION: 'proceso', cs.APROBADA_EXENTO: 'completo', cs.APROBADA_ORDINARIO: 'completo',
+    cs.APROBADA_EXTRAORDINARIO: 'completo', cs.APROBADA_REGULARIZACION: 'completo', cs.REPROBADA: 'reprobada',
+}
+
+
+def _asignacion_visible(request, pk):
+    asignacion = get_object_or_404(MateriaGrado.objects.select_related(
+        'materia', 'ciclo', 'grado', 'grupo__nombre', 'grupo__grado', 'profesor'), pk=pk)
+    if not reglas.puede_ver(request.user, asignacion):
+        raise PermissionDenied
+    return asignacion
+
+
+def calculados_semestrales(fila, ventana):
+    """Lo calculado de un estudiante en el semestre, como texto (lo mismo dibuja la página y responde el guardado), y
+    qué exámenes se pueden capturar ahora (habilita-…)."""
+    r = fila.resultado
+    datos = {
+        'promedio': cs.texto(r.promedio), 'situacion': r.situacion_texto, 'ordinaria': cs.texto(r.ordinaria),
+        'definitiva': cs.texto(r.definitiva), 'estado': r.estado_texto, 'estado_clave': CLAVE_DE_ESTADO[r.estado],
+    }
+    editables = r.capturable & ventana
+    for tipo in EXAMENES:
+        datos[f'habilita-{tipo}'] = '1' if tipo in editables else ''
+    return datos
+
+
+def celdas_semestrales(fila, ventana):
+    """La fila de la hoja: periodos, y una celda por examen (para capturar, fija o asignada por exención)."""
+    fila.calc = calc = calculados_semestrales(fila, ventana)
+    r = fila.resultado
+    fila.periodos_texto = [cs.texto(p) for p in r.periodos]
+    fila.celdas = []
+    for tipo in EXAMENES:
+        registro = fila.examenes.get(tipo)
+        valor = reglas.numero(registro.valor) if registro else ''
+        celda = {'tipo_examen': tipo, 'valor': valor, 'no_cuenta': tipo in r.no_cuentan}
+        if tipo == cs.FINAL and r.final_por_exencion:
+            celda.update(exencion=True, valor=cs.texto(r.examen_final))
+        elif tipo in ventana:
+            celda.update(entrada=True, clave=f'examen-{tipo}-{fila.inscripcion.pk}', inscripcion=fila.inscripcion.pk,
+                         editable=calc[f'habilita-{tipo}'] == '1', etiqueta=f'{semestres.NOMBRES_DE_EXAMEN[tipo]} de {fila.nombre}')
+        fila.celdas.append(celda)
+    return fila
+
+
+def contexto_semestral(asignacion, semestre, usuario):
+    hoja = semestres.hoja(asignacion, semestre)
+    motivo = semestres.motivo_de_solo_lectura(asignacion, usuario, semestre)
+    ventana = semestres.ventana(semestre) if not motivo else set()
+    filas = [celdas_semestrales(f, ventana) for f in hoja.filas]
+    if motivo:
+        aviso = motivo
+    elif semestre.cerrado:
+        procesos = hoja.contar(lambda r: r.proceso_abierto)
+        aviso = (f'El {semestre.en_frase} está cerrado: la evaluación ordinaria ya no cambia. '
+                 + (f'Solo se capturan los {procesos} extraordinarios o regularizaciones pendientes.' if procesos else 'Todas las calificaciones son definitivas.'))
+    else:
+        aviso = ''
+    return {
+        'hoja': hoja, 'filas_semestre': filas, 'aviso_semestre': aviso, 'captura_semestre': bool(ventana),
+        'url_guardar_semestre': reverse('calificaciones:semestre_guardar', args=[asignacion.pk]),
+        'movimientos_semestre': semestres.movimientos(asignacion, 50),
+        'nombres_de_examen': semestres.NOMBRES_DE_EXAMEN,
+        'conteo_semestre': {
+            'aprobadas': hoja.contar(lambda r: r.aprobada), 'reprobadas': hoja.contar(lambda r: r.reprobada),
+            'pendientes': hoja.contar(lambda r: r.pendiente_ordinario), 'procesos': hoja.contar(lambda r: r.proceso_abierto),
+        },
+    }
+
+
+@require_POST
+@requiere_alguno(reglas.CAPTURAR, reglas.GESTIONAR_TODAS)
+def semestre_guardar(request, pk):
+    asignacion = _asignacion_visible(request, pk)
+    if not reglas.puede_capturar(request.user, asignacion):
+        return JsonResponse({'ok': False, 'mensaje': 'Solo consulta: no capturas las calificaciones de esta materia.'}, status=403)
+    try:
+        datos = json.loads(request.body or b'{}')
+        cambios = datos.get('cambios')
+        if not isinstance(cambios, list) or not all(isinstance(c, dict) for c in cambios):
+            raise ValueError
+    except (ValueError, json.JSONDecodeError):
+        return JsonResponse({'ok': False, 'mensaje': 'No se entendió lo que se envió. Recarga la página.'}, status=400)
+    try:
+        resultados, hoja = semestres.guardar_examenes(asignacion, request.user, cambios)
+    except reglas.CapturaRechazada as error:
+        return JsonResponse({'ok': False, 'mensaje': error.mensaje}, status=409)
+    ventana = semestres.ventana(hoja.semestre)
+    filas = {str(f.inscripcion.pk): calculados_semestrales(f, ventana) for f in hoja.filas}
+    errores = sum(1 for r in resultados if not r['ok'])
+    return JsonResponse({'ok': not errores, 'resultados': resultados, 'filas': filas})
+
+
+def hoja_para_imprimir(asignacion, usuario):
+    """Lo que lleva la hoja semestral impresa o en Excel: ciclo, semestre, materia, grupo y cada estudiante."""
+    semestre = semestres.semestre_de_asignacion(asignacion)
+    if semestre is None:
+        raise Http404
+    hoja = semestres.hoja(asignacion, semestre)
+    filas = []
+    for fila in hoja.filas:
+        r = fila.resultado
+        filas.append({
+            'numero': fila.numero, 'nombre': fila.nombre, 'periodos': [cs.texto(p) for p in r.periodos],
+            'promedio': cs.texto(r.promedio), 'situacion': r.situacion_texto,
+            'final': cs.texto(r.examen_final) + (' (exención)' if r.final_por_exencion else '') if r.examen_final is not None else '',
+            'ordinaria': cs.texto(r.ordinaria), 'extraordinario': cs.texto(r.extraordinario), 'regularizacion': cs.texto(r.regularizacion),
+            'definitiva': cs.texto(r.definitiva), 'estado': r.estado_texto,
+        })
+    procesos = hoja.contar(lambda r: r.proceso_abierto)
+    if semestre.cerrado:
+        estado = f'{semestre.nombre} cerrado' + (f' · {procesos} proceso(s) de extraordinario o regularización pendientes' if procesos else ' · concluido')
+    else:
+        estado = f'{semestre.nombre} {semestre.get_estado_display().lower()}: los resultados pueden cambiar.'
+    return {
+        'nivel': asignacion.grado.get_nivel_display(), 'ciclo': str(asignacion.ciclo), 'semestre': semestre.nombre,
+        'materia': str(asignacion.materia), 'grupo': str(asignacion.grupo),
+        'docente': str(asignacion.profesor) if asignacion.profesor_id else 'Sin docente asignado',
+        'periodos': [p.nombre for p in hoja.periodos], 'estado': estado, 'cerrado': semestre.cerrado, 'filas': filas,
+        'generado': timezone.localtime(), 'usuario': usuario.get_full_name() or usuario.get_username(),
+        'volver': f"{reverse('calificaciones:inicio')}?{urlencode({'ciclo': asignacion.ciclo_id, 'materia': asignacion.pk, 'periodo': 'semestre'})}",
+    }
+
+
+@requiere_alguno(*reglas.ENTRAR)
+def semestre_imprimir(request, pk):
+    asignacion = _asignacion_visible(request, pk)
+    h = hoja_para_imprimir(asignacion, request.user)
+    return render(request, 'calificaciones/semestre_hoja.html', {'h': h, 'imprimir_al_abrir': request.GET.get('pdf') == '1', 'volver': h['volver']})
+
+
+@requiere_alguno(*reglas.ENTRAR)
+def semestre_excel(request, pk):
+    asignacion = _asignacion_visible(request, pk)
+    h = hoja_para_imprimir(asignacion, request.user)
+    filas = [
+        [Celda(f"Nivel {h['nivel'].lower()} · Ciclo escolar {h['ciclo']} · {h['semestre']}", TITULO)],
+        [Celda('Calificaciones semestrales por materia', SECCION)],
+        ['Asignatura', h['materia']], ['Grupo', h['grupo']], ['Profesor', h['docente']], ['Estado', h['estado']],
+        ['Generado', f"{h['generado']:%d/%m/%Y %H:%M} por {h['usuario']}"],
+        [],
+        [Celda(t, ENCABEZADO) for t in ['No.', 'Nombre', *h['periodos'], 'Promedio', 'Examen final', 'Final ordinaria', 'Extraordinario',
+                                        'Regularización', 'Definitiva', 'Estado']],
+    ]
+    numero = lambda texto: float(texto) if texto else ''   # noqa: E731
+    for f in h['filas']:
+        filas.append([f['numero'], f['nombre'], *[numero(p) for p in f['periodos']], numero(f['promedio']), f['final'],
+                      numero(f['ordinaria']), numero(f['extraordinario']), numero(f['regularizacion']), numero(f['definitiva']), f['estado']])
+    filas += [[], ['Los promedios y resultados se truncan a dos decimales; la exención y la aprobación se deciden con el valor exacto.'],
+              [], ['Firma del profesor', '', 'Vo.Bo. Coordinación', 'Vo.Bo. Dirección'], [h['docente']]]
+    anchos = [6, 36, *[10] * len(h['periodos']), 10, 16, 14, 14, 14, 11, 28]
+    datos = libro([Hoja('Semestre', filas, anchos=anchos)])
+    nombre = slug(f"semestre-{h['semestre']}-{h['materia']}-{h['grupo']}") + '.xlsx'
+    respuesta = HttpResponse(datos, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    respuesta['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    return respuesta

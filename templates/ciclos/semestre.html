@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ semestre.nombre }} · {{ ciclo }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ciclos:lista' %}">Ciclos escolares</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ ciclo.get_absolute_url }}">{{ ciclo }}</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ semestre.nombre }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{{ semestre.nombre }} · bachillerato
+        <span class="tag tag--{% if semestre.abierto %}success{% elif semestre.cerrado %}neutral{% else %}info{% endif %}">{{ semestre.get_estado_display }}</span>
+        {% if semestre.cerrado %}{% if datos.procesos_abiertos %}<span class="tag tag--warning">Con procesos pendientes</span>{% else %}<span class="tag tag--success">Concluido</span>{% endif %}{% endif %}
+      </h1>
+      <p class="page-header__description">Ciclo {{ ciclo }} · {{ semestre.fecha_inicio|date:"j \d\e F \d\e Y"|lower }} al {{ semestre.fecha_fin|date:"j \d\e F \d\e Y"|lower }} · {% if datos.periodos %}{% for periodo in datos.periodos %}{{ periodo.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}sin periodos de evaluación{% endif %}.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if puede_gestionar %}
+        {% if semestre.estado == 'PENDIENTE' %}
+          <form method="post" action="{% url 'ciclos:semestre_abrir' semestre.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--primary">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Abrir {{ semestre.en_frase }}</button>
+          </form>
+        {% elif semestre.abierto %}
+          <a class="btn btn--primary" href="{% url 'ciclos:semestre_cerrar' semestre.pk %}" data-modal-form>{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Cerrar {{ semestre.en_frase }}</a>
+        {% endif %}
+      {% endif %}
+      {% if puede_reabrir %}
+        <a class="btn" href="{% url 'ciclos:semestre_reabrir' semestre.pk %}" data-modal-form>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Reabrir</a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if semestre.cerrado and datos.procesos_abiertos %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-alert" icon_class="alert__icon" %}
+      <p class="alert__body">La evaluación ordinaria está cerrada, pero el semestre no ha concluido: quedan {{ datos.procesos_abiertos }} extraordinario{{ datos.procesos_abiertos|pluralize }} o regularizaci{{ datos.procesos_abiertos|pluralize:"ón,ones" }} por capturar. Se capturan en Calificaciones (opción «Cierre del semestre» de cada materia), aunque el semestre B ya esté abierto; las calificaciones de periodo siguen bloqueadas.</p>
+    </div>
+  {% elif semestre.cerrado %}
+    <div class="alert alert--success alert--spaced" role="note">
+      {% include "partials/icon.html" with name="circle-check" icon_class="alert__icon" %}
+      <p class="alert__body">Cerrado el {{ semestre.cerrado_en|date:"j \d\e F \d\e Y, H:i"|lower }}{% if semestre.cerrado_por %} por {{ semestre.cerrado_por.get_full_name|default:semestre.cerrado_por.username }}{% endif %}. Todas sus materias tienen calificación definitiva.</p>
+    </div>
+  {% elif semestre.estado == 'PENDIENTE' %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+      <p class="alert__body">Todavía no se abre: mientras esté pendiente no se capturan sus calificaciones de periodo ni sus exámenes.</p>
+    </div>
+  {% elif problemas %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="clipboard-check" icon_class="alert__icon" %}
+      <div class="alert__body"><p><strong>Para cerrarlo falta:</strong></p><ul>{% for problema in problemas %}<li>{{ problema }}</li>{% endfor %}</ul></div>
+    </div>
+  {% endif %}
+
+  <div class="stat-grid">
+    <div class="stat"><p class="stat__label">Materias</p><p class="stat__value">{{ datos.materias|length }}</p><p class="stat__hint">una por grupo</p></div>
+    <div class="stat"><p class="stat__label">Completas</p><p class="stat__value">{{ datos.total_completas }}</p><p class="stat__hint">con calificación definitiva</p></div>
+    <div class="stat{% if datos.pendientes %} stat--attention{% endif %}"><p class="stat__label">Pendientes</p><p class="stat__value">{{ datos.pendientes }}</p><p class="stat__hint">periodos o examen final</p></div>
+    <div class="stat{% if datos.procesos_abiertos %} stat--attention{% endif %}"><p class="stat__label">Extraordinario o regularización</p><p class="stat__value">{{ datos.procesos_abiertos }}</p><p class="stat__hint">procesos abiertos</p></div>
+  </div>
+
+  <article class="card" aria-labelledby="titulo-materias">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="book-open" %}<h2 class="card__title" id="titulo-materias">Materias</h2>
+    </header>
+    {% if datos.materias %}
+      <div class="table-card table-card--flush">
+        <table class="table">
+          <caption class="visually-hidden">Calificaciones por materia del {{ semestre.en_frase }}</caption>
+          <thead class="table__head">
+            <tr>
+              <th class="table__th" scope="col">Materia</th>
+              <th class="table__th" scope="col">Estudiantes</th>
+              <th class="table__th" scope="col">Completas</th>
+              <th class="table__th" scope="col">Pendientes</th>
+              <th class="table__th" scope="col">Extra. / Reg.</th>
+              <th class="table__th" scope="col">Aprobadas</th>
+              <th class="table__th" scope="col">Reprobadas</th>
+            </tr>
+          </thead>
+          <tbody class="table__body">
+            {% for m in datos.materias %}
+              <tr class="table__row">
+                <td class="table__cell table__cell--main">
+                  <span class="cell-stack">
+                    <a class="cell-stack__main link-subtle" href="{% url 'calificaciones:inicio' %}?ciclo={{ ciclo.pk }}&amp;materia={{ m.asignacion.pk }}&amp;periodo=semestre">{{ m.asignacion.materia }}</a>
+                    <span class="cell-stack__sub">{{ m.asignacion.grupo }} · {{ m.asignacion.profesor|default:"Sin docente" }}{% if m.actas_sin_cerrar %} · {{ m.actas_sin_cerrar|length }} acta{{ m.actas_sin_cerrar|length|pluralize }} sin cerrar{% endif %}</span>
+                  </span>
+                </td>
+                <td class="table__cell" data-label="Estudiantes">{{ m.estudiantes }}</td>
+                <td class="table__cell" data-label="Completas">{{ m.completas }}</td>
+                <td class="table__cell" data-label="Pendientes">{% if m.pendientes %}<span class="tag tag--warning">{{ m.pendientes }}</span>{% else %}0{% endif %}</td>
+                <td class="table__cell" data-label="Extra. / Reg.">{% if m.procesos %}<span class="tag tag--warning">{{ m.procesos }}</span>{% else %}0{% endif %}</td>
+                <td class="table__cell" data-label="Aprobadas">{{ m.aprobadas }}</td>
+                <td class="table__cell" data-label="Reprobadas">{% if m.reprobadas %}<span class="tag tag--danger">{{ m.reprobadas }}</span>{% else %}0{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="card__body"><p class="text-muted">No hay materias de grados del {{ semestre.en_frase }} en el plan del ciclo.</p></div>
+    {% endif %}
+  </article>
+
+  {% if datos.estudiantes_pendientes or datos.estudiantes_en_proceso %}
+    <div class="info-grid">
+      {% if datos.estudiantes_pendientes %}
+        <article class="card" aria-labelledby="titulo-pendientes-sem">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-pendientes-sem">Evaluación ordinaria pendiente</h2>
+          </header>
+          <ul class="semestre-lista">
+            {% for asignacion, fila in datos.estudiantes_pendientes|slice:":40" %}
+              <li><span>{{ fila.nombre }}</span><span class="text-muted">{{ asignacion.materia }} · {{ asignacion.grupo }}</span><span class="tag tag--info">{{ fila.resultado.estado_texto }}</span></li>
+            {% endfor %}
+          </ul>
+          {% if datos.estudiantes_pendientes|length > 40 %}<p class="card__foot text-muted">Y {{ datos.estudiantes_pendientes|length|add:"-40" }} más.</p>{% endif %}
+        </article>
+      {% endif %}
+      {% if datos.estudiantes_en_proceso %}
+        <article class="card" aria-labelledby="titulo-procesos">
+          <header class="card__header card__header--icon">
+            {% include "partials/icon.html" with name="file-text" %}<h2 class="card__title" id="titulo-procesos">Extraordinarios y regularizaciones abiertos</h2>
+          </header>
+          <ul class="semestre-lista">
+            {% for asignacion, fila in datos.estudiantes_en_proceso|slice:":40" %}
+              <li><span>{{ fila.nombre }}</span><span class="text-muted">{{ asignacion.materia }} · {{ asignacion.grupo }}</span><span class="tag tag--warning">{{ fila.resultado.estado_texto }}</span></li>
+            {% endfor %}
+          </ul>
+          {% if datos.estudiantes_en_proceso|length > 40 %}<p class="card__foot text-muted">Y {{ datos.estudiantes_en_proceso|length|add:"-40" }} más.</p>{% endif %}
+        </article>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if cambios_al_recerrar %}
+    <article class="card" aria-labelledby="titulo-recierre">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="refresh-cw" %}<h2 class="card__title" id="titulo-recierre">Cambios desde la reapertura</h2>
+      </header>
+      <ul class="semestre-lista">
+        {% for c in cambios_al_recerrar %}
+          <li><span>{{ c.nombre }}</span><span class="text-muted">{{ c.materia }} · {{ c.grupo }}</span><span>{{ c.antes|default:"—" }} → <strong>{{ c.despues|default:"—" }}</strong> ({{ c.estado }})</span></li>
+        {% endfor %}
+      </ul>
+    </article>
+  {% endif %}
+
+  <article class="card" aria-labelledby="titulo-bitacora-sem">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-bitacora-sem">Bitácora del semestre</h2>
+    </header>
+    {% if cambios %}
+      <ul class="semestre-lista">
+        {% for cambio in cambios %}
+          <li>
+            <span>{{ cambio.que }}{% if cambio.anterior or cambio.nuevo %}: {{ cambio.anterior|default:"—" }} → {{ cambio.nuevo|default:"—" }}{% endif %}</span>
+            <span class="text-muted">{{ cambio.fecha|date:"d/m/Y H:i" }} · {{ cambio.usuario.get_full_name|default:cambio.usuario.username|default:"—" }}</span>
+            {% if cambio.motivo %}<span class="text-muted">Motivo: {{ cambio.motivo }}</span>{% endif %}
+            {% if cambio.accion == 'CIERRE' and cambio.datos.cambios %}<span class="text-muted">{{ cambio.datos.cambios|length }} calificaci{{ cambio.datos.cambios|length|pluralize:"ón,ones" }} definitiva{{ cambio.datos.cambios|length|pluralize }} cambiaron desde la reapertura</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card__body"><p class="text-muted">Sin movimientos.</p></div>
+    {% endif %}
+  </article>
+{% endblock %}

@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from Alumnos.academico import ciclo_editable, elegir_ciclo
 from Alumnos.models import ORDEN_NIVELES, CicloEscolar, Periodo
 from Alumnos.periodos import describir, periodos_por_nivel
+from Calificaciones.semestres import bloqueo_de_periodo, periodos_sin_semestre
 from CISAHUAYO.permisos import requiere_permisos
 from Usuarios.seguridad import ACCION_ALTA, ACCION_BAJA, ACCION_CAMBIO, registrar
 
@@ -36,6 +37,15 @@ def _ciclo_cerrado(request, ciclo):
     return redirect(_lista(ciclo.pk))
 
 
+def _semestre_cerrado(request, periodo):
+    """El periodo es de un semestre de bachillerato cerrado: no se edita, no se abre ni se borra (respuesta) o None."""
+    bloqueo = bloqueo_de_periodo(periodo)
+    if bloqueo:
+        messages.error(request, bloqueo)
+        return redirect(_lista(periodo.ciclo_id))
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Los periodos de cada nivel, en tarjetas
 # ---------------------------------------------------------------------------
@@ -43,10 +53,14 @@ def _ciclo_cerrado(request, ciclo):
 def periodo_lista(request):
     ciclos, ciclo = _ciclo_de(request)
     niveles = periodos_por_nivel(ciclo)
+    for nivel in niveles:
+        for periodo in nivel['periodos']:
+            periodo.bloqueado = bloqueo_de_periodo(periodo)
     return render(request, 'periodos/lista.html', {
         'ciclos': ciclos,
         'ciclo': ciclo,
         'niveles': niveles,
+        'sin_semestre': periodos_sin_semestre(ciclo),
         'total': sum(len(nivel['periodos']) for nivel in niveles),
         'abiertos': [periodo for nivel in niveles for periodo in nivel['abiertos']],
         'editable': ciclo_editable(ciclo),
@@ -87,9 +101,11 @@ def periodo_crear(request):
 
 @requiere_permisos('Alumnos.change_periodo')
 def periodo_editar(request, pk):
-    periodo = get_object_or_404(Periodo.objects.select_related('ciclo'), pk=pk)
+    periodo = get_object_or_404(Periodo.objects.select_related('ciclo', 'semestre'), pk=pk)
     if not ciclo_editable(periodo.ciclo):
         return _ciclo_cerrado(request, periodo.ciclo)
+    if (respuesta := _semestre_cerrado(request, periodo)) is not None:
+        return respuesta
 
     form = PeriodoForm(request.POST if request.method == 'POST' else None, instance=periodo)
     if request.method == 'POST':
@@ -106,9 +122,11 @@ def periodo_editar(request, pk):
 # Abrir o cerrar a mano, volver a sus fechas y eliminar
 # ---------------------------------------------------------------------------
 def _cambiar_apertura(request, pk, apertura, aviso):
-    periodo = get_object_or_404(Periodo.objects.select_related('ciclo'), pk=pk)
+    periodo = get_object_or_404(Periodo.objects.select_related('ciclo', 'semestre'), pk=pk)
     if not ciclo_editable(periodo.ciclo):
         return _ciclo_cerrado(request, periodo.ciclo)
+    if (respuesta := _semestre_cerrado(request, periodo)) is not None:
+        return respuesta
     if periodo.apertura != apertura:
         periodo.apertura = apertura
         periodo.save(update_fields=['apertura', 'modificado'])
@@ -146,9 +164,11 @@ def periodo_por_fechas(request, pk):
 @require_POST
 @requiere_permisos('Alumnos.delete_periodo')
 def periodo_eliminar(request, pk):
-    periodo = get_object_or_404(Periodo.objects.select_related('ciclo'), pk=pk)
+    periodo = get_object_or_404(Periodo.objects.select_related('ciclo', 'semestre'), pk=pk)
     if not ciclo_editable(periodo.ciclo):
         return _ciclo_cerrado(request, periodo.ciclo)
+    if (respuesta := _semestre_cerrado(request, periodo)) is not None:
+        return respuesta
     ciclo_id, descripcion = periodo.ciclo_id, f'«{periodo.nombre}» de {periodo.get_nivel_display()}'
     try:
         registrar(request.user, periodo, ACCION_BAJA, f'Eliminado: {periodo.get_nivel_display()} {_fechas(periodo)}.')

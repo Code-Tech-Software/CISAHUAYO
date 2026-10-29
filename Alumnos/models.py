@@ -406,6 +406,11 @@ class Grado(models.Model):
         return f'{self.numero}.º'
 
     @property
+    def semestre(self):
+        """El semestre del ciclo en que se cursa ('A' o 'B'), o None fuera de preparatoria (ver `semestre_de_grado`)."""
+        return semestre_de_grado(self.nivel, self.numero)
+
+    @property
     def equivalencia_numero(self):
         """La equivalencia (efectiva) como número (7); None si no tiene o es un código con letras (K1)."""
         valor = str(self.equivalencia_efectiva or '')
@@ -585,6 +590,10 @@ class Inscripcion(models.Model):
     # Se desactivó sola al dar de baja al estudiante: al reactivarlo vuelve a estar activa. Una inscripción que se dio de
     # baja a mano (desde Inscripciones) no lleva esta marca y no se reactiva con él.
     suspendida_por_baja = models.BooleanField(default=False, editable=False, verbose_name='Desactivada por la baja del estudiante')
+    # Preparatoria por semestres (2026-10-28): al pasar al semestre B del mismo ciclo, la inscripción del semestre A
+    # deja de estar activa y queda concluida (no es una baja). Conserva su grupo, sus calificaciones y su historial, y
+    # sigue en las listas de las materias de ese semestre (actas, exámenes extraordinarios y de regularización).
+    concluida = models.BooleanField(default=False, editable=False, verbose_name='Semestre concluido')
 
     def __str__(self):
         return (
@@ -592,6 +601,13 @@ class Inscripcion(models.Model):
             f"{self.grupo if self.grupo_id else self.grado} - "
             f"{self.ciclo}"
         )
+
+    @property
+    def estado_texto(self):
+        """«Activa», «Semestre concluido» o «Baja»."""
+        if self.activa:
+            return 'Activa'
+        return 'Semestre concluido' if self.concluida else 'Baja'
 
     def save(self, *args, **kwargs):
         _con_grupo(self)
@@ -625,13 +641,10 @@ class Inscripcion(models.Model):
         verbose_name = 'Inscripción'
         verbose_name_plural = 'Inscripciones'
         constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    'alumno',
-                    'ciclo'
-                ],
-                name='alumno_ciclo_unico'
-            )
+            # Una sola inscripción vigente (activa o dada de baja) por ciclo; las de semestres concluidos de preparatoria
+            # quedan aparte, una por grado (2026-10-28)
+            models.UniqueConstraint(fields=['alumno', 'ciclo'], condition=models.Q(concluida=False), name='alumno_ciclo_unico'),
+            models.UniqueConstraint(fields=['alumno', 'ciclo', 'grado'], name='inscripcion_por_grado_unica'),
         ]
 
 
@@ -876,6 +889,72 @@ class Recreo(models.Model):
         ordering = ['dia_semana', 'hora_inicio']
 
 
+SEMESTRE_A, SEMESTRE_B = 'A', 'B'
+NIVEL_POR_SEMESTRES = 'PREPARATORIA'
+
+
+def semestre_de_grado(nivel, numero):
+    """En preparatoria cada grado es un semestre (2026-10-28): 1.º, 3.º y 5.º se cursan en el semestre A del ciclo y
+    2.º, 4.º y 6.º en el B. None en los demás niveles (o sin número)."""
+    if nivel != NIVEL_POR_SEMESTRES or not numero:
+        return None
+    return SEMESTRE_A if numero % 2 else SEMESTRE_B
+
+
+class Semestre(models.Model):
+    """Un semestre de bachillerato (A o B) de un ciclo escolar (pedido del 2026-10-28).
+
+    Tiene sus fechas, sus periodos de evaluación (`Periodo.semestre`) y su estado: pendiente (todavía no se abre),
+    abierto (se capturan sus periodos y sus exámenes finales) o cerrado (la evaluación ordinaria ya no se edita; solo
+    se capturan los extraordinarios y las regularizaciones pendientes). Se abre, se cierra y se reabre desde Ciclos
+    escolares, con bitácora (Calificaciones.CambioSemestre); cerrarlo no cierra el ciclo, el otro semestre ni los
+    periodos de los demás niveles.
+    """
+
+    CLAVES = [(SEMESTRE_A, 'Semestre A'), (SEMESTRE_B, 'Semestre B')]
+    PENDIENTE, ABIERTO, CERRADO = 'PENDIENTE', 'ABIERTO', 'CERRADO'
+    ESTADOS = [(PENDIENTE, 'Pendiente'), (ABIERTO, 'Abierto'), (CERRADO, 'Cerrado')]
+
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='semestres', verbose_name='Ciclo escolar')
+    clave = models.CharField(max_length=1, choices=CLAVES, verbose_name='Semestre')
+    fecha_inicio = models.DateField(verbose_name='Fecha de inicio')
+    fecha_fin = models.DateField(verbose_name='Fecha de fin')
+    estado = models.CharField(max_length=10, choices=ESTADOS, default=PENDIENTE, verbose_name='Estado')
+    abierto_en = models.DateTimeField(null=True, blank=True, verbose_name='Abierto el')
+    abierto_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    cerrado_en = models.DateTimeField(null=True, blank=True, verbose_name='Cerrado el')
+    cerrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.get_clave_display()} · {self.ciclo}'
+
+    @property
+    def nombre(self):
+        return self.get_clave_display()
+
+    @property
+    def en_frase(self):
+        """«semestre A», para usarlo dentro de una oración («El semestre A está cerrado»)."""
+        return f'semestre {self.clave}'
+
+    @property
+    def abierto(self):
+        return self.estado == self.ABIERTO
+
+    @property
+    def cerrado(self):
+        return self.estado == self.CERRADO
+
+    class Meta:
+        verbose_name = 'Semestre de bachillerato'
+        verbose_name_plural = 'Semestres de bachillerato'
+        ordering = ['ciclo', 'clave']
+        default_permissions = ()   # se administran con el ciclo (Alumnos.change_cicloescolar)
+        constraints = [models.UniqueConstraint(fields=['ciclo', 'clave'], name='semestre_por_ciclo_unico')]
+
+
 class PeriodoQuerySet(models.QuerySet):
     def abiertos(self, fecha=None):
         """Los periodos abiertos en esa fecha (hoy si no se indica): abiertos a mano, o por sus fechas si siguen sus
@@ -910,6 +989,9 @@ class Periodo(models.Model):
     fecha_inicio = models.DateField(verbose_name='Se abre el')
     fecha_fin = models.DateField(verbose_name='Se cierra el')
     apertura = models.CharField(max_length=10, choices=APERTURA_CHOICES, default=POR_FECHAS, verbose_name='Apertura')
+    # Solo en preparatoria, cuando el ciclo tiene semestres: el semestre al que pertenece (sus calificaciones forman la
+    # calificación semestral de las materias de ese semestre)
+    semestre = models.ForeignKey(Semestre, null=True, blank=True, on_delete=models.PROTECT, related_name='periodos', verbose_name='Semestre')
     creado = models.DateTimeField(auto_now_add=True)
     modificado = models.DateTimeField(auto_now=True)
 

@@ -47,7 +47,7 @@
                     {% if ciclo.activo %}
                       <li>
                         <button type="button" class="menu__item menu__item--danger" data-modal-open="modal-cerrar">
-                          {% include "partials/icon.html" with name="lock" %} Cerrar el ciclo
+                          {% include "partials/icon.html" with name="lock" %} Cerrar ciclo escolar
                         </button>
                       </li>
                     {% else %}
@@ -132,6 +132,8 @@
         </div>
       </article>
     {% endif %}
+
+    {% if semestres or tiene_preparatoria %}{% include "ciclos/_semestres.html" %}{% endif %}
 
     {% if preparacion %}
       <article class="card info-grid__wide" aria-labelledby="titulo-preparacion">
@@ -299,11 +301,17 @@
         <form class="modal__panel" method="post" action="{% url 'ciclos:cerrar' ciclo.pk %}">
           {% csrf_token %}
           <header class="modal__header">
-            <h2 class="modal__title" id="modal-cerrar-titulo">Cerrar el ciclo {{ ciclo }}</h2>
+            <h2 class="modal__title" id="modal-cerrar-titulo">Cerrar el ciclo escolar {{ ciclo }}</h2>
             <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
           </header>
           <div class="modal__body">
             <p>El ciclo <strong>{{ ciclo }}</strong> dejará de ser el ciclo actual.</p>
+            {% if impide_cerrar %}
+              <div class="alert alert--error" role="alert">
+                {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+                <div class="alert__body"><p><strong>Todavía no se puede cerrar:</strong></p><ul>{% for texto in impide_cerrar %}<li>{{ texto }}</li>{% endfor %}</ul></div>
+              </div>
+            {% endif %}
             {% if pendientes %}
               <div class="alert alert--warning" role="note">
                 {% include "partials/icon.html" with name="circle-alert" icon_class="alert__icon" %}
@@ -321,7 +329,7 @@
           </div>
           <footer class="modal__footer">
             <button type="button" class="btn" data-modal-close>Cancelar</button>
-            <button type="submit" class="btn btn--danger">Cerrar ciclo</button>
+            <button type="submit" class="btn btn--danger"{% if impide_cerrar %} disabled{% endif %}>Cerrar ciclo escolar</button>
           </footer>
         </form>
       </dialog>

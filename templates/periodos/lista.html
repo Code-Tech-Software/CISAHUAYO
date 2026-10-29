@@ -71,6 +71,12 @@
         </p>
       </div>
     {% endif %}
+    {% if sin_semestre %}
+      <div class="alert alert--warning alert--spaced" role="note">
+        {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+        <p class="alert__body">{{ sin_semestre|length }} periodo{{ sin_semestre|length|pluralize }} de preparatoria sin semestre ({% for periodo in sin_semestre %}{{ periodo.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}): no cuenta{{ sin_semestre|length|pluralize:"n" }} para la calificación semestral. Edítalo{{ sin_semestre|length|pluralize }} y elige su semestre.</p>
+      </div>
+    {% endif %}
 
     {% for nivel in niveles %}
       <section class="level" aria-labelledby="nivel-{{ nivel.codigo|lower }}">
@@ -96,7 +102,7 @@
                   <span class="grade-card__number" aria-hidden="true">{{ periodo.numero }}</span>
                   <div class="grade-card__body">
                     <h3 class="grade-card__name">{{ periodo.nombre }}</h3>
-                    <p class="grade-card__meta">{{ periodo.fecha_inicio|date:"j M" }} – {{ periodo.fecha_fin|date:"j M Y" }}</p>
+                    <p class="grade-card__meta">{{ periodo.fecha_inicio|date:"j M" }} – {{ periodo.fecha_fin|date:"j M Y" }}{% if periodo.semestre %} · {{ periodo.semestre.nombre }}{% endif %}</p>
                     <p class="periodo-card__estado">
                       <span class="tag tag--{% if periodo.estado_actual == 'ABIERTO' %}success{% elif periodo.estado_actual == 'PROXIMO' %}info{% else %}neutral{% endif %}">{{ periodo.estado_display }}{% if periodo.a_mano %} a mano{% endif %}</span>
                       <span class="periodo-card__nota">{{ periodo.descripcion }}</span>
@@ -106,7 +112,9 @@
                     {% endif %}
                   </div>
 
-                  {% if editable and perms.Alumnos.change_periodo or editable and perms.Alumnos.delete_periodo %}
+                  {% if periodo.bloqueado %}
+                    <p class="periodo-card__aviso">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %}{{ periodo.semestre.nombre }} cerrado</p>
+                  {% elif editable and perms.Alumnos.change_periodo or editable and perms.Alumnos.delete_periodo %}
                     {# Las acciones a la vista, como iconos dentro de la tarjeta #}
                     <div class="grade-card__actions periodo-card__acciones">
                       {% if perms.Alumnos.change_periodo %}

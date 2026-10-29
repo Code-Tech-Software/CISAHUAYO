@@ -34,7 +34,7 @@ def por_grado_y_grupo(ciclo):
     conteos = defaultdict(lambda: {'activas': 0, 'bajas': 0})
     for fila in (
         Inscripcion.objects.filter(ciclo=ciclo).values('grado_id', 'grupo_id')
-        .annotate(activas=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False)))
+        .annotate(activas=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False, concluida=False)))
     ):
         for clave in ((fila['grado_id'], None), (fila['grado_id'], fila['grupo_id'])):
             conteos[clave]['activas'] += fila['activas']
@@ -94,7 +94,7 @@ def comparacion_con_anterior(ciclo):
 
     def conteos(c):
         return Inscripcion.objects.filter(ciclo=c).aggregate(
-            inscritos=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False)),
+            inscritos=Count('pk', filter=Q(activa=True)), bajas=Count('pk', filter=Q(activa=False, concluida=False)),
         )
 
     este, previo = conteos(ciclo), conteos(anterior)

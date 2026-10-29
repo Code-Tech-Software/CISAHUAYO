@@ -67,7 +67,10 @@ class InscripcionForm(GrupoDelGradoMixin, EstiloCamposMixin, forms.ModelForm):
             if motivo:
                 self.add_error('alumno', motivo)
         if alumno and ciclo and 'alumno' not in self.errors:
-            self.existente = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo).select_related('grado').first()
+            self.existente = Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo, concluida=False).select_related('grado').first()
+            grado = datos.get('grado')
+            if grado and Inscripcion.objects.filter(alumno=alumno, ciclo=ciclo, grado=grado, concluida=True).exists():
+                self.add_error('grado', f'{alumno} ya cursó {grado} en el ciclo {ciclo} (semestre concluido).')
             if self.existente and self.existente.activa:
                 self.add_error('ciclo', f'{alumno} ya está inscrito en el ciclo {ciclo} ({self.existente.grado}).')
             elif self.existente:
@@ -96,7 +99,7 @@ class FiltroInscripcionesForm(EstiloCamposMixin, forms.Form):
     }))
     ciclo = CicloChoiceField(CicloEscolar.objects.all(), required=False, empty_label='Todos los ciclos', label='Ciclo escolar')
     grado = GradoChoiceField(Grado.objects.visibles().academicos(), required=False, empty_label='Todos los grados', label='Grado')
-    estado = forms.ChoiceField(required=False, choices=[('', 'Activas'), ('BAJA', 'Bajas')], label='Estado')
+    estado = forms.ChoiceField(required=False, choices=[('', 'Activas'), ('BAJA', 'Bajas'), ('CONCLUIDA', 'Semestre concluido')], label='Estado')
     orden = forms.ChoiceField(required=False, choices=ORDEN_CHOICES, label='Ordenar por')
 
     def __init__(self, *args, **kwargs):
@@ -134,7 +137,10 @@ class FiltroInscripcionesForm(EstiloCamposMixin, forms.Form):
         if datos.get('grado'):
             queryset = queryset.filter(grado=datos['grado'])
         if con_estado:
-            queryset = queryset.filter(activa=datos.get('estado') != 'BAJA')
+            # Una inscripción de semestre concluido (preparatoria, 2026-10-28) no es una baja: tiene su propio filtro
+            queryset = queryset.filter(**{
+                '': {'activa': True}, 'BAJA': {'activa': False, 'concluida': False}, 'CONCLUIDA': {'concluida': True},
+            }[datos.get('estado', '')])
         return queryset.order_by(*self.ordenes()[datos.get('orden', 'alumno')])
 
 

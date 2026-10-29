@@ -14,7 +14,7 @@ from Alumnos.models import CicloEscolar, Grado, Materia, MateriaGrado, Periodo, 
 from CISAHUAYO.permisos import requiere_permisos
 from Conducta.permisos import puede_configurar
 
-from . import reglas
+from . import reglas, semestres
 from .forms import FiltroConfiguracionForm, NuevaVersionForm, ReglasForm, RubroFormSet, rubros_iniciales
 from .models import ConfiguracionEvaluacion, Rubro
 
@@ -126,7 +126,9 @@ def configuracion_materia(request, pk):
     periodos = _periodos_de(materia, ciclo)
     con_version = {c.periodo_id for c in versiones}
     disponibles = periodos.exclude(pk__in=con_version)
-    puede_editar = request.user.has_perm(reglas.CAMBIAR_CONFIG)
+    # Una materia de un semestre de bachillerato cerrado se consulta, pero su configuración ya no se cambia
+    bloqueo_semestre = semestres.bloqueo_de_configuracion(materia, ciclo)
+    puede_editar = request.user.has_perm(reglas.CAMBIAR_CONFIG) and not bloqueo_semestre
 
     reglas_form = formset = None
     if elegida is not None and puede_editar:
@@ -166,7 +168,8 @@ def configuracion_materia(request, pk):
         **_contexto_de_ajustes(request), 'ciclos': ciclos, 'ciclo': ciclo, 'materia': materia,
         'nivel': NIVELES.get(reglas.nivel_de_materia(materia, ciclo), ''),
         'base': base, 'versiones': versiones, 'elegida': elegida, 'reglas_form': reglas_form, 'formset': formset,
-        'puede_editar': puede_editar, 'puede_crear': request.user.has_perm(reglas.CREAR_CONFIG), 'uso': uso, 'en_uso': en_uso,
+        'puede_editar': puede_editar, 'puede_crear': request.user.has_perm(reglas.CREAR_CONFIG) and not bloqueo_semestre, 'uso': uso, 'en_uso': en_uso,
+        'bloqueo_semestre': bloqueo_semestre,
         'resumen': _resumen(elegida), 'problemas': reglas.problemas_para_activar(elegida) if elegida else [],
         'descripcion_reglas': reglas.describir_reglas(elegida) if elegida else [],
         'version_form': NuevaVersionForm(periodos=disponibles) if base is not None else None, 'periodos': periodos,

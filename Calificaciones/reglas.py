@@ -20,9 +20,11 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q
 from django.utils import timezone
 
+from Alumnos.academico import ciclo_actual
 from Alumnos.asistencia_docente import asignaciones_del_ciclo, asignaciones_del_profesor, inscripciones_de
 from Alumnos.asistencias import con_justificada_materia, sin_dias_suspendidos
 from Alumnos.models import AsistenciaMateria, CicloEscolar, Inscripcion, MateriaGrado, Periodo
+from Alumnos.periodos import periodos_para_grado
 from Usuarios.docentes import profesor_de
 
 from . import calculo
@@ -172,6 +174,7 @@ def crear_inicial(materia, ciclo, usuario, periodo=None):
     """La configuración de referencia (20 % conducta directa, 50 % procedimientos, 30 % exámenes), activa."""
     if ConfiguracionEvaluacion.objects.filter(materia=materia, ciclo=ciclo, periodo=periodo).exists():
         raise CapturaRechazada('Esa materia ya tiene configuración para ese alcance.')
+    _exigir_semestre_abierto(materia, ciclo)
     configuracion = ConfiguracionEvaluacion.objects.create(
         materia=materia, ciclo=ciclo, periodo=periodo, estado=ConfiguracionEvaluacion.ACTIVA, modificado_por=usuario,
     )
@@ -239,6 +242,7 @@ def guardar_configuracion(configuracion, reglas, rubros, activar, usuario):
     """Guarda las reglas (dict con los campos de `_CAMPOS_DE_REGLAS`) y los rubros: [{'pk', 'nombre', 'porcentaje',
     'tipo', 'activo', 'orden', 'eliminar'}]. Un rubro con capturas no se elimina ni cambia de tipo (se desactiva).
     Con `activar` queda activa si la suma es 100 %; si no, borrador. Devuelve los problemas que impidieron activarla."""
+    _exigir_semestre_abierto(configuracion.materia, configuracion.ciclo)
     cambios = []
     for campo, nombre in _CAMPOS_DE_REGLAS:
         antes, despues = getattr(configuracion, campo), reglas[campo]
@@ -287,6 +291,13 @@ def guardar_configuracion(configuracion, reglas, rubros, activar, usuario):
     return problemas if activar else []
 
 
+def _exigir_semestre_abierto(materia, ciclo):
+    from .semestres import bloqueo_de_configuracion
+    bloqueo = bloqueo_de_configuracion(materia, ciclo)
+    if bloqueo:
+        raise CapturaRechazada(bloqueo)
+
+
 def _copiar_en(destino, origen, incluir_reglas):
     for rubro in origen.rubros.all():
         Rubro.objects.create(configuracion=destino, nombre=rubro.nombre, porcentaje=rubro.porcentaje, tipo=rubro.tipo,
@@ -302,6 +313,7 @@ def nueva_version(base, periodo, usuario):
     periodo ya se capturó con la del ciclo (sus calificaciones cambiarían de rubros)."""
     if base.periodo_id:
         raise CapturaRechazada('Las versiones se crean a partir de la configuración del ciclo.')
+    _exigir_semestre_abierto(base.materia, base.ciclo)
     if periodo.ciclo_id != base.ciclo_id or periodo.nivel != nivel_de_materia(base.materia, base.ciclo):
         raise CapturaRechazada('Ese periodo no es del ciclo ni del nivel de la materia.')
     if ConfiguracionEvaluacion.objects.filter(materia=base.materia, ciclo=base.ciclo, periodo=periodo).exists():
@@ -342,6 +354,7 @@ def copiar(origen, materia, ciclo, periodo, incluir_reglas, usuario):
     revision = revisar_copia(origen, materia, ciclo, periodo)
     if revision['bloqueo']:
         raise CapturaRechazada(revision['bloqueo'])
+    _exigir_semestre_abierto(materia, ciclo)
     destino = revision['existente']
     if destino is None:
         destino = ConfiguracionEvaluacion(materia=materia, ciclo=ciclo, periodo=periodo)
@@ -369,11 +382,14 @@ def ve_todas(usuario):
 
 
 def asignaciones_para(usuario, ciclo=None):
-    """Las materias (una por grupo) que la persona puede abrir: todas con «ver o gestionar todas»; si no, las suyas."""
+    """Las materias (una por grupo) que la persona puede abrir: todas con «ver o gestionar todas»; si no, las suyas.
+    Incluye las de grados ocultos cuyo semestre de bachillerato ya se cerró (registros y extraordinarios)."""
+    from .semestres import grados_de_semestres_cerrados
+    conservar = grados_de_semestres_cerrados(ciclo or ciclo_actual())
     if ve_todas(usuario):
-        return asignaciones_del_ciclo(ciclo)
+        return asignaciones_del_ciclo(ciclo, conservar)
     if usuario.has_perm(CAPTURAR):
-        return asignaciones_del_profesor(profesor_de(usuario), ciclo)
+        return asignaciones_del_profesor(profesor_de(usuario), ciclo, conservar)
     return MateriaGrado.objects.none()
 
 
@@ -399,7 +415,8 @@ def puede_reabrir(usuario, asignacion):
 
 
 def periodos_de(asignacion):
-    return list(Periodo.objects.filter(ciclo=asignacion.ciclo, nivel=asignacion.grado.nivel).order_by('fecha_inicio', 'nombre'))
+    """Los periodos de la materia: los de su nivel (en preparatoria por semestres, los de su semestre)."""
+    return list(periodos_para_grado(asignacion.ciclo, asignacion.grado))
 
 
 def periodo_sugerido(periodos, hoy=None):
@@ -431,6 +448,10 @@ def motivo_de_solo_lectura(acta, usuario, configuracion=None, hoy=None):
         return 'Solo consulta: no capturas las calificaciones de esta materia.'
     if acta.cerrada:
         return f'Las calificaciones de {acta.periodo.nombre} están cerradas.'
+    from .semestres import bloqueo_de_captura
+    bloqueo = bloqueo_de_captura(acta.periodo)
+    if bloqueo:
+        return bloqueo
     if not acta.asignacion.ciclo.activo:
         return f'El ciclo {acta.asignacion.ciclo} no es el ciclo actual: sus calificaciones son de solo lectura.'
     estado = acta.periodo.estado_en(hoy)
@@ -536,8 +557,9 @@ def _reglas_de_foto(reglas):
 
 
 def estudiantes_de(acta):
-    """Los estudiantes del grupo con su número de lista (orden alfabético por apellidos, como la lista del grupo)."""
-    return list(inscripciones_de(acta.asignacion))
+    """Los estudiantes del grupo con su número de lista (orden alfabético por apellidos, como la lista del grupo).
+    También los que ya pasaron al semestre siguiente: estas calificaciones son de su semestre."""
+    return list(inscripciones_de(acta.asignacion, con_concluidas=True))
 
 
 def tabla(acta, inscripciones=None):
@@ -874,11 +896,23 @@ def cerrar(acta, usuario):
     return acta
 
 
+def bloqueo_de_reapertura(acta):
+    """Por qué no se reabre el acta aunque se tenga permiso: su semestre de bachillerato está cerrado ('' si no)."""
+    from .semestres import bloqueo_de_periodo
+    if bloqueo_de_periodo(acta.periodo):
+        return (f'{acta.periodo.nombre} es del {acta.periodo.semestre.en_frase}, que está cerrado: para corregir una calificación '
+                'de periodo, primero se reabre el semestre (Ciclos escolares, con motivo).')
+    return ''
+
+
 @transaction.atomic
 def reabrir(acta, motivo, usuario):
     acta = ActaCalificaciones.objects.select_for_update().get(pk=acta.pk)
     if not acta.cerrada:
         raise CapturaRechazada('No están cerradas.')
+    bloqueo = bloqueo_de_reapertura(acta)
+    if bloqueo:
+        raise CapturaRechazada(bloqueo)
     CambioCalificacion.objects.create(
         acta=acta, accion=CambioCalificacion.REAPERTURA, que=f'Reapertura de {acta.periodo.nombre}', anterior='Cerrada', nuevo='En captura',
         motivo=motivo, usuario=usuario,

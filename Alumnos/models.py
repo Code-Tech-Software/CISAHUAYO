@@ -514,28 +514,51 @@ class GrupoQuerySet(models.QuerySet):
         return self.filter(q_grado_disponible('grado__'), activo=True)
 
 
+class GruposBase(models.Manager.from_queryset(GrupoQuerySet)):
+    """Los grupos base: en los que se inscriben los estudiantes. Los grupos técnicos de las clases (`nombre_de_clase`) no
+    salen en ninguna lista, selector ni filtro de grupos; se llega a ellos desde su asignación."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(nombre_de_clase='')
+
+
 class Grupo(models.Model):
     """Un grupo de un grado (1.º A, 1.º B): su salón. Los estudiantes se inscriben en un grupo; el plan de materias es del
-    grado y lo comparten sus grupos, pero cada grupo tiene su profesor en cada materia, su horario y sus recesos."""
+    grado y lo comparten sus grupos, pero cada grupo tiene su profesor en cada materia, su horario y sus recesos.
+
+    Con `nombre_de_clase`, es el grupo técnico de un grupo de clase (`GrupoClase`, 2026-10-30): el que lleva la asignación
+    de esa clase para que horarios, asistencia, actas y bitácoras funcionen igual. Nadie se inscribe en él: sus
+    estudiantes son los `IntegranteClase` de cada fecha.
+    """
 
     grado = models.ForeignKey(Grado, on_delete=models.CASCADE, related_name='grupos', verbose_name='Grado')
-    nombre = models.ForeignKey(NombreGrupo, on_delete=models.PROTECT, related_name='grupos', verbose_name='Grupo')
+    nombre = models.ForeignKey(NombreGrupo, null=True, blank=True, on_delete=models.PROTECT, related_name='grupos', verbose_name='Grupo')
     activo = models.BooleanField(default=True, verbose_name='Activo')
+    nombre_de_clase = models.CharField(max_length=80, blank=True, default='', editable=False, verbose_name='Nombre del grupo de clase')
 
-    objects = GrupoQuerySet.as_manager()
+    objects = GruposBase()
+    con_clases = models.Manager.from_queryset(GrupoQuerySet)()   # también los técnicos de las clases
 
     def __str__(self):
         """Su nombre en todo el sitio: «7.º A» o «K3 B», con la equivalencia del grado (pedido del 2026-10-20)."""
         return self.nombre_equivalente
 
     @property
+    def es_de_clase(self):
+        return bool(self.nombre_de_clase)
+
+    @property
     def nombre_de_nivel(self):
         """«1.º A Secundaria»: el grupo dentro de su nivel (para las descripciones emergentes junto a la equivalencia)."""
+        if self.nombre_de_clase:
+            return self.nombre_de_clase
         return f'{self.grado.numero}.º {self.nombre} {self.grado.get_nivel_display()}'
 
     @property
     def corto(self):
         """Sin el nivel: «7.º A» (o, si el grado no tiene equivalencia, «1.º A»)."""
+        if self.nombre_de_clase:
+            return self.nombre_de_clase
         if not self.grado.equivalencia_efectiva:
             return f'{self.grado.numero}.º {self.nombre}'
         return self.nombre_equivalente
@@ -543,7 +566,9 @@ class Grupo(models.Model):
     @property
     def nombre_equivalente(self):
         """«7.º A» o «K3 B»: la equivalencia del grado en la continuidad escolar con el grupo; sin equivalencia, el de su
-        nivel («1.º A Secundaria»)."""
+        nivel («1.º A Secundaria»). Un grupo técnico de clase se nombra como la clase («Inglés básico»)."""
+        if self.nombre_de_clase:
+            return self.nombre_de_clase
         if not self.grado.equivalencia_efectiva:
             return self.nombre_de_nivel
         return f'{self.grado.nombre_equivalente} {self.nombre}'
@@ -560,6 +585,10 @@ class Grupo(models.Model):
         return grupo
 
     def get_absolute_url(self):
+        if self.nombre_de_clase:
+            clase = GrupoClase.objects.filter(asignacion__grupo=self).first()
+            if clase is not None:
+                return reverse('asignaciones:bloque', args=[clase.bloque_id])
         return reverse('grupos:detalle', args=[self.pk])
 
     class Meta:
@@ -674,6 +703,12 @@ class Materia(models.Model):
         ordering = ['nombre']
 
 
+class MateriaGradoQuerySet(models.QuerySet):
+    def de_plan(self):
+        """Las del plan de materias de los grupos base, sin las de los grupos de clase (`GrupoClase`)."""
+        return self.filter(clase__isnull=True)
+
+
 class MateriaGrado(models.Model):
 
     ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='materias_grado')
@@ -689,6 +724,8 @@ class MateriaGrado(models.Model):
     # grupo o el grado se reactivan mientras el ciclo siga vigente
     suspendida = models.BooleanField(default=False, verbose_name='Quitada con su grupo o su grado')
 
+    objects = MateriaGradoQuerySet.as_manager()
+
     def __str__(self):
         return (
             f"{self.materia} - "
@@ -699,6 +736,11 @@ class MateriaGrado(models.Model):
     def save(self, *args, **kwargs):
         _con_grupo(self)
         super().save(*args, **kwargs)
+
+    @property
+    def es_de_clase(self):
+        """Es la asignación de un grupo de clase: sus estudiantes son los integrantes de cada fecha, no los del grupo."""
+        return self.grupo.es_de_clase
 
     class Meta:
         verbose_name = 'Materia del grado'
@@ -714,10 +756,13 @@ class MateriaGrado(models.Model):
         ]
 
 class HorarioActualManager(models.Manager):
-    """Los bloques de la versión actual del horario (los que no se han cerrado con una fecha de fin)."""
+    """Los bloques de la versión actual del horario (los que no se han cerrado con una fecha de fin ni terminaron con
+    su bloque simultáneo)."""
 
     def get_queryset(self):
-        return super().get_queryset().filter(vigente_hasta__isnull=True)
+        return super().get_queryset().filter(
+            models.Q(fin_programado__isnull=True) | models.Q(fin_programado__gte=timezone.localdate()), vigente_hasta__isnull=True,
+        )
 
 
 class HorarioMateria(models.Model):
@@ -746,6 +791,9 @@ class HorarioMateria(models.Model):
     # fecha, así el horario de cualquier fecha pasada se sigue consultando igual. Vacío = desde el inicio / sin fin.
     vigente_desde = models.DateField(null=True, blank=True, verbose_name='En vigor desde')
     vigente_hasta = models.DateField(null=True, blank=True, verbose_name='En vigor hasta')
+    # Las clases de un bloque simultáneo terminan con la vigencia del bloque sin dejar de ser la versión actual (a
+    # diferencia de `vigente_hasta`, que cierra una versión)
+    fin_programado = models.DateField(null=True, blank=True, verbose_name='Termina el')
 
     # `objects` (y `materia.horarios`) dan la versión actual de cada bloque: la que no se ha cerrado. Para el horario
     # de una fecha concreta, con las versiones de entonces, `historial` y Alumnos/semanas.py
@@ -776,7 +824,8 @@ class HorarioMateria(models.Model):
         return self.get_semana_display() if self.semana else ''
 
     def vigente_en(self, fecha):
-        return (self.vigente_desde is None or self.vigente_desde <= fecha) and (self.vigente_hasta is None or fecha <= self.vigente_hasta)
+        return ((self.vigente_desde is None or self.vigente_desde <= fecha) and (self.vigente_hasta is None or fecha <= self.vigente_hasta)
+                and (self.fin_programado is None or fecha <= self.fin_programado))
 
     class Meta:
         verbose_name = 'Horario de materia'
@@ -1037,6 +1086,169 @@ class Periodo(models.Model):
         ]
 
 
+# ---------------------------------------------------------------------------
+# Bloques simultáneos y grupos de clase (pedido del 2026-10-30)
+# ---------------------------------------------------------------------------
+class BloqueSimultaneo(models.Model):
+    """Clases que se imparten al mismo tiempo y entre las que se distribuye una población de estudiantes: los grupos de
+    Inglés de 1.º A y 1.º B, o los talleres de Robótica, Programación y Diseño. Las opciones son `GrupoClase`.
+
+    En preparación se arma y se distribuye sin efecto en nada más; al activarlo (sin pendientes ni conflictos) sus clases
+    entran al horario. Al desactivarlo terminan ese día y se conserva lo registrado. Los estudiantes nunca cambian de
+    grupo base. Las reglas están en Asignaciones/bloques.py y la lista de cada fecha en Alumnos/clases.py.
+    """
+
+    PREPARACION, ACTIVO, INACTIVO = 'PREPARACION', 'ACTIVO', 'INACTIVO'
+    ESTADOS = [(PREPARACION, 'En preparación'), (ACTIVO, 'Activo'), (INACTIVO, 'Inactivo')]
+
+    nombre = models.CharField(max_length=120, verbose_name='Nombre')
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, verbose_name='Nivel')
+    ciclo = models.ForeignKey(CicloEscolar, on_delete=models.PROTECT, related_name='bloques', verbose_name='Ciclo escolar')
+    semestre = models.ForeignKey(Semestre, null=True, blank=True, on_delete=models.PROTECT, related_name='bloques', verbose_name='Semestre')
+    vigente_desde = models.DateField(verbose_name='Vigente desde')
+    vigente_hasta = models.DateField(verbose_name='Vigente hasta')
+    mezclar_grados = models.BooleanField(default=False, verbose_name='Permitir mezclar grados del mismo nivel')
+    # Sin delimitar, participan todos los estudiantes de los grupos de origen; delimitada, solo los `ParticipanteBloque`
+    poblacion_delimitada = models.BooleanField(default=False, verbose_name='Solo participa una parte de los grupos de origen')
+    estado = models.CharField(max_length=12, choices=ESTADOS, default=PREPARACION, verbose_name='Estado')
+    grupos_origen = models.ManyToManyField(Grupo, related_name='bloques_de_origen', verbose_name='Grupos de origen')
+    # Las clases del horario base que este bloque sustituye para sus estudiantes
+    sustituye = models.ManyToManyField(MateriaGrado, blank=True, related_name='sustituida_en', verbose_name='Clases que sustituye')
+    activado_en = models.DateTimeField(null=True, blank=True)
+    activado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    desactivado_en = models.DateField(null=True, blank=True, verbose_name='Desactivado desde')
+    desactivado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    creado = models.DateTimeField(auto_now_add=True)
+    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.nombre} · {self.ciclo}'
+
+    def get_absolute_url(self):
+        return reverse('asignaciones:bloque', args=[self.pk])
+
+    @property
+    def activo(self):
+        return self.estado == self.ACTIVO
+
+    @property
+    def en_preparacion(self):
+        return self.estado == self.PREPARACION
+
+    class Meta:
+        verbose_name = 'Bloque simultáneo'
+        verbose_name_plural = 'Bloques simultáneos'
+        ordering = ['-vigente_desde', 'nombre']
+        default_permissions = ('view', 'add', 'change')
+        constraints = [models.UniqueConstraint(fields=['ciclo', 'nivel', 'nombre'], name='bloque_nombre_unico')]
+
+
+class HorarioBloque(models.Model):
+    """Un día y horario del bloque. Al activarlo se vuelve un `HorarioMateria` de cada opción."""
+
+    bloque = models.ForeignKey(BloqueSimultaneo, on_delete=models.CASCADE, related_name='horarios')
+    dia_semana = models.PositiveSmallIntegerField(choices=HorarioMateria.DIA_CHOICES, verbose_name='Día')
+    hora_inicio = models.TimeField(verbose_name='Hora de inicio')
+    hora_fin = models.TimeField(verbose_name='Hora de fin')
+    semana = models.CharField(max_length=1, choices=HorarioMateria.SEMANA_CHOICES, default=HorarioMateria.TODAS, blank=True, verbose_name='Semana')
+
+    def clean(self):
+        if self.hora_inicio and self.hora_fin and self.hora_inicio >= self.hora_fin:
+            raise ValidationError('La hora de inicio debe ser anterior a la hora de fin.')
+
+    def __str__(self):
+        return f'{self.get_dia_semana_display()} {self.hora_inicio:%H:%M}–{self.hora_fin:%H:%M}'
+
+    class Meta:
+        verbose_name = 'Horario de un bloque'
+        verbose_name_plural = 'Horarios de un bloque'
+        ordering = ['dia_semana', 'hora_inicio']
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=['bloque', 'semana', 'dia_semana', 'hora_inicio', 'hora_fin'], name='horario_bloque_unico')]
+
+
+class GrupoClase(models.Model):
+    """Una opción de un bloque: un conjunto de estudiantes que cursa una materia del catálogo con un docente. Su
+    `asignacion` (`MateriaGrado` de un grupo técnico) es la que usan el horario, la asistencia, las actas y las bitácoras,
+    con el profesor de siempre; la lista de estudiantes es `integrantes`, independiente del grupo base."""
+
+    bloque = models.ForeignKey(BloqueSimultaneo, on_delete=models.PROTECT, related_name='opciones', verbose_name='Bloque')
+    asignacion = models.OneToOneField(MateriaGrado, on_delete=models.PROTECT, related_name='clase', verbose_name='Asignación')
+    nombre = models.CharField(max_length=80, verbose_name='Nombre')
+    aula = models.CharField(max_length=60, blank=True, verbose_name='Aula')
+    activa = models.BooleanField(default=True, verbose_name='Activa')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = 'Grupo de clase'
+        verbose_name_plural = 'Grupos de clase'
+        ordering = ['nombre']
+        default_permissions = ()   # se administran con el bloque
+        constraints = [models.UniqueConstraint(fields=['bloque', 'nombre'], name='grupo_clase_nombre_unico')]
+
+
+class EquivalenciaClase(models.Model):
+    """En una clase que mezcla grados: la materia del plan que cursan en ella los estudiantes de otro grado (Inglés II
+    para los de 2.º en una clase de Inglés I). Sus resultados salen con esa materia en su boleta."""
+
+    clase = models.ForeignKey(GrupoClase, on_delete=models.CASCADE, related_name='equivalencias')
+    grado = models.ForeignKey(Grado, on_delete=models.PROTECT, related_name='+', verbose_name='Grado')
+    materia = models.ForeignKey(Materia, on_delete=models.PROTECT, related_name='+', verbose_name='Materia de su plan')
+
+    class Meta:
+        verbose_name = 'Equivalencia de una clase'
+        verbose_name_plural = 'Equivalencias de una clase'
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=['clase', 'grado'], name='equivalencia_clase_unica')]
+
+
+class ParticipanteBloque(models.Model):
+    """Un estudiante de la población delimitada de un bloque (`poblacion_delimitada`)."""
+
+    bloque = models.ForeignKey(BloqueSimultaneo, on_delete=models.CASCADE, related_name='participantes')
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.CASCADE, related_name='bloques_en_que_participa')
+
+    class Meta:
+        verbose_name = 'Participante de un bloque'
+        verbose_name_plural = 'Participantes de un bloque'
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=['bloque', 'inscripcion'], name='participante_bloque_unico')]
+
+
+class IntegranteClase(models.Model):
+    """Un estudiante en un grupo de clase, con fechas: su inscripción y su grupo base no cambian. Cambiarlo de opción
+    cierra este registro y abre otro: lo capturado en cada fecha queda con la clase de esa fecha."""
+
+    clase = models.ForeignKey(GrupoClase, on_delete=models.PROTECT, related_name='integrantes')
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.PROTECT, related_name='clases')
+    desde = models.DateField(verbose_name='Desde')
+    hasta = models.DateField(null=True, blank=True, verbose_name='Hasta')   # vacío: hasta que termine el bloque
+    asignado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.inscripcion.alumno} en {self.clase}'
+
+    def vigente_en(self, fecha):
+        return self.desde <= fecha and (self.hasta is None or fecha <= self.hasta)
+
+    class Meta:
+        verbose_name = 'Integrante de un grupo de clase'
+        verbose_name_plural = 'Integrantes de los grupos de clase'
+        ordering = ['desde', 'pk']
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=['clase', 'inscripcion', 'desde'], name='integrante_clase_unico'),
+            models.UniqueConstraint(fields=['clase', 'inscripcion'], condition=models.Q(hasta__isnull=True), name='integrante_clase_abierto_unico'),
+        ]
+
+
 class AsistenciaGeneral(models.Model):
 
     ESTADO_CHOICES = [
@@ -1137,6 +1349,7 @@ class AsistenciaMateria(models.Model):
         if (
             self.inscripcion.grado_id
             != self.materia_grado.grado_id
+            and not self.materia_grado.es_de_clase   # un grupo de clase puede mezclar grados
         ):
             raise ValidationError(
                 'La materia no pertenece al grado del estudiante.'

@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from Alumnos.academico import ciclo_actual
+from Alumnos.clases import asignaciones_de_clase_de
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import Grupo, MateriaGrado, TutorAlumno
 from Conducta.forms import ACEPTA, TAMANO_MAXIMO_MB
@@ -68,13 +69,17 @@ def docentes_con_cuenta():
     return get_user_model().objects.filter(is_active=True, profesor__estatus='ACTIVO').order_by('first_name', 'last_name', 'username')
 
 
-def materias_por_docente(grupos):
-    """{id de cuenta: «Matemáticas (2.º A) · Español (2.º A)»} de los docentes que dan clase a esos grupos este ciclo."""
+def materias_por_docente(grupos, alumnos=()):
+    """{id de cuenta: «Matemáticas (2.º A) · Español (2.º A)»} de los docentes que dan clase a esos grupos este ciclo y, con
+    `alumnos`, también a esos estudiantes en sus grupos de clase."""
     ciclo = ciclo_actual()
-    if ciclo is None or not grupos:
+    if ciclo is None or not (grupos or alumnos):
         return {}
+    condicion = Q(grupo__in=grupos)
+    if alumnos:
+        condicion |= Q(pk__in=asignaciones_de_clase_de(alumnos, ciclo, timezone.localdate()).values('pk'))
     textos = {}
-    for clase in (MateriaGrado.objects.filter(ciclo=ciclo, activa=True, grupo__in=grupos, profesor__usuario__isnull=False)
+    for clase in (MateriaGrado.objects.filter(condicion, ciclo=ciclo, activa=True, profesor__usuario__isnull=False)
                   .select_related('materia', 'grupo__grado', 'grupo__nombre', 'profesor')):
         textos.setdefault(clase.profesor.usuario_id, []).append(f'{clase.materia.nombre} ({clase.grupo.corto})')
     return {usuario: ' · '.join(sorted(set(materias))) for usuario, materias in textos.items()}
@@ -154,7 +159,7 @@ class SolicitudForm(EstiloCamposMixin, forms.Form):
             self.fields['telefono'].help_text = f'Alternativo: {tutor.telefono_alternativo}'
         inscripciones = [i for _, i in self.estudiantes if i]
         grupos = [i.grupo_id for i in inscripciones if i.grupo_id]
-        materias = materias_por_docente(grupos)
+        materias = materias_por_docente(grupos, [i.alumno_id for i in inscripciones])
         self.fields['docentes'].materias = materias
         self.fields['docentes'].queryset = docentes_con_cuenta()
         self.fields['docentes'].choices = [(u.pk, self.fields['docentes'].label_from_instance(u))
@@ -233,7 +238,7 @@ class ParticipantesForm(EstiloCamposMixin, forms.Form):
         kwargs.setdefault('initial', inicial)
         super().__init__(*args, **kwargs)
         inscripciones = inscripciones_de(reunion)
-        materias = materias_por_docente([i.grupo_id for i in inscripciones if i.grupo_id])
+        materias = materias_por_docente([i.grupo_id for i in inscripciones if i.grupo_id], [i.alumno_id for i in inscripciones])
         self.fields['docentes'].materias = materias
         self.fields['docentes'].queryset = docentes_con_cuenta() | get_user_model().objects.filter(pk__in=inicial['docentes'])
         self.fields['docentes'].choices = [(u.pk, self.fields['docentes'].label_from_instance(u))

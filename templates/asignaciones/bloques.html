@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bloques simultáneos | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:tablero' %}">Asignaciones de materias</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Bloques simultáneos</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Bloques simultáneos</h1>
+      <p class="page-header__description">Clases que se imparten al mismo tiempo y entre las que se distribuyen estudiantes de varios grupos: grupos de Inglés por nivel de dominio, talleres… Cada estudiante conserva su grupo base.</p>
+    </div>
+    <div class="page-header__actions">
+      {% if perms.Alumnos.add_bloquesimultaneo %}
+        <a class="btn btn--primary" href="{% url 'asignaciones:bloque_crear' %}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Nuevo bloque</a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% include "asignaciones/_pestanas.html" %}
+
+  {% if ciclos|length > 1 %}
+    <form class="filters" method="get" aria-label="Ciclo escolar">
+      <div class="filters__field">
+        <label class="visually-hidden" for="bloques-ciclo">Ciclo escolar</label>
+        <select class="field__control field__control--select" id="bloques-ciclo" name="ciclo" data-enviar-al-cambiar>
+          {% for opcion in ciclos %}<option value="{{ opcion.pk }}"{% if opcion.pk == ciclo.pk %} selected{% endif %}>{{ opcion }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filters__actions"><button type="submit" class="btn btn--sm">Ver</button></div>
+    </form>
+  {% endif %}
+
+  {% if bloques %}
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Bloques simultáneos del ciclo {{ ciclo }}</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Bloque</th>
+            <th class="table__th" scope="col">Vigencia</th>
+            <th class="table__th" scope="col">Opciones</th>
+            <th class="table__th" scope="col">Estudiantes</th>
+            <th class="table__th" scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for bloque in bloques %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">
+                <span class="cell-stack">
+                  <a class="cell-stack__main link-subtle" href="{{ bloque.get_absolute_url }}">{{ bloque.nombre }}</a>
+                  <span class="cell-stack__sub">{{ bloque.get_nivel_display }}{% if bloque.semestre %} · {{ bloque.semestre.nombre }}{% endif %} · {% for grupo in bloque.grupos_origen.all %}{{ grupo }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                </span>
+              </td>
+              <td class="table__cell" data-label="Vigencia">{{ bloque.vigente_desde|date:"d/m/Y" }} – {{ bloque.vigente_hasta|date:"d/m/Y" }}</td>
+              <td class="table__cell" data-label="Opciones">{{ bloque.opciones.all|length }}</td>
+              <td class="table__cell" data-label="Estudiantes">{{ bloque.total_estudiantes }}{% if bloque.pendientes %} <span class="tag tag--warning">{{ bloque.pendientes }} pendiente{{ bloque.pendientes|pluralize }}</span>{% endif %}</td>
+              <td class="table__cell" data-label="Estado"><span class="tag tag--{% if bloque.activo %}success{% elif bloque.en_preparacion %}info{% else %}neutral{% endif %}">{{ bloque.get_estado_display }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="layers" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No hay bloques simultáneos{% if ciclo %} en el ciclo {{ ciclo }}{% endif %}</p>
+        <p class="empty-state__text">Crea un bloque cuando estudiantes de varios grupos se repartan entre clases que se imparten a la misma hora.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/bloques.js' %}" defer></script>
+{% endblock %}

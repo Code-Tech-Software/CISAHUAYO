@@ -21,9 +21,12 @@
       <h1 class="page-header__title">Calificaciones</h1>
       <p class="page-header__description">{% if ve_todas %}Las calificaciones de todas las materias y grupos del colegio.{% else %}Las calificaciones de tus materias.{% endif %} Elige la materia, el grupo y el periodo.</p>
     </div>
-    {% if acta %}
+    {% if acta or asignacion and ve_todas %}
       <div class="page-header__actions">
-        <a class="btn" href="{% url 'calificaciones:historial' acta.pk %}">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Historial</a>
+        {% if asignacion and ve_todas %}
+          <a class="btn" href="{% url 'calificaciones:boletas_grupo' asignacion.grupo_id %}?ciclo={{ ciclo.pk }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Boletas de {{ asignacion.grupo }}</a>
+        {% endif %}
+        {% if acta %}<a class="btn" href="{% url 'calificaciones:historial' acta.pk %}">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Historial</a>{% endif %}
       </div>
     {% endif %}
   </header>

@@ -144,6 +144,18 @@ def promedios(alumnos):
         for alumno, inscripcion in lista:
             por_materia = [promedio([finales[inscripcion].get((a, p)) for p in periodos]) for a in asignaciones]
             resultado[alumno] = promedio(por_materia)
+    # Quien cursa grupos de clase tiene materias fuera de las de su grupo: su promedio es el de su portal
+    from PortalEstudiantes.resumen import calificaciones_de
+
+    from .models import IntegranteClase
+    from .clases import EN_EFECTO
+    ids = [i for lista in por_grupo.values() for _, i in lista]
+    if ids:
+        en_clases = set(IntegranteClase.objects.filter(inscripcion__in=ids, clase__bloque__estado__in=EN_EFECTO).values_list('inscripcion_id', flat=True))
+        for alumno in alumnos:
+            inscripcion = _inscripcion(alumno)
+            if inscripcion is not None and inscripcion.pk in en_clases:
+                resultado[alumno.pk] = calificaciones_de(inscripcion).promedio_general
     return resultado
 
 

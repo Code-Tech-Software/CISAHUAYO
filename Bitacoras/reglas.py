@@ -6,7 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from Alumnos.models import Alumno, Inscripcion, Periodo
+from Alumnos.models import Alumno, Inscripcion, MateriaGrado, Periodo
 
 from .models import CambioBitacora, EntradaBitacora, EstudianteBitacora
 
@@ -21,14 +21,21 @@ def periodo_de(nivel, ciclo, fecha):
 
 
 def inscripciones_del_grupo(grupo, ciclo):
-    """Las inscripciones vigentes del grupo en el ciclo: los estudiantes que se pueden elegir."""
+    """Las inscripciones vigentes del grupo en el ciclo: los estudiantes que se pueden elegir. En un grupo de clase, sus
+    integrantes de hoy (su lista real, no un grupo base)."""
+    if grupo.es_de_clase:
+        from Alumnos.asistencia_docente import inscripciones_de
+        return inscripciones_de(MateriaGrado.objects.select_related('grupo', 'ciclo').get(grupo=grupo))
     return (Inscripcion.objects.filter(grupo=grupo, ciclo=ciclo, activa=True)
             .select_related('alumno').order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre'))
 
 
 def alumnos_elegibles(grupo, ciclo, entrada=None):
     """Los estudiantes del grupo (y, al editar, los que ya estaban en la entrada aunque hayan cambiado de grupo)."""
-    condicion = Q(inscripciones__grupo=grupo, inscripciones__ciclo=ciclo, inscripciones__activa=True)
+    if grupo.es_de_clase:
+        condicion = Q(pk__in=[i.alumno_id for i in inscripciones_del_grupo(grupo, ciclo)])
+    else:
+        condicion = Q(inscripciones__grupo=grupo, inscripciones__ciclo=ciclo, inscripciones__activa=True)
     if entrada is not None:
         condicion |= Q(vinculos_bitacora__entrada=entrada)
     return Alumno.objects.filter(condicion).distinct().order_by('apellido_paterno', 'apellido_materno', 'nombre')
@@ -74,7 +81,9 @@ def _vincular(entrada, alumnos):
     alumnos = [] if entrada.general else list(alumnos)
     entrada.vinculos.exclude(alumno__in=alumnos).delete()
     existentes = set(entrada.vinculos.values_list('alumno_id', flat=True))
-    inscripciones = {i.alumno_id: i for i in Inscripcion.objects.filter(alumno__in=alumnos, ciclo=entrada.ciclo, grupo=entrada.grupo)}
+    consulta = Inscripcion.objects.filter(alumno__in=alumnos, ciclo=entrada.ciclo)
+    # En un grupo de clase cada quien conserva su inscripción de su grupo base
+    inscripciones = {i.alumno_id: i for i in (consulta.order_by('concluida') if entrada.grupo.es_de_clase else consulta.filter(grupo=entrada.grupo))}
     EstudianteBitacora.objects.bulk_create([
         EstudianteBitacora(entrada=entrada, alumno=alumno, inscripcion=inscripciones.get(alumno.pk))
         for alumno in alumnos if alumno.pk not in existentes

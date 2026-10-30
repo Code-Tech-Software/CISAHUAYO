@@ -37,7 +37,8 @@ def _control_escolar():
 
 def _docente():
     return (
-        permisos_de_modulos('alumnos', 'tutores', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',))
+        # Sin los bloques simultáneos: un docente ve sus grupos de clase en sus materias, no la administración de los bloques
+        (permisos_de_modulos('alumnos', 'tutores', 'grados', 'grupos', 'materias', 'horarios', 'periodos', solo=('ver',)) - {'Alumnos.view_bloquesimultaneo'})
         | {'Alumnos.view_asistenciamateria', 'Alumnos.change_asistenciamateria', 'Alumnos.view_justificacion'}
         | {'Calificaciones.capturar', 'Calificaciones.cerrar'}
         | {'Bitacoras.registrar'}

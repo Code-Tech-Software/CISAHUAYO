@@ -44,12 +44,20 @@
                       </button>
                     {% endif %}
                   </div>
+                {% elif bloque.es_simultaneo %}
+                  {# Bloque simultáneo: los estudiantes del grupo se distribuyen entre sus opciones #}
+                  <div class="slot slot--simultaneo">
+                    <div class="slot__text">
+                      <span class="slot__name">{{ bloque.bloque.nombre }}</span>
+                      <span class="slot__code">Se distribuyen en: {{ bloque.materias_texto }}</span>
+                    </div>
+                  </div>
                 {% else %}
                 {% with asignacion=bloque.materia_grado materia=bloque.materia_grado.materia %}
                   <div class="slot slot--tone-{{ materia.pk|tono }}">
                     <div class="slot__text">
                       {% if modo == "profesor" %}
-                        {% if perms.Alumnos.view_horariomateria %}
+                        {% if perms.Alumnos.view_horariomateria and not asignacion.grupo.es_de_clase %}
                           <a class="slot__name" href="{% url 'horarios:grupo' asignacion.grupo_id %}?ciclo={{ asignacion.ciclo_id }}">{{ materia.nombre }}</a>
                         {% else %}
                           <span class="slot__name">{{ materia.nombre }}</span>
@@ -63,6 +71,7 @@
                           <span class="slot__name">{{ materia.nombre }}</span>
                         {% endif %}
                         <span class="slot__code">{{ materia.clave }}{% if asignacion.profesor %} · {{ asignacion.profesor.apellido_paterno }}{% endif %}{% if bloque.semana and mostrar_semana %}<span class="slot__semana" title="Semana {{ bloque.semana }}">· Sem. {{ bloque.semana }}</span>{% endif %}</span>
+                        {% if bloque.sustituida_por %}<span class="slot__sustituida">Sustituida por {{ bloque.sustituida_por }} para sus participantes</span>{% endif %}
                       {% endif %}
                     </div>
                     {% if modo != "profesor" and editable and perms.Alumnos.delete_horariomateria %}

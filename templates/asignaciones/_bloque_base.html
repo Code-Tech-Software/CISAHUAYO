@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Base de las pantallas de un bloque simultáneo: migas de pan y estilos. Bloques: title, migaja, encabezado, descripcion,
+  acciones y contenido. Parámetro: bloque (si ya existe).
+{% endcomment %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:tablero' %}">Asignaciones de materias</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'asignaciones:bloques' %}{% if bloque %}?ciclo={{ bloque.ciclo_id }}{% endif %}">Bloques simultáneos</a></li>
+  {% if bloque %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ bloque.get_absolute_url }}">{{ bloque.nombre }}</a></li>{% endif %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{% block migaja %}{% endblock %}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">{% block encabezado %}{% endblock %}</h1>
+      <p class="page-header__description">{% block descripcion %}{% endblock %}</p>
+    </div>
+    <div class="page-header__actions">{% block acciones %}{% endblock %}</div>
+  </header>
+  {% block contenido %}{% endblock %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/bloques.js' %}" defer></script>
+{% endblock %}

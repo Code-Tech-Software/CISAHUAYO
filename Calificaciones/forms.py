@@ -8,7 +8,7 @@ from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import Grado
 
 from . import reglas
-from .models import Actividad, ConfiguracionEvaluacion, Rubro
+from .models import Actividad, ConfiguracionEvaluacion, DatosOficialesNivel, Rubro
 
 FECHA = forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')
 
@@ -170,3 +170,33 @@ class NuevaVersionForm(EstiloCamposMixin, forms.Form):
 
 
 TIPOS_DE_ACTIVIDAD = {'procedimientos': Actividad.PROCEDIMIENTO, 'examenes': Actividad.EXAMEN}
+
+
+class DatosOficialesForm(EstiloCamposMixin, forms.ModelForm):
+    """La CCT y quien dirige un nivel, para las boletas (Ajustes › Boletas). La CCT se guarda en mayúsculas y sin
+    espacios (se acepta escrita con ellos: el modelo valida la clave ya limpia)."""
+
+    cct = forms.CharField(required=False, max_length=16, label=DatosOficialesNivel._meta.get_field('cct').verbose_name,
+                          widget=forms.TextInput(attrs={'placeholder': '16PPR0123K', 'autocomplete': 'off'}))
+
+    class Meta:
+        model = DatosOficialesNivel
+        fields = ['cct', 'director', 'cargo']
+        widgets = {
+            'director': forms.TextInput(attrs={'placeholder': 'Nombre completo', 'autocomplete': 'off'}),
+            'cargo': forms.TextInput(attrs={'autocomplete': 'off'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cargo'].widget.attrs['placeholder'] = self.instance.cargo_o_predeterminado
+        self.aplicar_estilo()
+
+    def clean_cct(self):
+        return ''.join((self.cleaned_data.get('cct') or '').split()).upper()
+
+    def clean_director(self):
+        return ' '.join((self.cleaned_data.get('director') or '').split())
+
+    def clean_cargo(self):
+        return ' '.join((self.cleaned_data.get('cargo') or '').split())

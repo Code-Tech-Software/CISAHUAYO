@@ -24,6 +24,7 @@ from Alumnos.horarios import (
     recreos_del_grupo,
     resumen_horario,
 )
+from Alumnos.clases import bloques_del_grupo, en_el_horario, sustituidas_por
 from Alumnos.models import CicloEscolar, DiaNoLectivo, Grado, Grupo, HorarioMateria, MateriaGrado, Profesor, Recreo
 from Alumnos.semanas import A, B, Calendario, bloques_de_semana, fecha_de
 from CISAHUAYO.permisos import requiere_permisos
@@ -177,6 +178,9 @@ def horario_grupo(request, grupo_pk):
     calendario = Calendario(ciclo)
     nivel = grupo.grado.nivel
     alternado = calendario.alternado(nivel)
+    # Bloques simultáneos: aquí no hay una materia, sino estudiantes que se distribuyen entre varias clases
+    simultaneos = bloques_del_grupo(grupo, ciclo)
+    sustituidas = sustituidas_por(simultaneos)
     fecha = fecha_en_ciclo(fecha_de(request.GET.get('fecha')), ciclo)
     semana = calendario.info(fecha, nivel)
     hoy = calendario.info(fecha_en_ciclo(None, ciclo), nivel)
@@ -207,6 +211,8 @@ def horario_grupo(request, grupo_pk):
         bloques = todos
     minutos = minutos_semanales(bloques)
     editable = ciclo_editable(ciclo)
+    for bloque in bloques:
+        bloque.sustituida_por = sustituidas.get(bloque.materia_grado_id, '')
 
     return render(request, 'horarios/grupo.html', {
         'grupo': grupo,
@@ -225,7 +231,8 @@ def horario_grupo(request, grupo_pk):
             else f'Horario de {grupo}, plantilla de la semana {vista}, ciclo {ciclo}' if vista
             else f'Horario semanal de {grupo} en el ciclo {ciclo}'
         ) if ciclo else '',
-        'cuadricula': cuadricula(bloques + recesos),
+        'cuadricula': cuadricula(bloques + recesos + en_el_horario(simultaneos)),
+        'simultaneos': simultaneos,
         'recesos': recesos,
         'resumen_recesos': resumen_horario(recesos),
         'total_bloques': len(bloques),

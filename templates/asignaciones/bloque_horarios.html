@@ -1,0 +1,36 @@
+{% extends "asignaciones/_bloque_base.html" %}
+
+{% block title %}Horarios de {{ bloque.nombre }} | CISAHUAYO{% endblock %}
+{% block migaja %}Días y horarios{% endblock %}
+{% block encabezado %}Días y horarios{% endblock %}
+{% block descripcion %}Todas las opciones de {{ bloque.nombre }} se imparten a estas horas.{% endblock %}
+
+{% block contenido %}
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body">
+        <div class="bloque-horas">
+          {% for dia in form.dias %}
+            <div class="bloque-horas__fila">
+              <label class="choice choice--check" for="{{ dia.marcado.id_for_label }}">{{ dia.marcado }}<span class="choice__box">{{ dia.nombre }}</span></label>
+              <div>{{ dia.inicio }}{% for error in dia.inicio.errors %}<p class="field__error">{{ error }}</p>{% endfor %}</div>
+              <div>{{ dia.fin }}</div>
+            </div>
+          {% endfor %}
+        </div>
+        {% if form.alternado %}{% include "partials/field.html" with campo=form.semana %}{% endif %}
+      </div>
+    </section>
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{{ bloque.get_absolute_url }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </footer>
+  </form>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Boletas de calificaciones listas para imprimir o guardar en PDF (Calificaciones/views_boletas.py): una por estudiante,
+  cada una en su página. Por materia, la calificación y las faltas de cada periodo cerrado y su promedio (o, en
+  preparatoria por semestres, el resultado del semestre). Encabezado con la CCT del nivel y firmas de dirección y del
+  tutor. Con ?pdf=1 abre solo el diálogo de impresión.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titulo }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/boletas.css' %}">
+  <style>@page { size: A4 {% if horizontal %}landscape{% else %}portrait{% endif %}; margin: 10mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver</a>
+    <span class="text-muted">{{ boletas|length }} boleta{{ boletas|length|pluralize }}</span>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  {% for b in boletas %}
+    <main class="reporte boleta">
+      <header class="reporte__encabezado">
+        <div class="reporte__marca">
+          <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+          <div>
+            <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+            <h1 class="reporte__titulo">Boleta de calificaciones</h1>
+            <p class="boleta__nivel">{{ b.nivel_texto }}{% if b.datos.cct %} · CCT {{ b.datos.cct }}{% endif %} · Ciclo escolar {{ b.ciclo }}</p>
+          </div>
+        </div>
+        <dl class="reporte__datos">
+          <div><dt>Estudiante</dt><dd>{{ b.alumno }}</dd></div>
+          <div><dt>Referencia</dt><dd>{{ b.alumno.referencia }}</dd></div>
+          <div><dt>CURP</dt><dd>{{ b.alumno.curp|default:"—" }}</dd></div>
+          <div><dt>Grado y grupo</dt><dd>{{ b.grupo|default:"—" }}</dd></div>
+        </dl>
+      </header>
+
+      {% for bloque in b.bloques %}
+        <section class="reporte__seccion boleta__bloque">
+          {% if bloque.semestral or b.bloques|length > 1 %}
+            <h2 class="reporte__subtitulo">{{ bloque.titulo }}{% if bloque.inscripcion.concluida %} <span class="boleta__marca">semestre concluido</span>{% elif not bloque.inscripcion.activa %} <span class="boleta__marca">baja</span>{% endif %}</h2>
+          {% elif not bloque.inscripcion.activa %}
+            <p class="boleta__aviso">Inscripción dada de baja en el ciclo.</p>
+          {% endif %}
+          {% if bloque.materias %}
+            <div class="reporte__marco-tabla">
+              <table class="reporte__tabla boleta__tabla">
+                <thead>
+                  <tr>
+                    <th scope="col" rowspan="2">Materia</th>
+                    {% for periodo in bloque.periodos %}<th scope="colgroup" colspan="2" class="boleta__periodo">{{ periodo.nombre }}</th>{% endfor %}
+                    <th scope="col" rowspan="2">Promedio</th>
+                    {% if bloque.semestral %}
+                      <th scope="col" rowspan="2">Examen final</th>
+                      <th scope="col" rowspan="2">Final ordinaria</th>
+                      <th scope="col" rowspan="2">Extraor&shy;dinario</th>
+                      <th scope="col" rowspan="2">Regulari&shy;zación</th>
+                      <th scope="col" rowspan="2" class="boleta__definitiva">Definitiva</th>
+                      <th scope="col" rowspan="2">Estado</th>
+                    {% endif %}
+                    <th scope="col" rowspan="2">Faltas</th>
+                  </tr>
+                  <tr>
+                    {% for periodo in bloque.periodos %}<th scope="col" class="boleta__sub">Cal.</th><th scope="col" class="boleta__sub">F</th>{% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for m in bloque.materias %}
+                    <tr>
+                      <th scope="row"><span class="boleta__materia">{{ m.nombre }}</span>{% if m.profesor %}<span class="boleta__profesor">{{ m.profesor }}</span>{% endif %}</th>
+                      {% for calificacion, faltas in m.periodos %}
+                        <td class="{% if calificacion is not None and calificacion < 6 %}is-reprobatoria{% endif %}">{% if calificacion is not None %}{{ calificacion }}{% else %}·{% endif %}</td>
+                        <td class="boleta__faltas">{% if faltas is not None %}{{ faltas }}{% else %}·{% endif %}</td>
+                      {% endfor %}
+                      {% if bloque.semestral %}
+                        {% with s=m.semestral %}
+                          <td>{{ s.promedio|default:"—" }}</td>
+                          <td>{% if s.exento %}Exento{% else %}{{ s.final|default:"—" }}{% endif %}</td>
+                          <td>{{ s.ordinaria|default:"—" }}</td>
+                          <td>{{ s.extraordinario|default:"—" }}</td>
+                          <td>{{ s.regularizacion|default:"—" }}</td>
+                          <td class="boleta__definitiva{% if s.reprobada %} is-reprobatoria{% endif %}">{{ s.definitiva|default:"—" }}</td>
+                          <td class="boleta__estado">{{ s.estado }}</td>
+                        {% endwith %}
+                      {% else %}
+                        <td class="boleta__promedio">{{ m.promedio|default:"—" }}</td>
+                      {% endif %}
+                      <td>{{ m.faltas }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">Promedio y faltas del periodo</th>
+                    {% for periodo, valor, faltas in bloque.por_periodo %}<td>{{ valor|default:"—" }}</td><td class="boleta__faltas">{{ faltas }}</td>{% endfor %}
+                    {% if bloque.semestral %}
+                      <td colspan="5">Promedio general (definitivas)</td>
+                      <td class="boleta__definitiva">{{ bloque.promedio_general|default:"—" }}</td>
+                      <td></td>
+                    {% else %}
+                      <td class="boleta__promedio">{{ bloque.promedio_general|default:"—" }}</td>
+                    {% endif %}
+                    <td>{{ bloque.faltas }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            {% if bloque.sin_definitiva %}
+              <p class="boleta__nota">El promedio general se calcula cuando todas las materias tienen calificación definitiva ({{ bloque.sin_definitiva }} pendiente{{ bloque.sin_definitiva|pluralize }}).</p>
+            {% endif %}
+          {% else %}
+            <p class="boleta__aviso">El grupo no tiene materias en el plan del ciclo.</p>
+          {% endif %}
+        </section>
+      {% empty %}
+        <p class="boleta__aviso">Sin inscripciones en el ciclo {{ b.ciclo }}.</p>
+      {% endfor %}
+
+      <p class="boleta__nota">
+        Solo aparecen las calificaciones de los periodos cerrados; «·» es un periodo sin cerrar. F: faltas que consideró cada periodo.
+        {% if b.semestral %}Exento con promedio de 9.5 o más; examen final con 6.0 a 9.4 (final ordinaria = promedio 50 % + examen 50 %); los resultados se truncan a dos decimales.{% else %}El promedio es el de los periodos cerrados; no es la calificación final del ciclo.{% endif %}
+      </p>
+
+      <div class="reporte__firmas">
+        <div><span class="reporte__linea"></span>{{ b.datos.director|default:"" }}<span class="text-muted">{% if b.datos %}{{ b.datos.cargo_o_predeterminado }}{% else %}Dirección{% endif %}</span></div>
+        <div><span class="reporte__linea"></span>Padre, madre o tutor<span class="text-muted">Nombre y firma</span></div>
+      </div>
+      <p class="boleta__pie">Generada el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }} por {{ usuario }}.</p>
+    </main>
+  {% endfor %}
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

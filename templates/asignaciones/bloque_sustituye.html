@@ -1,0 +1,29 @@
+{% extends "asignaciones/_bloque_base.html" %}
+
+{% block title %}Clases que sustituye {{ bloque.nombre }} | CISAHUAYO{% endblock %}
+{% block migaja %}Clases que sustituye{% endblock %}
+{% block encabezado %}Clases que sustituye{% endblock %}
+{% block descripcion %}Para los estudiantes de sus opciones, estas clases del grupo base dejan de ser suyas mientras estén en el bloque: salen de su horario, no generan asistencia y dejan la lista de ese docente. Lo ya registrado se conserva.{% endblock %}
+
+{% block contenido %}
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <section class="card">
+      <div class="card__body">
+        {% if form.sustituye.field.queryset.exists %}
+          <div class="bloque-grupos">
+            {% for opcion in form.sustituye %}
+              <label class="choice choice--check" for="{{ opcion.id_for_label }}">{{ opcion.tag }}<span class="choice__box">{{ opcion.choice_label }}</span></label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted">Los grupos de origen todavía no tienen materias en su plan.</p>
+        {% endif %}
+      </div>
+    </section>
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{{ bloque.get_absolute_url }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </footer>
+  </form>
+{% endblock %}

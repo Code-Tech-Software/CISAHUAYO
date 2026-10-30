@@ -1,0 +1,112 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Historial académico (kárdex) del estudiante, listo para imprimir o guardar en PDF (Calificaciones/views_boletas.kardex):
+  un resumen por nivel y, ciclo por ciclo (en preparatoria, semestre por semestre), el resultado de cada materia.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Historial académico · {{ alumno }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ apariencia.fuentes }}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/boletas.css' %}">
+  <style>@page { size: A4 portrait; margin: 12mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver al expediente</a>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  <main class="reporte boleta">
+    <header class="reporte__encabezado">
+      <div class="reporte__marca">
+        <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+        <div>
+          <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+          <h1 class="reporte__titulo">Historial académico</h1>
+        </div>
+      </div>
+      <dl class="reporte__datos">
+        <div><dt>Estudiante</dt><dd>{{ alumno }}</dd></div>
+        <div><dt>Referencia</dt><dd>{{ alumno.referencia }}</dd></div>
+        <div><dt>CURP</dt><dd>{{ alumno.curp|default:"—" }}</dd></div>
+        <div><dt>Estatus</dt><dd>{{ alumno.get_estatus_display }}</dd></div>
+      </dl>
+    </header>
+
+    {% if k.niveles %}
+      <section class="reporte__seccion">
+        <h2 class="reporte__subtitulo">Resumen por nivel</h2>
+        <table class="reporte__tabla boleta__tabla">
+          <thead><tr><th scope="col">Nivel</th><th scope="col">Promedio</th><th scope="col">Aprobadas</th><th scope="col">Reprobadas</th><th scope="col">Pendientes</th></tr></thead>
+          <tbody>
+            {% for n in k.niveles %}
+              <tr>
+                <th scope="row">{{ n.nombre }}</th>
+                <td class="boleta__definitiva">{{ n.promedio|default:"—" }}{% if not n.semestral and n.promedio %} <span class="boleta__marca">de periodos</span>{% endif %}</td>
+                {% if n.semestral %}<td>{{ n.aprobadas }}</td><td>{% if n.reprobadas %}<strong class="is-reprobatoria">{{ n.reprobadas }}</strong>{% else %}0{% endif %}</td><td>{{ n.pendientes }}</td>
+                {% else %}<td colspan="3" class="boleta__nota-celda">Sin calificación final del ciclo: se muestra el promedio de los periodos cerrados.</td>{% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endif %}
+
+    {% for bloque in k.bloques %}
+      <section class="reporte__seccion boleta__bloque">
+        <h2 class="reporte__subtitulo">Ciclo {{ bloque.inscripcion.ciclo }} · {{ bloque.titulo }}{% if bloque.inscripcion.concluida %}{% elif not bloque.inscripcion.activa %} <span class="boleta__marca">baja</span>{% endif %}</h2>
+        {% if bloque.materias %}
+          <table class="reporte__tabla boleta__tabla">
+            <thead>
+              <tr>
+                <th scope="col">Materia</th>
+                {% if bloque.semestral %}<th scope="col">Definitiva</th><th scope="col">Situación</th>{% else %}<th scope="col">Promedio</th><th scope="col">Periodos cerrados</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in bloque.materias %}
+                <tr>
+                  <th scope="row">{{ m.nombre }}</th>
+                  {% if bloque.semestral %}
+                    <td class="boleta__definitiva{% if m.semestral.reprobada %} is-reprobatoria{% endif %}">{{ m.semestral.definitiva|default:"—" }}</td>
+                    <td class="boleta__estado">{{ m.semestral.estado }}</td>
+                  {% else %}
+                    <td class="boleta__promedio">{{ m.promedio|default:"—" }}</td>
+                    <td>{{ bloque.periodos_cerrados }} de {{ bloque.periodos|length }}</td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><th scope="row">Promedio general</th><td class="boleta__definitiva">{{ bloque.promedio_general|default:"—" }}</td><td>{% if bloque.semestral %}{{ bloque.aprobadas }} aprobada{{ bloque.aprobadas|pluralize }}{% if bloque.reprobadas %} · {{ bloque.reprobadas }} reprobada{{ bloque.reprobadas|pluralize }}{% endif %}{% if bloque.sin_definitiva %} · {{ bloque.sin_definitiva }} pendiente{{ bloque.sin_definitiva|pluralize }}{% endif %}{% endif %}</td></tr>
+            </tfoot>
+          </table>
+        {% else %}
+          <p class="boleta__aviso">El grupo no tuvo materias en el plan del ciclo.</p>
+        {% endif %}
+      </section>
+    {% empty %}
+      <p class="boleta__aviso">{{ alumno }} no tiene inscripciones.</p>
+    {% endfor %}
+
+    <p class="boleta__nota">
+      Solo cuentan las calificaciones de los periodos cerrados. En bachillerato, la definitiva es la del semestre (ordinario, extraordinario o regularización), truncada a dos decimales; en los demás niveles se muestra el promedio de los periodos cerrados, que no es una calificación final oficial.
+    </p>
+    <div class="reporte__firmas">
+      <div><span class="reporte__linea"></span>Control escolar<span class="text-muted">Nombre y firma</span></div>
+      <div><span class="reporte__linea"></span>Dirección<span class="text-muted">Nombre, firma y sello</span></div>
+    </div>
+    <p class="boleta__pie">Generado el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }} por {{ usuario }}.</p>
+  </main>
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

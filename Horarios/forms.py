@@ -1,5 +1,6 @@
 from django import forms
 
+from Alumnos.clases import bloque_empalmado
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.horarios import (
     DIAS,
@@ -43,6 +44,10 @@ def mensaje_de_empalme(bloques, recreos=()):
     if bloques:
         return 'Se empalma con ' + ', '.join(partes) + ': un grupo no puede estar en dos materias a la vez.'
     return 'Se empalma con ' + ', '.join(partes) + ': a esa hora el grupo está en receso.'
+
+
+def mensaje_de_bloque(bloque):
+    return f'A esa hora los estudiantes del grupo están en el bloque {bloque.nombre}: un estudiante no puede tener dos clases a la vez.'
 
 
 def empalmes_del_grupo(grupo, ciclo, dia, inicio, fin, excluir_bloque=None, excluir_recreo=None, semana=''):
@@ -171,6 +176,9 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
             bloques, recreos = empalmes_del_grupo(self.grupo, self.ciclo, dia, inicio, fin, semana=self.semana)
             if bloques or recreos:
                 self.add_error(f'inicio_{dia}', mensaje_de_empalme(bloques, recreos))
+            simultaneo = bloque_empalmado(self.grupo, self.ciclo, dia, inicio, fin, self.semana, datos.get('materia_grado'))
+            if simultaneo is not None:
+                self.add_error(f'inicio_{dia}', mensaje_de_bloque(simultaneo))
             if profesor:
                 del_profesor = list(bloques_del_profesor_empalmados(
                     profesor, self.ciclo, dia, inicio, fin, excluir_grupo=self.grupo,
@@ -228,6 +236,9 @@ class HorarioEditarForm(EstiloCamposMixin, forms.ModelForm):
             if bloques or recreos:
                 self.add_error('hora_inicio', mensaje_de_empalme(bloques, recreos))
             asignacion = datos.get('materia_grado')
+            simultaneo = bloque_empalmado(self.grupo, self.ciclo, dia, inicio, fin, semana, asignacion)
+            if simultaneo is not None:
+                self.add_error('hora_inicio', mensaje_de_bloque(simultaneo))
             if asignacion and asignacion.profesor:
                 del_profesor = list(bloques_del_profesor_empalmados(
                     asignacion.profesor, self.ciclo, dia, inicio, fin, excluir_pk=self.instance.pk, excluir_grupo=self.grupo,

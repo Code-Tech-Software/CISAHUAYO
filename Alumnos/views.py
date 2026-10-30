@@ -18,6 +18,7 @@ from CISAHUAYO.redireccion import destino_seguro
 from . import columnas, historial, importacion, lote, tabla
 from .academico import prefetch_inscripciones_actuales, sincronizar_inscripciones
 from .asistencias import con_justificada_general
+from .clases import grupos_de_clase_de
 from .forms import (
     AlumnoForm,
     FiltroAlumnosForm,
@@ -314,7 +315,19 @@ def alumno_detalle(request, pk):
         'estatus_opciones': [(v, e) for v, e in Alumno.ESTATUS_CHOICES if v != 'BAJA'],
         'conducta': _conducta_de(request, alumno),
         'historial': [(entrada, historial.nombre_de_accion(entrada)) for entrada in historial.de(alumno)],
+        # Boletas e historial académico (2026-10-29): para quien ve todas las calificaciones
+        'boletas_ciclos': _ciclos_de_boleta(request.user, inscripciones),
+        'grupos_de_clase': grupos_de_clase_de(alumno),
     })
+
+
+def _ciclos_de_boleta(usuario, inscripciones):
+    """Los ciclos con boleta (los de sus inscripciones, del más reciente) si la cuenta ve todas las calificaciones;
+    None si no."""
+    from Calificaciones.reglas import ve_todas
+    if not ve_todas(usuario):
+        return None
+    return list({i.ciclo_id: i.ciclo for i in inscripciones}.values())
 
 
 @require_GET
@@ -345,6 +358,7 @@ def alumno_vista360(request, pk):
         request.user, alumno, request.GET.get('ciclo', ''), request.GET.get('periodo', ''), request.GET.get('seccion', ''),
     )
     contexto.update({
+        'grupos_de_clase': grupos_de_clase_de(alumno, contexto['inscripcion'].ciclo_id) if contexto.get('inscripcion') else [],
         'tiene_conducta': request.user.has_perm('Conducta.view_registroconducta'),
         'estatus_opciones': [(v, e) for v, e in Alumno.ESTATUS_CHOICES if v != 'BAJA'],
         'esta_de_baja': alumno.estatus == 'BAJA',

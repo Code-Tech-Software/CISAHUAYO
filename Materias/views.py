@@ -38,7 +38,7 @@ def _plan_del_ciclo(ciclo):
     """Prefetch: las asignaciones vigentes de cada materia en el ciclo, con su grado y su profesor (en `plan_actual`)."""
     return Prefetch(
         'grados_materia',
-        queryset=MateriaGrado.objects.filter(ciclo=ciclo, activa=True).select_related('grado', 'grupo__nombre', 'grupo__grado', 'profesor')
+        queryset=MateriaGrado.objects.de_plan().filter(ciclo=ciclo, activa=True).select_related('grado', 'grupo__nombre', 'grupo__grado', 'profesor')
         .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre'),
         to_attr='plan_actual',
     )
@@ -163,7 +163,7 @@ def materia_detalle(request, pk):
     clases = []
     if ciclo:
         clases = con_resumen_de_horario(
-            MateriaGrado.objects.filter(materia=materia, ciclo=ciclo, activa=True)
+            MateriaGrado.objects.de_plan().filter(materia=materia, ciclo=ciclo, activa=True)
             .select_related('grado', 'grupo__nombre', 'grupo__grado', 'profesor').prefetch_related('horarios')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre')
         )
@@ -177,7 +177,7 @@ def materia_detalle(request, pk):
         and not any(clase.grado_id == materia.grado_id for clase in clases)
     )
     historial = list(
-        MateriaGrado.objects.filter(materia=materia, activa=True).exclude(ciclo=ciclo)
+        MateriaGrado.objects.de_plan().filter(materia=materia, activa=True).exclude(ciclo=ciclo)
         .select_related('ciclo', 'grado', 'profesor').order_by('-ciclo__fecha_inicio', orden_de_nivel('grado__nivel'), 'grado__numero')
     )
 
@@ -292,7 +292,7 @@ def materia_baja(request, pk):
         materia.activa = False
         materia.save(update_fields=['activa'])
         if request.POST.get('quitar_del_ciclo'):
-            quitadas = MateriaGrado.objects.filter(materia=materia, ciclo__activo=True, activa=True).update(activa=False)
+            quitadas = MateriaGrado.objects.de_plan().filter(materia=materia, ciclo__activo=True, activa=True).update(activa=False)
 
     aviso = f' También se quitó de {quitadas} grado{"s" if quitadas != 1 else ""} del ciclo actual.' if quitadas else ''
     messages.success(
@@ -381,11 +381,11 @@ def asignacion_quitar(request, pk):
     elif not asignacion.activa:
         messages.info(request, f'{asignacion.materia} ya estaba quitada de {asignacion.grado}.')
     else:
-        MateriaGrado.objects.filter(
+        MateriaGrado.objects.de_plan().filter(
             ciclo=asignacion.ciclo, grado=asignacion.grado, materia=asignacion.materia, activa=True,
         ).update(activa=False)
         # Las de grupos quitados tampoco vuelven si después se reactiva el grupo: se quitó del plan del grado
-        MateriaGrado.objects.filter(
+        MateriaGrado.objects.de_plan().filter(
             ciclo=asignacion.ciclo, grado=asignacion.grado, materia=asignacion.materia, suspendida=True,
         ).update(suspendida=False)
         messages.success(
@@ -457,7 +457,7 @@ def _plan_de_copia(origen, destino):
     """Qué se copiaría, grupo por grupo: las asignaciones vigentes del origen que el destino todavía no tiene."""
     existentes = set(MateriaGrado.objects.filter(ciclo=destino).values_list('materia_id', 'grupo_id'))
     fuente = (
-        MateriaGrado.objects.filter(ciclo=origen, activa=True, materia__activa=True, grado__activo=True, grupo__activo=True)
+        MateriaGrado.objects.de_plan().filter(ciclo=origen, activa=True, materia__activa=True, grado__activo=True, grupo__activo=True)
         .filter(Q(materia__grado__isnull=True) | Q(materia__grado=F('grado')))   # una materia, solo en su grado
         .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado', 'profesor').prefetch_related('horarios', 'profesor__niveles')
         .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')

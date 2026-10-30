@@ -1,0 +1,44 @@
+{% extends "asignaciones/_bloque_base.html" %}
+
+{% block title %}{% if es_edicion %}Editar {{ clase.nombre }}{% else %}Nueva opción{% endif %} | CISAHUAYO{% endblock %}
+{% block migaja %}{% if es_edicion %}Editar opción{% else %}Nueva opción{% endif %}{% endblock %}
+{% block encabezado %}{% if es_edicion %}Editar opción{% else %}Nueva opción{% endif %}{% endblock %}
+{% block descripcion %}Un grupo de clase de {{ bloque.nombre }}: usa una materia del catálogo, sin duplicarla, aunque varias opciones sean de la misma materia.{% endblock %}
+
+{% block contenido %}
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card">
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.materia %}
+        {% include "partials/field.html" with campo=form.profesor %}
+        {% include "partials/field.html" with campo=form.aula %}
+        <datalist id="aulas-usadas">{% for aula in form.aulas %}<option value="{{ aula }}"></option>{% endfor %}</datalist>
+      </div>
+    </section>
+    {% if form.grados_extra %}
+      <section class="card" aria-labelledby="seccion-plan">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="book-open" %}<h2 class="card__title" id="seccion-plan">Correspondencia con el plan de cada grado</h2>
+        </header>
+        <div class="card__body form-grid">
+          <p class="text-muted form-grid__full">Si esta clase cuenta como otra materia para algún grado, indícala: sus resultados saldrán con esa materia en la boleta.</p>
+          {% for grado, nombre in form.grados_extra %}
+            {% for campo in form %}{% if campo.name == nombre %}{% include "partials/field.html" with campo=campo %}{% endif %}{% endfor %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{{ bloque.get_absolute_url }}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">Guardar</button>
+    </footer>
+  </form>
+{% endblock %}

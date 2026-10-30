@@ -59,7 +59,10 @@ class Resultado:
 
 
 def asignaciones(filtros, nivel):
-    return filtros.filtrar(MateriaGrado.objects.filter(ciclo=filtros.ciclo, activa=True, grado__nivel=nivel))
+    """Las materias del alcance. Las de los grupos de clase son de varios grupos base: se toman todas y lo que cuenta de
+    ellas son sus estudiantes del alcance (`vigentes`)."""
+    del_nivel = MateriaGrado.objects.filter(ciclo=filtros.ciclo, activa=True, grado__nivel=nivel)
+    return filtros.filtrar(del_nivel) | del_nivel.filter(clase__isnull=False)
 
 
 def _escala(acta):

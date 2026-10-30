@@ -380,6 +380,52 @@
             {% endif %}
           </div>
         </article>
+
+        {% if grupos_de_clase %}
+          {# Grupos de clase: se reparten entre varias procedencias; su grupo base no cambia #}
+          <article class="card">
+            <header class="card__header card__header--icon">
+              {% include "partials/icon.html" with name="layers" %}<h2 class="card__title">Grupos de clase</h2>
+            </header>
+            <div class="card__body">
+              <ul class="timeline">
+                {% for clase in grupos_de_clase %}
+                  <li class="timeline__item timeline__item--stack">
+                    <span class="timeline__main">{{ clase.nombre }} · {{ clase.materia }}</span>
+                    <span class="text-muted">{{ clase.bloque }} · {{ clase.profesor|default:"Sin docente" }}{% if clase.aula %} · Aula {{ clase.aula }}{% endif %}</span>
+                    <span class="text-muted">Grupo base {{ clase.grupo_base }} · {{ clase.desde|date:"d/m/Y" }} al {{ clase.hasta|date:"d/m/Y" }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </article>
+        {% endif %}
+
+        {% if boletas_ciclos %}
+          {# Boletas e historial académico (Calificaciones/views_boletas.py): para quien ve todas las calificaciones #}
+          <article class="card">
+            <header class="card__header card__header--icon">
+              {% include "partials/icon.html" with name="award" %}<h2 class="card__title">Boletas e historial académico</h2>
+              <a class="btn btn--sm card__header-action" href="{% url 'calificaciones:kardex' alumno.pk %}" target="_blank" rel="noopener">
+                {% include "partials/icon.html" with name="file-text" icon_class="icon--sm" %} Historial académico
+              </a>
+            </header>
+            <div class="card__body">
+              <ul class="timeline">
+                {% for ciclo in boletas_ciclos %}
+                  <li class="timeline__item">
+                    <span class="timeline__main">Boleta del ciclo {{ ciclo }}{% if ciclo.activo %} <span class="tag tag--primary">Ciclo actual</span>{% endif %}</span>
+                    <span class="timeline__tags">
+                      <a class="btn btn--ghost btn--sm" href="{% url 'calificaciones:boleta' alumno.pk %}?ciclo={{ ciclo.pk }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Ver e imprimir</a>
+                      <a class="btn btn--ghost btn--sm" href="{% url 'calificaciones:boleta' alumno.pk %}?ciclo={{ ciclo.pk }}&amp;pdf=1" target="_blank" rel="noopener">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+                    </span>
+                  </li>
+                {% endfor %}
+              </ul>
+              <p class="text-muted">Solo con las calificaciones de los periodos ya cerrados.</p>
+            </div>
+          </article>
+        {% endif %}
       </div>
     </section>
 

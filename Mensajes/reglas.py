@@ -26,6 +26,7 @@ from django.utils.html import conditional_escape
 from django.utils.safestring import mark_safe
 
 from Alumnos.academico import ciclo_actual
+from Alumnos.clases import alumnos_en_clases_de, asignaciones_de_clase_de
 from Alumnos.models import Alumno, Inscripcion, MateriaGrado, Tutor, TutorAlumno
 from CISAHUAYO import portales
 from CISAHUAYO.sin_acentos import quitar_acentos
@@ -111,9 +112,11 @@ def _grupos_actuales(alumnos):
 def _imparte_a(usuario, alumnos):
     """Si el usuario es docente de alguno de esos estudiantes (una materia en su grupo del ciclo actual)."""
     ciclo = ciclo_actual()
-    return ciclo is not None and MateriaGrado.objects.filter(
-        profesor__usuario=usuario, ciclo=ciclo, activa=True, grupo__in=_grupos_actuales(alumnos),
-    ).exists()
+    if ciclo is None:
+        return False
+    if MateriaGrado.objects.filter(profesor__usuario=usuario, ciclo=ciclo, activa=True, grupo__in=_grupos_actuales(alumnos)).exists():
+        return True
+    return asignaciones_de_clase_de(alumnos, ciclo, timezone.localdate()).filter(profesor__usuario=usuario).exists()
 
 
 def _alcance_permite(usuario, alumnos):
@@ -215,13 +218,16 @@ def contactos(participante, texto='', limite=25):
         elif usuario.has_perm(USAR) and ciclo is not None:
             grupos = MateriaGrado.objects.filter(profesor__usuario=usuario, ciclo=ciclo, activa=True).values('grupo')
             suyos = Inscripcion.objects.filter(ciclo=ciclo, activa=True, grupo__in=grupos).values('alumno')
-            alumnos = _alumnos_activos().filter(pk__in=suyos)
-            tutores = _tutores_activos().filter(Exists(TutorAlumno.objects.filter(tutor=OuterRef('pk'), activo=True, alumno__in=suyos)))
+            de_sus_clases = alumnos_en_clases_de(usuario, ciclo, timezone.localdate())
+            alumnos = _alumnos_activos().filter(Q(pk__in=suyos) | Q(pk__in=de_sus_clases))
+            tutores = _tutores_activos().filter(Exists(TutorAlumno.objects.filter(tutor=OuterRef('pk'), activo=True, alumno__in=suyos))
+                                                | Exists(TutorAlumno.objects.filter(tutor=OuterRef('pk'), activo=True, alumno__in=de_sus_clases)))
     else:
         propios = _alumnos_de(participante)
         if propios and ciclo is not None:
             docentes = MateriaGrado.objects.filter(ciclo=ciclo, activa=True, grupo__in=_grupos_actuales(propios)).values('profesor__usuario')
-            usuarios = _usuarios_con(USAR, FAMILIAS).filter(pk__in=docentes)
+            de_clase = asignaciones_de_clase_de(propios, ciclo, timezone.localdate()).values('profesor__usuario')
+            usuarios = _usuarios_con(USAR, FAMILIAS).filter(Q(pk__in=docentes) | Q(pk__in=de_clase))
         if propios:
             # Quien atiende a las familias (prefectura, solo si son de su alcance)
             atienden = [u for u in _usuarios_con(FAMILIAS) if _alcance_permite(u, propios)]

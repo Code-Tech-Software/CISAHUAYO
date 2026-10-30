@@ -144,7 +144,7 @@ def ciclo_detalle(request, pk):
         'sin_inscribir': alumnos_sin_inscribir(ciclo).count(),
         'origen_sugerido': origen,
         'origen_plan': origen_plan,
-        'materias_del_ciclo': MateriaGrado.objects.filter(ciclo=ciclo, activa=True).count(),
+        'materias_del_ciclo': MateriaGrado.objects.de_plan().filter(ciclo=ciclo, activa=True).count(),
         'otro_actual': ciclo_actual() if not ciclo.activo else None,
         'dias_de_clase': resumen.dias_de_clase_por_nivel(ciclo),
         'comparacion': resumen.comparacion_con_anterior(ciclo),

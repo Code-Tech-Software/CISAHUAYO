@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from Alumnos.asistencias import NIVELES, ciclo_de_fecha, dias_de_clases
+from Alumnos.clases import asignaciones_de
 from Alumnos.forms import EstiloCamposMixin
 from Alumnos.models import (
     CICLO_CERRADO,
@@ -122,7 +123,7 @@ def _validar_comprobante(archivo):
 def _materias_de(inscripcion):
     """Materias vigentes del grado del alumno en el ciclo de su inscripción."""
     return (
-        MateriaGrado.objects.filter(ciclo=inscripcion.ciclo, grupo=inscripcion.grupo, activa=True, materia__activa=True)
+        MateriaGrado.objects.filter(pk__in=[a.pk for a in asignaciones_de(inscripcion)], activa=True, materia__activa=True)
         .select_related('materia').order_by('materia__nombre')
     )
 

@@ -148,6 +148,7 @@ NAVEGACION = (
             {'etiqueta': 'Inscripciones a grupos', 'icono': 'clipboard-list', 'ruta': 'inscripciones:lista', 'permiso': 'Alumnos.view_inscripcion'},
             {'etiqueta': 'Materias', 'icono': 'book-open', 'ruta': 'materias:lista', 'permiso': 'Alumnos.view_materia'},
             {'etiqueta': 'Asignaciones de materias', 'icono': 'link', 'ruta': 'asignaciones:tablero', 'permiso': 'Alumnos.view_materiagrado'},
+            {'etiqueta': 'Bloques simultáneos', 'icono': 'layers', 'ruta': 'asignaciones:bloques', 'permiso': 'Alumnos.view_bloquesimultaneo'},
             {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
             {'etiqueta': 'Calificaciones', 'icono': 'award', 'ruta': 'calificaciones:inicio', 'destinos': ((_entra_a_calificaciones, 'calificaciones:inicio'),)},
             {'etiqueta': 'Bitácoras por grupo', 'icono': 'notebook-pen', 'ruta': 'bitacoras:lista', 'destinos': ((_entra_a_bitacoras, 'bitacoras:lista'),)},

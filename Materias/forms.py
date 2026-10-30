@@ -202,7 +202,7 @@ class MateriaForm(EstiloCamposMixin, forms.ModelForm):
         elif self.cambio_de_grado:
             self.profesores_quitados = pasar_al_grado(materia)
             self.asignaciones = list(
-                MateriaGrado.objects.filter(materia=materia, grado=materia.grado, ciclo__activo=True, activa=True)
+                MateriaGrado.objects.de_plan().filter(materia=materia, grado=materia.grado, ciclo__activo=True, activa=True)
                 .select_related('ciclo', 'grupo__nombre', 'grupo__grado')
             )
         return materia
@@ -267,7 +267,7 @@ class FiltroMateriasForm(EstiloCamposMixin, forms.Form):
             queryset = queryset.filter(grado_id=datos['grado'])
         situacion = datos.get('situacion')
         if situacion and self.ciclo is not None:
-            plan = MateriaGrado.objects.filter(ciclo=self.ciclo, activa=True, materia=OuterRef('pk'))
+            plan = MateriaGrado.objects.de_plan().filter(ciclo=self.ciclo, activa=True, materia=OuterRef('pk'))
             if situacion == 'con_profesor':
                 queryset = queryset.filter(Exists(plan.filter(profesor__isnull=False)))
             elif situacion == 'sin_profesor':

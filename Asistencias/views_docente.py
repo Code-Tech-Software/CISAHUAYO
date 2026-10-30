@@ -38,6 +38,7 @@ from Alumnos.asistencia_docente import (
     reporte,
     ventana_del_docente,
 )
+from Alumnos.clases import pertenece
 from Alumnos.models import Inscripcion
 from Alumnos.utils import proteger_celda_csv, slug
 from CISAHUAYO.permisos import requiere_permisos
@@ -276,7 +277,7 @@ def respuesta_de_guardado(request, asignacion, puede_justificar=False, ver_justi
         )
     except CambioRechazado as error:
         datos = {'ok': False, 'mensaje': error.mensaje}
-        if inscripcion.grupo_id == asignacion.grupo_id:   # lo que está guardado
+        if pertenece(inscripcion, asignacion, fecha):   # lo que está guardado
             guardada = celda_de(asignacion, inscripcion, fecha, request.user, puede_justificar=puede_justificar, ventana=ventana)
             datos.update(celda_json(guardada, ver_justificaciones))
         return JsonResponse(datos, status=error.codigo)

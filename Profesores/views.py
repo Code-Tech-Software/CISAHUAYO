@@ -250,7 +250,7 @@ def profesor_detalle(request, pk):
     pendientes = []
     if ciclo and editable:
         sin_profesor = (
-            MateriaGrado.objects.filter(q_grado_disponible('grado__'), ciclo=ciclo, activa=True, profesor__isnull=True, materia__activa=True)
+            MateriaGrado.objects.de_plan().filter(q_grado_disponible('grado__'), ciclo=ciclo, activa=True, profesor__isnull=True, materia__activa=True)
             .filter(grado__nivel__in=profesor.niveles.values('nivel'))
             .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'grupo__nombre__nombre', 'materia__nombre')

@@ -132,6 +132,12 @@ MODULOS = (
             'editar': 'Elegir el profesor que imparte cada materia, asignar varias a la vez y pasar las clases de un profesor a otro.',
             'baja': 'Quitar una materia de un grado.',
         }),
+        Funcion('Bloques simultáneos', {'ver': 'Alumnos.view_bloquesimultaneo', 'crear': 'Alumnos.add_bloquesimultaneo', 'editar': 'Alumnos.change_bloquesimultaneo'},
+                requiere=('Alumnos.view_materia',), ayuda={
+            'ver': 'Consultar los bloques de clases simultáneas, sus opciones, su distribución de estudiantes y su historial.',
+            'crear': 'Crear bloques simultáneos.',
+            'editar': 'Editar bloques y sus opciones, distribuir estudiantes, cambiarlos de opción, y activar o desactivar bloques.',
+        }),
     )),
     Modulo('horarios', 'Horarios', 'clock', 'El horario semanal de cada grado.', (
         Funcion('Horarios', _permisos('horariomateria'), ayuda={
@@ -196,6 +202,10 @@ MODULOS = (
             'ver': 'Consultar los rubros, porcentajes y reglas de cada materia (Ajustes › Calificaciones).',
             'crear': 'Crear la configuración de referencia, versiones por periodo y copiar la de otra materia.',
             'editar': 'Editar rubros, porcentajes y reglas, y activar la configuración.',
+        }),
+        Funcion('Datos oficiales de las boletas', {'ver': 'Calificaciones.view_datosoficialesnivel', 'editar': 'Calificaciones.change_datosoficialesnivel'}, ayuda={
+            'ver': 'Consultar la clave del centro de trabajo (CCT) y quien dirige cada nivel (Ajustes › Boletas).',
+            'editar': 'Cambiar esos datos, que aparecen en el encabezado y en las firmas de las boletas.',
         }),
     )),
     Modulo('mensajes', 'Mensajes', 'message-circle', 'Conversaciones en tiempo real entre el personal, los docentes, los estudiantes y los tutores.', (

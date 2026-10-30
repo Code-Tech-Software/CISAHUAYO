@@ -172,39 +172,83 @@ def estudiantes_de(asignacion):
     return list(inscripciones_de(asignacion, con_concluidas=True))
 
 
+def periodos_de_la_hoja(asignacion, periodos):
+    """Los periodos que cuentan en la materia: todos los del semestre; en un grupo de clase, los que tocan su bloque."""
+    if not asignacion.es_de_clase:
+        return periodos
+    bloque = asignacion.clase.bloque
+    return [p for p in periodos if p.fecha_inicio <= bloque.vigente_hasta and bloque.vigente_desde <= p.fecha_fin]
+
+
+def _lista_con_bloques(asignacion, semestre):
+    """Los estudiantes que terminan el semestre en la materia, cuando hay bloques simultáneos: quien cambió de grupo de
+    clase o salió a un bloque que le sustituye esta materia sigue su resultado en la clase a la que pasó."""
+    from Alumnos.asistencia_docente import inscripciones_de
+    from Alumnos.clases import lista_de
+    desde, hasta = semestre.fecha_inicio, semestre.fecha_fin
+    if asignacion.es_de_clase:
+        hasta = min(hasta, asignacion.clase.bloque.vigente_hasta)
+    lista = lista_de(asignacion, desde, hasta)
+    return [i for i in inscripciones_de(asignacion, con_concluidas=True, desde=desde, hasta=hasta) if lista.salida(i.pk, hasta) is None]
+
+
 def hojas(asignaciones, semestre):
     """{id de asignación: HojaSemestral} de varias materias del mismo semestre, con pocas consultas."""
+    from Alumnos.clases import hay_bloques
     asignaciones = list(asignaciones)
     periodos = periodos_del_semestre(semestre)
     if not asignaciones:
         return {}
+    con_bloques = hay_bloques(semestre.ciclo)
     ids = [a.pk for a in asignaciones]
+    # Quien cambia de grupo de clase en la misma materia sigue en una sola materia: sus periodos anteriores cuentan aunque
+    # estén en otra asignación
+    misma_materia = {}
+    if con_bloques:
+        for pk, materia in MateriaGrado.objects.filter(ciclo=semestre.ciclo, materia__in={a.materia_id for a in asignaciones}).values_list('pk', 'materia_id'):
+            misma_materia.setdefault(materia, []).append(pk)
+    todas = sorted({pk for lista in misma_materia.values() for pk in lista} | set(ids))
     por_grupo = {}
     for inscripcion in (Inscripcion.objects.filter(grupo__in={a.grupo_id for a in asignaciones}, ciclo=semestre.ciclo, alumno__estatus='ACTIVO')
                         .filter(Q(activa=True) | Q(concluida=True)).select_related('alumno')
                         .order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')):
         por_grupo.setdefault(inscripcion.grupo_id, []).append(inscripcion)
     actas, finales = {}, {}
-    for acta in ActaCalificaciones.objects.filter(asignacion__in=ids, periodo__in=periodos):
+    for acta in ActaCalificaciones.objects.filter(asignacion__in=todas, periodo__in=periodos):
         actas.setdefault(acta.asignacion_id, {})[acta.periodo_id] = acta
         if acta.cerrada:
             for r in acta.resultados_cerrados or []:
                 if r.get('final') not in (None, ''):
                     finales[(acta.asignacion_id, acta.periodo_id, r.get('inscripcion'))] = Decimal(r['final'])
     examenes = {}
-    for examen in ExamenSemestral.objects.filter(asignacion__in=ids):
+    for examen in ExamenSemestral.objects.filter(asignacion__in=todas).order_by('modificado'):
         examenes.setdefault((examen.asignacion_id, examen.inscripcion_id), {})[examen.tipo] = examen
+
+    def periodo_de(asignacion, periodo, inscripcion):
+        """La calificación del periodo: la de esta asignación o la de otra de la misma materia en la que estuvo."""
+        propia = finales.get((asignacion.pk, periodo.pk, inscripcion.pk))
+        if propia is not None:
+            return propia
+        for otra in misma_materia.get(asignacion.materia_id, ()):
+            if (otra, periodo.pk, inscripcion.pk) in finales:
+                return finales[(otra, periodo.pk, inscripcion.pk)]
+        return None
 
     resultado = {}
     for asignacion in asignaciones:
+        de_la_hoja = periodos_de_la_hoja(asignacion, periodos)
+        estudiantes = _lista_con_bloques(asignacion, semestre) if con_bloques else por_grupo.get(asignacion.grupo_id, [])
         filas = []
-        for numero, inscripcion in enumerate(por_grupo.get(asignacion.grupo_id, []), start=1):
-            suyos = examenes.get((asignacion.pk, inscripcion.pk), {})
+        for numero, inscripcion in enumerate(estudiantes, start=1):
+            suyos = {}
+            for otra in misma_materia.get(asignacion.materia_id, ()):
+                suyos = {**suyos, **examenes.get((otra, inscripcion.pk), {})}
+            suyos = {**suyos, **examenes.get((asignacion.pk, inscripcion.pk), {})}
             valor = lambda tipo: suyos[tipo].valor if tipo in suyos else None   # noqa: E731
-            calculado = cs.calcular([finales.get((asignacion.pk, p.pk, inscripcion.pk)) for p in periodos],
+            calculado = cs.calcular([periodo_de(asignacion, p, inscripcion) for p in de_la_hoja],
                                     final=valor(cs.FINAL), extraordinario=valor(cs.EXTRAORDINARIO), regularizacion=valor(cs.REGULARIZACION))
             filas.append(FilaSemestral(inscripcion=inscripcion, numero=numero, nombre=str(inscripcion.alumno), resultado=calculado, examenes=suyos))
-        resultado[asignacion.pk] = HojaSemestral(asignacion=asignacion, semestre=semestre, periodos=periodos, filas=filas,
+        resultado[asignacion.pk] = HojaSemestral(asignacion=asignacion, semestre=semestre, periodos=de_la_hoja, filas=filas,
                                                  actas=actas.get(asignacion.pk, {}))
     return resultado
 

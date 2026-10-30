@@ -17,7 +17,7 @@ from django.db import DatabaseError
 from django.db.models import Exists, OuterRef, Q
 
 from Alumnos.academico import ciclo_actual
-from Alumnos.models import Grado, Grupo, Inscripcion, MateriaGrado, orden_de_nivel
+from Alumnos.models import Grado, Grupo, Inscripcion, IntegranteClase, MateriaGrado, orden_de_nivel
 from Prefectura.alcance import alcance_de, es_cuenta_de_prefectura
 from Usuarios.docentes import profesor_de
 
@@ -107,7 +107,7 @@ class Alcance:
             condicion |= Q(pk__in=MateriaGrado.objects.filter(profesor=self.profesor).values('grupo'))
         condicion |= Q(pk__in=self.entradas(anuladas=True).values('grupo'))
         # Es un filtro: sin los grupos de grados ocultos (sus entradas se siguen viendo con «Todos mis grupos»)
-        return (Grupo.objects.filter(condicion, grado__visible=True).select_related('grado', 'nombre')
+        return (Grupo.con_clases.filter(condicion, grado__visible=True).select_related('grado', 'nombre')
                 .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre'))
 
     def ve_estudiante(self, alumno):
@@ -122,6 +122,8 @@ class Alcance:
         if self.propio and self.profesor is not None:
             suyas = MateriaGrado.objects.filter(profesor=self.profesor, grupo=OuterRef('grupo'), ciclo=OuterRef('ciclo'))
             if Inscripcion.objects.filter(alumno=alumno).filter(Exists(suyas)).exists():
+                return True
+            if IntegranteClase.objects.filter(inscripcion__alumno=alumno, clase__asignacion__profesor=self.profesor).exists():
                 return True
         return self.entradas().filter(vinculos__alumno=alumno).exists()
 

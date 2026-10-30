@@ -166,6 +166,7 @@ def q_vigente(fecha, prefijo=''):
     return (
         (Q(**{f'{prefijo}vigente_desde__isnull': True}) | Q(**{f'{prefijo}vigente_desde__lte': fecha}))
         & (Q(**{f'{prefijo}vigente_hasta__isnull': True}) | Q(**{f'{prefijo}vigente_hasta__gte': fecha}))
+        & (Q(**{f'{prefijo}fin_programado__isnull': True}) | Q(**{f'{prefijo}fin_programado__gte': fecha}))
     )
 
 

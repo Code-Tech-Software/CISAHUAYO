@@ -45,7 +45,8 @@ def _ciclo_de(request):
 
 def _asignaciones_filtradas(filtro, ciclo):
     """Las asignaciones vigentes del ciclo que cumplen los filtros, en orden escolar."""
-    consulta = asignaciones_vigentes(ciclo) if ciclo else MateriaGrado.objects.none()
+    # Los grupos de clase tienen su docente en su bloque: el tablero es el del plan de materias
+    consulta = asignaciones_vigentes(ciclo).de_plan() if ciclo else MateriaGrado.objects.none()
     return (
         filtro.filtrar(consulta)
         .select_related('grado', 'grupo__nombre', 'grupo__grado', 'materia', 'profesor').prefetch_related('horarios')

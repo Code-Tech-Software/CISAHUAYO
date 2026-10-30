@@ -41,6 +41,7 @@
             <div><dt>Edad</dt><dd>{{ edad }}</dd></div>
             <div><dt>Número de control</dt><dd class="v360-mono">{{ alumno.referencia }}</dd></div>
             {% if inscripcion %}<div><dt>Inscripción</dt><dd>Ciclo {{ inscripcion.ciclo }}{% if not inscripcion.activa %} <span class="text-muted">(inactiva)</span>{% endif %}</dd></div>{% endif %}
+            {% if grupos_de_clase %}<div><dt>Grupos de clase</dt><dd>{% for clase in grupos_de_clase %}{{ clase.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
           </dl>
 
           {% if perms.Alumnos.change_alumno %}

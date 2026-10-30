@@ -311,7 +311,9 @@ class FiltroAsistenciaForm(EstiloCamposMixin, _FiltroDelAlcance):
         niveles = [clave for clave, _ in alcance.niveles_visibles()]
         self.fields['periodo'].queryset = Periodo.objects.filter(ciclo=ciclo, nivel__in=niveles).order_by(orden_de_nivel('nivel'), 'fecha_inicio') if ciclo else Periodo.objects.none()
         self.fields['periodo'].label_from_instance = lambda p: f'{p.nombre} · {p.get_nivel_display()}'
-        materias = MateriaGrado.objects.filter(ciclo=ciclo, activa=True, grupo__in=alcance.grupos_visibles()) if ciclo else MateriaGrado.objects.none()
+        # Un grupo de clase mezcla grupos base: se ofrece por su nivel y lo que cuenta son los estudiantes del alcance
+        materias = (MateriaGrado.objects.filter(Q(grupo__in=alcance.grupos_visibles()) | Q(clase__isnull=False, grado__nivel__in=niveles), ciclo=ciclo, activa=True)
+                    if ciclo else MateriaGrado.objects.none())
         self.fields['materia'].queryset = materias.select_related('materia', 'grupo__grado', 'grupo__nombre').order_by(
             orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'materia__nombre')
         self.fields['materia'].label_from_instance = lambda m: f'{m.materia} · {m.grupo}'

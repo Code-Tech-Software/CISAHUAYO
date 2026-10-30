@@ -47,7 +47,7 @@
           {% for fila in filas %}
             <tr data-inscripcion="{{ fila.inscripcion.pk }}" data-fila>
               <td class="cal-matriz__num">{{ fila.numero }}</td>
-              <th scope="row" class="cal-matriz__nombre" data-nombre title="{{ fila.nombre }}">{{ fila.nombre }}</th>
+              <th scope="row" class="cal-matriz__nombre" data-nombre title="{{ fila.nombre }}">{{ fila.nombre }}{% if fila.salio %} <span class="cal-semestre__marca" title="Dejó este grupo a mitad del periodo">salió el {{ fila.salio|date:"d/m" }}</span>{% endif %}</th>
               {% for celda in fila.celdas %}
                 {% if celda.entrada %}
                   {% include "calificaciones/_celda.html" %}

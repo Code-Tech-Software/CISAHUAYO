@@ -321,6 +321,16 @@ def clases_del_dia(grupo, ciclo, fecha):
     return clases_por_grupo(ciclo, fecha, materia_grado__grupo=grupo).get(grupo.pk, [])
 
 
+def clases_del_estudiante(inscripcion, fecha):
+    """Las clases que de verdad tiene el estudiante ese día: las de su grupo base, sin las que un bloque simultáneo le
+    sustituye, y las de sus grupos de clase (Alumnos/clases.py)."""
+    from .clases import Pertenencias, hay_bloques
+    ciclo = inscripcion.ciclo
+    if not hay_bloques(ciclo):
+        return clases_del_dia(inscripcion.grupo, ciclo, fecha)
+    return Pertenencias(fecha, ciclo, [inscripcion.pk]).clases_de(inscripcion, clases_por_grupo(ciclo, fecha))
+
+
 # ---------------------------------------------------------------------------
 # Estados según la hora de llegada
 # ---------------------------------------------------------------------------
@@ -393,7 +403,7 @@ def crear_asistencias_de_materias(inscripcion, fecha, hora, tolerancia, clases=N
     Con `hora=None` (no se sabe a qué hora llegó) todas quedan presentes, salvo la primera si llegó con retardo a la
     entrada (`retardo_de_entrada`). Nunca toca las que ya existen. Devuelve cuántas creó.
     """
-    clases = clases if clases is not None else clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
+    clases = clases if clases is not None else clases_del_estudiante(inscripcion, fecha)
     existentes = set(
         AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha).values_list('materia_grado_id', flat=True)
     )
@@ -554,7 +564,7 @@ def _propagar_a_materias(asistencia, configuracion, usuario):
     """Las materias del día siguen a la general. Devuelve las materias del pase de lista del profesor (presente o
     retardo) que una falta general cambió a falta."""
     inscripcion, fecha = asistencia.inscripcion, asistencia.fecha
-    clases = clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
+    clases = clases_del_estudiante(inscripcion, fecha)
     registros = AsistenciaMateria.objects.filter(inscripcion=inscripcion, fecha=fecha)
     ahora = timezone.now()
 
@@ -661,6 +671,8 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
     inscripciones = list(inscripciones_del_dia(fecha, ciclo).select_related('grado'))
     generales = {a.inscripcion_id: a for a in AsistenciaGeneral.objects.filter(fecha=fecha, inscripcion__ciclo=ciclo)}
     clases = clases_por_grupo(ciclo, fecha)
+    from .clases import Pertenencias
+    pertenencias = Pertenencias(fecha, ciclo)   # las clases de cada quien (grupos de clase y clases sustituidas)
     registradas = defaultdict(set)  # id de inscripción -> materias que ya tienen asistencia ese día
     for inscripcion_id, asignacion_id in AsistenciaMateria.objects.filter(fecha=fecha, inscripcion__ciclo=ciclo).values_list('inscripcion_id', 'materia_grado_id'):
         registradas[inscripcion_id].add(asignacion_id)
@@ -670,7 +682,7 @@ def cerrar_dia(fecha, usuario=None, automatico=False):
         nuevas_generales, nuevas_materias = [], []
         for inscripcion in inscripciones:
             general = generales.get(inscripcion.pk)
-            clases_del_grado = clases.get(inscripcion.grupo_id, [])
+            clases_del_grado = pertenencias.clases_de(inscripcion, clases)
             if inscripcion.alumno_id in suspendidos and (general is None or general.estado == 'FALTA'):
                 continue
             if general is None or general.estado == 'FALTA':

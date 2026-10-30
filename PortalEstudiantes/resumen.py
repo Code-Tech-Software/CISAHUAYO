@@ -14,10 +14,11 @@ from django.db.models import Q
 from django.utils import timezone
 
 from Alumnos.asistencias import con_justificada_general, conteos, motivo_sin_clases, porcentaje, sin_dias_suspendidos
+from Alumnos.clases import bloques_del_estudiante, materias_cursadas
 from Alumnos.horarios import cuadricula, recreos_del_grupo
-from Alumnos.models import NIVEL_POR_SEMESTRES, AsistenciaGeneral, MateriaGrado
+from Alumnos.models import NIVEL_POR_SEMESTRES, AsistenciaGeneral
 from Alumnos.periodos import periodos_para_grado
-from Alumnos.semanas import Calendario, bloques_de_semana
+from Alumnos.semanas import Calendario
 
 INCIDENCIAS_RECIENTES = 6
 
@@ -55,8 +56,8 @@ def _horario(inscripcion, fecha, calendario):
     """El horario del grupo en la semana de esa fecha: con semanas A y B, el de la que le toca; y la versión del
     horario en vigor cada día (Alumnos/semanas.py)."""
     bloques = list(
-        bloques_de_semana(fecha, inscripcion.ciclo, calendario, materia_grado__grupo=inscripcion.grupo)
-        .select_related('materia_grado__materia', 'materia_grado__profesor')
+        bloques_del_estudiante(inscripcion, fecha, calendario)   # con sus grupos de clase: solo la opción que cursa
+        .select_related('materia_grado__materia', 'materia_grado__profesor', 'materia_grado__grupo')
     )
     return bloques + list(recreos_del_grupo(inscripcion.grupo, inscripcion.ciclo))
 
@@ -121,13 +122,10 @@ def _calificaciones(inscripcion):
     from Calificaciones.models import ActaCalificaciones
 
     periodos = list(periodos_para_grado(inscripcion.ciclo, inscripcion.grado))
-    asignaciones = list(
-        MateriaGrado.objects.filter(grupo=inscripcion.grupo, ciclo=inscripcion.ciclo, activa=True)
-        .select_related('materia', 'profesor').order_by('materia__nombre')
-    )
+    cursadas = materias_cursadas(inscripcion)   # con sus grupos de clase; una materia, una sola fila
     finales = {}
     actas = ActaCalificaciones.objects.filter(
-        asignacion__in=asignaciones, periodo__in=periodos, estado=ActaCalificaciones.CERRADA,
+        asignacion__in=[a for c in cursadas for a in c.asignaciones], periodo__in=periodos, estado=ActaCalificaciones.CERRADA,
     ).only('asignacion_id', 'periodo_id', 'resultados_cerrados')
     for acta in actas:
         fila = next((r for r in acta.resultados_cerrados if r.get('inscripcion') == inscripcion.pk), None)
@@ -135,10 +133,15 @@ def _calificaciones(inscripcion):
             finales[(acta.asignacion_id, acta.periodo_id)] = Decimal(fila['final'])
 
     filas = []
-    for asignacion in asignaciones:
-        valores = [finales.get((asignacion.pk, periodo.pk)) for periodo in periodos]
+    for cursada in cursadas:
+        # De la asignación más reciente en que tenga calificación de ese periodo
+        valores = [next((finales[(a.pk, periodo.pk)] for a in reversed(cursada.asignaciones) if (a.pk, periodo.pk) in finales), None)
+                   for periodo in periodos]
+        if cursada.sustituida and not any(v is not None for v in valores):
+            continue   # un bloque se la sustituyó antes de calificarla
+        asignacion = cursada.actual
         profesor = asignacion.profesor.nombre_completo if asignacion.profesor_id else ''
-        filas.append(FilaDeCalificaciones(asignacion.materia.nombre, profesor, valores, _promedio(valores), asignacion))
+        filas.append(FilaDeCalificaciones(cursada.materia.nombre, profesor, valores, _promedio(valores), asignacion))
     por_periodo = [_promedio([fila.valores[indice] for fila in filas]) for indice in range(len(periodos))]
     return Calificaciones(
         periodos=periodos, filas=filas, promedios_por_periodo=por_periodo,
@@ -170,8 +173,7 @@ def semestrales(alumno, ciclo):
         semestre = reglas_semestres.semestre_de_grado_en(inscripcion.grado, ciclo)
         if semestre is None or not semestre.cerrado:
             continue
-        asignaciones = list(MateriaGrado.objects.filter(grupo=inscripcion.grupo, ciclo=ciclo, activa=True)
-                            .select_related('materia', 'profesor', 'grado', 'grupo__nombre', 'grupo__grado').order_by('materia__nombre'))
+        asignaciones = [c.actual for c in materias_cursadas(inscripcion)]
         hojas = reglas_semestres.hojas(asignaciones, semestre)
         datos = SemestreDelPortal(semestre=semestre, grupo=inscripcion.grupo)
         for asignacion in asignaciones:

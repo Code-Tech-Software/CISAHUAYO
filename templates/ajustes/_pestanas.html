@@ -1,11 +1,11 @@
 {% comment %}
   Secciones de Ajustes (la configuración del sistema, menú Sistema). Parámetros: ajustes_seccion («apariencia»,
-  «asistencia», «calificaciones», «conducta» o «retiros») y puede_configurar_conducta (si ve algún catálogo de conducta).
+  «asistencia», «calificaciones», «boletas», «conducta» o «retiros») y puede_configurar_conducta (si ve algún catálogo de conducta).
   La asistencia y las calificaciones se ven con el permiso de consultar sus ajustes; los motivos de retiro, con el de
   configurarlos (Retiros.configurar); las reuniones con familias, con Reuniones.configurar; los mensajes, con
   Mensajes.moderar (el administrador); la apariencia, todos.
 {% endcomment %}
-{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Retiros.configurar or perms.Reuniones.configurar or perms.Panel.view_criterioseguimiento or perms.Mensajes.moderar %}
+{% if puede_configurar_conducta or perms.Alumnos.view_configuracionasistencia or perms.Calificaciones.view_configuracionevaluacion or perms.Calificaciones.view_datosoficialesnivel or perms.Retiros.configurar or perms.Reuniones.configurar or perms.Panel.view_criterioseguimiento or perms.Mensajes.moderar %}
   <nav class="pills pills--section" aria-label="Secciones de ajustes">
     <a class="pill{% if ajustes_seccion == 'apariencia' %} is-active{% endif %}" href="{% url 'ajustes:inicio' %}"{% if ajustes_seccion == 'apariencia' %} aria-current="page"{% endif %}>Apariencia</a>
     {% if perms.Alumnos.view_configuracionasistencia %}
@@ -13,6 +13,9 @@
     {% endif %}
     {% if perms.Calificaciones.view_configuracionevaluacion %}
       <a class="pill{% if ajustes_seccion == 'calificaciones' %} is-active{% endif %}" href="{% url 'calificaciones:configuracion' %}"{% if ajustes_seccion == 'calificaciones' %} aria-current="page"{% endif %}>Calificaciones</a>
+    {% endif %}
+    {% if perms.Calificaciones.view_datosoficialesnivel %}
+      <a class="pill{% if ajustes_seccion == 'boletas' %} is-active{% endif %}" href="{% url 'calificaciones:datos_oficiales' %}"{% if ajustes_seccion == 'boletas' %} aria-current="page"{% endif %}>Boletas</a>
     {% endif %}
     {% if puede_configurar_conducta %}
       <a class="pill{% if ajustes_seccion == 'conducta' %} is-active{% endif %}" href="{% url 'conducta:configuracion' %}"{% if ajustes_seccion == 'conducta' %} aria-current="page"{% endif %}>Conducta</a>

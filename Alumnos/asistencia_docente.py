@@ -165,13 +165,24 @@ def fuera_de_la_ventana(fecha, hoy, ventana):
     return ventana is not None and fecha < hoy - timedelta(days=ventana)
 
 
-def inscripciones_de(asignacion, con_concluidas=False):
+def inscripciones_de(asignacion, con_concluidas=False, desde=None, hasta=None):
     """Los estudiantes de la materia: inscritos (activos) en su grupo y ciclo, con estatus activo. Con
     `con_concluidas`, también los que ya pasaron al semestre siguiente (preparatoria): siguen en las calificaciones de
-    las materias de su semestre, pero ya no en el pase de lista."""
+    las materias de su semestre, pero ya no en el pase de lista.
+
+    En un grupo de clase son sus integrantes en esas fechas (por omisión, hoy), no los de un grupo; en una materia del
+    grupo base salen quienes un bloque simultáneo tiene sustituidos todo el rango (Alumnos/clases.py)."""
+    from .clases import sustituidos_todo_el_rango, tramos_de_asignacion
+    desde = desde or timezone.localdate()
+    hasta = hasta or desde
     inscritos = Q(activa=True) | Q(concluida=True) if con_concluidas else Q(activa=True)
+    if asignacion.es_de_clase:
+        consulta = Inscripcion.objects.filter(inscritos, pk__in=list(tramos_de_asignacion(asignacion, desde, hasta)), alumno__estatus='ACTIVO')
+    else:
+        consulta = (Inscripcion.objects.filter(inscritos, grupo=asignacion.grupo, ciclo=asignacion.ciclo, alumno__estatus='ACTIVO')
+                    .exclude(pk__in=sustituidos_todo_el_rango(asignacion, desde, hasta)))
     return (
-        Inscripcion.objects.filter(inscritos, grupo=asignacion.grupo, ciclo=asignacion.ciclo, alumno__estatus='ACTIVO')
+        consulta
         .select_related('alumno')
         .order_by('alumno__apellido_paterno', 'alumno__apellido_materno', 'alumno__nombre')
     )
@@ -238,13 +249,13 @@ def _con_suspension(celda, suspension_del_alumno):
 
 
 def _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion, materia, puede_editar, puede_justificar=False,
-           suspension_del_alumno=None, ventana=None):
+           suspension_del_alumno=None, ventana=None, fuera=False):
     """La celda de un estudiante en un día, con lo que se ve, si el docente la puede cambiar (y si no, por qué) y la
     observación del registro (también en el globo de ayuda). Para quien administra (`puede_justificar`), además, si es
     una falta que se puede justificar; en una J va la justificación que la cubre. Un día con suspensión del estudiante
     (`suspension_del_alumno`) se marca con su S. Con `ventana` (la del docente), lo que ya pasó del plazo se bloquea."""
     celda = _celda_sin_observacion(
-        registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion is not None, materia, puede_editar, ventana,
+        registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion is not None, materia, puede_editar, ventana, fuera,
     )
     if registro is not None and registro.observaciones and celda.letra not in ('S', ''):
         celda.observaciones = registro.observaciones
@@ -257,11 +268,13 @@ def _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificaci
     return celda
 
 
-def _celda_sin_observacion(registro, fecha, hoy, inscripcion, suspension, con_clase, justificada, materia, puede_editar, ventana=None):
+def _celda_sin_observacion(registro, fecha, hoy, inscripcion, suspension, con_clase, justificada, materia, puede_editar, ventana=None, fuera=False):
     letra = LETRA_DE_ESTADO.get(registro.estado) if registro is not None else None
     version = version_de(registro)
     if suspension is not None:
         return Celda('S', f'Suspensión de clases: {suspension}' if suspension else NOMBRES['S'], False, version)
+    if fuera:   # ese día no estaba en esta clase (grupos de clase y clases sustituidas): lo registrado se conserva
+        return Celda(letra or '', f'{NOMBRES[letra]} · ese día no estaba en esta clase' if letra else 'Ese día no estaba en esta clase', False, version)
     if fecha < inscripcion.fecha_inscripcion:
         return Celda(letra or '', f'{NOMBRES[letra]} · aún no estaba inscrito' if letra else 'Aún no estaba inscrito', False, version)
     if justificada:
@@ -375,7 +388,9 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
     suspensiones = dict(DiaNoLectivo.objects.filter(fecha__range=(desde, hasta), nivel=asignacion.grado.nivel).values_list('fecha', 'motivo'))
     from .semanas import fechas_con_clase
     con_clase = fechas_con_clase(asignacion, fechas)   # su semana A/B y la versión del horario de cada fecha
-    inscripciones = list(inscripciones_de(asignacion))
+    from .clases import lista_de
+    lista = lista_de(asignacion, desde, hasta)
+    inscripciones = list(inscripciones_de(asignacion, desde=desde, hasta=hasta))
     registros = {
         (registro.inscripcion_id, registro.fecha): registro
         for registro in AsistenciaMateria.objects.filter(materia_grado=asignacion, inscripcion__in=inscripciones, fecha__range=(desde, hasta))
@@ -412,6 +427,7 @@ def matriz(asignacion, usuario=None, hoy=None, desde=None, hasta=None, puede_jus
                 registros.get((inscripcion.pk, columna['fecha'])), columna['fecha'], hoy, inscripcion,
                 columna['suspension'], not columna['sin_clase'], justificadas.get((inscripcion.pk, columna['fecha'])),
                 asignacion.materia, puede_editar, puede_justificar, suspendidos.get((inscripcion.pk, columna['fecha'])), ventana,
+                fuera=lista.fuera(inscripcion.pk, columna['fecha']),
             )
             celda.hoy, celda.apagada = columna['hoy'], columna['bloqueada']
             celda.inicio_mes, celda.inicio_semana = columna['inicio_mes'], columna['inicio_semana']
@@ -487,8 +503,10 @@ def celda_de(asignacion, inscripcion, fecha, usuario=None, hoy=None, puede_justi
     con_clase = fecha in fechas_con_clase(asignacion, [fecha])
     justificacion = _justificaciones(asignacion, [inscripcion], fecha, fecha).get((inscripcion.pk, fecha))
     suspendido = _suspensiones_de([inscripcion], fecha, fecha).get((inscripcion.pk, fecha))
+    from .clases import pertenece
     return _celda(registro, fecha, hoy, inscripcion, suspension, con_clase, justificacion, asignacion.materia,
-                  _contexto_editable(asignacion, usuario), puede_justificar, suspendido, ventana)
+                  _contexto_editable(asignacion, usuario), puede_justificar, suspendido, ventana,
+                  fuera=not pertenece(inscripcion, asignacion, fecha))
 
 
 def limpiar_observacion(texto):
@@ -515,8 +533,9 @@ def guardar_cambio(asignacion, inscripcion, fecha, estado, version, usuario, hoy
             raise CambioRechazado(f'Escribe en las observaciones por qué {que}.')
         if len(observaciones) > OBSERVACION_MAXIMA:
             raise CambioRechazado(f'La observación es muy larga: hasta {OBSERVACION_MAXIMA} caracteres.')
-    if inscripcion.grupo_id != asignacion.grupo_id or inscripcion.ciclo_id != asignacion.ciclo_id or not inscripcion.activa:
-        raise CambioRechazado('Ese estudiante no está inscrito en esta materia.')
+    from .clases import pertenece
+    if not pertenece(inscripcion, asignacion, fecha) or not inscripcion.activa:
+        raise CambioRechazado('Ese estudiante no está en esta materia en esa fecha.')
     if fecha.weekday() >= 5:
         raise CambioRechazado('Solo se captura de lunes a viernes.')
     if not (asignacion.ciclo.fecha_inicio <= fecha <= asignacion.ciclo.fecha_fin):
@@ -560,8 +579,9 @@ def justificar_falta(asignacion, inscripcion, fecha, version, motivo, comprobant
     hoy = hoy or timezone.localdate()
     if not asignacion.ciclo.activo:
         raise CambioRechazado('Esa falta es de un ciclo que ya no se modifica.')
-    if inscripcion.grupo_id != asignacion.grupo_id or inscripcion.ciclo_id != asignacion.ciclo_id or not inscripcion.activa:
-        raise CambioRechazado('Ese estudiante no está inscrito en esta materia.')
+    from .clases import pertenece
+    if not pertenece(inscripcion, asignacion, fecha) or not inscripcion.activa:
+        raise CambioRechazado('Ese estudiante no está en esta materia en esa fecha.')
 
     with transaction.atomic():
         registro = (

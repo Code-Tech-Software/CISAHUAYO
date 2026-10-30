@@ -15,6 +15,7 @@ from django.utils.formats import date_format
 from django.views.decorators.http import require_GET, require_POST
 
 from Alumnos.academico import elegir_ciclo
+from Alumnos.clases import asignaciones_de, tramos_de_asignacion
 from Alumnos.asistencias import (
     EntradaRechazada,
     asistencia_editable,
@@ -526,7 +527,7 @@ def justificacion_materias(request):
     if inscripcion is None:
         return JsonResponse({'grado': '', 'materias': []})
     materias = (
-        MateriaGrado.objects.filter(ciclo=inscripcion.ciclo, grupo=inscripcion.grupo, activa=True, materia__activa=True)
+        MateriaGrado.objects.filter(pk__in=[a.pk for a in asignaciones_de(inscripcion)], activa=True, materia__activa=True)
         .select_related('materia').order_by('materia__nombre')
     )
     return JsonResponse({
@@ -674,14 +675,17 @@ def _datos_del_reporte(filtro):
     datos['grupos'] = list(grado.grupos.filter(activo=True).select_related('grado', 'nombre').order_by('nombre__orden', 'nombre__nombre'))
     materias = MateriaGrado.objects.filter(ciclo=ciclo, grado=grado, activa=True).select_related('materia', 'grupo__nombre', 'grupo__grado')
     if grupo is not None:
-        materias = materias.filter(grupo=grupo)
+        materias = materias.filter(Q(grupo=grupo) | Q(clase__isnull=False))   # los grupos de clase mezclan grupos base
     datos['materias'] = list(materias.order_by('materia__nombre', 'grupo__nombre__orden'))
-    if asignacion is not None and grupo is not None and asignacion.grupo_id != grupo.pk:
+    if asignacion is not None and grupo is not None and asignacion.grupo_id != grupo.pk and not asignacion.es_de_clase:
         asignacion = datos['asignacion'] = None   # la materia era de otro grupo del grado
     inscripciones = Inscripcion.objects.filter(ciclo=ciclo, grado=grado, activa=True).exclude(alumno__estatus='BAJA')
     if grupo is not None:
         inscripciones = inscripciones.filter(grupo=grupo)
     inscripciones = list(inscripciones.select_related('alumno', 'grupo__nombre', 'grupo__grado').order_by(*_orden_de_alumnos()))
+    if asignacion is not None and asignacion.es_de_clase:   # su lista real en esas fechas, no todos los del grado
+        integrantes = tramos_de_asignacion(asignacion, desde, hasta)
+        inscripciones = [i for i in inscripciones if i.pk in integrantes]
     if asignacion:
         registros = con_justificada_materia(sin_dias_suspendidos(AsistenciaMateria.objects.filter(materia_grado=asignacion, fecha__range=(desde, hasta), inscripcion__in=inscripciones)))
     else:

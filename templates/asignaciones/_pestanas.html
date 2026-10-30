@@ -7,4 +7,7 @@
     <a class="pill{% if seccion == 'carga' %} is-active{% endif %}" href="{% url 'asignaciones:carga' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'carga' %} aria-current="page"{% endif %}>Carga por profesor</a>
   {% endif %}
   <a class="pill{% if seccion == 'movimientos' %} is-active{% endif %}" href="{% url 'asignaciones:movimientos' %}"{% if seccion == 'movimientos' %} aria-current="page"{% endif %}>Movimientos</a>
+  {% if perms.Alumnos.view_bloquesimultaneo %}
+    <a class="pill{% if seccion == 'bloques' %} is-active{% endif %}" href="{% url 'asignaciones:bloques' %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}"{% if seccion == 'bloques' %} aria-current="page"{% endif %}>Bloques simultáneos</a>
+  {% endif %}
 </nav>

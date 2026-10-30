@@ -1,0 +1,162 @@
+{% extends "asignaciones/_bloque_base.html" %}
+
+{% block title %}{{ bloque.nombre }} | CISAHUAYO{% endblock %}
+{% block migaja %}Detalle{% endblock %}
+{% block encabezado %}{{ bloque.nombre }} <span class="tag tag--{% if bloque.activo %}success{% elif bloque.en_preparacion %}info{% else %}neutral{% endif %}">{{ bloque.get_estado_display }}</span>{% endblock %}
+{% block descripcion %}{{ bloque.get_nivel_display }} · Ciclo {{ bloque.ciclo }}{% if bloque.semestre %} · {{ bloque.semestre.nombre }}{% endif %} · del {{ bloque.vigente_desde|date:"d/m/Y" }} al {{ bloque.vigente_hasta|date:"d/m/Y" }}{% if bloque.mezclar_grados %} · mezcla grados{% endif %}.{% endblock %}
+
+{% block acciones %}
+  <a class="btn" href="{% url 'asignaciones:bloque_distribuir' bloque.pk %}">{% include "partials/icon.html" with name="users" icon_class="icon--sm" %} Distribuir estudiantes</a>
+  {% if puede_gestionar %}
+    <a class="btn" href="{% url 'asignaciones:bloque_editar' bloque.pk %}">{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
+    {% if not bloque.activo %}
+      <form method="post" action="{% url 'asignaciones:bloque_activar' bloque.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--primary"{% if problemas %} disabled title="Resuelve lo pendiente"{% endif %}>{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} {% if bloque.en_preparacion %}Activar{% else %}Reactivar{% endif %}</button>
+      </form>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block contenido %}
+  {% if bloqueo %}
+    <div class="alert alert--info alert--spaced" role="note">
+      {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+      <p class="alert__body">{{ bloqueo }}</p>
+    </div>
+  {% endif %}
+  {% if problemas %}
+    <div class="alert alert--warning alert--spaced" role="note">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <div class="alert__body"><p><strong>Para activarlo falta:</strong></p><ul>{% for problema in problemas %}<li>{{ problema }}</li>{% endfor %}</ul></div>
+    </div>
+  {% elif conflictos %}
+    <div class="alert alert--error alert--spaced" role="alert">
+      {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+      <div class="alert__body"><p><strong>Conflictos de horario:</strong></p><ul>{% for conflicto in conflictos %}<li>{{ conflicto.texto }}</li>{% endfor %}</ul></div>
+    </div>
+  {% endif %}
+
+  <div class="stat-grid">
+    <div class="stat"><p class="stat__label">Participantes</p><p class="stat__value">{{ datos.total }}</p><p class="stat__hint">{% if bloque.poblacion_delimitada %}población delimitada{% else %}de los grupos de origen{% endif %}</p></div>
+    <div class="stat{% if datos.pendientes %} stat--attention{% endif %}"><p class="stat__label">Pendientes</p><p class="stat__value">{{ datos.pendientes|length }}</p><p class="stat__hint">sin opción al {{ datos.fecha|date:"d/m/Y" }}</p></div>
+    <div class="stat"><p class="stat__label">Opciones</p><p class="stat__value">{{ datos.opciones|length }}</p><p class="stat__hint">grupos de clase</p></div>
+    <div class="stat{% if conflictos %} stat--attention{% endif %}"><p class="stat__label">Conflictos</p><p class="stat__value">{{ conflictos|length }}</p><p class="stat__hint">estudiante, docente o aula</p></div>
+  </div>
+
+  <article class="card" aria-labelledby="titulo-opciones">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="book-open" %}<h2 class="card__title" id="titulo-opciones">Opciones</h2>
+      {% if puede_gestionar and not bloque.activo %}<a class="btn btn--sm card__header-action" href="{% url 'asignaciones:opcion_crear' bloque.pk %}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar opción</a>{% endif %}
+    </header>
+    {% if datos.opciones %}
+      <ul class="bloque-opciones">
+        {% for fila in datos.opciones %}
+          {% with clase=fila.clase %}
+            <li class="bloque-opcion{% if not clase.activa %} is-inactive{% endif %}">
+              <p class="bloque-opcion__nombre">{{ clase.nombre }}{% if not clase.activa %} <span class="tag">Desactivada</span>{% endif %}</p>
+              <p class="bloque-opcion__dato">{{ clase.asignacion.materia }}</p>
+              <p class="bloque-opcion__dato">{{ clase.asignacion.profesor|default:"Sin docente" }}{% if clase.aula %} · Aula {{ clase.aula }}{% endif %}</p>
+              <p class="bloque-opcion__dato"><strong>{{ fila.total }}</strong> estudiante{{ fila.total|pluralize }}{% if fila.por_grupo %} ({% for grupo, cuantos in fila.por_grupo %}{{ grupo }}: {{ cuantos }}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}</p>
+              {% if puede_gestionar %}
+                <div class="bloque-opcion__acciones">
+                  <a class="btn btn--ghost btn--sm" href="{% url 'asignaciones:opcion_editar' clase.pk %}">Editar</a>
+                  <form method="post" action="{% url 'asignaciones:opcion_estado' clase.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="fecha" value="{{ hoy|date:'Y-m-d' }}">
+                    <button type="submit" class="btn btn--ghost btn--sm">{% if clase.activa %}Desactivar{% else %}Reactivar{% endif %}</button>
+                  </form>
+                </div>
+              {% endif %}
+            </li>
+          {% endwith %}
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card__body"><p class="text-muted">Agrega las opciones del bloque: una por cada grupo de clase, de la misma materia o de materias distintas.</p></div>
+    {% endif %}
+  </article>
+
+  <div class="info-grid">
+    <article class="card" aria-labelledby="titulo-horario">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">Días y horarios</h2>
+        {% if puede_gestionar and not bloque.activo %}<a class="btn btn--sm card__header-action" href="{% url 'asignaciones:bloque_horarios' bloque.pk %}">Cambiar</a>{% endif %}
+      </header>
+      <div class="card__body">
+        {% if horarios %}
+          <ul class="bloque-lista">{% for horario in horarios %}<li>{{ horario.get_dia_semana_display }} · {{ horario.hora_inicio|time:"H:i" }}–{{ horario.hora_fin|time:"H:i" }}{% if horario.semana %} · Semana {{ horario.semana }}{% endif %}</li>{% endfor %}</ul>
+        {% else %}
+          <p class="text-muted">Todavía no tiene horario.</p>
+        {% endif %}
+      </div>
+    </article>
+    <article class="card" aria-labelledby="titulo-poblacion">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="users" %}<h2 class="card__title" id="titulo-poblacion">Población</h2>
+        {% if bloque.poblacion_delimitada %}<a class="btn btn--sm card__header-action" href="{% url 'asignaciones:bloque_poblacion' bloque.pk %}">Delimitar</a>{% endif %}
+      </header>
+      <div class="card__body">
+        <p>Grupos de origen: {% for grupo in grupos %}{{ grupo }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+        <p class="text-muted">{% if bloque.poblacion_delimitada %}Solo participan los estudiantes elegidos.{% else %}Participan todos sus estudiantes.{% endif %}</p>
+      </div>
+    </article>
+    <article class="card" aria-labelledby="titulo-sustituye">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="refresh-cw" %}<h2 class="card__title" id="titulo-sustituye">Clases que sustituye</h2>
+        {% if puede_gestionar and not bloque.activo %}<a class="btn btn--sm card__header-action" href="{% url 'asignaciones:bloque_sustituye' bloque.pk %}">Cambiar</a>{% endif %}
+      </header>
+      <div class="card__body">
+        {% if sustituye %}
+          <ul class="bloque-lista">{% for asignacion in sustituye %}<li>{{ asignacion.materia }} · {{ asignacion.grupo }}</li>{% endfor %}</ul>
+        {% else %}
+          <p class="text-muted">No sustituye ninguna clase del horario base.</p>
+        {% endif %}
+      </div>
+    </article>
+    {% if datos.pendientes %}
+      <article class="card" aria-labelledby="titulo-pendientes">
+        <header class="card__header card__header--icon">
+          {% include "partials/icon.html" with name="circle-alert" %}<h2 class="card__title" id="titulo-pendientes">Pendientes de asignación</h2>
+          <a class="btn btn--sm card__header-action" href="{% url 'asignaciones:bloque_distribuir' bloque.pk %}?opcion=pendientes">Asignar</a>
+        </header>
+        <ul class="bloque-lista">
+          {% for inscripcion in datos.pendientes|slice:":12" %}<li><span>{{ inscripcion.alumno }}</span><span class="text-muted">{{ inscripcion.grupo }}</span></li>{% endfor %}
+        </ul>
+        {% if datos.pendientes|length > 12 %}<p class="card__foot text-muted">Y {{ datos.pendientes|length|add:"-12" }} más.</p>{% endif %}
+      </article>
+    {% endif %}
+  </div>
+
+  {% if puede_gestionar and bloque.activo %}
+    <article class="card" aria-labelledby="titulo-desactivar">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="lock" %}<h2 class="card__title" id="titulo-desactivar">Desactivar el bloque</h2>
+      </header>
+      <form class="bloque-accion" method="post" action="{% url 'asignaciones:bloque_desactivar' bloque.pk %}">
+        {% csrf_token %}
+        <div class="field">
+          <label class="field__label" for="desactivar-fecha">Desde</label>
+          <input class="field__control" type="date" id="desactivar-fecha" name="fecha" value="{{ hoy|date:'Y-m-d' }}">
+        </div>
+        <button type="submit" class="btn btn--danger btn--sm">Desactivar</button>
+        <p class="text-muted">Sus clases salen del horario desde esa fecha. La asistencia y las calificaciones registradas se conservan.</p>
+      </form>
+    </article>
+  {% endif %}
+
+  <article class="card" aria-labelledby="titulo-historial">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-historial">Historial</h2>
+    </header>
+    {% if historial %}
+      <ul class="bloque-lista">
+        {% for entrada in historial %}
+          <li><span>{{ entrada.change_message }}</span><span class="text-muted">{{ entrada.action_time|date:"d/m/Y H:i" }} · {{ entrada.user.get_full_name|default:entrada.user.username }}</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="card__body"><p class="text-muted">Sin movimientos.</p></div>
+    {% endif %}
+  </article>
+{% endblock %}

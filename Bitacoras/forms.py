@@ -70,7 +70,7 @@ class EntradaForm(EstiloCamposMixin, forms.Form):
         self.asignaciones = list(asignaciones)
         self.fields['asignacion'].queryset = MateriaGrado.objects.filter(pk__in=[a.pk for a in self.asignaciones]).select_related('materia', 'grupo__nombre', 'grupo__grado', 'ciclo')
         grupos = {a.grupo_id for a in self.asignaciones} | ({entrada.grupo_id} if entrada else set())
-        self.fields['grupo'].queryset = (Grupo.objects.filter(pk__in=grupos).select_related('grado', 'nombre')
+        self.fields['grupo'].queryset = (Grupo.con_clases.filter(pk__in=grupos).select_related('grado', 'nombre')
                                          .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'nombre__orden', 'nombre__nombre'))
         # Todas las versiones (una clase pasada pudo darse con un horario anterior); la pantalla ofrece las que
         # corresponden a la fecha (día, semana A/B y vigencia) y aquí se vuelve a revisar
@@ -228,7 +228,8 @@ class FiltroForm(EstiloCamposMixin, forms.Form):
         grupo, elegido = datos.get('grupo'), datos.get('alumno')
         condicion = Q(pk=elegido.pk) if elegido else Q(pk__in=[])
         if grupo is not None:
-            condicion |= Q(inscripciones__grupo=grupo) | Q(vinculos_bitacora__entrada__in=self.alcance.entradas(anuladas=True).filter(grupo=grupo))
+            condicion |= (Q(inscripciones__grupo=grupo) | Q(inscripciones__clases__clase__asignacion__grupo=grupo)
+                          | Q(vinculos_bitacora__entrada__in=self.alcance.entradas(anuladas=True).filter(grupo=grupo)))
         return Alumno.objects.filter(condicion).distinct().order_by('apellido_paterno', 'apellido_materno', 'nombre')
 
     def datos(self):

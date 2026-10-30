@@ -23,6 +23,7 @@ from Alumnos.asistencia_docente import (
     justificar_falta,
     puede_justificar,
 )
+from Alumnos.clases import pertenece
 from Alumnos.models import Inscripcion
 from CISAHUAYO.permisos import requiere_permisos
 
@@ -104,7 +105,7 @@ def materias_justificar(request, pk):
         )
     except CambioRechazado as error:
         respuesta = {'ok': False, 'mensaje': error.mensaje}
-        if inscripcion.grupo_id == asignacion.grupo_id:   # lo que está guardado
+        if pertenece(inscripcion, asignacion, datos['fecha']):   # lo que está guardado
             guardada = celda_de(asignacion, inscripcion, datos['fecha'], request.user, puede_justificar=True)
             respuesta.update(celda_json(guardada, ve_justificaciones))
         return JsonResponse(respuesta, status=error.codigo)

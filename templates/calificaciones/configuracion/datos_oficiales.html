@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% comment %}
+  Ajustes › Boletas: los datos oficiales de cada nivel que llevan sus boletas (Calificaciones.DatosOficialesNivel): la
+  clave del centro de trabajo (CCT) en el encabezado y quien dirige el nivel en la firma.
+{% endcomment %}
+
+{% block title %}Boletas · Ajustes | CISAHUAYO{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'ajustes:inicio' %}">Ajustes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Boletas</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Ajustes</h1>
+      <p class="page-header__description">Datos oficiales de cada nivel para las boletas: la clave del centro de trabajo va en el encabezado y el nombre y cargo de quien dirige, en la firma. Un nivel sin datos imprime la boleta sin ellos.</p>
+    </div>
+  </header>
+  {% include "ajustes/_pestanas.html" %}
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    {% for nivel, nombre, form in formularios %}
+      <section class="card" aria-labelledby="datos-{{ nivel|lower }}">
+        <header class="card__header">
+          <h2 class="card__title" id="datos-{{ nivel|lower }}">{{ nombre }}</h2>
+          {% if form.instance.pk %}<span class="tag tag--success">Guardados</span>{% else %}<span class="tag">Sin datos</span>{% endif %}
+        </header>
+        <fieldset class="card__body form-grid"{% if not puede_cambiar %} disabled{% endif %}>
+          {% include "partials/field.html" with campo=form.cct %}
+          {% include "partials/field.html" with campo=form.director %}
+          {% include "partials/field.html" with campo=form.cargo %}
+        </fieldset>
+      </section>
+    {% endfor %}
+    {% if puede_cambiar %}
+      <div class="action-bar">
+        <a class="btn" href="{% url 'ajustes:inicio' %}">Cancelar</a>
+        <button type="submit" class="btn btn--primary">Guardar</button>
+      </div>
+    {% endif %}
+  </form>
+{% endblock %}

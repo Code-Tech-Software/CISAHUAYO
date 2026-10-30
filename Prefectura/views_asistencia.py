@@ -16,7 +16,7 @@ from django.views.decorators.http import require_GET
 
 from Alumnos.academico import ciclo_actual
 from Alumnos.asistencia_docente import asignaciones_del_ciclo
-from Alumnos.models import Justificacion
+from Alumnos.models import IntegranteClase, Justificacion
 from Asistencias.views_docente import contexto_de_matriz, respuesta_de_reporte
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
@@ -35,7 +35,9 @@ JUSTIFICAR, EXPORTAR = 'Prefectura.justificar', 'Prefectura.exportar'
 
 def _asignaciones(alcance):
     """Las materias (una por grupo) del ciclo actual de los grupos del alcance."""
-    return asignaciones_del_ciclo().filter(grupo__in=alcance.grupos_visibles())
+    # Un grupo de clase mezcla grupos base: se ven los que tienen estudiantes del alcance
+    con_estudiantes = IntegranteClase.objects.filter(inscripcion__grupo__in=alcance.grupos_visibles()).values('clase__asignacion')
+    return asignaciones_del_ciclo().filter(Q(grupo__in=alcance.grupos_visibles()) | Q(pk__in=con_estudiantes))
 
 
 # ---------------------------------------------------------------------------

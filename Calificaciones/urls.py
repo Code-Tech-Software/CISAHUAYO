@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_configuracion
+from . import views, views_boletas, views_configuracion
 
 app_name = 'calificaciones'
 
@@ -20,6 +20,10 @@ urlpatterns = [
     path('calificaciones/semestre/<int:pk>/guardar/', views.semestre_guardar, name='semestre_guardar'),
     path('calificaciones/semestre/<int:pk>/imprimir/', views.semestre_imprimir, name='semestre_imprimir'),
     path('calificaciones/semestre/<int:pk>/excel/', views.semestre_excel, name='semestre_excel'),
+    # Boletas e historial académico (kárdex) para imprimir o PDF
+    path('calificaciones/boletas/estudiante/<int:pk>/', views_boletas.boleta_estudiante, name='boleta'),
+    path('calificaciones/boletas/grupo/<int:pk>/', views_boletas.boletas_grupo, name='boletas_grupo'),
+    path('calificaciones/kardex/<int:pk>/', views_boletas.kardex, name='kardex'),
 
     # Sistema › Ajustes › Calificaciones: rubros, porcentajes y reglas de cada materia
     path('ajustes/calificaciones/', views_configuracion.configuracion, name='configuracion'),
@@ -27,4 +31,6 @@ urlpatterns = [
     path('ajustes/calificaciones/materias/<int:pk>/crear/', views_configuracion.configuracion_crear, name='configuracion_crear'),
     path('ajustes/calificaciones/<int:pk>/version/', views_configuracion.configuracion_version, name='configuracion_version'),
     path('ajustes/calificaciones/copiar/', views_configuracion.configuracion_copiar, name='configuracion_copiar'),
+    # Sistema › Ajustes › Boletas: datos oficiales de cada nivel (CCT y quien lo dirige)
+    path('ajustes/boletas/', views_boletas.datos_oficiales, name='datos_oficiales'),
 ]

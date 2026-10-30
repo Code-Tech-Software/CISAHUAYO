@@ -76,14 +76,14 @@ def ciclo_editable(ciclo):
 
 def materias_por_asignar(grado, ciclo):
     """Materias activas del grado (o todavía sin grado) que el grado no imparte (de forma vigente) en el ciclo."""
-    vigentes = MateriaGrado.objects.filter(ciclo=ciclo, grado=grado, activa=True).values('materia_id')
+    vigentes = MateriaGrado.objects.de_plan().filter(ciclo=ciclo, grado=grado, activa=True).values('materia_id')
     return Materia.objects.filter(Q(grado=grado) | Q(grado__isnull=True), activa=True).exclude(pk__in=vigentes)
 
 
 def grados_por_asignar(materia, ciclo):
     """Grados disponibles (activos y visibles) que todavía no imparten (de forma vigente) la materia en el ciclo, en
     orden escolar: solo el suyo (una materia la imparte un solo grado) o, si todavía no tiene, cualquiera."""
-    vigentes = MateriaGrado.objects.filter(ciclo=ciclo, materia=materia, activa=True).values('grado_id')
+    vigentes = MateriaGrado.objects.de_plan().filter(ciclo=ciclo, materia=materia, activa=True).values('grado_id')
     grados = Grado.objects.disponibles().exclude(pk__in=vigentes)
     if materia.grado_id:
         grados = grados.filter(pk=materia.grado_id)
@@ -94,7 +94,7 @@ def grados_vigentes_fuera_de(materia, grado):
     """Los grados distintos de `grado` en cuyo plan sigue la materia, en el ciclo actual o en uno próximo (mientras
     siga ahí no se le puede dar otro grado). En orden escolar."""
     vigentes = q_ciclo('VIGENTE', 'ciclo__')
-    en_el_plan = MateriaGrado.objects.filter(vigentes, materia=materia, activa=True).values('grado_id')
+    en_el_plan = MateriaGrado.objects.de_plan().filter(vigentes, materia=materia, activa=True).values('grado_id')
     return list(Grado.objects.filter(pk__in=en_el_plan).exclude(pk=grado.pk).academicos())
 
 
@@ -151,7 +151,7 @@ def extender_plan_al_grupo(grupo):
     )
     MateriaGrado.objects.filter(grupo=grupo, suspendida=True).update(suspendida=False)   # las de ciclos ya cerrados
     plan = set(
-        MateriaGrado.objects.filter(vigentes, grado=grupo.grado, activa=True, materia__activa=True)
+        MateriaGrado.objects.de_plan().filter(vigentes, grado=grupo.grado, activa=True, materia__activa=True)
         .values_list('ciclo_id', 'materia_id')
     )
     agregadas = 0
@@ -192,7 +192,7 @@ def motivo_para_no_dar_de_baja(grado, inscritos=None):
 def _vigentes_en_otros_grados(materia, grado):
     """Las asignaciones activas de la materia en otro grado, en el ciclo actual o en uno próximo."""
     vigentes = q_ciclo('VIGENTE', 'ciclo__')
-    return MateriaGrado.objects.filter(vigentes, materia=materia, activa=True).exclude(grado=grado)
+    return MateriaGrado.objects.de_plan().filter(vigentes, materia=materia, activa=True).exclude(grado=grado)
 
 
 def motivo_para_no_cambiar_de_grado(materia, grado):

@@ -23,6 +23,7 @@ from django.utils import timezone
 from Alumnos.academico import ciclo_actual
 from Alumnos.asistencia_docente import asignaciones_del_ciclo, asignaciones_del_profesor, inscripciones_de
 from Alumnos.asistencias import con_justificada_materia, sin_dias_suspendidos
+from Alumnos.clases import lista_de
 from Alumnos.models import AsistenciaMateria, CicloEscolar, Inscripcion, MateriaGrado, Periodo
 from Alumnos.periodos import periodos_para_grado
 from Usuarios.docentes import profesor_de
@@ -415,8 +416,13 @@ def puede_reabrir(usuario, asignacion):
 
 
 def periodos_de(asignacion):
-    """Los periodos de la materia: los de su nivel (en preparatoria por semestres, los de su semestre)."""
-    return list(periodos_para_grado(asignacion.ciclo, asignacion.grado))
+    """Los periodos de la materia: los de su nivel (en preparatoria por semestres, los de su semestre). Los de un grupo
+    de clase, solo los que tocan las fechas de su bloque."""
+    periodos = list(periodos_para_grado(asignacion.ciclo, asignacion.grado))
+    if asignacion.es_de_clase:
+        bloque = asignacion.clase.bloque
+        periodos = [p for p in periodos if p.fecha_inicio <= bloque.vigente_hasta and bloque.vigente_desde <= p.fecha_fin]
+    return periodos
 
 
 def periodo_sugerido(periodos, hoy=None):
@@ -449,7 +455,7 @@ def motivo_de_solo_lectura(acta, usuario, configuracion=None, hoy=None):
     if acta.cerrada:
         return f'Las calificaciones de {acta.periodo.nombre} están cerradas.'
     from .semestres import bloqueo_de_captura
-    bloqueo = bloqueo_de_captura(acta.periodo)
+    bloqueo = bloqueo_de_captura(acta.periodo) or bloqueo_de_clase(acta.asignacion)
     if bloqueo:
         return bloqueo
     if not acta.asignacion.ciclo.activo:
@@ -462,6 +468,22 @@ def motivo_de_solo_lectura(acta, usuario, configuracion=None, hoy=None):
     configuracion = configuracion if configuracion is not None else configuracion_del_acta(acta)
     if configuracion is None:
         return 'La materia todavía no tiene configuración de calificaciones (rubros y porcentajes).'
+    return ''
+
+
+def bloque_de_clase(asignacion):
+    return asignacion.clase.bloque if asignacion.es_de_clase else None
+
+
+def bloqueo_de_clase(asignacion):
+    """Por qué no se captura en un grupo de clase: su bloque o la opción están desactivados ('' si se puede)."""
+    if not asignacion.es_de_clase:
+        return ''
+    clase = asignacion.clase
+    if not clase.bloque.activo:
+        return f'El bloque {clase.bloque.nombre} no está activo: sus calificaciones se consultan, pero no se capturan.'
+    if not clase.activa:
+        return f'{clase.nombre} está desactivada: sus calificaciones se consultan, pero no se capturan.'
     return ''
 
 
@@ -484,6 +506,11 @@ class Fila:
     @property
     def estado_texto(self):
         return ESTADOS_DE_ESTUDIANTE[self.estado]
+
+    @property
+    def salio(self):
+        """El último día que estuvo, si dejó este grupo de clase a mitad del periodo (no impide cerrar)."""
+        return getattr(self.inscripcion, 'salio_el', None)
 
 
 @dataclass
@@ -558,8 +585,16 @@ def _reglas_de_foto(reglas):
 
 def estudiantes_de(acta):
     """Los estudiantes del grupo con su número de lista (orden alfabético por apellidos, como la lista del grupo).
-    También los que ya pasaron al semestre siguiente: estas calificaciones son de su semestre."""
-    return list(inscripciones_de(acta.asignacion, con_concluidas=True))
+    También los que ya pasaron al semestre siguiente: estas calificaciones son de su semestre. En un grupo de clase, los
+    integrantes del periodo: quien lo dejó a la mitad sale marcado (`salio_el`) y no impide cerrar el acta."""
+    asignacion, periodo = acta.asignacion, acta.periodo
+    desde, hasta = max(periodo.fecha_inicio, asignacion.ciclo.fecha_inicio), min(periodo.fecha_fin, asignacion.ciclo.fecha_fin)
+    inscripciones = list(inscripciones_de(asignacion, con_concluidas=True, desde=desde, hasta=hasta))
+    lista = lista_de(asignacion, desde, hasta)
+    if lista.tramos:
+        for inscripcion in inscripciones:
+            inscripcion.salio_el = lista.salida(inscripcion.pk, hasta)
+    return inscripciones
 
 
 def tabla(acta, inscripciones=None):
@@ -869,11 +904,11 @@ def problemas_para_cerrar(acta, tabla_=None):
     for rubro in tabla_.rubros:
         if rubro.tipo != Rubro.DIRECTA and not any(a.rubro_id == rubro.pk and not a.anulada for a in tabla_.actividades):
             problemas.append(f'«{rubro.nombre}» no tiene actividades vigentes.')
-    sin_final = [f for f in tabla_.filas if not f.resultado.completo]
+    sin_final = [f for f in tabla_.filas if not f.resultado.completo and not f.salio]
     if sin_final:
         problemas.append(f'{len(sin_final)} estudiante(s) sin calificación en algún rubro: ' + ', '.join(f'{f.numero}. {f.nombre}' for f in sin_final[:5])
                          + ('…' if len(sin_final) > 5 else '') + '.')
-    pendientes = sum(f.resultado.pendientes for f in tabla_.filas)
+    pendientes = sum(f.resultado.pendientes for f in tabla_.filas if not f.salio)
     if pendientes:
         problemas.append(f'Hay {pendientes} calificación(es) pendiente(s) en actividades vigentes: captúralas (un cero también cuenta) o anula la actividad.')
     return problemas

@@ -1419,3 +1419,105 @@ a.ciclo-grupo:hover {
   margin: 0 0 var(--space-4);
   padding-left: var(--space-5);
 }
+
+/* --- Bloques simultáneos (2026-10-30) ---------------------------------------------------------------------------------- */
+.slot--simultaneo {
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.slot__sustituida {
+  display: block;
+  color: var(--color-warning);
+  font-size: var(--text-2xs);
+}
+
+.bloque-opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  list-style: none;
+}
+
+.bloque-opcion {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.bloque-opcion.is-inactive {
+  opacity: 0.6;
+}
+
+.bloque-opcion__nombre {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+}
+
+.bloque-opcion__dato {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.bloque-opcion__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.bloque-lista {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  list-style: none;
+}
+
+.bloque-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border);
+  font-size: var(--text-sm);
+}
+
+.bloque-lista li:last-child {
+  border-bottom: 0;
+}
+
+.bloque-grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-2);
+}
+
+.bloque-horas {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.bloque-horas__fila {
+  display: grid;
+  grid-template-columns: 8rem 1fr 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bloque-accion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+}
+
+.bloque-accion .field {
+  min-width: 12rem;
+}

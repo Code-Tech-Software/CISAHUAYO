@@ -55,7 +55,7 @@ def _pendientes_por_grado(ciclo):
     sin estudiantes. Solo para el ciclo actual o uno próximo (de uno cerrado no hay nada que preparar)."""
     if not ciclo_editable(ciclo):
         return {}
-    plan = MateriaGrado.objects.filter(ciclo=ciclo, activa=True, grupo__activo=True)
+    plan = MateriaGrado.objects.de_plan().filter(ciclo=ciclo, activa=True, grupo__activo=True)
     sin_profesor = dict(plan.filter(profesor__isnull=True).order_by().values_list('grado_id').annotate(total=Count('pk')))
     sin_horario = dict(
         plan.exclude(pk__in=HorarioMateria.objects.values('materia_grado_id'))
@@ -262,7 +262,7 @@ def grado_detalle(request, pk):
 
     # Plan de materias del grado en el ciclo (con las quitadas, marcadas) y su resumen de horario
     materias = con_habilitados(con_resumen_de_horario(
-        MateriaGrado.objects.filter(grado=grado, ciclo=ciclo).select_related('materia', 'profesor', 'grupo__nombre', 'grupo__grado')
+        MateriaGrado.objects.de_plan().filter(grado=grado, ciclo=ciclo).select_related('materia', 'profesor', 'grupo__nombre', 'grupo__grado')
         .prefetch_related('horarios').order_by('materia__nombre', 'grupo__nombre__orden', 'grupo__nombre__nombre')
         if ciclo else MateriaGrado.objects.none()
     ))

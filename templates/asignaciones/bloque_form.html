@@ -1,0 +1,58 @@
+{% extends "asignaciones/_bloque_base.html" %}
+
+{% block title %}{% if es_edicion %}Editar {{ bloque.nombre }}{% else %}Nuevo bloque simultáneo{% endif %} | CISAHUAYO{% endblock %}
+{% block migaja %}{% if es_edicion %}Editar{% else %}Nuevo bloque{% endif %}{% endblock %}
+{% block encabezado %}{% if es_edicion %}Editar bloque{% else %}Nuevo bloque simultáneo{% endif %}{% endblock %}
+{% block descripcion %}{% if form.activo %}El bloque está activo: solo cambian su nombre y el fin de su vigencia. Para lo demás, desactívalo.{% else %}Después agregarás sus horarios, sus opciones y distribuirás a los estudiantes. Mientras esté en preparación no afecta a nada.{% endif %}{% endblock %}
+
+{% block contenido %}
+  <form class="form-page" method="post" novalidate data-bloque-form>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert--error" role="alert">
+        {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+        <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
+      </div>
+    {% endif %}
+    <section class="card" aria-labelledby="seccion-bloque">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="layers" %}<h2 class="card__title" id="seccion-bloque">Datos del bloque</h2>
+      </header>
+      <div class="card__body form-grid">
+        {% include "partials/field.html" with campo=form.nombre clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.nivel %}
+        {% include "partials/field.html" with campo=form.ciclo %}
+        {% include "partials/field.html" with campo=form.semestre %}
+        {% include "partials/field.html" with campo=form.vigente_desde %}
+        {% include "partials/field.html" with campo=form.vigente_hasta %}
+      </div>
+    </section>
+    <section class="card" aria-labelledby="seccion-origen">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="users" %}<h2 class="card__title" id="seccion-origen">Grupos de origen</h2>
+      </header>
+      <div class="card__body">
+        <fieldset class="field{% if form.grupos_origen.errors %} is-invalid{% endif %}">
+          <legend class="visually-hidden">{{ form.grupos_origen.label }}</legend>
+          <div class="bloque-grupos" data-bloque-grupos>
+            {% for opcion in form.grupos_origen %}
+              <label class="choice choice--check" for="{{ opcion.id_for_label }}" data-nivel="{{ opcion.data.value.instance.grado.nivel }}" data-grado="{{ opcion.data.value.instance.grado_id }}">
+                {{ opcion.tag }}<span class="choice__box">{{ opcion.choice_label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          {% for error in form.grupos_origen.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          <p class="field__error" data-bloque-aviso hidden>Son de distintos grados: activa «Permitir mezclar grados del mismo nivel» para combinarlos.</p>
+        </fieldset>
+        <div class="choice-group">
+          <label class="choice choice--check" for="{{ form.mezclar_grados.id_for_label }}">{{ form.mezclar_grados }}<span class="choice__box">{{ form.mezclar_grados.label }}</span></label>
+          <label class="choice choice--check" for="{{ form.poblacion_delimitada.id_for_label }}">{{ form.poblacion_delimitada }}<span class="choice__box">{{ form.poblacion_delimitada.label }}</span></label>
+        </div>
+      </div>
+    </section>
+    <footer class="action-bar">
+      <a class="btn btn--ghost" href="{% if bloque %}{{ bloque.get_absolute_url }}{% else %}{% url 'asignaciones:bloques' %}{% endif %}">Cancelar</a>
+      <button type="submit" class="btn btn--primary">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar</button>
+    </footer>
+  </form>
+{% endblock %}

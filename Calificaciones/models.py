@@ -23,11 +23,11 @@ en Calificaciones/reglas.py y Calificaciones/semestres.py.
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import Q
 
-from Alumnos.models import CicloEscolar, Inscripcion, Materia, MateriaGrado, Periodo, Semestre
+from Alumnos.models import CicloEscolar, Grado, Inscripcion, Materia, MateriaGrado, Periodo, Semestre
 
 CERO, DIEZ = Decimal('0'), Decimal('10')
 CALIFICACION = [MinValueValidator(CERO), MaxValueValidator(DIEZ)]
@@ -323,3 +323,30 @@ class CambioSemestre(models.Model):
     class Meta:
         ordering = ['-fecha', '-pk']
         default_permissions = ()
+
+
+class DatosOficialesNivel(models.Model):
+    """Los datos oficiales de un nivel que llevan sus boletas (pedido del 2026-10-29): la clave del centro de trabajo
+    (CCT) y quien lo dirige, para el encabezado y la firma. Sin registro, la boleta sale sin esos datos."""
+
+    nivel = models.CharField(max_length=20, choices=Grado.NIVEL_CHOICES, unique=True, verbose_name='Nivel')
+    cct = models.CharField(
+        max_length=10, blank=True, verbose_name='Clave del centro de trabajo (CCT)',
+        validators=[RegexValidator(r'^[0-9]{2}[A-Z]{3}[0-9]{4}[A-Z0-9]$', 'Escribe la clave como la da la SEP: 10 caracteres, p. ej. 16PPR0123K.')],
+    )
+    director = models.CharField(max_length=120, blank=True, verbose_name='Nombre de quien dirige el nivel')
+    cargo = models.CharField(max_length=80, blank=True, verbose_name='Cargo', help_text='Como aparece bajo la firma: «Directora de Primaria».')
+    modificado = models.DateTimeField(auto_now=True)
+    modificado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        verbose_name = 'Datos oficiales de un nivel'
+        verbose_name_plural = 'Datos oficiales por nivel'
+        default_permissions = ('view', 'change')
+
+    def __str__(self):
+        return f'{self.get_nivel_display()}: {self.cct or "sin CCT"}'
+
+    @property
+    def cargo_o_predeterminado(self):
+        return self.cargo or f'Dirección de {self.get_nivel_display()}'

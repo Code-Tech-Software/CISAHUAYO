@@ -23,7 +23,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from Alumnos.academico import ciclo_actual
-from Alumnos.asistencias import clases_del_dia, motivo_sin_clases
+from Alumnos.asistencias import clases_del_estudiante, motivo_sin_clases
 from Alumnos.models import Inscripcion, TutorAlumno
 
 from . import notificaciones
@@ -147,7 +147,7 @@ def horario_del_dia(inscripcion, fecha):
     motivo = motivo_sin_clases(fecha, inscripcion.ciclo, nivel=inscripcion.grado.nivel)
     if motivo:
         return None, motivo.rstrip('.')
-    clases = clases_del_dia(inscripcion.grupo, inscripcion.ciclo, fecha)
+    clases = clases_del_estudiante(inscripcion, fecha)
     if not clases:
         return None, 'no tiene clases en su horario ese día'
     return (min(clase.inicio for clase in clases), max(clase.fin for clase in clases)), None

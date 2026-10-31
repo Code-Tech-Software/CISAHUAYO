@@ -671,10 +671,33 @@
   --color-surface: #fcfdfd;
 }
 
-/* Menú lateral claro (pedido del 2026-10-30): la opción bajo el ratón en azul vivo, con el texto oscuro (blanco daría
-   3.3:1). La opción actual conserva su fondo: su texto es del color de acción y no se leería sobre este azul. */
-:root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .nav__link:not([aria-current="page"]):hover {
-  background: #548bf6;
+/* Menú lateral claro (referencias del usuario, 2026-10-30): como en el menú de color, dentro de él se redefinen los
+   roles y los estados de app.css toman estos colores. La opción actual no cambia bajo el ratón: su regla va después
+   de la del hover. La transición es la de .nav__link (--transition-fast, que respeta «reducir movimiento»). */
+:root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .sidebar {
+  --color-surface: #f9fafb;
+  --color-surface-hover: #eff2f4;
+  --color-primary-soft: #e1ebf4;
+  --color-primary-text: #0062b5;
+  --color-text-soft: #636b6f;
+  --color-text-strong: #080d11;
+}
+
+/* La forma, también en oscuro y con el menú de color: fondo redondeado, sin chip ni marca al borde. El icono hereda
+   el color del texto y no lleva transición propia: se animaría con retraso respecto al texto. */
+:root[data-tema="corporate"] .nav__link {
+  border-radius: 1rem;
+}
+
+:root[data-tema="corporate"] .nav__link .nav__chip {
+  background: transparent;
+  color: inherit;
+  transform: none;
+  transition: none;
+}
+
+:root[data-tema="corporate"] .nav__link[aria-current="page"]::before {
+  content: none;
 }
 
 /* Etiquetas sólidas: el color lleno y el texto del color de la superficie (blanco en claro, oscuro en oscuro) */

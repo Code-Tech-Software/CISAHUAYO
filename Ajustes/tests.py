@@ -269,8 +269,13 @@ class ColoresDeLosTemasTests(SimpleTestCase):
                 with self.subTest(tema=clave, par=que):
                     self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')
 
-    def test_la_opcion_bajo_el_raton_del_menu_corporate_se_lee(self):
-        css = TEMAS_CSS.read_text(encoding='utf-8')
-        fondo = re.search(r'\.nav__link:not\(\[aria-current="page"\]\):hover \{\s*background: (#[0-9a-f]{6});', css).group(1)
-        texto = mezcla(entradas_de_cada_tema()['corporate']['primary'], 10, '#0c1015')   # --color-text-strong
-        self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')
+    def test_los_estados_del_menu_claro_de_corporate_se_leen(self):
+        selector = ':root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .sidebar'
+        menu = dict(re.findall(r'--color-([a-z-]+): (#[0-9a-f]{6});', bloque(TEMAS_CSS.read_text(encoding='utf-8'), selector)))
+        for estado, texto, fondo in (
+            ('normal', menu['text-soft'], menu['surface']),
+            ('bajo el ratón', menu['text-strong'], menu['surface-hover']),
+            ('actual', menu['primary-text'], menu['primary-soft']),
+        ):
+            with self.subTest(estado=estado):
+                self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')

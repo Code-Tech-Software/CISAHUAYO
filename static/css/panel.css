@@ -42,7 +42,7 @@
 
 .panel-filtros {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(10.75rem, 1fr));   /* cabe «2026-2027 (actual)» en la lista del ciclo */
   align-items: end;
   gap: var(--space-2);
   padding: var(--space-3);
@@ -63,7 +63,7 @@
 }
 
 /* Si cabe, todo en una fila: el alcance y las fechas un poco más anchos, «Restablecer» a su medida */
-@container panel (min-width: 78rem) {
+@container panel (min-width: 95rem) {
   .panel-filtros {
     grid-template-columns: minmax(0, 1.25fr) repeat(4, minmax(0, 1fr)) repeat(2, minmax(0, 1.2fr)) auto;
   }

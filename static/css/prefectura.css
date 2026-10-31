@@ -56,7 +56,7 @@
 
 /* 3. Filtros y tablas ------------------------------------------------------------------------------------------ */
 .prefectura-filtros {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14.5rem), 1fr));   /* caben «Abiertos y en seguimiento»… */
   align-items: end;
 }
 
@@ -87,7 +87,7 @@
 
 .prefectura-filtros__fila {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14.5rem), 1fr));
   gap: var(--space-3);
   margin-top: var(--space-3);
 }

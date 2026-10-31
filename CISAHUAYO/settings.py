@@ -36,6 +36,10 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
+    # Antes de daphne y de staticfiles: gana el `runserver` del primero que lo define, y este envuelve el de daphne para
+    # que los estáticos los sirva WhiteNoise (revalida en cada carga con DEBUG). Después de daphne no tiene efecto: los
+    # CSS/JS salen sin Cache-Control y el navegador se queda horas con la copia vieja tras un cambio.
+    'whitenoise.runserver_nostatic',
     # Servidor ASGI (Django Channels): `runserver` y producción atienden también los WebSockets de la mensajería
     'daphne',
     'django.contrib.admin',
@@ -43,9 +47,6 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    # Antes de staticfiles: así `runserver` sirve los estáticos con WhiteNoise (revalida en cada carga con DEBUG) y el
-    # navegador no se queda con una copia vieja de los CSS/JS tras un cambio.
-    'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
     'cloudinary',
     'cloudinary_storage',

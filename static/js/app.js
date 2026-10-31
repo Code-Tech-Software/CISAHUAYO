@@ -1122,7 +1122,42 @@
     qsa('[data-shortcut-kbd]').forEach((kbd) => { kbd.textContent = '⌘ K'; });
   }
 
+  /* En los navegadores que dibujan las listas con el diseño del sistema (appearance: base-select, en app.css) el valor
+     elegido va en un <selectedcontent>, lo único que admite puntos suspensivos. Sigue siendo el <select> de siempre: el
+     botón no se envía ni recibe el foco, y lo que un script le haga a la lista (.value) se refleja solo. Dos excepciones
+     del navegador, resueltas aquí: un script que cambia todas las opciones con replaceChildren se lleva el botón, y
+     reiniciar el formulario no actualiza el valor visible. Las de la barra del editor de mensajes no pasan por aquí (no
+     llevan .field__control): son cortas y su script toma cualquier <button> como un botón suyo. */
+  function initSelects() {
+    if (!CSS.supports('appearance', 'base-select')) return;
+    const SELECTS = 'select.field__control.field__control--select:not([multiple])';
+
+    const enhance = (select) => {
+      if (select.firstElementChild?.localName === 'button') return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.append(document.createElement('selectedcontent'));
+      select.prepend(button);
+    };
+
+    qsa(SELECTS).forEach(enhance);
+    new MutationObserver((records) => records.forEach(({ target, addedNodes }) => {
+      if (target.matches(SELECTS)) enhance(target);
+      addedNodes.forEach((node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        if (node.matches(SELECTS)) enhance(node);
+        qsa(SELECTS, node).forEach(enhance);
+      });
+    })).observe(document.body, { childList: true, subtree: true });
+
+    /* El evento llega antes de reiniciar: se espera a que termine */
+    document.addEventListener('reset', ({ target }) => setTimeout(() => {
+      qsa(SELECTS, target).forEach((select) => { select.selectedIndex = select.selectedIndex; });
+    }));
+  }
+
   initSidebar();
+  initSelects();
   initMenus();
   initPalette();
   initTheme();

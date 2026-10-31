@@ -393,14 +393,21 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-/* Cuatro selectores (materias): desde escritorio, la búsqueda en su propia fila y los selectores juntos debajo */
+/* Cuatro selectores (materias): desde escritorio, la búsqueda en su propia fila y los selectores debajo, tantos por fila
+   como quepan sin cortar sus textos (con el menú lateral abierto, a 1024 px son tres) y desde 1280 px los cuatro juntos */
 @media (min-width: 64rem) {
   .filters--cuatro {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr));
   }
 
   .filters--cuatro .filters__search {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 80rem) {
+  .filters--cuatro {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   }
 }
 
@@ -732,6 +739,10 @@ a.slot__name:hover {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.bulk-bar .btn--sm {
+  min-height: var(--control-height-md);   /* a la altura de la lista que tiene al lado */
 }
 
 .bulk-bar.is-active {

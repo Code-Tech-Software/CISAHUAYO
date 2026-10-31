@@ -57,6 +57,15 @@
   align-items: end;
 }
 
+/* El reporte: las acciones en su propia fila; a su lado, las listas se quedan sin espacio para sus textos */
+.filters.reuniones-filtros--reporte {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+}
+
+.reuniones-filtros--reporte .filters__actions {
+  grid-column: 1 / -1;
+}
+
 .reuniones-filtros__busqueda {
   flex: 1 1 14rem;
 }

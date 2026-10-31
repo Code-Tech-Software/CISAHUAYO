@@ -658,6 +658,7 @@ body {
 }
 
 .scroll-x {
+  position: relative;   /* contiene los textos .visually-hidden: sin esto, escapan y ensanchan la página */
   max-width: 100%;
   overflow-x: auto;
 }
@@ -803,16 +804,28 @@ body {
   box-shadow: var(--ring-focus);
 }
 
-/* La flecha se dibuja con degradados para poder usar los colores del tema */
+/* La flecha se dibuja con degradados para poder usar los colores del tema: dos trazos finos, como los iconos */
 .field__control--select {
-  padding-inline-end: var(--space-8);
+  --flecha: var(--color-text-muted);
+  padding-inline-end: 1.75rem;
+  resize: none;
   appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
-    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
-  background-position: calc(100% - 1.25rem) 50%, calc(100% - 0.9rem) 50%;
-  background-size: 0.4rem 0.4rem;
+    linear-gradient(45deg, transparent calc(50% - 0.75px), var(--flecha) calc(50% - 0.75px), var(--flecha) calc(50% + 0.75px), transparent calc(50% + 0.75px)),
+    linear-gradient(-45deg, transparent calc(50% - 0.75px), var(--flecha) calc(50% - 0.75px), var(--flecha) calc(50% + 0.75px), transparent calc(50% + 0.75px));
+  background-position: calc(100% - 1.05rem) 50%, calc(100% - 0.75rem) 50%;
+  background-size: 0.3rem 0.3rem;
   background-repeat: no-repeat;
+}
+
+/* Con la opción vacía («Selecciona un grado», «Todos…») se ve como texto de ayuda, no como un valor elegido. Las opciones
+   conservan su color: en la lista del sistema operativo lo heredarían de aquí. */
+.field__control--select:not([multiple]):has(option[value=""]:checked) {
+  color: var(--color-text-muted);
+}
+
+.field__control--select option {
+  color: var(--color-text);
 }
 
 /* --- Listas desplegables modernas ---------------------------------------------------------------------
@@ -823,34 +836,61 @@ body {
 @supports (appearance: base-select) {
   .field__control--select:not([multiple]) {
     appearance: base-select;
+    position: relative;
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    padding-inline-end: var(--space-3);
     overflow: hidden;
     background-image: none;
     /* El valor elegido en un renglón, como en las listas nativas: en una columna angosta no crece y todas las listas de
-       una fila miden lo mismo (el texto largo se corta; la lista abierta lo muestra completo) */
-    text-overflow: ellipsis;
+       una fila miden lo mismo (la lista abierta muestra el texto completo) */
     white-space: nowrap;
     cursor: pointer;
   }
 
-  /* La flecha: un ángulo que gira al abrir */
+  /* El valor elegido: app.js lo pone en un <selectedcontent>, lo único que admite puntos suspensivos */
+  .field__control--select:not([multiple]) > button {
+    all: unset;
+    display: block;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .field__control--select:not([multiple]) selectedcontent {
+    display: block;
+    min-height: 1lh;   /* sin opciones también mide un renglón */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* La orilla de la flecha, con el fondo del campo (también deshabilitado): antes de que cargue app.js, y en las listas
+     que no pasan por él, tapa el texto que no cabe */
+  .field__control--select:not([multiple])::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    width: 1.75rem;
+    background: inherit;
+  }
+
+  /* La flecha: un ángulo fino, fijo en la orilla aunque el texto no quepa, que gira al abrir */
   .field__control--select:not([multiple])::picker-icon {
     content: "";
-    flex-shrink: 0;
-    width: 0.45rem;
-    height: 0.45rem;
-    margin: -0.2rem 0.15rem 0 auto;
-    border-right: 2px solid var(--color-text-muted);
-    border-bottom: 2px solid var(--color-text-muted);
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 0.75rem;
+    z-index: 1;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-top: -0.3rem;
+    border-right: 1.5px solid var(--flecha);
+    border-bottom: 1.5px solid var(--flecha);
     transform: rotate(45deg);
     transition: transform var(--transition-fast), margin var(--transition-fast);
   }
 
   .field__control--select:not([multiple]):open::picker-icon {
-    margin-top: 0.25rem;
+    margin-top: -0.05rem;
     transform: rotate(225deg);
   }
 
@@ -2891,7 +2931,8 @@ body {
    Mobile first: cada fila es una tarjeta que usa data-label como título de cada dato; desde
    640 px es una tabla normal (ver sección 6). Las columnas --wide aparecen desde 1280 px. */
 .table-card {
-  overflow: hidden;
+  position: relative;   /* contiene los textos .visually-hidden: sin esto, escapan y ensanchan la página */
+  overflow: auto hidden;   /* las columnas que no caben se alcanzan deslizando de lado */
   border: var(--border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
@@ -3055,6 +3096,11 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* En una fila de filtros, los botones a la altura de las listas y los campos */
+.filters .btn--sm {
+  min-height: var(--control-height-md);
 }
 
 /* --- Pagination ------------------------------------------------------------------------------ */
@@ -5751,7 +5797,7 @@ body {
 /* Componentes de listados · Escritorio amplio (≥ 1280 px): todo en una sola fila */
 @media (min-width: 80rem) {
   .filters {
-    grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(0, 1fr)) auto;
+    grid-template-columns: minmax(16rem, 1.25fr) repeat(3, minmax(0, 1fr)) auto;   /* que las listas lean sus textos */
   }
 
   .filters__search {

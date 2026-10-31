@@ -87,6 +87,28 @@ class ControlesDeTodasLasPaginasTests(BaseTestCase):
         self.assertEqual(sin_selector_de_hora, [])
 
 
+class EstaticosEnDesarrolloTests(SimpleTestCase):
+    def test_whitenoise_va_antes_de_daphne(self):
+        """Gana el `runserver` de la primera app que lo define. Con daphne antes, los CSS/JS salen sin Cache-Control y el
+        navegador se queda con la copia vieja: los cambios no se ven aunque el servidor ya sirva los archivos nuevos."""
+        apps = settings.INSTALLED_APPS
+        self.assertLess(apps.index('whitenoise.runserver_nostatic'), apps.index('daphne'))
+        self.assertLess(apps.index('daphne'), apps.index('django.contrib.staticfiles'))
+
+
+class ListasDelEditorDeMensajesTests(SimpleTestCase):
+    def test_app_js_no_toca_las_listas_del_editor(self):
+        """app.js pone un <button> en las listas (para cortar con puntos suspensivos el valor elegido) y
+        editor-mensajes.js cancela el mousedown de cualquier <button> de su barra: con él, sus listas ya no se abrirían.
+        Se distinguen porque no llevan .field__control."""
+        app = (ESTATICOS / 'js' / 'app.js').read_text(encoding='utf-8')
+        self.assertIn('.field__control.field__control--select', re.search(r"const SELECTS = '([^']+)'", app).group(1))
+        etiquetas = ETIQUETA_SELECT.findall((PLANTILLAS / 'mensajes' / '_editor.html').read_text(encoding='utf-8'))
+        self.assertEqual(len(etiquetas), 3)
+        for etiqueta in etiquetas:
+            self.assertNotRegex(etiqueta, r'\bfield__control(?!--)')
+
+
 class SelectoresEnLaBaseTests(SimpleTestCase):
     """Los selectores de fecha y de hora van en la plantilla base y se mejoran solos los campos que llegan después
     (formularios en ventana): modal-form.js no debe volver a ejecutarlos ni las plantillas incluirlos otra vez."""

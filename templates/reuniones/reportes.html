@@ -24,7 +24,7 @@
 
   {% include "reuniones/_navegacion.html" with activa='reportes' %}
 
-  <form class="filters reuniones-filtros" method="get" aria-label="Periodo del reporte">
+  <form class="filters reuniones-filtros reuniones-filtros--reporte" method="get" aria-label="Periodo del reporte">
     <div class="filters__field"><label class="field__label" for="{{ form.desde.id_for_label }}">{{ form.desde.label }}</label>{{ form.desde }}</div>
     <div class="filters__field"><label class="field__label" for="{{ form.hasta.id_for_label }}">{{ form.hasta.label }}</label>{{ form.hasta }}</div>
     <div class="filters__field"><label class="field__label" for="{{ form.nivel.id_for_label }}">{{ form.nivel.label }}</label>{{ form.nivel }}</div>

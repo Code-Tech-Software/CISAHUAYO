@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, IntegerField, Q, Value
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -26,7 +26,8 @@ from Alumnos.utils import ESTADOS_MX, proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, POR_PAGINA_DEFECTO, paginar
 from CISAHUAYO.permisos import requiere_permisos
 from CISAHUAYO.redireccion import destino_seguro, solo_numeros
-from Usuarios.docentes import desvincular, puede_desactivar_su_cuenta
+from Horarios.alcance import sin_horarios_ajenos, solo_sus_clases
+from Usuarios.docentes import desvincular, profesor_de, puede_desactivar_su_cuenta
 from Usuarios.seguridad import ACCION_ALTA, ACCION_BAJA, ACCION_CAMBIO, puede_gestionar, registrar, rol_de
 from Usuarios.views import SESION_CREDENCIALES, guardar_credenciales
 
@@ -203,8 +204,9 @@ def profesor_desvincular(request, pk):
 # ---------------------------------------------------------------------------
 # Perfil: materias que imparte y su horario semanal (por ciclo)
 # ---------------------------------------------------------------------------
-def _horario_del_profesor(profesor, ciclo):
-    """(asignaciones con su resumen de horario, bloques, minutos por semana) del profesor en el ciclo."""
+def _horario_del_profesor(profesor, ciclo, usuario):
+    """(asignaciones con su resumen de horario, bloques, minutos por semana) del profesor en el ciclo. Una cuenta del perfil
+    Docente solo recibe el suyo (Horarios/alcance.py)."""
     asignaciones = []
     if ciclo:
         asignaciones = con_resumen_de_horario(
@@ -212,8 +214,9 @@ def _horario_del_profesor(profesor, ciclo):
             .select_related('materia', 'grado', 'grupo__nombre', 'grupo__grado').prefetch_related('horarios')
             .order_by(orden_de_nivel('grado__nivel'), 'grado__numero', 'grupo__nombre__orden', 'materia__nombre')
         )
+    sin_horarios_ajenos(asignaciones, usuario)
     # Cada bloque ya trae su asignación (con materia y grado) gracias al prefetch: sin consultas por celda
-    bloques = [bloque for asignacion in asignaciones for bloque in asignacion.horarios.all()]
+    bloques = [bloque for asignacion in asignaciones if not hasattr(asignacion, 'horario_ajeno') for bloque in asignacion.horarios.all()]
     return asignaciones, bloques, minutos_semanales(bloques)
 
 
@@ -243,7 +246,7 @@ def profesor_detalle(request, pk):
     profesor = get_object_or_404(Profesor, pk=pk)
     ciclos = list(CicloEscolar.objects.all())
     ciclo = elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
-    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo)
+    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo, request.user)
     editable = ciclo_editable(ciclo) and profesor.estatus == 'ACTIVO'
 
     # Materias del ciclo que todavía no tienen profesor, de los niveles en los que da clases: de ahí se le asignan
@@ -412,8 +415,10 @@ def profesor_horario_imprimir(request, pk):
     """El horario semanal del profesor en el formato de los reportes, listo para imprimir o guardar en PDF (con
     ?pdf=1 se abre solo el diálogo de impresión)."""
     profesor = get_object_or_404(Profesor, pk=pk)
+    if solo_sus_clases(request.user) and profesor_de(request.user) != profesor:
+        raise Http404
     ciclo = elegir_ciclo(request.GET.get('ciclo', ''), list(CicloEscolar.objects.all()))
-    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo)
+    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo, request.user)
     volver = f"{reverse('profesores:detalle', args=[profesor.pk])}{f'?ciclo={ciclo.pk}' if ciclo else ''}#horario"
     return render(request, 'profesores/horario_hoja.html', {
         'profesor': profesor, 'ciclo': ciclo, 'asignaciones': asignaciones, 'cuadricula': cuadricula(bloques),
@@ -429,7 +434,7 @@ def profesor_expediente(request, pk):
     reporte, para imprimir o guardar en PDF desde el navegador (con ?pdf=1 se abre solo el diálogo de impresión)."""
     profesor = get_object_or_404(Profesor, pk=pk)
     ciclo = elegir_ciclo(request.GET.get('ciclo', ''), list(CicloEscolar.objects.all()))
-    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo)
+    asignaciones, bloques, minutos = _horario_del_profesor(profesor, ciclo, request.user)
     volver = f"{reverse('profesores:detalle', args=[profesor.pk])}{f'?ciclo={ciclo.pk}' if ciclo else ''}"
     return render(request, 'profesores/expediente_hoja.html', {
         'profesor': profesor, 'ciclo': ciclo, 'asignaciones': asignaciones, **vista360.contexto(profesor, ciclo),

@@ -18,6 +18,7 @@ from CISAHUAYO.permisos import requiere_permisos
 from Usuarios.seguridad import ACCION_ALTA, ACCION_BAJA, ACCION_CAMBIO, registrar
 
 from . import cambios
+from .alcance import no_docentes, solo_sus_clases
 from .forms import ConfiguracionHorarioForm, ExcepcionSemanaForm
 from .views import _ciclo_de, fecha_en_ciclo
 
@@ -79,12 +80,15 @@ def _pantalla(request, ciclos, ciclo, **extra):
 
 @requiere_permisos('Alumnos.view_horariomateria')
 def semanas(request):
+    if solo_sus_clases(request.user):   # su semana A o B de cada nivel ya está en «Mi horario»
+        return redirect('horarios:mio')
     ciclos, ciclo = _ciclo_de(request)
     return _pantalla(request, ciclos, ciclo)
 
 
 @require_POST
 @requiere_permisos('Alumnos.change_horariomateria')
+@no_docentes
 def modalidad(request):
     """Guarda la modalidad de un nivel. Al activar las semanas A y B, el horario fijo pasa a ser la semana A y se copia
     a la B; al volver al horario fijo, la semana A queda para todas las semanas y la B se quita."""
@@ -126,6 +130,7 @@ def modalidad(request):
 
 @require_POST
 @requiere_permisos('Alumnos.change_horariomateria')
+@no_docentes
 def excepcion(request):
     """Una excepción de semana. «Ver vista previa» muestra cómo quedan las semanas siguientes sin guardar nada; «Guardar
     excepción» la guarda (si esa semana ya tenía una, la reemplaza)."""
@@ -174,6 +179,7 @@ def excepcion(request):
 
 @require_POST
 @requiere_permisos('Alumnos.change_horariomateria')
+@no_docentes
 def excepcion_eliminar(request, pk):
     excepcion = get_object_or_404(ExcepcionSemana.objects.select_related('configuracion__ciclo'), pk=pk)
     configuracion = excepcion.configuracion

@@ -19,6 +19,7 @@ from Alumnos.academico import (
 )
 from Alumnos.docentes import asignar_profesor, descripcion_del_cambio, deshabilitar, habilitar, profesores_por_nivel
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion, se_empalman
+from Horarios.alcance import sin_horarios_ajenos
 from Alumnos.models import CicloEscolar, Grado, HorarioMateria, Materia, MateriaGrado, Profesor, orden_de_nivel
 from Alumnos.semanas import Calendario
 from Alumnos.utils import proteger_celda_csv
@@ -171,6 +172,7 @@ def materia_detalle(request, pk):
     for clase in clases:
         clase.del_nivel = ','.join(str(pk) for pk in por_nivel.get(clase.grado.nivel, []))
     minutos = sum(clase.minutos for clase in clases)
+    sin_horarios_ajenos(clases, request.user)
     # Si se quitó del plan (o el ciclo empezó después de registrarla) se puede volver a poner en su grado
     puede_agregarse = (
         editable and materia.activa and materia.grado_id is not None and materia.grado.activo

@@ -24,6 +24,13 @@ TONOS_ESTATUS = {
 
 
 @register.filter
+def solo_sus_clases(usuario):
+    """Si la cuenta es del perfil Docente: consulta sus clases, no los horarios de los grupos (Horarios/alcance.py)."""
+    from Horarios.alcance import solo_sus_clases as consulta
+    return consulta(usuario)
+
+
+@register.filter
 def telefono(valor):
     """353 533 0557 (si no son 10 dígitos, devuelve el texto tal cual)."""
     digitos = normalizar_telefono(valor)

@@ -25,6 +25,7 @@ from Alumnos.docentes import (
     resumen_del_ciclo,
 )
 from Alumnos.horarios import con_resumen_de_horario
+from Horarios.alcance import sin_horarios_ajenos
 from Alumnos.models import CicloEscolar, MateriaGrado, Profesor, orden_de_nivel
 from Alumnos.utils import proteger_celda_csv
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, paginar
@@ -62,7 +63,7 @@ def tablero(request):
     ciclos, ciclo = _ciclo_de(request)
     filtro = FiltroAsignacionesForm(request.GET)
     pagina, rango_paginas, por_pagina = paginar(request, _asignaciones_filtradas(filtro, ciclo), por_defecto=POR_PAGINA_TABLERO)
-    filas = con_habilitados(con_resumen_de_horario(pagina.object_list))
+    filas = sin_horarios_ajenos(con_habilitados(con_resumen_de_horario(pagina.object_list)), request.user)
     editable = ciclo_editable(ciclo)
 
     return render(request, 'asignaciones/tablero.html', {
@@ -230,7 +231,7 @@ def movimientos(request):
 def exportar(request):
     _, ciclo = _ciclo_de(request)
     filtro = FiltroAsignacionesForm(request.GET)
-    filas = con_habilitados(con_resumen_de_horario(_asignaciones_filtradas(filtro, ciclo)))
+    filas = sin_horarios_ajenos(con_habilitados(con_resumen_de_horario(_asignaciones_filtradas(filtro, ciclo))), request.user)
 
     respuesta = HttpResponse(content_type='text/csv; charset=utf-8')
     respuesta['Content-Disposition'] = f'attachment; filename="asignaciones-{timezone.localdate():%Y-%m-%d}.csv"'

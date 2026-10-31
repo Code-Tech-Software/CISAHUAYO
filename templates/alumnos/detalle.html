@@ -353,7 +353,7 @@
                   <li class="timeline__item timeline__item--stack">
                     <span class="timeline__main">
                       {% if perms.Alumnos.view_grupo %}<a class="link-subtle" href="{{ inscripcion.grupo.get_absolute_url }}?ciclo={{ inscripcion.ciclo_id }}">{{ inscripcion.grupo }}</a>{% else %}{{ inscripcion.grupo }}{% endif %}
-                      {% if inscripcion.activa and perms.Alumnos.view_horariomateria %}
+                      {% if inscripcion.activa and perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
                         <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grupo' inscripcion.grupo_id %}?ciclo={{ inscripcion.ciclo_id }}" aria-label="Ver el horario de {{ inscripcion.grupo }}" data-tooltip="Ver horario">
                           {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
                         </a>

@@ -185,7 +185,9 @@
                   {% endif %}
                 </td>
                 <td class="table__cell table__col--wide" data-label="Horario">
-                  {% if fila.lineas %}
+                  {% if fila.horario_ajeno %}
+                    <span class="text-muted">—</span>
+                  {% elif fila.lineas %}
                     <span class="cell-stack">
                       {% for linea in fila.lineas %}<span class="cell-stack__main">{{ linea }}</span>{% endfor %}
                       <span class="cell-stack__sub">{{ fila.duracion }} por semana</span>
@@ -204,7 +206,7 @@
                       {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %}
                     </button>
                   {% endif %}
-                  {% if perms.Alumnos.view_horariomateria %}
+                  {% if perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
                     <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grupo' fila.grupo_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ fila.grupo }}" data-tooltip="Ver horario">
                       {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
                     </a>

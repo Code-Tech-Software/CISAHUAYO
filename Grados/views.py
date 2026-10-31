@@ -22,6 +22,7 @@ from Alumnos.academico import (
 )
 from Alumnos.docentes import con_habilitados
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion
+from Horarios.alcance import sin_horarios_ajenos
 from Alumnos.models import CicloEscolar, Grado, Grupo, HorarioMateria, Inscripcion, MateriaGrado, Profesor
 from Alumnos.utils import proteger_celda_csv
 from Alumnos.vinculos import prefetch_vinculos_activos
@@ -276,6 +277,7 @@ def grado_detalle(request, pk):
     )
     # Horas por semana de un grupo (el primero): todos los grupos llevan el mismo plan
     minutos = sum(asignacion.minutos for asignacion in materias_vigentes if grupos and asignacion.grupo_id == grupos[0].pk)
+    sin_horarios_ajenos(materias, request.user)
     editable = ciclo_editable(ciclo)
     historial = (
         Inscripcion.objects.filter(grado=grado).order_by()

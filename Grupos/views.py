@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from Alumnos.academico import ciclo_actual, ciclo_editable, elegir_ciclo
 from Alumnos.docentes import con_habilitados
 from Alumnos.horarios import con_resumen_de_horario, formatear_duracion
+from Horarios.alcance import sin_horarios_ajenos
 from Alumnos.models import CicloEscolar, Grado, Grupo, Inscripcion, MateriaGrado, NombreGrupo, Profesor
 from Alumnos.vinculos import prefetch_vinculos_activos
 from CISAHUAYO.permisos import requiere_permisos
@@ -88,6 +89,7 @@ def grupo_detalle(request, pk):
             .prefetch_related('horarios').order_by('materia__nombre')
         ))
     minutos = sum(asignacion.minutos for asignacion in materias)
+    sin_horarios_ajenos(materias, request.user)
 
     return render(request, 'grupos/detalle.html', {
         'grupo': grupo,

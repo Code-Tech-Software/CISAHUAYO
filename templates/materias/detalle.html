@@ -109,15 +109,15 @@
         <div class="details__item">
           <dt class="details__label">Horario</dt>
           <dd class="details__value">
-            {% for linea in clase.lineas %}<span class="details__note">{{ linea }}</span>{% empty %}<span class="tag tag--warning">Sin horario</span>{% endfor %}
+            {% if clase.horario_ajeno %}<span class="text-muted">—</span>{% else %}{% for linea in clase.lineas %}<span class="details__note">{{ linea }}</span>{% empty %}<span class="tag tag--warning">Sin horario</span>{% endfor %}{% endif %}
           </dd>
         </div>
         <div class="details__item">
           <dt class="details__label">Por semana</dt>
-          <dd class="details__value{% if not clase.duracion %} details__value--empty{% endif %}">{{ clase.duracion|default:"Sin horas todavía" }}</dd>
+          <dd class="details__value{% if not clase.duracion %} details__value--empty{% endif %}">{% if clase.horario_ajeno %}—{% else %}{{ clase.duracion|default:"Sin horas todavía" }}{% endif %}</dd>
         </div>
       </dl>
-      {% if editable and perms.Alumnos.change_materiagrado or perms.Alumnos.view_horariomateria %}
+      {% if editable and perms.Alumnos.change_materiagrado or perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
         <div class="card__body card__actions">
           {% if editable and perms.Alumnos.change_materiagrado %}
             <button type="button" class="btn btn--sm{% if not clase.profesor %} btn--primary{% endif %}" data-modal-open="modal-asignar-profesor" data-asignar-profesor
@@ -126,7 +126,7 @@
               {% include "partials/icon.html" with name="presentation" icon_class="icon--sm" %} {% if clase.profesor %}Cambiar profesor{% else %}Asignar profesor{% endif %}
             </button>
           {% endif %}
-          {% if perms.Alumnos.view_horariomateria %}
+          {% if perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
             <a class="btn btn--sm" href="{% url 'horarios:grupo' clase.grupo_id %}?ciclo={{ ciclo.pk }}">
               {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} {% if clase.lineas %}Ver horario{% else %}Armar horario{% endif %}
             </a>

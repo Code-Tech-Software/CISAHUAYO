@@ -1092,6 +1092,13 @@ a.slot__name:hover {
 }
 
 @media (max-width: 40rem) {
+  .semana-nav__actual {   /* que las flechas se queden a sus lados aunque el rango de fechas sea largo */
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+    text-align: center;
+  }
+
   .semana-nav__ir {
     width: 100%;
     margin-left: 0;
@@ -1520,4 +1527,10 @@ a.ciclo-grupo:hover {
 
 .bloque-accion .field {
   min-width: 12rem;
+}
+
+/* «Mi horario» del perfil Docente: los filtros en una fila que se acomoda al ancho */
+.filters.filtros-mi-horario {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  align-items: center;
 }

@@ -1,11 +1,12 @@
 from django.urls import path
 
-from . import views, views_semanas
+from . import views, views_docente, views_semanas
 
 app_name = 'horarios'
 
 urlpatterns = [
     path('', views.horario_lista, name='lista'),
+    path('mi-horario/', views_docente.mi_horario, name='mio'),   # el perfil Docente: solo sus clases
     path('grupo/<int:grupo_pk>/', views.horario_grupo, name='grupo'),
     path('grupo/<int:grupo_pk>/nuevo/', views.horario_crear, name='crear'),
     path('grupo/<int:grupo_pk>/copiar-semana/', views.copiar_semana, name='copiar_semana'),

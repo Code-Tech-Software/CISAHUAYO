@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static alumnos_extras %}
+
+{% block title %}Mi horario | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/academico.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Mi horario</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Mi horario</h1>
+      <p class="page-header__description">{% if ciclo %}Ciclo {{ ciclo }}. {% endif %}Tus clases de la semana: solo las materias y los grupos que tienes asignados.</p>
+    </div>
+    {% if bloques %}
+      <div class="page-header__actions">
+        <button type="button" class="btn" data-print>
+          {% include "partials/icon.html" with name="printer" icon_class="icon--sm" %}
+          Imprimir
+        </button>
+      </div>
+    {% endif %}
+  </header>
+
+  {% if ciclo %}
+    <form class="filters filtros-mi-horario" method="get" role="search" aria-label="Filtrar mi horario" data-autosubmit>
+      {% if ciclos|length > 1 %}
+        <div class="filters__field">
+          <label class="visually-hidden" for="filtro-ciclo">Ciclo escolar</label>
+          <select class="field__control field__control--select" id="filtro-ciclo" name="ciclo">
+            {% for c in ciclos %}
+              <option value="{{ c.pk }}"{% if c == ciclo %} selected{% endif %}>{{ c.nombre }} · {{ c.estado_display|lower }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% else %}
+        <input type="hidden" name="ciclo" value="{{ ciclo.pk }}">
+      {% endif %}
+      {% for campo in filtro %}
+        <div class="filters__field">
+          <label class="visually-hidden" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+          {{ campo }}
+        </div>
+      {% endfor %}
+      <div class="filters__actions">
+        <button type="submit" class="btn btn--primary btn--sm" data-autosubmit-fallback>Ver</button>
+        {% if filtro.activos %}
+          <a class="btn btn--ghost btn--sm" href="{% url 'horarios:mio' %}?ciclo={{ ciclo.pk }}">Limpiar</a>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if not editable %}
+      <div class="alert alert--info alert--spaced" role="note">
+        {% include "partials/icon.html" with name="info" icon_class="alert__icon" %}
+        <p class="alert__body">El ciclo {{ ciclo }} está cerrado: su horario se conserva tal como quedó.</p>
+      </div>
+    {% endif %}
+
+    <div class="semana-nav" role="group" aria-label="Elegir la semana">
+      {% if puede_anterior %}
+        <a class="btn btn--ghost btn--icon btn--sm" href="{% querystring fecha=semana.anterior|date:'Y-m-d' %}" aria-label="Semana anterior" data-tooltip="Semana anterior">{% include "partials/icon.html" with name="chevron-left" %}</a>
+      {% endif %}
+      <p class="semana-nav__actual">
+        <strong>Semana</strong>
+        <span>{{ semana.rango }}</span>
+      </p>
+      {% if puede_siguiente %}
+        <a class="btn btn--ghost btn--icon btn--sm" href="{% querystring fecha=semana.siguiente|date:'Y-m-d' %}" aria-label="Semana siguiente" data-tooltip="Semana siguiente">{% include "partials/icon.html" with name="chevron-right" %}</a>
+      {% endif %}
+      <form class="semana-nav__ir" method="get">
+        {% for clave, valor in request.GET.items %}{% if clave != 'fecha' %}<input type="hidden" name="{{ clave }}" value="{{ valor }}">{% endif %}{% endfor %}
+        <label class="visually-hidden" for="semana-fecha">Ir a la semana de</label>
+        <input class="field__control" type="date" id="semana-fecha" name="fecha" value="{{ fecha|date:'Y-m-d' }}" min="{{ desde|date:'Y-m-d' }}" max="{{ hasta|date:'Y-m-d' }}">
+        <button type="submit" class="btn btn--sm">Ir</button>
+        {% if esta_semana %}<a class="btn btn--ghost btn--sm" href="{% querystring fecha=esta_semana|date:'Y-m-d' %}">Esta semana</a>{% endif %}
+      </form>
+    </div>
+
+    {% if semanas_por_nivel %}
+      <p class="semanas-hoy semanas-hoy--banda">
+        {% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %}
+        <span>{% for nombre, info in semanas_por_nivel %}{{ nombre }}: <strong class="semana-letra semana-letra--{{ info.tipo|lower }}">{{ info.nombre }}</strong>{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+      </p>
+    {% endif %}
+
+    {% if sin_clases %}
+      <ul class="semana-sin-clases" aria-label="Días sin clases de esta semana">
+        {% for dia, motivo, niveles in sin_clases %}
+          <li>{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} {{ dia|date:"l j" }}: sin clases ({{ motivo }}) · {{ niveles }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+
+  {% if bloques %}
+    <div class="stat-grid">
+      <div class="stat">
+        <p class="stat__label">Materias</p>
+        <p class="stat__value">{{ total_materias }}</p>
+        <p class="stat__hint">esta semana</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Grupos</p>
+        <p class="stat__value">{{ total_grupos }}</p>
+        <p class="stat__hint">esta semana</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Bloques</p>
+        <p class="stat__value">{{ bloques|length }}</p>
+        <p class="stat__hint">clases por semana</p>
+      </div>
+      <div class="stat">
+        <p class="stat__label">Horas por semana</p>
+        <p class="stat__value">{{ horas_semanales|default:"—" }}</p>
+        <p class="stat__hint">de clase</p>
+      </div>
+    </div>
+
+    <section class="card print-area" aria-labelledby="titulo-horario">
+      <header class="card__header card__header--icon">
+        {% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-horario">{{ user.get_full_name|default:user.username }} · Semana del {{ semana.rango }} · Ciclo {{ ciclo }}</h2>
+      </header>
+      {% include "horarios/_cuadricula.html" with cuadricula=cuadricula etiqueta=etiqueta_horario modo="profesor" mostrar_semana=True sin_enlace=True %}
+    </section>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="clock" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">No tienes horarios asignados para este periodo.</p>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

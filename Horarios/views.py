@@ -1,10 +1,12 @@
 from collections import defaultdict
 from datetime import timedelta
 from itertools import groupby
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -30,6 +32,7 @@ from Alumnos.semanas import A, B, Calendario, bloques_de_semana, fecha_de
 from CISAHUAYO.permisos import requiere_permisos
 
 from . import cambios
+from .alcance import asignaciones_del_docente, ciclos_del_docente, no_docentes, solo_sus_clases
 from .forms import HorarioCrearForm, HorarioEditarForm, RecreoCrearForm, RecreoEditarForm, mensaje_de_empalme_profesor
 
 
@@ -60,11 +63,23 @@ def _ciclo_de(request):
     return ciclos, elegir_ciclo(request.GET.get('ciclo', ''), ciclos)
 
 
+def _a_mi_horario(request, campo, pk):
+    """El perfil Docente no consulta horarios de grupos ni de grados: va a sus clases de ahí (`campo`: grupo o grado) y, si
+    no tiene ninguna, para él no existe."""
+    ciclo = elegir_ciclo(request.GET.get('ciclo', ''), ciclos_del_docente(request.user))
+    if not asignaciones_del_docente(request.user, ciclo).filter(**{campo: pk}).exists():
+        raise Http404
+    return redirect(f"{reverse('horarios:mio')}?{urlencode({'ciclo': ciclo.pk, campo: pk})}")
+
+
 # ---------------------------------------------------------------------------
 # Índice: los grupos con un resumen de su horario
 # ---------------------------------------------------------------------------
 @requiere_permisos('Alumnos.view_horariomateria')
 def horario_lista(request):
+    if solo_sus_clases(request.user):
+        destino = reverse('horarios:mio')
+        return redirect(f'{destino}?{request.GET.urlencode()}' if request.GET else destino)
     ciclos, ciclo = _ciclo_de(request)
 
     estadisticas = {}
@@ -173,6 +188,8 @@ def horario_grupo(request, grupo_pk):
     """El horario de un grupo. Con horario fijo, su horario semanal. Con semanas A y B: las dos plantillas (pestañas
     «Semana A» y «Semana B», donde se captura) y, aparte, el horario de una semana concreta del calendario («Por
     fecha»), con las versiones que estaban en vigor y los días sin clases. Abre en la plantilla de la semana de hoy."""
+    if solo_sus_clases(request.user):
+        return _a_mi_horario(request, 'grupo', grupo_pk)
     grupo = get_object_or_404(Grupo.objects.select_related('grado', 'nombre'), pk=grupo_pk)
     ciclos, ciclo = _ciclo_de(request)
     calendario = Calendario(ciclo)
@@ -253,6 +270,8 @@ def horario_grupo(request, grupo_pk):
 @requiere_permisos('Alumnos.view_horariomateria')
 def horario_grado(request, grado_pk):
     """El horario es de cada grupo: el enlace a un grado lleva al horario de su primer grupo."""
+    if solo_sus_clases(request.user):
+        return _a_mi_horario(request, 'grado', grado_pk)
     grado = get_object_or_404(Grado, pk=grado_pk)
     grupo = Grupo.principal_de(grado)
     destino = reverse('horarios:grupo', args=[grupo.pk])
@@ -268,6 +287,7 @@ def _ciclo_cerrado(request, grupo_id, ciclo):
 
 
 @requiere_permisos('Alumnos.add_horariomateria')
+@no_docentes
 def horario_crear(request, grupo_pk):
     grupo = get_object_or_404(Grupo.objects.select_related('grado', 'nombre'), pk=grupo_pk)
     _, ciclo = _ciclo_de(request)
@@ -311,6 +331,7 @@ def _bloque_vigente(pk):
 
 
 @requiere_permisos('Alumnos.change_horariomateria')
+@no_docentes
 def horario_editar(request, pk):
     bloque = _bloque_vigente(pk)
     grupo, ciclo = bloque.materia_grado.grupo, bloque.materia_grado.ciclo
@@ -336,6 +357,7 @@ def horario_editar(request, pk):
 
 @require_POST
 @requiere_permisos('Alumnos.delete_horariomateria')
+@no_docentes
 def horario_eliminar(request, pk):
     """Quita un bloque del horario. Sin fecha es una corrección y se borra; con «A partir de», o si una bitácora ya lo
     usó, se conserva cerrado para que el horario de las fechas anteriores no cambie (Horarios/cambios.py)."""
@@ -358,6 +380,7 @@ def horario_eliminar(request, pk):
 
 @require_POST
 @requiere_permisos('Alumnos.add_horariomateria', 'Alumnos.delete_horariomateria')
+@no_docentes
 def copiar_semana(request, grupo_pk):
     """«Copiar semana A a semana B»: la semana B del grupo queda igual que la A (para luego ajustar lo que cambie).
     Los bloques que tenía la B se quitan desde la fecha indicada; si algún bloque copiado empalmaría a un profesor con
@@ -422,6 +445,7 @@ def _ciclo_cerrado_en(request, ciclo, destino):
 
 
 @requiere_permisos('Alumnos.add_horariomateria')
+@no_docentes
 def recreo_crear(request):
     """Alta de un receso para los grupos que se elijan. Desde el horario de un grupo (`?grupo=`) ese grupo ya va marcado
     y al guardar se regresa a él; desde el índice, se regresa al índice."""
@@ -459,6 +483,7 @@ def _recreo(pk):
 
 
 @requiere_permisos('Alumnos.change_horariomateria')
+@no_docentes
 def recreo_editar(request, pk):
     receso = _recreo(pk)
     volver = _url_del_grupo(receso.grupo_id, receso.ciclo_id)
@@ -480,6 +505,7 @@ def recreo_editar(request, pk):
 
 @require_POST
 @requiere_permisos('Alumnos.delete_horariomateria')
+@no_docentes
 def recreo_eliminar(request, pk):
     """Quita un receso de un grupo (un día). Es configuración del horario: nada depende de él, así que se borra."""
     receso = _recreo(pk)

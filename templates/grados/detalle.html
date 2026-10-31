@@ -259,7 +259,7 @@
       {% endif %}
 
       <div class="panel-actions">
-        {% if total_materias and perms.Alumnos.view_horariomateria %}
+        {% if total_materias and perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
           {% for grupo in grupos %}
             <a class="btn btn--sm" href="{% url 'horarios:grupo' grupo.pk %}?ciclo={{ ciclo.pk }}">
               {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Horario{% if varios_grupos %} de {{ grupo.corto }}{% elif horas_semanales %} · {{ horas_semanales }}{% endif %}
@@ -305,7 +305,7 @@
                           {% include "grados/_acciones_asignacion.html" with partes="profesor" %}
                         </span>
                         <span class="plan-grupos__horas"{% if item.lineas %} title="{{ item.lineas|join:' · ' }}"{% endif %}>
-                          {% if item.duracion %}{{ item.duracion }} por semana{% elif item.activa %}<span class="tag tag--warning">Sin horario</span>{% endif %}
+                          {% if item.horario_ajeno %}<span class="text-muted">—</span>{% elif item.duracion %}{{ item.duracion }} por semana{% elif item.activa %}<span class="tag tag--warning">Sin horario</span>{% endif %}
                         </span>
                       {% else %}
                         <span class="text-muted">—</span>
@@ -351,7 +351,9 @@
                     {% else %}—{% endif %}
                   </td>
                   <td class="table__cell" data-label="Horario">
-                    {% if item.lineas %}
+                    {% if item.horario_ajeno %}
+                      <span class="text-muted">—</span>
+                    {% elif item.lineas %}
                       <span class="cell-stack">{% for linea in item.lineas %}<span class="cell-stack__main">{{ linea }}</span>{% endfor %}</span>
                     {% elif item.activa %}
                       <span class="tag tag--warning">Sin horario</span>

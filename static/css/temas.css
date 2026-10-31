@@ -671,6 +671,12 @@
   --color-surface: #fcfdfd;
 }
 
+/* Menú lateral claro (pedido del 2026-10-30): la opción bajo el ratón en azul vivo, con el texto oscuro (blanco daría
+   3.3:1). La opción actual conserva su fondo: su texto es del color de acción y no se leería sobre este azul. */
+:root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .nav__link:not([aria-current="page"]):hover {
+  background: #548bf6;
+}
+
 /* Etiquetas sólidas: el color lleno y el texto del color de la superficie (blanco en claro, oscuro en oscuro) */
 :root:is([data-tema="frambuesa"], [data-tema="mandarina"], [data-tema="nextlevel"]) .tag:is(
   .tag--success, .tag--warning, .tag--danger, .tag--info, .tag--primary,

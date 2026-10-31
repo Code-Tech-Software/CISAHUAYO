@@ -141,7 +141,8 @@ MODULOS = (
     )),
     Modulo('horarios', 'Horarios', 'clock', 'El horario semanal de cada grado.', (
         Funcion('Horarios', _permisos('horariomateria'), ayuda={
-            'ver': 'Consultar los horarios por grupo, profesor y materia, con los recesos de cada grupo.',
+            'ver': 'Consultar los horarios por grupo, profesor y materia, con los recesos de cada grupo. En un rol para docentes, solo sus propias '
+                   'clases («Mi horario»).',
             'crear': 'Agregar bloques y recesos al horario.',
             'editar': 'Cambiar el día o la hora de un bloque o de un receso.',
             'baja': 'Quitar bloques y recesos del horario.',

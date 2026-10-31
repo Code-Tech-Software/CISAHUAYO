@@ -40,7 +40,7 @@ class PaginaTests(BaseTestCase):
             self.assertContains(respuesta, f'Letra {tema["letra"]}.')
         self.assertContains(respuesta, 'family=Fredoka')   # las letras de todos los temas, para las tarjetas
         self.assertContains(respuesta, 'family=IBM+Plex+Sans')
-        self.assertContains(respuesta, 'value="institucional" data-color="#245a62" checked')
+        self.assertContains(respuesta, 'value="corporate" data-color="#2c76cd" checked')
         self.assertContains(respuesta, 'value="claro" checked')
 
     def test_el_modo_solo_aparece_con_javascript(self):
@@ -71,10 +71,10 @@ class GuardarTests(BaseTestCase):
         self.assertIn('family=Figtree', html)          # solo las letras de su tema
         self.assertNotIn('family=Plus+Jakarta+Sans', html)
 
-    def test_por_omision_el_institucional_con_el_menu_claro(self):
+    def test_por_omision_corporate_con_el_menu_claro(self):
         PerfilUsuario.objects.filter(usuario=self.admin).delete()
         html = self.client.get(reverse('inicio')).content.decode()
-        self.assertIn('<html lang="es" data-tema="institucional">', html)
+        self.assertIn('<html lang="es" data-tema="corporate">', html)
         self.assertIn('css/temas.css', html)
 
     def test_con_javascript_responde_json(self):
@@ -92,8 +92,12 @@ class GuardarTests(BaseTestCase):
         self.assertFalse(respuesta.json()['ok'])
         self.assertEqual(PerfilUsuario.de(self.admin).tema, temas.PREDETERMINADO)
 
-    def test_un_tema_guardado_que_ya_no_existe_cae_en_el_institucional(self):
+    def test_un_tema_guardado_que_ya_no_existe_cae_en_el_predeterminado(self):
         PerfilUsuario.objects.filter(pk=PerfilUsuario.de(self.admin).pk).update(tema='retirado')
+        self.assertIn('data-tema="corporate"', self.client.get(reverse('inicio')).content.decode())
+
+    def test_quien_ya_tiene_institucional_guardado_lo_conserva(self):
+        PerfilUsuario.objects.filter(pk=PerfilUsuario.de(self.admin).pk).update(tema='institucional')
         self.assertIn('data-tema="institucional"', self.client.get(reverse('inicio')).content.decode())
 
     def test_cada_quien_ve_su_tema(self):
@@ -260,7 +264,13 @@ class ColoresDeLosTemasTests(SimpleTestCase):
     def test_contraste_aa_en_claro_oscuro_y_menu_de_color(self):
         for clave, t in entradas_de_cada_tema().items():
             # El institucional usa los colores afinados a mano de app.css; de temas.css solo toma el menú de color
-            pares = self.pares_del_menu_de_color(t) + ([] if clave == temas.PREDETERMINADO else self.pares(t))
+            pares = self.pares_del_menu_de_color(t) + ([] if clave == 'institucional' else self.pares(t))
             for que, texto, fondo in pares:
                 with self.subTest(tema=clave, par=que):
                     self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')
+
+    def test_la_opcion_bajo_el_raton_del_menu_corporate_se_lee(self):
+        css = TEMAS_CSS.read_text(encoding='utf-8')
+        fondo = re.search(r'\.nav__link:not\(\[aria-current="page"\]\):hover \{\s*background: (#[0-9a-f]{6});', css).group(1)
+        texto = mezcla(entradas_de_cada_tema()['corporate']['primary'], 10, '#0c1015')   # --color-text-strong
+        self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')

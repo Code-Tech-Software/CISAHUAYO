@@ -3,8 +3,8 @@
   Parámetros: cuadricula (de Alumnos.horarios.cuadricula), etiqueta (texto para lectores de pantalla),
   modo ("grado": cada bloque muestra su clave y profesor, y se puede editar/quitar; "profesor": muestra el grado),
   editable (bool, solo en modo grado), mostrar_semana (bool: la letra A o B en cada bloque, cuando se ven las dos
-  semanas juntas). En modo grado (el horario de un grupo) la cuadrícula también trae los recesos del
-  grupo (Recreo.es_recreo).
+  semanas juntas), sin_enlace (bool: en modo profesor, la materia no lleva al horario del grupo; «Mi horario»).
+  En modo grado (el horario de un grupo) la cuadrícula también trae los recesos del grupo (Recreo.es_recreo).
 {% endcomment %}
 {% load alumnos_extras %}
 <div class="timetable-wrap" role="region" aria-label="{{ etiqueta }}" tabindex="0">
@@ -57,7 +57,7 @@
                   <div class="slot slot--tone-{{ materia.pk|tono }}">
                     <div class="slot__text">
                       {% if modo == "profesor" %}
-                        {% if perms.Alumnos.view_horariomateria and not asignacion.grupo.es_de_clase %}
+                        {% if perms.Alumnos.view_horariomateria and not asignacion.grupo.es_de_clase and not sin_enlace %}
                           <a class="slot__name" href="{% url 'horarios:grupo' asignacion.grupo_id %}?ciclo={{ asignacion.ciclo_id }}">{{ materia.nombre }}</a>
                         {% else %}
                           <span class="slot__name">{{ materia.nombre }}</span>

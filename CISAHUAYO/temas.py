@@ -8,7 +8,7 @@ Para agregar un tema: su entrada en esta lista y su bloque en temas.css (lo comp
 contraste de sus colores).
 """
 
-PREDETERMINADO = 'institucional'
+PREDETERMINADO = 'corporate'
 
 TEMAS = (
     {

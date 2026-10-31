@@ -284,7 +284,7 @@
                   </td>
                   <td class="table__cell table__col--wide" data-label="Por semana">{{ item.duracion|default:"—" }}</td>
                   <td class="table__cell table__cell--actions">
-                    {% if perms.Alumnos.view_horariomateria %}
+                    {% if perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
                       <a class="btn btn--ghost btn--icon btn--sm" href="{% url 'horarios:grupo' item.grupo_id %}?ciclo={{ ciclo.pk }}" aria-label="Ver el horario de {{ item.grupo }}" data-tooltip="Ver horario del grupo">
                         {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}
                       </a>

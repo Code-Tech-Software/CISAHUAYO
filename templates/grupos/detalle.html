@@ -30,7 +30,7 @@
         </div>
 
         <div class="identity__actions">
-          {% if perms.Alumnos.view_horariomateria %}
+          {% if perms.Alumnos.view_horariomateria and not user|solo_sus_clases %}
             <a class="btn" href="{% url 'horarios:grupo' grupo.pk %}{% if ciclo %}?ciclo={{ ciclo.pk }}{% endif %}">
               {% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Ver horario
             </a>
@@ -175,7 +175,7 @@
                     {% else %}<span class="tag tag--warning">Sin profesor</span>{% endif %}
                   </td>
                   <td class="table__cell" data-label="Horario">
-                    {% if item.lineas %}<span class="cell-stack">{% for linea in item.lineas %}<span class="cell-stack__main">{{ linea }}</span>{% endfor %}</span>{% else %}<span class="tag tag--warning">Sin horario</span>{% endif %}
+                    {% if item.horario_ajeno %}<span class="text-muted">—</span>{% elif item.lineas %}<span class="cell-stack">{% for linea in item.lineas %}<span class="cell-stack__main">{{ linea }}</span>{% endfor %}</span>{% else %}<span class="tag tag--warning">Sin horario</span>{% endif %}
                   </td>
                   <td class="table__cell table__cell--actions">
                     {% if editable and perms.Alumnos.change_materiagrado %}

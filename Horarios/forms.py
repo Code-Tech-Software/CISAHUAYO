@@ -9,7 +9,7 @@ from Alumnos.horarios import (
     mensaje_de_empalme_profesor,
     recreos_empalmados,
 )
-from Alumnos.models import ConfiguracionHorario, ExcepcionSemana, Grado, Grupo, HorarioMateria, MateriaGrado, Recreo
+from Alumnos.models import ConfiguracionHorario, ExcepcionSemana, Grado, Grupo, HorarioMateria, MateriaGrado, Periodo, Recreo
 
 from . import cambios
 
@@ -416,3 +416,89 @@ class ExcepcionSemanaForm(EstiloCamposMixin, forms.Form):
 
     def clean_motivo(self):
         return ' '.join(self.cleaned_data.get('motivo', '').split())
+
+
+# ---------------------------------------------------------------------------
+# «Mi horario» (perfil Docente)
+# ---------------------------------------------------------------------------
+TODO_EL_CICLO = 'todo'
+
+
+def periodos_del_docente(asignaciones, ciclo):
+    """Lo que se puede elegir como periodo: {valor: (texto, desde, hasta, si una asignación entra)}. Todo el ciclo, los
+    semestres de sus grados de preparatoria (los niveles anuales siguen en cada semestre) y los periodos de evaluación de
+    sus niveles que corresponden a sus grados (como `periodos_para_grado`)."""
+    grados = {asignacion.grado_id: asignacion.grado for asignacion in asignaciones}
+    claves = {grado.semestre for grado in grados.values() if grado.semestre}
+    niveles = {grado.nivel for grado in grados.values()}
+    opciones = {TODO_EL_CICLO: ('Todo el ciclo', ciclo.fecha_inicio, ciclo.fecha_fin, lambda asignacion: True)}
+    for semestre in ciclo.semestres.filter(clave__in=claves):
+        opciones[f'semestre-{semestre.clave}'] = (
+            semestre.nombre, semestre.fecha_inicio, semestre.fecha_fin, lambda a, clave=semestre.clave: a.grado.semestre in (None, clave),
+        )
+    for periodo in Periodo.objects.filter(ciclo=ciclo, nivel__in=niveles).select_related('semestre').order_by('fecha_inicio', 'nombre'):
+        clave = periodo.semestre.clave if periodo.semestre_id else None
+        if clave is None or clave in claves:
+            texto = f'{periodo.get_nivel_display()} · {periodo.nombre}' if len(niveles) > 1 else periodo.nombre
+            opciones[str(periodo.pk)] = (
+                texto, periodo.fecha_inicio, periodo.fecha_fin,
+                lambda a, nivel=periodo.nivel, clave=clave: a.grado.nivel == nivel and clave in (None, a.grado.semestre),
+            )
+    return opciones
+
+
+class FiltroMiHorarioForm(EstiloCamposMixin, forms.Form):
+    """Los filtros de «Mi horario». Sus opciones salen de las asignaciones del docente y cada una acota a las siguientes:
+    «Todos» son todas sus asignaciones, y un valor que no esté entre las opciones (de otra selección o escrito en la
+    dirección) se ignora. `elegidas` son las asignaciones que quedan; `desde` y `hasta`, las fechas que se pueden ver."""
+
+    periodo = forms.ChoiceField(required=False, label='Periodo o semestre')
+    nivel = forms.ChoiceField(required=False, label='Nivel')
+    grado = forms.ChoiceField(required=False, label='Grado')
+    grupo = forms.ChoiceField(required=False, label='Grupo')
+    materia = forms.ChoiceField(required=False, label='Materia')
+
+    def __init__(self, datos, *, asignaciones, ciclo, hoy):
+        super().__init__(datos.copy())
+        self.elegidas = list(asignaciones)
+        self.desde, self.hasta = hoy, hoy
+        if ciclo is not None:
+            self._por_periodo(ciclo, hoy)
+        self._acotar('nivel', 'Todos los niveles', lambda a: a.grado.nivel, lambda a: a.grado.get_nivel_display())
+        self._acotar('grado', 'Todos los grados', lambda a: a.grado_id, lambda a: a.grado)
+        self._acotar('grupo', 'Todos los grupos', lambda a: a.grupo_id, lambda a: a.grupo)
+        repetidas = self._materias_repetidas()
+        self._acotar('materia', 'Todas las materias', lambda a: a.materia_id,
+                     lambda a: f'{a.materia.nombre} ({a.materia.clave})' if a.materia.nombre in repetidas else a.materia.nombre, por_nombre=True)
+        self.aplicar_estilo()
+
+    def _por_periodo(self, ciclo, hoy):
+        opciones = periodos_del_docente(self.elegidas, ciclo)
+        valor = self.data.get('periodo', '')
+        if valor not in opciones:   # por omisión, el semestre en curso: los dos semestres no se cursan a la vez
+            valor = next((v for v, o in opciones.items() if v.startswith('semestre-') and o[1] <= hoy <= o[2]), TODO_EL_CICLO)
+        self.data['periodo'] = valor
+        self.fields['periodo'].choices = [(clave, opcion[0]) for clave, opcion in opciones.items()]
+        _, desde, hasta, entra = opciones[valor]
+        self.desde, self.hasta = max(desde, ciclo.fecha_inicio), min(hasta, ciclo.fecha_fin)
+        self.elegidas = [asignacion for asignacion in self.elegidas if entra(asignacion)]
+
+    def _materias_repetidas(self):
+        nombres = {}
+        for asignacion in self.elegidas:
+            nombres.setdefault(asignacion.materia.nombre, set()).add(asignacion.materia_id)
+        return {nombre for nombre, materias in nombres.items() if len(materias) > 1}
+
+    def _acotar(self, nombre, todos, valor_de, texto_de, por_nombre=False):
+        opciones = {str(valor_de(asignacion)): str(texto_de(asignacion)) for asignacion in self.elegidas}
+        ordenadas = sorted(opciones.items(), key=lambda opcion: opcion[1]) if por_nombre else list(opciones.items())
+        self.fields[nombre].choices = [('', todos), *ordenadas]
+        valor = self.data.get(nombre, '')
+        if valor in opciones:
+            self.elegidas = [asignacion for asignacion in self.elegidas if str(valor_de(asignacion)) == valor]
+        else:
+            self.data[nombre] = ''
+
+    @property
+    def activos(self):
+        return any(self.data.get(nombre) for nombre in ('nivel', 'grado', 'grupo', 'materia'))

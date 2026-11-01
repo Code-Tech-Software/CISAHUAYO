@@ -1,4 +1,4 @@
-{% comment %}Los documentos PDF adjuntos de un mensaje, en su burbuja (se abren en otra pestaña). Parámetro: documentos (con url).{% endcomment %}
+{% comment %}Los documentos PDF adjuntos de un mensaje, en su burbuja: se abren en otra pestaña o se descargan. Parámetro: documentos (con url).{% endcomment %}
 <ul class="burbuja__documentos">
   {% for documento in documentos %}
     <li>
@@ -9,6 +9,7 @@
           <span class="documento-adjunto__tamano">{{ documento.tamano_texto }}</span>
         </span>
       </a>
+      <a class="documento-adjunto__descargar" href="{{ documento.url }}?descargar=1" aria-label="Descargar {{ documento.nombre_original }}" data-tooltip="Descargar">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %}</a>
     </li>
   {% endfor %}
 </ul>

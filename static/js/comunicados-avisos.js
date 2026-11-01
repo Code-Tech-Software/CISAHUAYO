@@ -47,7 +47,7 @@
     document.querySelectorAll('[data-comunicados-pendientes]').forEach((insignia) => {
       insignia.textContent = String(total);
       insignia.hidden = !total;
-      insignia.setAttribute('aria-label', `${total} sin leer`);
+      insignia.setAttribute('aria-label', `${total} por atender`);
     });
     document.querySelectorAll('[data-comunicados-vista-cuenta]').forEach((cuenta) => {
       cuenta.textContent = String(total);
@@ -57,7 +57,7 @@
     if (mas) {
       const enLista = lista ? lista.children.length : 0;
       mas.hidden = total <= enLista;
-      mas.textContent = `Ver los ${total} comunicados sin leer`;
+      mas.textContent = `Ver los ${total} comunicados por atender`;
     }
     document.dispatchEvent(new CustomEvent('avisos:repintar'));   /* avisos.js: el número de la campana */
   };
@@ -122,7 +122,7 @@
     flotante.setAttribute('role', datos.urgente ? 'alert' : 'status');
     const texto = elemento('span', 'aviso-flotante__texto');
     texto.append(
-      elemento('span', 'aviso-flotante__titulo', datos.recordatorio ? 'Recordatorio de comunicado' : (datos.urgente ? 'Comunicado urgente' : 'Comunicado nuevo')),
+      elemento('span', 'aviso-flotante__titulo', datos.cambio ? 'Un comunicado cambió' : (datos.recordatorio ? 'Recordatorio de comunicado' : (datos.urgente ? 'Comunicado urgente' : 'Comunicado nuevo'))),
       elemento('span', 'aviso-flotante__nombre', datos.titulo),
       elemento('span', 'aviso-flotante__vista', `${datos.autor} · ${datos.vista_previa}`),
     );
@@ -148,7 +148,7 @@
   const avisarNavegador = (datos) => {
     if (!('Notification' in window) || !window.isSecureContext || Notification.permission !== 'granted') return;
     try {
-      const aviso = new Notification(datos.recordatorio ? `Recordatorio: ${datos.titulo}` : (datos.urgente ? `Urgente: ${datos.titulo}` : datos.titulo), {
+      const aviso = new Notification(datos.cambio ? `Cambió: ${datos.titulo}` : (datos.recordatorio ? `Recordatorio: ${datos.titulo}` : (datos.urgente ? `Urgente: ${datos.titulo}` : datos.titulo)), {
         body: `${datos.autor} · ${datos.vista_previa}`, tag: `comunicado-${datos.id}`, icon: logo, requireInteraction: Boolean(datos.urgente),
       });
       aviso.addEventListener('click', () => {
@@ -165,7 +165,7 @@
   document.addEventListener('mensajeria:evento', (evento) => {
     const datos = evento.detail || {};
     if (datos.evento !== 'comunicado') return;
-    if (!datos.recordatorio) {   /* un recordatorio ya estaba contado: solo se vuelve a avisar */
+    if (!datos.recordatorio && !datos.cambio) {   /* un recordatorio ya estaba contado: solo se vuelve a avisar */
       agregarALista(datos);
       ponerPendientes(pendientesActuales() + 1);
     }

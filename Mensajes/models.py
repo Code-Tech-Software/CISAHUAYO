@@ -35,6 +35,8 @@ class Participante(models.Model):
     alumno = models.OneToOneField(Alumno, on_delete=models.CASCADE, null=True, blank=True, related_name='participante_mensajes')
     tutor = models.OneToOneField(Tutor, on_delete=models.CASCADE, null=True, blank=True, related_name='participante_mensajes')
     creado = models.DateTimeField(auto_now_add=True)
+    # La lista de conversaciones compacta (2026-10-31): se guarda aquí porque vale para las tres clases de cuenta
+    vista_compacta = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Participante de la mensajería'
@@ -119,6 +121,10 @@ class Miembro(models.Model):
     # La dejó «no leída» para acordarse de atenderla (2026-10-27): cuenta como pendiente hasta que la vuelve a abrir o
     # escribe en ella. Es solo suya: no cambia `ultimo_leido`, así que la otra persona sigue viendo sus mensajes leídos
     marcada_sin_leer = models.BooleanField(default=False)
+    # Cómo la organiza cada persona (2026-10-31): es solo suyo y no cambia nada de la conversación. Archivarla no borra
+    # nada, y un mensaje nuevo de cualquiera de las dos la regresa a la bandeja
+    archivada_en = models.DateTimeField(null=True, blank=True)
+    destacada_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Miembro de una conversación'
@@ -202,10 +208,11 @@ class ImagenMensaje(models.Model):
 
     @property
     def tamano_texto(self):
-        """«PDF · 240 KB» / «PDF · 1.3 MB»."""
+        """«PDF · 240 KB» / «PDF · 1.3 MB» (o «Imagen · 240 KB»)."""
+        clase = 'PDF' if self.es_documento else 'Imagen'
         if self.tamano >= 1024 * 1024:
-            return f'PDF · {self.tamano / (1024 * 1024):.1f} MB'
-        return f'PDF · {max(1, round(self.tamano / 1024))} KB'
+            return f'{clase} · {self.tamano / (1024 * 1024):.1f} MB'
+        return f'{clase} · {max(1, round(self.tamano / 1024))} KB'
 
     def como_dict(self, url):
         return {'id': self.pk, 'nombre': self.nombre_original, 'tamano': self.tamano_texto, 'url': url}

@@ -13,6 +13,12 @@ corregirse después de enviado (`editado`); fijarse arriba y tener categoría; y
 
 Un comunicado eliminado no se borra (`eliminado`): deja de verse para todos y queda en la base y en el historial de
 cambios (LogEntry) para su trazabilidad.
+
+Desde el 2026-10-31: `leido_en` solo dice que se abrió (la pantalla dice «Abierto»); confirmar es responder. La respuesta
+puede tener plazo (`responder_hasta`). Un cambio importante pide responder otra vez (`reconfirmar_en`) y lo respondido
+pasa a `RespuestaAnterior`. Quien redacta puede guardar lo que lleva en `BorradorComunicado`, una tabla aparte para que
+ninguna consulta de los comunicados tenga que saber de borradores. Una autorización es por estudiante: un tutor con dos
+hijos responde por cada uno (`AutorizacionEstudiante`).
 """
 import uuid
 from pathlib import Path
@@ -51,12 +57,24 @@ class ComunicadoQuerySet(models.QuerySet):
         return self.filter(expira__lte=ahora or timezone.now())
 
 
+def sin_acceso_al_portal(prefijo=''):
+    """La condición de un destinatario sin manera de entrar a su portal (`prefijo`: 'destinatarios__' desde el comunicado).
+    Es la misma que el selector muestra como «Aún sin acceso al portal» (Comunicados/alcance.py); los profesores y el
+    personal siempre tienen su cuenta."""
+    tutor = (Q(**{f'{prefijo}tutor__acceso_portal': False}) | Q(**{f'{prefijo}tutor__usuario__isnull': True})
+             | Q(**{f'{prefijo}tutor__usuario': ''}) | Q(**{f'{prefijo}tutor__contrasena': ''}))
+    estudiante = (Q(**{f'{prefijo}alumno__acceso_portal': False}) | Q(**{f'{prefijo}alumno__correo_electronico__isnull': True})
+                  | Q(**{f'{prefijo}alumno__correo_electronico': ''}) | Q(**{f'{prefijo}alumno__contrasena': ''}))
+    return (Q(**{f'{prefijo}tipo': 'TUTOR'}) & tutor) | (Q(**{f'{prefijo}tipo': 'ESTUDIANTE'}) & estudiante)
+
+
 class Comunicado(models.Model):
     MAXIMO_TITULO = 150
     MAXIMO_DESCRIPCION = 5000      # caracteres de texto
     MAXIMO_HTML = 60000            # el HTML limpio, con su formato
     MAXIMO_ADJUNTOS = 5
     MAXIMO_OPCIONES = 6
+    MAXIMO_DE_INTENTOS = 5         # de mandar el aviso de publicación (Comunicados/avisos.py)
 
     # Qué se pide a quien lo recibe
     SIN_RESPUESTA, ENTERADO, AUTORIZACION, ENCUESTA = '', 'ENTERADO', 'AUTORIZACION', 'ENCUESTA'
@@ -82,12 +100,19 @@ class Comunicado(models.Model):
     # sale al publicarse: `avisado_en` vacío = programado y todavía sin avisar (Comunicados/avisos.py)
     publicado_en = models.DateTimeField('publicación', default=timezone.now, db_index=True)
     avisado_en = models.DateTimeField(null=True, blank=True)
+    # Quién está mandando ese aviso y cuántas veces se ha intentado: si el proceso se cae a media entrega, se reintenta
+    aviso_reclamado_en = models.DateTimeField(null=True, blank=True)
+    aviso_intentos = models.PositiveSmallIntegerField(default=0)
     # Lo genera el formulario al abrirse: un doble clic o un reintento del mismo envío no crea un segundo comunicado
     clave_envio = models.UUIDField(unique=True, editable=False)
     categoria = models.CharField('categoría', max_length=20, choices=CATEGORIAS, blank=True)
     fijado = models.BooleanField(default=False, help_text='Se muestra arriba de los demás a quien lo recibe.')
     respuesta = models.CharField('respuesta que se pide', max_length=20, choices=RESPUESTAS, blank=True)
     pregunta = models.CharField(max_length=200, blank=True)
+    # Hasta cuándo se puede responder (opcional): el comunicado sigue a la vista después
+    responder_hasta = models.DateTimeField('responder hasta', null=True, blank=True)
+    # El último cambio importante, el que pidió responder otra vez
+    reconfirmar_en = models.DateTimeField(null=True, blank=True)
     # Un evento (aparece en la agenda de quien lo recibe y se puede agregar al calendario del teléfono)
     evento_fecha = models.DateField('fecha del evento', null=True, blank=True)
     evento_hora_inicio = models.TimeField('hora de inicio del evento', null=True, blank=True)
@@ -142,6 +167,13 @@ class Comunicado(models.Model):
     def pide_respuesta(self):
         return bool(self.respuesta)
 
+    def plazo_terminado_en(self, ahora=None):
+        return self.responder_hasta is not None and self.responder_hasta <= (ahora or timezone.now())
+
+    @property
+    def plazo_terminado(self):
+        return self.plazo_terminado_en()
+
     @property
     def nombre_categoria(self):
         return dict(self.CATEGORIAS).get(self.categoria, '')
@@ -193,6 +225,7 @@ class Destinatario(models.Model):
     TIPOS = [(TUTOR, 'Tutor'), (ESTUDIANTE, 'Estudiante'), (PROFESOR, 'Profesor'), (PERSONAL, 'Personal')]
     # Lo que guarda `respuesta` (en una encuesta: OPCION, con la opción elegida en `opcion`)
     RESPUESTA_ENTERADO, RESPUESTA_SI, RESPUESTA_NO, RESPUESTA_OPCION = 'ENTERADO', 'SI', 'NO', 'OPCION'
+    RESPUESTA_MIXTA = 'MIXTA'   # autorizó a unos de sus hijos y a otros no (el detalle: `autorizaciones`)
 
     comunicado = models.ForeignKey(Comunicado, on_delete=models.CASCADE, related_name='destinatarios')
     tipo = models.CharField(max_length=10, choices=TIPOS)
@@ -256,6 +289,17 @@ class Destinatario(models.Model):
         return self.respondido_en is not None
 
     @property
+    def sin_acceso(self):
+        """No tiene cómo entrar a su portal: el comunicado no le llega (ver `sin_acceso_al_portal`)."""
+        if self.tipo == self.TUTOR:
+            tutor = self.tutor
+            return not (tutor.acceso_portal and tutor.usuario and tutor.contrasena)
+        if self.tipo == self.ESTUDIANTE:
+            alumno = self.alumno
+            return not (alumno.acceso_portal and alumno.correo_electronico and alumno.contrasena)
+        return False
+
+    @property
     def para_quien(self):
         """A un tutor: de cuál de sus hijos trata («Ana López (2.º A)»), sacado de cómo se le ubicaba al enviarlo."""
         if self.tipo != self.TUTOR or not self.detalle.startswith('Tutor de '):
@@ -268,7 +312,56 @@ class Destinatario(models.Model):
             return ''
         if self.respuesta == self.RESPUESTA_OPCION:
             return self.opcion.texto if self.opcion_id else 'Opción retirada'
-        return {self.RESPUESTA_ENTERADO: 'Enterado', self.RESPUESTA_SI: 'Sí autoriza', self.RESPUESTA_NO: 'No autoriza'}.get(self.respuesta, '')
+        return {self.RESPUESTA_ENTERADO: 'Enterado', self.RESPUESTA_SI: 'Sí autoriza', self.RESPUESTA_NO: 'No autoriza',
+                self.RESPUESTA_MIXTA: 'Autoriza a algunos'}.get(self.respuesta, '')
+
+    @property
+    def respuesta_detallada(self):
+        """«Ana Pérez: Sí · Luis Pérez: No» si respondió distinto por cada hijo; si no, su respuesta."""
+        if self.respuesta != self.RESPUESTA_MIXTA:
+            return self.texto_de_respuesta
+        return ' · '.join(f'{fila.alumno.nombre_completo}: {"Sí" if fila.respuesta == self.RESPUESTA_SI else "No"}' for fila in self.autorizaciones.all())
+
+
+class AutorizacionEstudiante(models.Model):
+    """La autorización de un tutor por uno de sus hijos: una fila por cada hijo al que llega el comunicado, creada al
+    enviarlo. `Destinatario.respondido_en` se llena cuando responde por todos. Los comunicados de antes no tienen filas y
+    conservan la respuesta única de su destinatario."""
+
+    destinatario = models.ForeignKey(Destinatario, on_delete=models.CASCADE, related_name='autorizaciones')
+    alumno = models.ForeignKey(Alumno, on_delete=models.CASCADE, related_name='+')
+    respuesta = models.CharField(max_length=2, blank=True)   # SI o NO
+    respondido_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Autorización por estudiante'
+        verbose_name_plural = 'Autorizaciones por estudiante'
+        default_permissions = ()
+        ordering = ['alumno__nombre', 'alumno__apellido_paterno', 'pk']
+        constraints = [models.UniqueConstraint(fields=['destinatario', 'alumno'], name='autorizacion_una_por_estudiante')]
+
+    def __str__(self):
+        return f'{self.alumno} · {self.respuesta or "sin responder"}'
+
+
+class RespuestaAnterior(models.Model):
+    """Lo que alguien había respondido antes de un cambio importante: su respuesta ya no cuenta, pero queda quién dijo qué
+    y cuándo."""
+
+    destinatario = models.ForeignKey(Destinatario, on_delete=models.CASCADE, related_name='respuestas_anteriores')
+    texto = models.CharField(max_length=250)
+    respondido_en = models.DateTimeField()
+    leido_en = models.DateTimeField(null=True, blank=True)
+    retirada_en = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = 'Respuesta anterior a un cambio'
+        verbose_name_plural = 'Respuestas anteriores a un cambio'
+        default_permissions = ()
+        ordering = ['-retirada_en', '-pk']
+
+    def __str__(self):
+        return self.texto
 
 
 class Adjunto(models.Model):
@@ -293,6 +386,51 @@ class Adjunto(models.Model):
         return self.tipo.startswith('image/')
 
 
+class BorradorComunicado(models.Model):
+    """Lo que alguien lleva escrito y todavía no envía. Solo lo ve su autor. `datos` guarda los campos del formulario tal
+    como están, sin validar: todo se revisa al enviarlo (Comunicados/borradores.py)."""
+
+    MAXIMO_POR_PERSONA = 30
+
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='borradores_de_comunicados')
+    titulo = models.CharField(max_length=Comunicado.MAXIMO_TITULO, blank=True)
+    datos = models.JSONField(default=dict, blank=True)
+    # El comunicado que usó como base, si lo hubo
+    base = models.ForeignKey(Comunicado, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    creado = models.DateTimeField(default=timezone.now)
+    actualizado = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        verbose_name = 'Borrador de comunicado'
+        verbose_name_plural = 'Borradores de comunicados'
+        default_permissions = ()
+        ordering = ['-actualizado', '-pk']
+
+    def __str__(self):
+        return self.titulo or 'Borrador sin título'
+
+
+class AdjuntoBorrador(models.Model):
+    borrador = models.ForeignKey(BorradorComunicado, on_delete=models.CASCADE, related_name='adjuntos')
+    archivo = models.FileField(upload_to=ruta_de_adjunto, max_length=200)
+    nombre_original = models.CharField(max_length=200)
+    tipo = models.CharField(max_length=80)
+    tamano = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Archivo de un borrador'
+        verbose_name_plural = 'Archivos de borradores'
+        default_permissions = ()
+        ordering = ['pk']
+
+    def __str__(self):
+        return self.nombre_original
+
+    @property
+    def es_imagen(self):
+        return self.tipo.startswith('image/')
+
+
 def ruta_de_imagen(instancia, nombre):
     extension = Path(nombre).suffix.lower()[:10]
     return f'comunicados/texto/{timezone.localdate():%Y/%m}/{uuid.uuid4().hex}{extension}'
@@ -301,12 +439,14 @@ def ruta_de_imagen(instancia, nombre):
 class ImagenComunicado(models.Model):
     """Una imagen dentro del texto con formato (va en el HTML como <img data-imagen="id">). Mientras no se envía el
     comunicado (`comunicado` vacío) solo la ve quien la subió; después, quien puede ver el comunicado. Las que nunca se
-    envían se borran al día siguiente (Comunicados/avisos.limpiar_imagenes)."""
+    envían ni quedan en un borrador se borran al día siguiente (Comunicados/avisos.limpiar_imagenes)."""
 
     TAMANO_MAXIMO_MB = 5
 
     autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
     comunicado = models.ForeignKey(Comunicado, on_delete=models.CASCADE, null=True, blank=True, related_name='imagenes')
+    # La de un borrador se conserva hasta que se envíe o se descarte
+    borrador = models.ForeignKey(BorradorComunicado, on_delete=models.SET_NULL, null=True, blank=True, related_name='imagenes')
     archivo = models.FileField(upload_to=ruta_de_imagen, max_length=200)
     nombre_original = models.CharField(max_length=200)
     tipo = models.CharField(max_length=80)

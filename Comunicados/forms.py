@@ -13,6 +13,7 @@ from django.utils import timezone
 from Conducta.forms import ACEPTA, TAMANO_MAXIMO_MB, validar_archivo
 
 from .models import Comunicado, Destinatario
+from .reglas import CAMBIO_IMPORTANTE, CAMBIO_MENOR
 
 # Formatos que acepta el sistema para los archivos (los de las evidencias de Conducta)
 FORMATOS = 'JPG, PNG, WEBP o PDF'
@@ -23,7 +24,7 @@ HORAS = ['%H:%M', '%H:%M:%S']
 # Dónde se muestra el error de cada campo en la pantalla (los que van juntos comparten lugar)
 LUGAR_DEL_ERROR = {'expira_fecha': 'expira', 'expira_hora': 'expira', 'publicar_fecha': 'publicar', 'publicar_hora': 'publicar',
                    'evento_fecha': 'evento', 'evento_hora_inicio': 'evento', 'evento_hora_fin': 'evento', 'evento_lugar': 'evento',
-                   'pregunta': 'respuesta', 'html': 'descripcion'}
+                   'pregunta': 'respuesta', 'html': 'descripcion', 'responder_fecha': 'respuesta', 'responder_hora': 'respuesta'}
 
 
 def _texto(valor):
@@ -54,6 +55,12 @@ class ComunicadoForm(forms.Form):
     publicar_hora = forms.TimeField(required=False, input_formats=HORAS, error_messages={'invalid': 'Elige una hora válida.'})
     respuesta = forms.ChoiceField(required=False, choices=Comunicado.RESPUESTAS, error_messages={'invalid_choice': 'Elige qué respuesta se pide.'})
     pregunta = forms.CharField(required=False, max_length=200, error_messages={'max_length': 'La pregunta puede tener hasta 200 caracteres.'})
+    responder_fecha = forms.DateField(required=False, input_formats=['%Y-%m-%d'], error_messages={'invalid': 'Elige una fecha válida.'})
+    responder_hora = forms.TimeField(required=False, input_formats=HORAS, error_messages={'invalid': 'Elige una hora válida.'})
+    # Al corregir: si es una corrección menor o un cambio importante (Comunicados/reglas.editar) y publicarlo al guardar
+    cambio = forms.ChoiceField(required=False, choices=[('', ''), (CAMBIO_MENOR, 'Corrección menor'), (CAMBIO_IMPORTANTE, 'Cambio importante')],
+                               error_messages={'invalid_choice': 'Elige si es una corrección menor o un cambio importante.'})
+    publicar_ahora = forms.BooleanField(required=False)
     evento_fecha = forms.DateField(required=False, input_formats=['%Y-%m-%d'], error_messages={'invalid': 'Elige una fecha válida.'})
     evento_hora_inicio = forms.TimeField(required=False, input_formats=HORAS, error_messages={'invalid': 'Elige una hora válida.'})
     evento_hora_fin = forms.TimeField(required=False, input_formats=HORAS, error_messages={'invalid': 'Elige una hora válida.'})
@@ -61,11 +68,14 @@ class ComunicadoForm(forms.Form):
     # Los archivos llegan en request.FILES (se pasan en `archivos`); el campo solo sirve para colgarles sus errores
     archivos = forms.Field(required=False)
 
-    def __init__(self, *args, archivos=(), para_editar=False, **kwargs):
+    def __init__(self, *args, archivos=(), para_editar=False, comunicado=None, con_destinatarios=False, **kwargs):
+        """`comunicado`: el que se corrige; `con_destinatarios`: al corregir, si trae destinatarios (sigue programado)."""
         super().__init__(*args, **kwargs)
         self.archivos = list(archivos)
         self.archivos_validos = []
         self.para_editar = para_editar
+        self.comunicado = comunicado
+        self.con_destinatarios = con_destinatarios
 
     def clean_titulo(self):
         titulo = _texto(self.cleaned_data['titulo'])
@@ -81,7 +91,7 @@ class ComunicadoForm(forms.Form):
 
     def clean_destinatarios(self):
         """{tipo: {ids}} de lo que trae el campo ({"tutores": [3, 4], "estudiantes": [...], "profesores": [...], "personal": []})."""
-        if self.para_editar:
+        if self.para_editar and not self.con_destinatarios:
             return {}
         texto = self.cleaned_data.get('destinatarios') or ''
         try:
@@ -100,6 +110,12 @@ class ComunicadoForm(forms.Form):
             raise ValidationError('Elige al menos un destinatario.')
         return seleccion
 
+    def _sin_cambio(self, momento, guardado):
+        """Si la fecha que llega es la que ya tenía (la pantalla la muestra sin segundos)."""
+        if guardado is None or momento is None:
+            return False
+        return momento.replace(second=0, microsecond=0) == timezone.localtime(guardado).replace(second=0, microsecond=0)
+
     def clean(self):
         datos = super().clean()
         if not (datos.get('descripcion') or '').strip() and not (datos.get('html') or '').strip() and 'descripcion' not in self.errors:
@@ -111,7 +127,10 @@ class ComunicadoForm(forms.Form):
             self.add_error('expira_fecha', 'Elige también la fecha de expiración (o borra la hora).')
         elif fecha:
             expira = timezone.make_aware(datetime.combine(fecha, hora or FIN_DEL_DIA))
-            if expira <= timezone.now():
+            guardada = self.comunicado.expira if self.comunicado is not None else None
+            if self._sin_cambio(expira, guardada):   # la que ya tenía, aunque ya pasó: se puede corregir el resto
+                datos['expira'] = guardada
+            elif expira <= timezone.now():
                 self.add_error('expira_fecha', 'La fecha de expiración debe ser posterior al momento del envío.')
             else:
                 datos['expira'] = expira
@@ -123,6 +142,16 @@ class ComunicadoForm(forms.Form):
             self.add_error('publicar_fecha', 'Elige la fecha y la hora de publicación (o bórralas para enviarlo ya).')
         elif fecha and hora:
             datos['publicar_en'] = timezone.make_aware(datetime.combine(fecha, hora))
+
+        # El plazo para responder (sin hora, hasta terminar ese día)
+        fecha, hora = datos.get('responder_fecha'), datos.get('responder_hora')
+        datos['responder_hasta'] = None
+        if hora and not fecha and 'responder_fecha' not in self.errors:
+            self.add_error('responder_fecha', 'Elige también la fecha del plazo (o borra la hora).')
+        elif fecha:
+            limite = timezone.make_aware(datetime.combine(fecha, hora or FIN_DEL_DIA))
+            guardado = self.comunicado.responder_hasta if self.comunicado is not None else None
+            datos['responder_hasta'] = guardado if self._sin_cambio(limite, guardado) else limite
 
         datos['opciones'] = [texto for texto in self.data.getlist('opciones') if texto.strip()] if hasattr(self.data, 'getlist') else []
         datos['evento'] = {'fecha': datos.get('evento_fecha'), 'hora_inicio': datos.get('evento_hora_inicio'),

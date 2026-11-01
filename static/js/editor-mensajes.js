@@ -108,6 +108,7 @@
       this.tamanoPendiente = null;
       this.panelAbierto = null;
       this.imagenElegida = null;
+      this.fin = new AbortController();   /* suelta las escuchas de fuera de la raíz: destruir() */
 
       document.execCommand('defaultParagraphSeparator', false, 'p');
       this.area.innerHTML = '<p><br></p>';
@@ -124,6 +125,15 @@
     }
 
     /* ================================================================== API para mensajes.js */
+    /* Al cambiar de conversación sin recargar la página: suelta lo que dejó fuera de su raíz */
+    destruir() {
+      this.fin.abort();
+      this.observador?.disconnect();
+      if (this.panelAbierto?.panel.matches(':popover-open')) this.panelAbierto.panel.hidePopover();
+      Object.values(this.paneles).forEach((panel) => panel.remove());
+      this.dialogoCaracteres?.remove();
+    }
+
     html() {
       const copia = this.area.cloneNode(true);
       qsa('img', copia).forEach((imagen) => { imagen.removeAttribute('data-elegida'); });
@@ -1199,6 +1209,7 @@
         return null;
       }
       document.body.append(dialogo);   /* fuera del formulario del mensaje: Intro en la búsqueda no lo envía */
+      this.dialogoCaracteres = dialogo;
       const sinAcentos = (texto) => texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
       const categorias = catalogo.map(({ nombre, caracteres }) => ({
         nombre,
@@ -1467,7 +1478,7 @@
           this.guardarRango();
           this.actualizarBarra();
         }
-      });
+      }, { signal: this.fin.signal });
 
       area.addEventListener('input', (evento) => {
         this.guardarRango();
@@ -1638,19 +1649,20 @@
         if (!abierto || abierto.panel.contains(evento.target) || abierto.boton?.contains(evento.target)) return;
         if (abierto.nombre === 'imagen' && evento.target === this.imagenElegida) return;
         this.cerrarPanel(false);
-      });
+      }, { signal: this.fin.signal });
       window.addEventListener('resize', () => {
         this.reacomodar();
         const abierto = this.panelAbierto;
         if (abierto && window.CISAHUAYO?.pickers?.place) window.CISAHUAYO.pickers.place(abierto.panel, abierto.ancla || abierto.boton || this.imagenElegida);
-      });
+      }, { signal: this.fin.signal });
       if ('ResizeObserver' in window) {
         let ancho = 0;
-        new ResizeObserver(([entrada]) => {
+        this.observador = new ResizeObserver(([entrada]) => {
           if (Math.round(entrada.contentRect.width) === ancho) return;   /* solo al cambiar el ancho */
           ancho = Math.round(entrada.contentRect.width);
           this.reacomodar();
-        }).observe(this.barra);
+        });
+        this.observador.observe(this.barra);
       }
     }
 

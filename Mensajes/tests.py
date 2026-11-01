@@ -568,7 +568,7 @@ class MensajesConFormatoTests(Colegio, BaseTestCase):
         # quien ya no puede escribir no recibe el editor
         MateriaGrado.objects.filter(pk=self.asignacion.pk).update(activa=False)
         sin_escribir = self.client.get(reverse('mensajes:conversacion', args=[self.conversacion.pk]))
-        self.assertNotContains(sin_escribir, 'js/caracteres-especiales.js')
+        self.assertNotContains(sin_escribir, 'data-comando="caracteres"')
 
 
 class CatalogoDeCaracteresTests(SimpleTestCase):

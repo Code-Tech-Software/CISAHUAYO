@@ -7,11 +7,22 @@
   su hora.
 - Corregir (2026-10-27): el autor (o el administrador) cambia el texto, el título, la urgencia, la expiración, la
   categoría, si va fijado, el evento y los archivos; los destinatarios y la respuesta que se pide no cambian (las
-  lecturas y las respuestas se conservan). Queda «Editado» para quien lo recibe y en el historial.
-- Leer: la primera vez que el destinatario abre el detalle se guarda la fecha y hora; abrirlo otra vez no la cambia.
-  Ver la tarjeta, recibir el aviso o que el autor o el administrador consulten el seguimiento no cuenta como lectura.
+  lecturas y las respuestas se conservan). Queda «Editado» para quien lo recibe y en el historial. Con respuestas ya
+  dadas hay que decir qué fue (2026-10-31): una corrección menor las conserva; un cambio importante las pasa al historial
+  (`RespuestaAnterior`) y pide responder otra vez, porque un «Sí» no vale para algo distinto. Mientras siga programado
+  nadie lo ha visto: se pueden cambiar sus destinatarios y publicarlo ya hay que pedirlo expresamente.
+- Abrir: la primera vez que el destinatario abre el detalle se guarda la fecha y hora; abrirlo otra vez no la cambia. Ver
+  la fila, recibir el aviso o que el autor o el administrador consulten el seguimiento no cuenta. Abrir no es confirmar:
+  solo dice que la pantalla se abrió. Confirmar es responder (`Comunicado.ENTERADO`).
 - Responder (2026-10-27): «Enterado», Sí o No a una autorización, o una opción de una encuesta. Se puede cambiar
-  mientras el comunicado siga activo (lo último que eligió es lo que cuenta).
+  mientras el comunicado siga activo y dentro de su plazo, si lo tiene (lo último que eligió es lo que cuenta).
+- Autorizar (2026-11-01): es por estudiante. Un tutor con varios hijos responde por cada uno; cada estudiante queda
+  autorizado, no autorizado o, si sus tutores se contradicen, en desacuerdo, que no cuenta como autorizado hasta que el
+  colegio lo aclare. Basta el «Sí» de un tutor si el otro no responde.
+- Por atender (2026-10-31): lo que falta abrir y lo abierto que todavía espera respuesta. Es lo que cuentan el menú y la
+  campana: abrir una autorización sin responderla no la saca de la lista de pendientes.
+- Sin acceso al portal (2026-10-31): quien no tiene cómo entrar no puede abrirlo. Se muestra aparte y no cuenta en los
+  porcentajes ni en «Recordar».
 - Publicar y caducar: un comunicado programado no se ve antes de su hora, y uno con fecha de expiración ya cumplida deja
   de verse y de abrirse para sus destinatarios (aun con un enlace directo); se compara con la hora del servidor en cada
   consulta. El autor y el administrador conservan el histórico con sus estadísticas.
@@ -22,23 +33,29 @@ from datetime import timedelta
 
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-from Alumnos.models import ORDEN_NIVELES
+from Alumnos.academico import ciclo_actual
+from Alumnos.models import ORDEN_NIVELES, Inscripcion
 from Mensajes import enriquecido
 
 from .alcance import ELIMINAR, ENVIAR, RECIBIR, SEGUIMIENTO, SIN_NIVELES, FueraDeAlcance, alcance_de, es_administrador
-from .models import Adjunto, Comunicado, Destinatario, ImagenComunicado, OpcionEncuesta
+from .models import (
+    Adjunto, AutorizacionEstudiante, Comunicado, Destinatario, ImagenComunicado, OpcionEncuesta, RespuestaAnterior, sin_acceso_al_portal,
+)
 
 PLURAL = {Destinatario.TUTOR: ('tutor', 'tutores'), Destinatario.ESTUDIANTE: ('estudiante', 'estudiantes'),
           Destinatario.PROFESOR: ('profesor', 'profesores'), Destinatario.PERSONAL: ('persona del personal', 'personas del personal')}
 ORDEN_DE_TIPOS = (Destinatario.TUTOR, Destinatario.ESTUDIANTE, Destinatario.PROFESOR, Destinatario.PERSONAL)
 PROGRAMAR_HASTA = timedelta(days=180)
 ESPERA_ENTRE_RECORDATORIOS = timedelta(hours=1)
+# Al corregir un comunicado que ya tiene respuestas
+CAMBIO_MENOR, CAMBIO_IMPORTANTE = 'MENOR', 'IMPORTANTE'
 
 
 class EnvioRechazado(Exception):
@@ -193,6 +210,37 @@ def _validar_publicacion(publicar_en, expira, ahora):
     return publicado
 
 
+def _validar_plazo(responder_hasta, respuesta, publicado, expira):
+    if responder_hasta is None:
+        return
+    if not respuesta:
+        raise EnvioRechazado('Solo se pone plazo si se pide una respuesta.', 'respuesta')
+    if responder_hasta <= publicado:
+        raise EnvioRechazado('El plazo para responder debe ser posterior a la publicación.', 'respuesta')
+    if expira is not None and responder_hasta > expira:
+        raise EnvioRechazado('El plazo para responder no puede ser después de la fecha de expiración.', 'respuesta')
+
+
+def _crear_destinatarios(comunicado, alcance, elegidos):
+    detalles = alcance.detalles(elegidos)
+    grupos = alcance.grupos_de(elegidos)
+    campo = {Destinatario.ESTUDIANTE: 'alumno_id', Destinatario.TUTOR: 'tutor_id', Destinatario.PROFESOR: 'profesor_id',
+             Destinatario.PERSONAL: 'usuario_id'}
+    Destinatario.objects.bulk_create([
+        Destinatario(comunicado=comunicado, tipo=tipo, detalle=detalles[tipo].get(pk, '')[:250],
+                     grupo_id=grupos.get(tipo, {}).get(pk), **{campo[tipo]: pk})
+        for tipo in ORDEN_DE_TIPOS for pk in sorted(elegidos.get(tipo, ()))
+    ])
+    if comunicado.respuesta == Comunicado.AUTORIZACION:
+        tutores = sorted(elegidos.get(Destinatario.TUTOR, ()))
+        hijos = alcance.hijos_de(tutores)
+        copias = dict(comunicado.destinatarios.filter(tipo=Destinatario.TUTOR).values_list('tutor_id', 'pk'))
+        AutorizacionEstudiante.objects.bulk_create([
+            AutorizacionEstudiante(destinatario_id=copias[tutor], alumno=alumno)
+            for tutor in tutores for alumno in hijos.get(tutor, [])
+        ])
+
+
 def _copiar_archivo(archivo, nombre):
     archivo.open('rb')
     try:
@@ -205,7 +253,8 @@ def _copiar_archivo(archivo, nombre):
 # Enviar
 # ---------------------------------------------------------------------------
 def enviar(autor, *, titulo, descripcion, urgente, expira, clave_envio, seleccion, archivos=(), ahora=None, html='',
-           categoria='', fijado=False, publicar_en=None, respuesta='', pregunta='', opciones=(), evento=None, copiar_adjuntos=()):
+           categoria='', fijado=False, publicar_en=None, respuesta='', pregunta='', opciones=(), evento=None, copiar_adjuntos=(),
+           responder_hasta=None):
     """Guarda el comunicado y lo publica (ahora o a la hora programada en `publicar_en`). Devuelve (comunicado, nuevo):
     `nuevo` es False si esa clave de envío ya se había usado (doble clic o reintento). `archivos`: [(archivo subido, tipo
     real)] ya validados; `copiar_adjuntos`: archivos de otro comunicado (al usarlo como base) que se copian a este;
@@ -223,6 +272,7 @@ def enviar(autor, *, titulo, descripcion, urgente, expira, clave_envio, seleccio
     publicado = _validar_publicacion(publicar_en, expira, ahora)
     texto, limpio, imagenes = preparar_contenido(autor, descripcion, html)
     respuesta, pregunta, opciones = validar_respuesta(respuesta, pregunta, opciones)
+    _validar_plazo(responder_hasta, respuesta, publicado, expira)
     datos_del_evento = validar_evento(**(evento or {}))
     categoria = _validar_categoria(categoria)
     try:
@@ -236,24 +286,16 @@ def enviar(autor, *, titulo, descripcion, urgente, expira, clave_envio, seleccio
     if len(archivos) + len(copiar_adjuntos) > Comunicado.MAXIMO_ADJUNTOS:
         raise EnvioRechazado(f'Adjunta como máximo {Comunicado.MAXIMO_ADJUNTOS} archivos.', 'archivos')
 
-    detalles = alcance.detalles(elegidos)
-    grupos = alcance.grupos_de(elegidos)
-    campo = {Destinatario.ESTUDIANTE: 'alumno_id', Destinatario.TUTOR: 'tutor_id', Destinatario.PROFESOR: 'profesor_id',
-             Destinatario.PERSONAL: 'usuario_id'}
     inmediato = publicar_en is None
     try:
         with transaction.atomic():
             comunicado = Comunicado.objects.create(
                 titulo=titulo, descripcion=texto, html=limpio, urgente=urgente, expira=expira, autor=autor,
-                rol_autor=rol_visible(autor)[:80], creado=ahora, publicado_en=publicado, avisado_en=ahora if inmediato else None,
+                rol_autor=rol_visible(autor)[:80], creado=ahora, publicado_en=publicado,
                 clave_envio=clave_envio, categoria=categoria, fijado=fijado, respuesta=respuesta, pregunta=pregunta,
-                **datos_del_evento,
+                responder_hasta=responder_hasta, **datos_del_evento,
             )
-            Destinatario.objects.bulk_create([
-                Destinatario(comunicado=comunicado, tipo=tipo, detalle=detalles[tipo].get(pk, '')[:250],
-                             grupo_id=grupos.get(tipo, {}).get(pk), **{campo[tipo]: pk})
-                for tipo in ORDEN_DE_TIPOS for pk in sorted(elegidos.get(tipo, ()))
-            ])
+            _crear_destinatarios(comunicado, alcance, elegidos)
             OpcionEncuesta.objects.bulk_create([OpcionEncuesta(comunicado=comunicado, texto=t, orden=i) for i, t in enumerate(opciones)])
             if imagenes:
                 ImagenComunicado.objects.filter(pk__in=imagenes, autor=autor, comunicado__isnull=True).update(comunicado=comunicado)
@@ -273,7 +315,7 @@ def enviar(autor, *, titulo, descripcion, urgente, expira, clave_envio, seleccio
                                                      f'({resumen_por_tipo({t: len(i) for t, i in elegidos.items()})}).{programado}')
             if inmediato:
                 from . import avisos
-                transaction.on_commit(lambda: avisos.avisar(comunicado.pk))
+                transaction.on_commit(lambda: avisos.publicar(comunicado.pk))
     except IntegrityError:
         # La misma clave de envío llegó dos veces al mismo tiempo: la otra petición ya lo guardó
         previo = Comunicado.objects.filter(clave_envio=clave_envio, autor=autor).first()
@@ -291,20 +333,52 @@ def _nombre_de_archivo(nombre):
 # ---------------------------------------------------------------------------
 # Corregir
 # ---------------------------------------------------------------------------
+def _pedir_otra_vez(comunicado, ahora):
+    """Un cambio importante: lo respondido pasa al historial y quien respondió vuelve a tenerlo sin abrir. Devuelve cuántos."""
+    respondieron = list(comunicado.destinatarios.filter(respondido_en__isnull=False).select_related('opcion').prefetch_related('autorizaciones__alumno'))
+    RespuestaAnterior.objects.bulk_create([
+        RespuestaAnterior(destinatario=copia, texto=copia.respuesta_detallada[:250], respondido_en=copia.respondido_en,
+                          leido_en=copia.leido_en, retirada_en=ahora) for copia in respondieron
+    ])
+    Destinatario.objects.filter(pk__in=[copia.pk for copia in respondieron]).update(respuesta='', opcion=None, respondido_en=None, leido_en=None)
+    AutorizacionEstudiante.objects.filter(destinatario__comunicado=comunicado).update(respuesta='', respondido_en=None)
+    comunicado.reconfirmar_en = ahora
+    return len(respondieron)
+
+
 def editar(usuario, comunicado, *, titulo, descripcion, html='', urgente, expira, categoria='', fijado=False, evento=None,
-           publicar_en=None, conservar_adjuntos=(), archivos=(), ahora=None):
-    """Corrige un comunicado ya enviado (ver arriba). Mientras siga programado se puede cambiar su hora de publicación
-    (sin hora: se publica en ese momento). `conservar_adjuntos`: los ids de sus archivos que se quedan; `archivos`, los
-    nuevos. EnvioRechazado si no procede."""
+           publicar_en=None, conservar_adjuntos=(), archivos=(), ahora=None, cambio='', responder_hasta=None, seleccion=None,
+           publicar_ahora=False):
+    """Corrige un comunicado ya enviado (ver arriba). Mientras siga programado se puede cambiar su hora de publicación, y
+    también sus destinatarios (`seleccion`); publicarlo en ese momento se pide con `publicar_ahora`. `conservar_adjuntos`:
+    los ids de sus archivos que se quedan; `archivos`, los nuevos; `cambio`: CAMBIO_MENOR o CAMBIO_IMPORTANTE, obligatorio
+    si ya tiene respuestas. EnvioRechazado si no procede."""
     ahora = ahora or timezone.now()
     if not puede_editar(usuario, comunicado):
         raise EnvioRechazado('No puedes editar este comunicado.')
+    con_respuestas = comunicado.pide_respuesta and comunicado.destinatarios.filter(respondido_en__isnull=False).exists()
+    if con_respuestas and cambio not in (CAMBIO_MENOR, CAMBIO_IMPORTANTE):
+        raise EnvioRechazado('Elige si es una corrección menor o un cambio importante.', 'cambio')
     sin_publicar = comunicado.avisado_en is None and comunicado.publicado_en > ahora
     publicado = comunicado.publicado_en
     if sin_publicar:
-        publicado = _validar_publicacion(publicar_en, expira, ahora)
-    elif expira is not None and expira <= ahora:
+        if publicar_en is None and not publicar_ahora:
+            raise EnvioRechazado('Elige la fecha y la hora de publicación, o marca que se publique al guardar.', 'publicar')
+        publicado = _validar_publicacion(None if publicar_ahora else publicar_en, expira, ahora)
+    elif expira is not None and expira != comunicado.expira and expira <= ahora:
         raise EnvioRechazado('La fecha de expiración debe ser posterior a este momento.', 'expira')
+    if responder_hasta != comunicado.responder_hasta:
+        _validar_plazo(responder_hasta, comunicado.respuesta, ahora, expira)
+    alcance, elegidos = None, None
+    if sin_publicar and seleccion is not None:
+        alcance = alcance_de(usuario)
+        try:
+            elegidos = alcance.validar(seleccion)
+        except FueraDeAlcance:
+            raise EnvioRechazado('Algunas de las personas elegidas están fuera de los niveles a los que puedes enviar. Vuelve a '
+                                 'elegir los destinatarios.', 'destinatarios') from None
+        if not any(elegidos.values()):
+            raise EnvioRechazado('Elige al menos un destinatario.', 'destinatarios')
     texto, limpio, imagenes = preparar_contenido(usuario, descripcion, html, comunicado=comunicado)
     datos_del_evento = validar_evento(**(evento or {}))
     categoria = _validar_categoria(categoria)
@@ -312,18 +386,21 @@ def editar(usuario, comunicado, *, titulo, descripcion, html='', urgente, expira
     if len(conservar) + len(archivos) > Comunicado.MAXIMO_ADJUNTOS:
         raise EnvioRechazado(f'Adjunta como máximo {Comunicado.MAXIMO_ADJUNTOS} archivos.', 'archivos')
 
-    publicar_ya = sin_publicar and publicar_en is None
+    publicar_ya = sin_publicar and publicar_ahora
+    importante = con_respuestas and cambio == CAMBIO_IMPORTANTE
     with transaction.atomic():
         comunicado.titulo, comunicado.descripcion, comunicado.html = titulo, texto, limpio
         comunicado.urgente, comunicado.expira, comunicado.categoria, comunicado.fijado = urgente, expira, categoria, fijado
         for nombre, valor in datos_del_evento.items():
             setattr(comunicado, nombre, valor)
-        comunicado.publicado_en = publicado
-        if publicar_ya:
-            comunicado.avisado_en = ahora
+        comunicado.publicado_en, comunicado.responder_hasta = publicado, responder_hasta
         if not sin_publicar:   # sus destinatarios ya lo vieron: lo verán «Editado»
             comunicado.editado, comunicado.editado_por = ahora, usuario
+        retiradas = _pedir_otra_vez(comunicado, ahora) if importante else 0
         comunicado.save()
+        if elegidos is not None:   # nadie lo ha visto todavía: no hay lecturas que conservar
+            comunicado.destinatarios.all().delete()
+            _crear_destinatarios(comunicado, alcance, elegidos)
         # Las imágenes del texto: las nuevas pasan a ser suyas; las que ya no están se borran
         if imagenes:
             ImagenComunicado.objects.filter(pk__in=imagenes, comunicado__isnull=True, autor=usuario).update(comunicado=comunicado)
@@ -341,16 +418,31 @@ def editar(usuario, comunicado, *, titulo, descripcion, html='', urgente, expira
                                    tipo=tipo, tamano=archivo.size, orden=orden)
             orden += 1
         from Usuarios.seguridad import ACCION_CAMBIO, registrar
-        registrar(usuario, comunicado, ACCION_CAMBIO, 'Corrigió el comunicado.' + (' Lo publicó en ese momento.' if publicar_ya else ''))
+        nota = ' Lo publicó en ese momento.' if publicar_ya else ''
+        if importante:
+            nota = f' Cambio importante: pidió responder otra vez ({retiradas} respuesta{"s" if retiradas != 1 else ""} al historial).'
+        registrar(usuario, comunicado, ACCION_CAMBIO, f'Corrigió el comunicado.{nota}')
+        from . import avisos
         if publicar_ya:
-            from . import avisos
-            transaction.on_commit(lambda: avisos.avisar(comunicado.pk))
+            transaction.on_commit(lambda: avisos.publicar(comunicado.pk))
+        elif importante:
+            transaction.on_commit(lambda: avisos.avisar(comunicado.pk, cambio=True))
     return comunicado
 
 
 # ---------------------------------------------------------------------------
 # Quién lee
 # ---------------------------------------------------------------------------
+def _por_responder(ahora):
+    """(De una copia) pide respuesta, no la ha dado y todavía se puede."""
+    return (~Q(comunicado__respuesta='') & Q(respondido_en__isnull=True)
+            & (Q(comunicado__responder_hasta__isnull=True) | Q(comunicado__responder_hasta__gt=ahora)))
+
+
+def _por_atender(ahora):
+    return Q(leido_en__isnull=True) | _por_responder(ahora)
+
+
 @dataclass(frozen=True)
 class Lector:
     """Una persona que recibe comunicados: un profesor o alguien del personal (con su cuenta del sistema), un estudiante o
@@ -371,8 +463,8 @@ class Lector:
             Q(comunicado__expira__isnull=True) | Q(comunicado__expira__gt=ahora))
 
     def pendientes(self):
-        """(sin leer, urgentes sin leer)"""
-        conteo = self.destinatarios().filter(leido_en__isnull=True).aggregate(
+        """(por atender, urgentes por atender)"""
+        conteo = self.destinatarios().filter(_por_atender(timezone.now())).aggregate(
             total=Count('pk'), urgentes=Count('pk', filter=Q(comunicado__urgente=True)))
         return conteo['total'] or 0, conteo['urgentes'] or 0
 
@@ -393,8 +485,8 @@ def lector_de_portal(tipo, cuenta):
 
 
 def avisos(lector, limite=5):
-    """Los comunicados que aún no lee (los de la campana): primero los urgentes, luego del más reciente al más antiguo."""
-    return list(lector.destinatarios().filter(leido_en__isnull=True).select_related('comunicado__autor')
+    """Los comunicados por atender (los de la campana): primero los urgentes, luego del más reciente al más antiguo."""
+    return list(lector.destinatarios().filter(_por_atender(timezone.now())).select_related('comunicado__autor')
                 .order_by('-comunicado__urgente', '-comunicado__publicado_en', '-comunicado__pk')[:limite])
 
 
@@ -410,9 +502,21 @@ def marcar_leido(destinatario, ahora=None):
     return False
 
 
-def responder(destinatario, valor, ahora=None):
-    """Guarda la respuesta del destinatario: 'enterado', 'si' / 'no' o el id de una opción de la encuesta. Responder
-    cuenta también como leerlo. EnvioRechazado si no procede."""
+def _responder_por_estudiante(filas, valor, por_estudiante):
+    """La respuesta del tutor con lo que eligió por cada hijo (`por_estudiante`: {id de estudiante: 'si' o 'no'}; `valor`
+    vale para los que no estén ahí). Guarda cada fila y devuelve lo que queda en su destinatario."""
+    elegidas = {}
+    for fila in filas:
+        eleccion = str((por_estudiante or {}).get(fila.alumno_id, valor) or '').strip().lower()
+        if eleccion not in ('si', 'no'):
+            raise EnvioRechazado('Responde por cada estudiante.' if len(filas) > 1 else 'Elige Sí o No.')
+        elegidas[fila] = Destinatario.RESPUESTA_SI if eleccion == 'si' else Destinatario.RESPUESTA_NO
+    return elegidas
+
+
+def responder(destinatario, valor, ahora=None, por_estudiante=None):
+    """Guarda la respuesta del destinatario: 'enterado', 'si' / 'no' (`por_estudiante`, si un tutor responde distinto por
+    cada hijo) o el id de una opción de la encuesta. Responder cuenta también como abrirlo. EnvioRechazado si no procede."""
     ahora = ahora or timezone.now()
     comunicado = destinatario.comunicado
     valor = str(valor or '').strip().lower()
@@ -420,15 +524,23 @@ def responder(destinatario, valor, ahora=None):
         raise EnvioRechazado('Este comunicado no pide respuesta.')
     if comunicado.caducado:
         raise EnvioRechazado('Este comunicado ya caducó: ya no se puede responder.')
-    opcion = None
+    if comunicado.plazo_terminado_en(ahora):
+        raise EnvioRechazado('El plazo para responder ya terminó.')
+    opcion, elegidas = None, {}
     if comunicado.respuesta == Comunicado.ENTERADO:
         if valor != 'enterado':
             raise EnvioRechazado('Elige una respuesta.')
         respuesta = Destinatario.RESPUESTA_ENTERADO
     elif comunicado.respuesta == Comunicado.AUTORIZACION:
-        if valor not in ('si', 'no'):
-            raise EnvioRechazado('Elige Sí o No.')
-        respuesta = Destinatario.RESPUESTA_SI if valor == 'si' else Destinatario.RESPUESTA_NO
+        filas = list(destinatario.autorizaciones.all())
+        if filas:
+            elegidas = _responder_por_estudiante(filas, valor, por_estudiante)
+            distintas = set(elegidas.values())
+            respuesta = distintas.pop() if len(distintas) == 1 else Destinatario.RESPUESTA_MIXTA
+        else:
+            if valor not in ('si', 'no'):
+                raise EnvioRechazado('Elige Sí o No.')
+            respuesta = Destinatario.RESPUESTA_SI if valor == 'si' else Destinatario.RESPUESTA_NO
     else:
         opcion = comunicado.opciones.filter(pk=valor).first() if valor.isdigit() else None
         if opcion is None:
@@ -437,43 +549,70 @@ def responder(destinatario, valor, ahora=None):
     cambios = {'respuesta': respuesta, 'opcion': opcion, 'respondido_en': ahora}
     if destinatario.leido_en is None:
         cambios['leido_en'] = ahora
-    Destinatario.objects.filter(pk=destinatario.pk).update(**cambios)
+    with transaction.atomic():
+        for fila, eleccion in elegidas.items():
+            AutorizacionEstudiante.objects.filter(pk=fila.pk).update(respuesta=eleccion, respondido_en=ahora)
+        Destinatario.objects.filter(pk=destinatario.pk).update(**cambios)
     for nombre, valor_nuevo in cambios.items():
         setattr(destinatario, nombre, valor_nuevo)
     return destinatario
 
 
 def recibidos(lector, estado='todos', categoria=''):
-    """Sus copias: primero los urgentes sin leer, luego los fijados y después del más reciente al más antiguo."""
+    """Sus copias: primero los urgentes sin abrir, luego lo que espera su respuesta, los fijados y después del más reciente
+    al más antiguo."""
+    ahora = timezone.now()
     adjuntos = Adjunto.objects.filter(comunicado=OuterRef('comunicado')).order_by().values('comunicado').annotate(n=Count('pk')).values('n')
     consulta = lector.destinatarios().select_related('comunicado__autor').annotate(
         adjuntos=Coalesce(Subquery(adjuntos, output_field=IntegerField()), 0),
-        prioridad=Case(When(leido_en__isnull=True, comunicado__urgente=True, then=Value(0)),
-                       When(comunicado__fijado=True, then=Value(1)), default=Value(2), output_field=IntegerField()),
+        prioridad=Case(When(leido_en__isnull=True, comunicado__urgente=True, then=Value(0)), When(_por_responder(ahora), then=Value(1)),
+                       When(comunicado__fijado=True, then=Value(2)), default=Value(3), output_field=IntegerField()),
     )
     if estado == 'pendientes':
         consulta = consulta.filter(leido_en__isnull=True)
     elif estado == 'leidos':
         consulta = consulta.filter(leido_en__isnull=False)
     elif estado == 'por_responder':
-        consulta = consulta.exclude(comunicado__respuesta='').filter(respondido_en__isnull=True)
+        consulta = consulta.filter(_por_responder(ahora))
+    elif estado == 'por_atender':
+        consulta = consulta.filter(_por_atender(ahora))
     if categoria:
         consulta = consulta.filter(comunicado__categoria=categoria)
     return consulta.order_by('prioridad', '-comunicado__publicado_en', '-comunicado__pk')
+
+
+def estado_de(copia, ahora=None):
+    """(clave, texto, icono) de lo que una copia pide de quien la recibe: la pantalla nunca lo dice solo con color."""
+    ahora = ahora or timezone.now()
+    comunicado = copia.comunicado
+    if copia.leido_en is None and comunicado.urgente:
+        return 'urgente', 'Urgente · Sin abrir', 'triangle-alert'
+    if comunicado.pide_respuesta and copia.respondido_en is None:
+        if comunicado.plazo_terminado_en(ahora):
+            return 'plazo', 'Plazo terminado', 'clock'
+        if comunicado.responder_hasta:
+            return 'responder', f'Responde antes del {date_format(timezone.localtime(comunicado.responder_hasta), "j b")}', 'clipboard-check'
+        return 'responder', 'Por responder', 'clipboard-check'
+    if copia.leido_en is None:
+        return 'sin_abrir', 'Sin abrir', 'eye-off'
+    if comunicado.pide_respuesta:
+        return 'confirmado', 'Confirmado' if comunicado.respuesta == Comunicado.ENTERADO else 'Respondido', 'circle-check'
+    return 'abierto', 'Abierto', 'check'
 
 
 # ---------------------------------------------------------------------------
 # Gestión y seguimiento
 # ---------------------------------------------------------------------------
 def con_estadisticas(consulta):
-    """Los comunicados con su total de destinatarios, cuántos lo leyeron y respondieron y cuántos hay de cada tipo (cada
-    destinatario es una persona distinta: el envío no admite repetidos). Los archivos se cuentan aparte para no
-    multiplicar filas."""
+    """Los comunicados con su total de destinatarios, cuántos lo abrieron y respondieron, cuántos no pueden abrirlo por no
+    tener acceso a su portal y cuántos hay de cada tipo (cada destinatario es una persona distinta: el envío no admite
+    repetidos). Los archivos se cuentan aparte para no multiplicar filas."""
     adjuntos = Adjunto.objects.filter(comunicado=OuterRef('pk')).order_by().values('comunicado').annotate(n=Count('pk')).values('n')
     return consulta.annotate(
         total=Count('destinatarios'),
         leidos=Count('destinatarios', filter=Q(destinatarios__leido_en__isnull=False)),
         respondidos=Count('destinatarios', filter=Q(destinatarios__respondido_en__isnull=False)),
+        n_sin_acceso=Count('destinatarios', filter=sin_acceso_al_portal('destinatarios__') & Q(destinatarios__leido_en__isnull=True)),
         n_tutores=Count('destinatarios', filter=Q(destinatarios__tipo=Destinatario.TUTOR)),
         n_estudiantes=Count('destinatarios', filter=Q(destinatarios__tipo=Destinatario.ESTUDIANTE)),
         n_profesores=Count('destinatarios', filter=Q(destinatarios__tipo=Destinatario.PROFESOR)),
@@ -488,10 +627,13 @@ def preparar(comunicado):
                Destinatario.PROFESOR: comunicado.n_profesores, Destinatario.PERSONAL: comunicado.n_personal}
     comunicado.resumen_destinatarios = resumen_por_tipo(conteos)
     comunicado.desglose = [(tipo, conteos[tipo], cantidad(conteos[tipo], tipo)) for tipo in ORDEN_DE_TIPOS if conteos[tipo]]
-    comunicado.porcentaje = porcentaje(comunicado.leidos, comunicado.total)
-    comunicado.pendientes = comunicado.total - comunicado.leidos
-    comunicado.porcentaje_respuesta = porcentaje(comunicado.respondidos, comunicado.total)
-    comunicado.sin_responder = comunicado.total - comunicado.respondidos
+    # Quien no tiene acceso a su portal y no lo ha abierto no cuenta: no hay nada que esperar de esa persona
+    comunicado.alcanzables = comunicado.total - comunicado.n_sin_acceso
+    comunicado.porcentaje = porcentaje(comunicado.leidos, comunicado.alcanzables)
+    comunicado.pendientes = comunicado.alcanzables - comunicado.leidos
+    comunicado.porcentaje_respuesta = porcentaje(comunicado.respondidos, comunicado.alcanzables)
+    comunicado.sin_responder = comunicado.alcanzables - comunicado.respondidos
+    comunicado.faltan = comunicado.sin_responder if comunicado.pide_respuesta else comunicado.pendientes
     return comunicado
 
 
@@ -511,6 +653,10 @@ def filtrar_por_estado(consulta, estado, ahora=None):
         return consulta.filter(publicado_en__gt=ahora)
     if estado == 'caducados':
         return consulta.caducados(ahora)
+    if estado == 'con_pendientes':
+        faltan = Destinatario.objects.filter(comunicado=OuterRef('pk')).exclude(sin_acceso_al_portal()).filter(
+            Q(comunicado__respuesta='', leido_en__isnull=True) | (~Q(comunicado__respuesta='') & Q(respondido_en__isnull=True)))
+        return consulta.activos(ahora).publicados(ahora).filter(Exists(faltan))
     return consulta
 
 
@@ -535,9 +681,56 @@ def puede_editar(usuario, comunicado):
     return not comunicado.eliminado and (es_administrador(usuario) or (comunicado.autor_id == usuario.pk and usuario.has_perm(ENVIAR)))
 
 
+def autorizaciones_por_estudiante(comunicado):
+    """[{alumno_id, nombre, grupo, clave, texto, tutores}] de una autorización, una fila por estudiante, por grupo y nombre.
+    `clave`: autorizado, no_autorizado, desacuerdo (sus tutores se contradicen: no cuenta como autorizado), sin_responder o
+    sin_acceso (ningún tutor suyo puede entrar a su portal). `tutores`: [(nombre, respuesta)]."""
+    filas = (AutorizacionEstudiante.objects.filter(destinatario__comunicado=comunicado).order_by()
+             .select_related('alumno', 'destinatario__tutor'))
+    por_alumno = {}
+    for fila in filas:
+        por_alumno.setdefault(fila.alumno_id, []).append(fila)
+    if not por_alumno:
+        return []
+    ciclo = ciclo_actual()
+    inscripciones = Inscripcion.objects.filter(ciclo=ciclo, activa=True, alumno__in=list(por_alumno)).select_related('grupo__nombre', 'grupo__grado')
+    grupos = {inscripcion.alumno_id: inscripcion.grupo.corto for inscripcion in inscripciones}
+    textos = {'autorizado': 'Autorizado', 'no_autorizado': 'No autorizado', 'desacuerdo': 'Tutores en desacuerdo',
+              'sin_responder': 'Sin responder', 'sin_acceso': 'Sin acceso al portal'}
+    resultado = []
+    for alumno_id, propias in por_alumno.items():
+        respuestas = {fila.respuesta for fila in propias if fila.respuesta}
+        if len(respuestas) > 1:
+            clave = 'desacuerdo'
+        elif respuestas:
+            clave = 'autorizado' if Destinatario.RESPUESTA_SI in respuestas else 'no_autorizado'
+        else:
+            clave = 'sin_acceso' if all(fila.destinatario.sin_acceso for fila in propias) else 'sin_responder'
+        resultado.append({
+            'alumno_id': alumno_id, 'nombre': propias[0].alumno.nombre_completo, 'grupo': grupos.get(alumno_id, ''), 'clave': clave,
+            'texto': textos[clave],
+            'tutores': [(fila.destinatario.nombre, {'SI': 'Sí', 'NO': 'No'}.get(fila.respuesta, 'Sin responder')) for fila in propias],
+        })
+    resultado.sort(key=lambda fila: (fila['grupo'], fila['nombre'].lower()))
+    return resultado
+
+
 def resumen_de_respuestas(comunicado, destinatarios):
-    """[{texto, cuantos, porcentaje}] de las respuestas (una fila por respuesta posible) y cuántos no han respondido."""
-    total = len(destinatarios)
+    """[{texto, cuantos, porcentaje}] de las respuestas (una fila por respuesta posible) y cuántos no han respondido, sin
+    contar a quien no tiene acceso a su portal y no lo ha abierto. Una autorización se cuenta por estudiante."""
+    por_estudiante = autorizaciones_por_estudiante(comunicado) if comunicado.respuesta == Comunicado.AUTORIZACION else []
+    if por_estudiante:
+        contar = lambda clave: sum(fila['clave'] == clave for fila in por_estudiante)   # noqa: E731
+        sin_responder = contar('sin_responder')
+        total = len(por_estudiante) - contar('sin_acceso')
+        filas = [('Sí autoriza', contar('autorizado')), ('No autoriza', contar('no_autorizado'))]
+        if contar('desacuerdo'):
+            filas.append(('Tutores en desacuerdo', contar('desacuerdo')))
+        return {
+            'filas': [{'texto': texto, 'cuantos': n, 'porcentaje': porcentaje(n, total)} for texto, n in filas], 'sin_responder': sin_responder,
+            'respondieron': total - sin_responder, 'total': total, 'por_estudiante': True,
+        }
+    total = sum(1 for d in destinatarios if d.leido or not d.sin_acceso)
     respondieron = [d for d in destinatarios if d.respondio]
     if comunicado.respuesta == Comunicado.ENTERADO:
         filas = [('Enterado', len(respondieron))]
@@ -553,8 +746,9 @@ def resumen_de_respuestas(comunicado, destinatarios):
 
 
 def lectura_por_grupo(destinatarios):
-    """[{nombre, total, leidos, porcentaje, respondidos}] por grupo (el que tenía cada estudiante y el primer hijo de cada
-    tutor al enviarse), y aparte los profesores, el personal y quien no tenía grupo."""
+    """[{nombre, total, leidos, porcentaje, respondidos, sin_acceso}] por grupo (el que tenía cada estudiante y el primer hijo
+    de cada tutor al enviarse), y aparte los profesores, el personal y quien no tenía grupo. `total` no cuenta a quien no
+    tiene acceso a su portal y no lo ha abierto: esas personas van en `sin_acceso`."""
     filas = {}
     for destinatario in destinatarios:
         if destinatario.tipo == Destinatario.PROFESOR:
@@ -569,7 +763,10 @@ def lectura_por_grupo(destinatarios):
             clave = grupo.pk
             nombre = f'{grupo.corto} · {grupo.grado.get_nivel_display()}'
             orden = (ORDEN_NIVELES.index(nivel) if nivel in ORDEN_NIVELES else 9, grupo.grado.numero, nombre)
-        fila = filas.setdefault(clave, {'nombre': nombre, 'orden': orden, 'total': 0, 'leidos': 0, 'respondidos': 0})
+        fila = filas.setdefault(clave, {'nombre': nombre, 'orden': orden, 'total': 0, 'leidos': 0, 'respondidos': 0, 'sin_acceso': 0})
+        if destinatario.sin_acceso and not destinatario.leido:
+            fila['sin_acceso'] += 1
+            continue
         fila['total'] += 1
         fila['leidos'] += destinatario.leido
         fila['respondidos'] += destinatario.respondio
@@ -585,10 +782,9 @@ def lectura_por_grupo(destinatarios):
 # Recordar a los pendientes
 # ---------------------------------------------------------------------------
 def por_recordar(comunicado):
-    """Quienes no lo han leído (o no han respondido, si pide respuesta)."""
-    if comunicado.pide_respuesta:
-        return comunicado.destinatarios.filter(respondido_en__isnull=True)
-    return comunicado.destinatarios.filter(leido_en__isnull=True)
+    """Quienes no lo han abierto (o no han respondido, si pide respuesta) y tienen cómo entrar a su portal."""
+    faltan = Q(respondido_en__isnull=True) if comunicado.pide_respuesta else Q(leido_en__isnull=True)
+    return comunicado.destinatarios.filter(faltan).exclude(sin_acceso_al_portal())
 
 
 def motivo_para_no_recordar(comunicado, ahora=None):
@@ -598,11 +794,13 @@ def motivo_para_no_recordar(comunicado, ahora=None):
         return 'El comunicado ya no está activo.'
     if comunicado.publicado_en > ahora:
         return 'Todavía no se publica.'
+    if comunicado.plazo_terminado_en(ahora):
+        return 'El plazo para responder ya terminó.'
     if comunicado.recordado_en and ahora - comunicado.recordado_en < ESPERA_ENTRE_RECORDATORIOS:
         siguiente = timezone.localtime(comunicado.recordado_en + ESPERA_ENTRE_RECORDATORIOS)
         return f'Ya se recordó hace poco. Podrás volver a recordarlo a las {siguiente:%H:%M}.'
     if not por_recordar(comunicado).exists():
-        return 'Todos lo han respondido.' if comunicado.pide_respuesta else 'Todos lo han leído.'
+        return 'Todos lo han respondido.' if comunicado.pide_respuesta else 'Todos lo han abierto.'
     return ''
 
 

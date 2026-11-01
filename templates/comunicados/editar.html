@@ -2,8 +2,8 @@
 {% load static %}
 {% comment %}
   Corregir un comunicado ya enviado (Comunicados/views.editar): el mismo formulario de crear (comunicados/_formulario.html)
-  sin el selector de destinatarios ni la respuesta que se pide, que no cambian. Quienes ya lo recibieron lo ven
-  corregido, con la marca «Editado».
+  sin la respuesta que se pide, que no cambia. Los destinatarios solo cambian mientras siga programado. Quienes ya lo
+  recibieron lo ven corregido, con la marca «Editado».
 {% endcomment %}
 
 {% block title %}Corregir comunicado | CISAHUAYO{% endblock %}
@@ -33,6 +33,7 @@
       {% include "comunicados/_formulario.html" with en_pagina=True %}
     </div>
   </div>
+  {% if programable %}{% include "comunicados/_selector.html" %}{% endif %}
 {% endblock %}
 
 {% block extra_js %}

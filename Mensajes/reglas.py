@@ -13,7 +13,7 @@ de grupo, fin del ciclo), la conversación se conserva para consulta pero ya no 
 """
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
@@ -36,6 +36,8 @@ from .models import ConfiguracionMensajes, Conversacion, ImagenMensaje, Mensaje,
 
 USAR = 'Mensajes.usar'
 FAMILIAS = 'Mensajes.contactar_familias'
+# Las bandejas, además de «Todas» y «Sin leer» (que incluye las archivadas: el contador las cuenta)
+DESTACADAS, ARCHIVADAS = 'destacadas', 'archivadas'
 # El espacio de rutas de cada clase de cuenta (las mismas vistas en el sistema y en los dos portales)
 ESPACIO = {
     Participante.SISTEMA: 'mensajes',
@@ -192,6 +194,11 @@ def _rol_de(usuario):
     return rol.nombre if rol else 'Usuario del sistema'
 
 
+def _rol_de_cada_uno(usuarios):
+    """Los usuarios con su rol ya cargado: `rol_de` no consulta por cada uno."""
+    return usuarios.prefetch_related('groups__rol')
+
+
 def _alumnos_activos():
     return Alumno.objects.filter(estatus='ACTIVO', acceso_portal=True)
 
@@ -200,9 +207,58 @@ def _tutores_activos():
     return Tutor.objects.filter(estatus='ACTIVO', acceso_portal=True)
 
 
-def contactos(participante, texto='', limite=25):
-    """Las cuentas a las que puede escribir (con `texto`, las que coinciden), sin la propia."""
-    resultado = []
+def _atienden_a(alumnos):
+    """Los ids de quienes atienden a las familias de esos estudiantes (`Mensajes.contactar_familias`): solo las cuentas de
+    prefectura se limitan a su alcance, y esos alcances se leen todos juntos (lo mismo que `_alcance_permite`, sin
+    consultar por cada cuenta)."""
+    from Prefectura.alcance import es_cuenta_de_prefectura
+    from Prefectura.models import AlcancePrefectura
+    cuentas = list(_rol_de_cada_uno(_usuarios_con(FAMILIAS)))
+    limitadas = [u.pk for u in cuentas if es_cuenta_de_prefectura(u)]
+    permitidas = {u.pk for u in cuentas} - set(limitadas)
+    ciclo = ciclo_actual()
+    if not limitadas or ciclo is None:
+        return permitidas
+    lugares = list(Inscripcion.objects.filter(alumno__in=alumnos, ciclo=ciclo, activa=True).values_list('grado__nivel', 'grupo_id'))
+    niveles, grupos = {nivel for nivel, _ in lugares}, {grupo for _, grupo in lugares}
+    for usuario, todo, suyos in AlcancePrefectura.objects.filter(usuario__in=limitadas).values_list('usuario_id', 'todo_el_colegio', 'niveles'):
+        if todo or niveles & set(suyos):
+            permitidas.add(usuario)
+    permitidas.update(AlcancePrefectura.grupos.through.objects.filter(alcanceprefectura__usuario__in=limitadas, grupo__in=grupos)
+                      .values_list('alcanceprefectura__usuario_id', flat=True))
+    return permitidas
+
+
+def _clases_por_docente(alumnos):
+    """{id de usuario: «Docente · Matemáticas, Ciencias · 4.º A»}: qué le da cada docente a esos estudiantes, para que la
+    familia sepa quién es quién."""
+    ciclo = ciclo_actual()
+    if ciclo is None or not alumnos:
+        return {}
+    relacionadas = ('materia', 'profesor', 'grupo__grado', 'grupo__nombre')
+    base = MateriaGrado.objects.filter(ciclo=ciclo, activa=True, grupo__in=_grupos_actuales(alumnos), profesor__usuario__isnull=False)
+    de_clase = asignaciones_de_clase_de(alumnos, ciclo, timezone.localdate()).filter(profesor__usuario__isnull=False)
+    por_docente = {}
+    for asignacion in [*base.select_related(*relacionadas).order_by('materia__nombre'), *de_clase.select_related(*relacionadas)]:
+        por_grupo = por_docente.setdefault(asignacion.profesor.usuario_id, {})
+        materias = por_grupo.setdefault(str(asignacion.grupo), [])
+        if asignacion.materia.nombre not in materias:
+            materias.append(asignacion.materia.nombre)
+    return {usuario: 'Docente · ' + '; '.join(f'{", ".join(materias)} · {grupo}' for grupo, materias in por_grupo.items())
+            for usuario, por_grupo in por_docente.items()}
+
+
+def _grupos_de(alumnos):
+    """{id de estudiante: su grupo del ciclo actual}, en una sola consulta."""
+    ciclo = ciclo_actual()
+    if ciclo is None:
+        return {}
+    inscripciones = Inscripcion.objects.filter(alumno__in=alumnos, ciclo=ciclo, activa=True).select_related('grupo__grado', 'grupo__nombre')
+    return {inscripcion.alumno_id: inscripcion.grupo for inscripcion in inscripciones}
+
+
+def _alcanzables(participante):
+    """(usuarios, estudiantes, tutores): las consultas de las cuentas a las que puede escribir, sin la propia."""
     usuarios = get_user_model().objects.none()
     alumnos, tutores = Alumno.objects.none(), Tutor.objects.none()
     ciclo = ciclo_actual()
@@ -230,22 +286,65 @@ def contactos(participante, texto='', limite=25):
             usuarios = _usuarios_con(USAR, FAMILIAS).filter(Q(pk__in=docentes) | Q(pk__in=de_clase))
         if propios:
             # Quien atiende a las familias (prefectura, solo si son de su alcance)
-            atienden = [u for u in _usuarios_con(FAMILIAS) if _alcance_permite(u, propios)]
-            usuarios = get_user_model().objects.filter(Q(pk__in=usuarios.values('pk')) | Q(pk__in=[u.pk for u in atienden]), is_active=True)
+            usuarios = get_user_model().objects.filter(Q(pk__in=usuarios.values('pk')) | Q(pk__in=_atienden_a(propios)), is_active=True)
+    return usuarios, alumnos, tutores
 
-    usuarios = _palabras(usuarios, texto, ('first_name', 'last_name', 'username'))
-    for usuario in usuarios.order_by('first_name', 'last_name', 'username')[:limite]:
-        nombre = usuario.get_full_name() or usuario.get_username()
-        iniciales = ''.join(p[0] for p in nombre.split()[:2]).upper()
-        resultado.append(Contacto(f'u:{usuario.pk}', nombre, _rol_de(usuario), Participante.SISTEMA, iniciales))
-    if texto:   # estudiantes y tutores solo al buscar: pueden ser muchos
-        alumnos = _palabras(alumnos, texto, ('nombre', 'apellido_paterno', 'apellido_materno', 'referencia'))
-        for alumno in alumnos.order_by('apellido_paterno', 'apellido_materno', 'nombre')[:limite]:
-            resultado.append(Contacto(f'a:{alumno.pk}', str(alumno), f'Estudiante · {alumno.referencia}', Participante.ESTUDIANTE, alumno.iniciales))
-        tutores = _palabras(tutores, texto, ('nombre', 'apellido_paterno', 'apellido_materno', 'usuario'))
-        for tutor in tutores.order_by('apellido_paterno', 'apellido_materno', 'nombre')[:limite]:
-            resultado.append(Contacto(f't:{tutor.pk}', str(tutor), 'Tutor', Participante.TUTOR, tutor.iniciales))
-    return resultado[:limite]
+
+@dataclass
+class GrupoDeContactos:
+    titulo: str
+    contactos: list
+    hay_mas: bool = False
+
+    def como_dict(self):
+        return {'titulo': self.titulo, 'contactos': [c.como_dict() for c in self.contactos], 'hay_mas': self.hay_mas}
+
+
+def _primeros(consulta, limite):
+    """(las primeras `limite` filas, si hay más)."""
+    filas = list(consulta[:limite + 1])
+    return filas[:limite], len(filas) > limite
+
+
+def _contacto_de_usuario(usuario, detalle):
+    nombre = usuario.get_full_name() or usuario.get_username()
+    return Contacto(f'u:{usuario.pk}', nombre, detalle, Participante.SISTEMA, ''.join(p[0] for p in nombre.split()[:2]).upper())
+
+
+def _grupos_de_personal(participante, usuarios, limite):
+    """El personal: para un estudiante o una familia, primero sus docentes, con lo que les imparten."""
+    filas, hay_mas = _primeros(_rol_de_cada_uno(usuarios).order_by('first_name', 'last_name', 'username'), limite)
+    if participante.tipo == Participante.SISTEMA:
+        return [GrupoDeContactos('Personal del colegio', [_contacto_de_usuario(u, _rol_de(u)) for u in filas], hay_mas)]
+    clases = _clases_por_docente(_alumnos_de(participante))
+    docentes = [_contacto_de_usuario(u, clases[u.pk]) for u in filas if u.pk in clases]
+    personal = [_contacto_de_usuario(u, _rol_de(u)) for u in filas if u.pk not in clases]
+    return [GrupoDeContactos('Tus docentes', docentes), GrupoDeContactos('Personal del colegio', personal, hay_mas)]
+
+
+def directorio(participante, texto='', limite=25, con_familias=True):
+    """A quién puede escribir, por clase de persona y con hasta `limite` de cada una (así, muchas coincidencias de una clase
+    no esconden a las demás). Sin `con_familias`, los estudiantes y los tutores solo salen al buscar: pueden ser muchos."""
+    usuarios, alumnos, tutores = _alcanzables(participante)
+    grupos = _grupos_de_personal(participante, _palabras(usuarios, texto, ('first_name', 'last_name', 'username')), limite)
+    if texto or con_familias:
+        filas, hay_mas = _primeros(_palabras(alumnos, texto, ('nombre', 'apellido_paterno', 'apellido_materno', 'referencia'))
+                                   .order_by('apellido_paterno', 'apellido_materno', 'nombre'), limite)
+        de_cada_uno = _grupos_de(filas)
+        grupos.append(GrupoDeContactos('Estudiantes', [
+            Contacto(f'a:{a.pk}', str(a), f'Estudiante · {de_cada_uno.get(a.pk) or a.referencia}', Participante.ESTUDIANTE, a.iniciales)
+            for a in filas], hay_mas))
+        filas, hay_mas = _primeros(_palabras(tutores, texto, ('nombre', 'apellido_paterno', 'apellido_materno', 'usuario'))
+                                   .order_by('apellido_paterno', 'apellido_materno', 'nombre'), limite)
+        familias = familias_de(filas)
+        grupos.append(GrupoDeContactos('Tutores', [
+            Contacto(f't:{t.pk}', str(t), familias.get(t.pk) or 'Tutor', Participante.TUTOR, t.iniciales) for t in filas], hay_mas))
+    return [grupo for grupo in grupos if grupo.contactos]
+
+
+def contactos(participante, texto='', limite=25):
+    """Las cuentas a las que puede escribir (con `texto`, las que coinciden), sin la propia: hasta `limite` de cada clase."""
+    return [contacto for grupo in directorio(participante, texto, limite, con_familias=False) for contacto in grupo.contactos]
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +454,7 @@ def enviar(conversacion, autor, texto, html='', documentos=(), responde_a=None):
         Conversacion.objects.filter(pk=conversacion.pk).update(actualizada=mensaje.creado, ultimo_mensaje=mensaje)
         ahora = timezone.now()
         Miembro.objects.filter(conversacion=conversacion, participante=autor).update(ultimo_leido=mensaje.pk, leido_en=ahora, marcada_sin_leer=False)
+        Miembro.objects.filter(conversacion=conversacion, archivada_en__isnull=False).update(archivada_en=None)   # regresa a la bandeja
         # Quien responde ya leyó lo anterior: la otra persona lo ve como «Leído»
         leidos = Mensaje.objects.filter(conversacion=conversacion, pk__lt=mensaje.pk, leido_en__isnull=True).exclude(autor=autor).update(leido_en=ahora)
         transaction.on_commit(lambda: tiempo_real.avisar_mensaje(mensaje))
@@ -523,6 +623,29 @@ def marcar_no_leida(conversacion, participante):
     transaction.on_commit(lambda: tiempo_real.avisar_resumen(participante, conversacion.pk))
 
 
+def marcar_todas_leidas(participante):
+    """«Marcar todo como leído»: como abrir cada conversación pendiente. Devuelve cuántas eran."""
+    pendientes = sin_leer_por_conversacion(participante)
+    for conversacion in Conversacion.objects.filter(pk__in=pendientes):
+        marcar_leida(conversacion, participante)
+    return len(pendientes)
+
+
+def _organizar(conversacion, participante, **cambios):
+    Miembro.objects.filter(conversacion=conversacion, participante=participante).update(**cambios)
+    from . import tiempo_real
+    transaction.on_commit(lambda: tiempo_real.avisar_resumen(participante, conversacion.pk, organizada=True))
+
+
+def archivar(conversacion, participante, archivada=True):
+    """La saca de «Todas» sin borrar nada, solo para esa persona. Lo que tenga sin leer sigue contando."""
+    _organizar(conversacion, participante, archivada_en=timezone.now() if archivada else None)
+
+
+def destacar(conversacion, participante, destacada=True):
+    _organizar(conversacion, participante, destacada_en=timezone.now() if destacada else None)
+
+
 def texto_de_lectura(momento):
     """«Leído a las 10:42», «Leído ayer a las 10:42» o «Leído el 18 de octubre a las 10:42» («Leído» sin la hora)."""
     if momento is None:
@@ -596,23 +719,46 @@ def _desde_cursor(cursor):
     return datetime(1970, 1, 1, tzinfo=dt_timezone.utc) + timedelta(microseconds=int(momento)), int(pk)
 
 
-def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_leer=False, incluir=None):
-    """Las conversaciones de la persona, de la más reciente a la más antigua, con la otra persona, el último mensaje y
-    cuántos mensajes no ha leído. Con `despues` (un cursor de `cursor_de`), las que siguen a esa; con `solo_sin_leer`,
-    solo las que tienen algo sin leer (`pendientes`: lo de `sin_leer_por_conversacion`, si ya se consultó) y la de id
-    `incluir` (la que tiene abierta: al abrirla quedó leída, pero sigue en la lista)."""
+def _condicion_de_bandeja(participante, pendientes, solo_sin_leer, vista, tipo):
+    """Qué conversaciones entran en la bandeja elegida: «Todas» son las que no están archivadas; «Sin leer» incluye las
+    archivadas, porque el contador también las cuenta. `tipo`: la clase de cuenta de la otra persona."""
+    suyo = Miembro.objects.filter(conversacion=OuterRef('pk'), participante=participante)
+    if solo_sin_leer:
+        condicion = Q(pk__in=list(pendientes))
+    elif vista == DESTACADAS:
+        condicion = Q(Exists(suyo.filter(destacada_en__isnull=False)))
+    elif vista == ARCHIVADAS:
+        condicion = Q(Exists(suyo.filter(archivada_en__isnull=False)))
+    else:
+        condicion = ~Q(Exists(suyo.filter(archivada_en__isnull=False)))
+    if tipo:
+        condicion &= Q(Exists(Miembro.objects.filter(conversacion=OuterRef('pk'), participante__tipo=tipo).exclude(participante=participante)))
+    return condicion
+
+
+def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_leer=False, incluir=None, vista='', tipo='', solo=None):
+    """Las conversaciones de la persona, de la más reciente a la más antigua, con la otra persona, el último mensaje, cuántos
+    mensajes no ha leído y si las destacó o archivó. Con `despues` (un cursor de `cursor_de`), las que siguen a esa; con
+    `solo_sin_leer`, solo las que tienen algo sin leer (`pendientes`: lo de `sin_leer_por_conversacion`, si ya se consultó);
+    con `vista` (DESTACADAS o ARCHIVADAS), esas; sin nada, las que no están archivadas. La de id `incluir` (la que tiene
+    abierta) siempre sigue en la lista, y con `solo` (un id) sale únicamente esa."""
     pendientes = sin_leer_por_conversacion(participante) if pendientes is None else pendientes
     consulta = Conversacion.objects.filter(miembros__participante=participante, ultimo_mensaje__isnull=False)
-    if solo_sin_leer:
-        consulta = consulta.filter(Q(pk__in=list(pendientes)) | Q(pk=incluir) if incluir else Q(pk__in=list(pendientes)))
+    if solo is not None:
+        consulta = consulta.filter(pk=solo)
+    else:
+        condicion = _condicion_de_bandeja(participante, pendientes, solo_sin_leer, vista, tipo)
+        consulta = consulta.filter(condicion | Q(pk=incluir) if incluir else condicion)
     if (desde := _desde_cursor(despues)) is not None:
         consulta = consulta.filter(Q(actualizada__lt=desde[0]) | Q(actualizada=desde[0], pk__lt=desde[1]))
     conversaciones = list(consulta.select_related('ultimo_mensaje__autor').order_by('-actualizada', '-pk')[:limite])
-    otros = {
-        m.conversacion_id: m.participante for m in
-        Miembro.objects.filter(conversacion__in=conversaciones).exclude(participante=participante).select_related(
-            'participante__usuario', 'participante__alumno', 'participante__tutor')
-    }
+    otros, propios = {}, {}
+    for miembro in Miembro.objects.filter(conversacion__in=conversaciones).select_related(
+            'participante__usuario', 'participante__alumno', 'participante__tutor'):
+        if miembro.participante_id == participante.pk:
+            propios[miembro.conversacion_id] = miembro
+        else:
+            otros[miembro.conversacion_id] = miembro.participante
     familias = familias_de([p.tutor for p in otros.values() if p.tipo == Participante.TUTOR])
     for conversacion in conversaciones:
         conversacion.otro = otros.get(conversacion.pk)
@@ -620,21 +766,27 @@ def bandeja(participante, limite=60, despues=None, pendientes=None, solo_sin_lee
             conversacion.otro.quien = familias.get(conversacion.otro.tutor_id, '')
         conversacion.no_leidos = pendientes.get(conversacion.pk, 0)
         conversacion.mio = conversacion.ultimo_mensaje.autor_id == participante.pk
+        suyo = propios.get(conversacion.pk)
+        conversacion.destacada = bool(suyo and suyo.destacada_en)
+        conversacion.archivada = bool(suyo and suyo.archivada_en)
     return [c for c in conversaciones if c.otro is not None]
 
 
 POR_PAGINA_BANDEJA = 60
 
 
-def pagina_de_bandeja(participante, despues=None, limite=None, solo_sin_leer=False, incluir=None):
-    """(conversaciones, cursor de las siguientes o None si ya no hay más). Con `solo_sin_leer`, el filtro «Sin leer» de
-    la bandeja (y `incluir`, la conversación abierta): ver `bandeja`."""
+def pagina_de_bandeja(participante, despues=None, limite=None, solo_sin_leer=False, incluir=None, vista='', tipo=''):
+    """(conversaciones, cursor de las siguientes o None si ya no hay más), en la bandeja elegida (ver `bandeja`). La
+    conversación abierta (`incluir`) siempre está en la lista, aunque por su fecha fuera de una página posterior."""
     limite = limite or POR_PAGINA_BANDEJA
-    conversaciones = bandeja(participante, limite=limite + 1, despues=despues, solo_sin_leer=solo_sin_leer, incluir=incluir)
+    conversaciones = bandeja(participante, limite=limite + 1, despues=despues, solo_sin_leer=solo_sin_leer, incluir=incluir, vista=vista, tipo=tipo)
+    siguientes = None
     if len(conversaciones) > limite:
         conversaciones = conversaciones[:limite]
-        return conversaciones, cursor_de(conversaciones[-1])
-    return conversaciones, None
+        siguientes = cursor_de(conversaciones[-1])
+    if incluir and not despues and not any(c.pk == incluir for c in conversaciones):
+        conversaciones += bandeja(participante, solo=incluir)
+    return conversaciones, siguientes
 
 
 def vista_previa(texto):
@@ -715,15 +867,74 @@ def resaltar(texto, buscado='', largo=220):
     return mark_safe(('…' if inicio else '') + ''.join(partes) + ('…' if fin < len(texto) else ''))
 
 
-def buscar_mensajes(participante, texto, limite=20):
+def personas_que_coinciden(texto):
+    """Los participantes (de cualquier clase de cuenta) cuyo nombre, usuario o referencia contiene cada palabra."""
+    consulta = Participante.objects.all()
+    for palabra in (texto or '').split():
+        consulta = consulta.filter(
+            Q(usuario__first_name__icontains=palabra) | Q(usuario__last_name__icontains=palabra) | Q(usuario__username__icontains=palabra)
+            | Q(alumno__nombre__icontains=palabra) | Q(alumno__apellido_paterno__icontains=palabra)
+            | Q(alumno__apellido_materno__icontains=palabra) | Q(alumno__referencia__icontains=palabra)
+            | Q(tutor__nombre__icontains=palabra) | Q(tutor__apellido_paterno__icontains=palabra)
+            | Q(tutor__apellido_materno__icontains=palabra) | Q(tutor__usuario__icontains=palabra)
+        )
+    return consulta
+
+
+SIN_LEER, LEIDOS = 'sin_leer', 'leidos'
+
+
+@dataclass(frozen=True)
+class FiltroDeBusqueda:
+    """Con qué se acota una búsqueda. `conversacion`: buscar solo en esa; `tipo`: la clase de cuenta de la otra persona;
+    `persona`: su nombre; `estado`: SIN_LEER o LEIDOS; `adjuntos`: solo los que traen un archivo."""
+    tipo: str = ''
+    persona: str = ''
+    desde: date | None = None
+    hasta: date | None = None
+    estado: str = ''
+    adjuntos: bool = False
+    conversacion: int | None = None
+
+    @property
+    def activo(self):
+        return any((self.tipo, self.persona, self.desde, self.hasta, self.estado, self.adjuntos))
+
+
+def _con_filtro(consulta, participante, filtro):
+    if filtro.conversacion:
+        consulta = consulta.filter(conversacion=filtro.conversacion)
+    con_otra = Miembro.objects.filter(conversacion=OuterRef('conversacion')).exclude(participante=participante)
+    if filtro.tipo:
+        consulta = consulta.filter(Exists(con_otra.filter(participante__tipo=filtro.tipo)))
+    if filtro.persona:
+        consulta = consulta.filter(Exists(con_otra.filter(participante__in=personas_que_coinciden(filtro.persona))))
+    if filtro.desde:
+        consulta = consulta.filter(creado__date__gte=filtro.desde)
+    if filtro.hasta:
+        consulta = consulta.filter(creado__date__lte=filtro.hasta)
+    if filtro.estado == SIN_LEER:
+        consulta = consulta.filter(pk__in=_sin_leer(participante).order_by().values('pk'))
+    elif filtro.estado == LEIDOS:
+        consulta = consulta.exclude(pk__in=_sin_leer(participante).order_by().values('pk'))
+    if filtro.adjuntos:
+        consulta = consulta.filter(Exists(ImagenMensaje.objects.filter(mensaje=OuterRef('pk'))))
+    return consulta
+
+
+def buscar_mensajes(participante, texto, limite=20, filtro=None, antes=None):
     """Los mensajes de las conversaciones de la persona que tienen cada palabra (en el texto o en el nombre de un
-    documento adjunto), del más reciente al más antiguo, con `otro` (con quién es la conversación) y `fragmento`."""
+    documento adjunto) y cumplen el `filtro`, del más reciente al más antiguo, con `otro` (con quién es la conversación) y
+    `fragmento`. Con un filtro no hace falta escribir nada; `antes` (un id) sigue después de ese mensaje."""
     palabras = (texto or '').split()
-    if not palabras or len(texto.strip()) < 2:
+    filtro = filtro or FiltroDeBusqueda()
+    if (not palabras or len(texto.strip()) < 2) and not filtro.activo:
         return []
-    consulta = Mensaje.objects.filter(conversacion__miembros__participante=participante)
+    consulta = _con_filtro(Mensaje.objects.filter(conversacion__miembros__participante=participante), participante, filtro)
     for palabra in palabras:
         consulta = consulta.filter(Q(texto__icontains=palabra) | Q(imagenes__nombre_original__icontains=palabra))
+    if antes:
+        consulta = consulta.filter(pk__lt=antes)
     mensajes = list(consulta.distinct().select_related('autor').order_by('-pk')[:limite])
     otros = {
         m.conversacion_id: m.participante for m in
@@ -735,3 +946,21 @@ def buscar_mensajes(participante, texto, limite=20):
         mensaje.mio = mensaje.autor_id == participante.pk
         mensaje.fragmento = resaltar(mensaje.texto, texto, largo=140)
     return [m for m in mensajes if m.otro is not None]
+
+
+POR_PAGINA_BUSQUEDA = 20
+
+
+def pagina_de_busqueda(participante, texto, filtro=None, antes=None):
+    """(mensajes, el id con que siguen los demás o None si ya no hay más)."""
+    mensajes = buscar_mensajes(participante, texto, limite=POR_PAGINA_BUSQUEDA + 1, filtro=filtro, antes=antes)
+    if len(mensajes) > POR_PAGINA_BUSQUEDA:
+        mensajes = mensajes[:POR_PAGINA_BUSQUEDA]
+        return mensajes, mensajes[-1].pk
+    return mensajes, None
+
+
+def archivos_de(conversacion, limite=200):
+    """Los archivos enviados en la conversación, del más reciente al más antiguo (lo que aún no se envía no sale)."""
+    return list(conversacion.imagenes.filter(mensaje__isnull=False).select_related('autor__usuario', 'autor__alumno', 'autor__tutor')
+                .order_by('-pk')[:limite])

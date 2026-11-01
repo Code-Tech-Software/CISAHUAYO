@@ -1,0 +1,51 @@
+{% load usuarios_extras %}{% comment %}
+  Un comunicado en «Enviados» o en «Todos los comunicados» (con estadísticas: Comunicados/reglas.preparar). Es una fila de
+  tabla: se comparan cifras de un vistazo. Quien no tiene acceso a su portal no cuenta en los porcentajes. En el modo de
+  selección (papelera) aparece su casilla, solo si quien mira puede eliminarlo.
+{% endcomment %}
+<tr class="table__row fila-enviada{% if comunicado.urgente %} fila-enviada--urgente{% endif %}{% if comunicado.caducado %} is-caducado{% endif %}" data-fila="{{ comunicado.pk }}">
+  {% if seleccionable %}
+    <td class="table__cell fila-enviada__casilla">
+      {% if comunicado.eliminable %}
+        <label data-seleccion-marca hidden>
+          <input type="checkbox" name="comunicados" value="{{ comunicado.pk }}" form="form-eliminar-varios" data-seleccion-casilla>
+          <span class="visually-hidden">Seleccionar «{{ comunicado.titulo }}» para eliminarlo</span>
+        </label>
+      {% endif %}
+    </td>
+  {% endif %}
+  <td class="table__cell table__cell--main">
+    <a class="fila-enviada__titulo" href="{% url 'comunicados:detalle' comunicado.pk %}" data-abrir-detalle="{% url 'comunicados:detalle' comunicado.pk %}?parcial=1">{{ comunicado.titulo }}</a>
+    <p class="fila-enviada__meta">
+      {% if comunicado.urgente %}<span class="fila-enviada__urgente">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Urgente</span>{% endif %}
+      {% if comunicado.programado %}<span>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Programado · {{ comunicado.publicado_en|date:"j b, H:i" }}</span>
+      {% elif comunicado.caducado %}<span>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Caducado</span>
+      {% else %}<span>Activo · {{ comunicado.publicado_en|date:"j b Y" }}</span>{% endif %}
+      {% if vista == "gestion" %}<span>{{ comunicado.autor|nombre_visible }}</span>{% endif %}
+      {% if comunicado.categoria %}<span>{{ comunicado.nombre_categoria }}</span>{% endif %}
+      {% if comunicado.fijado %}<span>Fijado</span>{% endif %}
+      {% if comunicado.tiene_evento %}<span title="{{ comunicado.texto_del_evento }}">Evento {{ comunicado.evento_fecha|date:"j b" }}</span>{% endif %}
+      {% if comunicado.n_adjuntos %}<span aria-label="{{ comunicado.n_adjuntos }} archivo{{ comunicado.n_adjuntos|pluralize }}">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ comunicado.n_adjuntos }}</span>{% endif %}
+    </p>
+  </td>
+  <td class="table__cell fila-enviada__para" data-label="Para">{{ comunicado.resumen_destinatarios }}</td>
+  {% if comunicado.programado %}
+    <td class="table__cell fila-enviada__cifra" data-label="Abiertos">—</td>
+    <td class="table__cell fila-enviada__cifra" data-label="Confirmados">—</td>
+    <td class="table__cell fila-enviada__cifra" data-label="Faltan">Por publicar</td>
+  {% else %}
+    <td class="table__cell fila-enviada__cifra" data-label="Abiertos">
+      <strong>{{ comunicado.porcentaje }}%</strong>
+      <span class="fila-enviada__nota">{{ comunicado.leidos }} de {{ comunicado.alcanzables }}</span>
+    </td>
+    <td class="table__cell fila-enviada__cifra" data-label="Confirmados">
+      {% if comunicado.pide_respuesta %}<strong>{{ comunicado.porcentaje_respuesta }}%</strong>
+        <span class="fila-enviada__nota">{{ comunicado.respondidos }} de {{ comunicado.alcanzables }}</span>
+      {% else %}<span class="fila-enviada__nota">Solo informa</span>{% endif %}
+    </td>
+    <td class="table__cell fila-enviada__cifra" data-label="Faltan">
+      {% if comunicado.faltan %}<strong>{{ comunicado.faltan }}</strong>{% else %}<span class="fila-enviada__nota">Nadie</span>{% endif %}
+      {% if comunicado.n_sin_acceso %}<span class="fila-enviada__nota">{{ comunicado.n_sin_acceso }} sin acceso</span>{% endif %}
+    </td>
+  {% endif %}
+</tr>

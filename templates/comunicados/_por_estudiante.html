@@ -1,0 +1,21 @@
+{% load comunicados_extras %}{% comment %}
+  Una página de la autorización por estudiante (Comunicados/reglas.autorizaciones_por_estudiante): qué quedó de cada uno y
+  qué respondió cada tutor. El estado va con texto: si sus tutores se contradicen no cuenta como autorizado.
+{% endcomment %}
+{% for fila in por_estudiante %}
+  <li class="destinatario-fila">
+    <span class="avatar avatar--sm avatar--tone-{{ fila.alumno_id|tono_de }}" aria-hidden="true">{{ fila.nombre|iniciales_de }}</span>
+    <span class="destinatario-fila__texto">
+      <span class="destinatario-fila__nombre">{{ fila.nombre }}</span>
+      <span class="destinatario-fila__detalle">{% if fila.grupo %}{{ fila.grupo }} · {% endif %}{% for nombre, respuesta in fila.tutores %}{{ nombre }}: {{ respuesta }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+    </span>
+    <span class="destinatario-fila__estado">
+      <span class="tag{% if fila.clave == 'autorizado' %} tag--success{% elif fila.clave == 'no_autorizado' %} tag--danger{% elif fila.clave == 'desacuerdo' or fila.clave == 'sin_acceso' %} tag--warning{% endif %}">{{ fila.texto }}</span>
+    </span>
+  </li>
+{% empty %}
+  <li class="lista-destinatarios__vacio">Nadie coincide con la búsqueda.</li>
+{% endfor %}
+{% if siguiente_estudiantes %}
+  <li class="lista-destinatarios__mas"><button type="button" class="btn btn--ghost btn--sm" data-destinatarios-mas="{{ siguiente_estudiantes }}">Ver más</button></li>
+{% endif %}

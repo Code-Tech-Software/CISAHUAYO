@@ -1,0 +1,126 @@
+{% comment %}
+  El panel de la derecha de la mensajería: la conversación abierta o, sin ninguna, la bienvenida. Lo incluye
+  templates/mensajes/bandeja.html y, con ?panel=1, lo entrega solo la vista (Mensajes/views._pantalla): static/js/mensajes.js
+  lo reemplaza completo al abrir otra conversación, sin perder la lista. Todo lo que cambia con la conversación va en sus
+  atributos data-*.
+{% endcomment %}
+<section class="chat__hilo" aria-label="{% if conversacion %}Conversación con {{ otro.nombre }}{% else %}Conversación{% endif %}" data-chat-hilo
+         data-titulo="{% if conversacion and otro %}{{ otro.nombre }} · {% endif %}Mensajes | CISAHUAYO"
+         {% if conversacion %}data-conversacion="{{ conversacion.pk }}" data-nombre="{{ otro.nombre }}" data-enviar-url="{{ url_enviar }}" data-leida-url="{{ url_leida }}"
+         data-nuevos-url="{% url espacio|add:':nuevos' conversacion.pk %}" data-anteriores-url="{% url espacio|add:':anteriores' conversacion.pk %}"
+         data-archivos-url="{% url espacio|add:':archivos' conversacion.pk %}" data-reportar-url="{% url espacio|add:':reportar' 0 %}"
+         data-conversacion-url="{% url espacio|add:':conversacion' conversacion.pk %}"{% if hay_posteriores %} data-hay-posteriores{% endif %}{% if asunto %} data-asunto="{{ asunto }}"{% endif %}{% endif %}>
+  {% if conversacion %}
+    <header class="chat__hilo-encabezado">
+      <a class="btn btn--ghost btn--icon chat__volver" href="{{ urls.inicio }}{{ filtro_qs }}" aria-label="Volver a las conversaciones" data-chat-volver>{% include "partials/icon.html" with name="arrow-left" %}</a>
+      <span class="avatar chat-persona__avatar--{{ otro.tipo|lower }}" aria-hidden="true">{{ otro.iniciales }}</span>
+      <div class="chat__hilo-quien">
+        <h2 class="chat__hilo-nombre">{{ otro.nombre }}</h2>
+        <p class="chat__hilo-detalle">{{ descripcion_otro }}</p>
+        <p class="chat__escribiendo" aria-live="polite" data-chat-escribiendo hidden>{{ otro.nombre }} está escribiendo…</p>
+      </div>
+      <div class="chat__hilo-acciones">
+        {% if conversacion.ultimo_mensaje_id %}
+          {# La búsqueda y los archivos necesitan JavaScript: static/js/mensajes.js los muestra #}
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="Buscar en esta conversación" data-tooltip="Buscar en esta conversación"
+                  aria-expanded="false" aria-controls="buscar-en-conversacion" data-chat-abrir-busqueda hidden>{% include "partials/icon.html" with name="search" icon_class="icon--sm" %}</button>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="Archivos de la conversación" data-tooltip="Archivos de la conversación"
+                  data-modal-open="modal-archivos" data-chat-abrir-archivos hidden>{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %}</button>
+          <form method="post" action="{{ url_destacar }}" data-chat-destacar>
+            {% csrf_token %}{% include "mensajes/_filtros_ocultos.html" %}
+            <input type="hidden" name="valor" value="{{ destacada|yesno:'0,1' }}">
+            <button type="submit" class="btn btn--ghost btn--icon btn--sm chat__estrella{% if destacada %} is-activa{% endif %}" aria-pressed="{{ destacada|yesno:'true,false' }}"
+                    aria-label="Destacar" data-tooltip="{{ destacada|yesno:'Quitar de destacadas,Destacar' }}">{% include "partials/icon.html" with name="star" icon_class="icon--sm" %}</button>
+          </form>
+          <form method="post" action="{{ url_archivar }}" data-chat-archivar>
+            {% csrf_token %}{% include "mensajes/_filtros_ocultos.html" %}
+            <input type="hidden" name="valor" value="{{ archivada|yesno:'0,1' }}">
+            <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="{{ archivada|yesno:'Regresar a la bandeja,Archivar' }}"
+                    data-tooltip="{{ archivada|yesno:'Regresar a la bandeja,Archivar' }}">{% include "partials/icon.html" with name="archive" icon_class="icon--sm" %}</button>
+          </form>
+          {# Para atenderla después: vuelve a la lista con la conversación pendiente (Mensajes/views.no_leida) #}
+          <form method="post" action="{{ url_no_leida }}">
+            {% csrf_token %}{% include "mensajes/_filtros_ocultos.html" %}
+            <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Marcar como no leída" data-tooltip="Marcar como no leída">
+              {% include "partials/icon.html" with name="mail" icon_class="icon--sm" %}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </header>
+
+    {# Buscar solo en esta conversación: al tocar un resultado se abre en ese mensaje #}
+    <div class="chat__hilo-busqueda" id="buscar-en-conversacion" role="search" data-chat-busqueda-hilo hidden>
+      <div class="chat__hilo-busqueda-campo">
+        <input class="field__control" type="search" placeholder="Buscar en esta conversación…" aria-label="Buscar en esta conversación" autocomplete="off" data-chat-busqueda-hilo-campo>
+        <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="Cerrar la búsqueda" data-chat-cerrar-busqueda>{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+      </div>
+      <p class="chat__buscando" role="status" data-chat-busqueda-hilo-estado hidden>Buscando…</p>
+      <ul class="chat__personas-lista" aria-label="Mensajes que coinciden" data-chat-busqueda-hilo-lista></ul>
+    </div>
+
+    <div class="chat__mensajes" data-chat-mensajes tabindex="0" role="log" aria-live="polite" aria-label="Mensajes">
+      {% if hay_anteriores %}
+        {# Al subir, static/js/mensajes.js los trae sin salir de la conversación (Mensajes/views.anteriores) #}
+        <p class="chat__anteriores" data-chat-anteriores data-primero="{{ primero }}"><a class="btn btn--sm btn--ghost" href="?antes={{ primero }}">Ver mensajes anteriores</a></p>
+      {% endif %}
+      {% if mensajes %}
+        {% include "mensajes/_mensajes.html" %}
+      {% else %}
+        <p class="chat__inicio-conversacion" data-chat-sin-mensajes><span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" %}</span>Aún no hay mensajes.{% if puede_escribir %} Escribe el primero.{% endif %}</p>
+      {% endif %}
+      {% if hay_posteriores %}
+        {# Abierta en un mensaje anterior: los nuevos no se agregan aquí, se ven en los más recientes #}
+        <p class="chat__anteriores chat__recientes"><a class="btn btn--sm btn--ghost" href="{% url espacio|add:':conversacion' conversacion.pk %}" data-chat-recientes>Ver mensajes más recientes</a></p>
+      {% endif %}
+    </div>
+
+    {% if puede_escribir %}
+      {% if fuera_de_horario %}
+        {# Un estudiante o un tutor que le escribe al personal fuera del horario de atención (Ajustes › Mensajes) #}
+        <p class="chat__horario" role="note">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} {{ fuera_de_horario }}</p>
+      {% endif %}
+      <p class="chat__error" role="alert" data-chat-error hidden></p>
+      <form class="chat__escribir" method="post" action="{{ url_enviar }}" data-chat-formulario data-no-busy>
+        {% csrf_token %}
+        <label class="visually-hidden" for="texto-mensaje">Mensaje para {{ otro.nombre }}</label>
+        {# Los documentos PDF que se van subiendo (static/js/mensajes.js); se envían con el mensaje #}
+        <ul class="chat__adjuntos" aria-label="Documentos por enviar" data-chat-adjuntos hidden></ul>
+        {# Respondiendo a un mensaje (static/js/mensajes.js): se envía con su id #}
+        <div class="chat__respuesta" data-chat-respuesta hidden>
+          <div class="chat__respuesta-texto">
+            <span class="chat__respuesta-autor" data-chat-respuesta-autor></span>
+            <span class="chat__respuesta-cita" data-chat-respuesta-cita></span>
+          </div>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="No responder a ese mensaje" data-chat-respuesta-quitar>{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+          <input type="hidden" name="responde_a" value="" data-chat-responde-a>
+        </div>
+        <input type="file" accept="{{ acepta_documentos }},application/pdf" multiple hidden data-chat-adjuntar-archivo
+               data-url="{{ url_documentos }}" data-maximo-mb="{{ maximo_imagen_mb }}" data-maximo="{{ documentos_por_mensaje }}">
+        <div class="chat__caja" data-chat-caja>
+          {# Sin JavaScript se escribe aquí; con él, en el editor con formato (mensajes/_editor.html) #}
+          <textarea class="field__control chat__campo" id="texto-mensaje" name="texto" rows="1" maxlength="{{ maximo }}" required
+                    placeholder="Escribe un mensaje…" aria-describedby="atajos-mensaje" data-chat-campo></textarea>
+          {% include "mensajes/_editor.html" %}
+          <input type="hidden" name="html" value="" data-chat-html>
+          <button type="submit" class="btn btn--primary btn--icon chat__enviar" aria-label="Enviar" data-tooltip="Enviar (Intro)">
+            {% include "partials/icon.html" with name="send" %}
+          </button>
+        </div>
+        <div class="chat__pie">
+          <p class="chat__atajos" id="atajos-mensaje"><kbd>Intro</kbd> para enviar · <kbd>Mayús</kbd> + <kbd>Intro</kbd> para un salto de línea<span data-chat-atajos-editor hidden> · En listas y tablas, <kbd>Intro</kbd> agrega un renglón y <kbd>Ctrl</kbd> + <kbd>Intro</kbd> envía</span></p>
+          {# Aparece cerca del límite: el servidor rechaza lo que pase de él #}
+          <p class="chat__contador" data-chat-contador data-maximo="{{ maximo }}" hidden></p>
+        </div>
+      </form>
+    {% else %}
+      <p class="chat__cerrada">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Ya no puedes escribir en esta conversación (la cuenta está inactiva o ya no tienen relación escolar). El historial se conserva.</p>
+    {% endif %}
+  {% else %}
+    <div class="chat__nada">
+      <span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" icon_class="chat__nada-icono" %}</span>
+      <h2>Tus mensajes</h2>
+      <p>Elige una conversación o escribe un mensaje nuevo. Los mensajes llegan al momento, sin recargar la página.</p>
+    </div>
+  {% endif %}
+</section>

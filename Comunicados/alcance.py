@@ -299,7 +299,7 @@ class Alcance:
         """{id de cuenta: su rol («Control escolar», «Prefectura»…)}."""
         from Usuarios.seguridad import rol_de
         detalles = {}
-        for cuenta in get_user_model().objects.filter(pk__in=list(usuarios)):
+        for cuenta in get_user_model().objects.filter(pk__in=list(usuarios)).prefetch_related('groups__rol'):
             rol = rol_de(cuenta)
             detalles[cuenta.pk] = rol.nombre if rol else 'Personal del colegio'
         return detalles
@@ -394,7 +394,7 @@ class Alcance:
         personal, roles = [], {}
         if self.envia_al_personal:
             from Usuarios.seguridad import rol_de
-            for cuenta in self.personal().order_by('first_name', 'last_name', 'username'):
+            for cuenta in self.personal().prefetch_related('groups__rol').order_by('first_name', 'last_name', 'username'):
                 rol = rol_de(cuenta)
                 clave = rol.pk if rol else 0
                 roles.setdefault(clave, rol.nombre if rol else 'Sin rol')

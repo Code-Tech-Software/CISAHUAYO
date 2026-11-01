@@ -1,12 +1,12 @@
 {% load comunicados_extras usuarios_extras %}{% comment %}
   El detalle de un comunicado: en la ventana del listado (?parcial=1) y en su propia página (comunicados/detalle.html).
-  - `gestion` (el autor o el administrador): las acciones (corregir, usar como base, exportar, recordar), las tarjetas de
-    seguimiento, las respuestas, la lectura por grupo y la lista de destinatarios con su estado de lectura y su
-    respuesta. Consultarlo no marca como leído a nadie.
-  - Si no (quien lo recibe): el contenido, de cuál de sus hijos trata (un tutor), el evento con «Agregar a mi
-    calendario», el autor, los archivos, su respuesta (si se pide) y su propio estado de lectura.
+  - `gestion` (el autor o el administrador): las acciones (corregir, usar como base, exportar); a un lado el contenido y
+    al otro cuánto falta, con «Recordar»; abajo las respuestas, la apertura por grupo y la lista de destinatarios, por
+    páginas. Consultarlo no marca como abierto a nadie.
+  - Si no (quien lo recibe): el contenido, como tutor de quién lo recibe, el evento con «Agregar a mi calendario», el
+    autor, los archivos, su respuesta (si se pide, con aviso arriba) y su propio estado.
 {% endcomment %}
-<article class="detalle-comunicado{% if comunicado.urgente %} detalle-comunicado--urgente{% endif %}" data-detalle-comunicado data-comunicado="{{ comunicado.pk }}"{% if not gestion %} data-pendientes="{{ pendientes }}"{% endif %} aria-labelledby="detalle-titulo-{{ comunicado.pk }}">
+<article class="detalle-comunicado{% if comunicado.urgente %} detalle-comunicado--urgente{% endif %}{% if gestion %} detalle-comunicado--gestion{% endif %}" data-detalle-comunicado data-comunicado="{{ comunicado.pk }}"{% if not gestion %} data-pendientes="{{ pendientes }}" data-estado-clave="{{ destinatario.estado_clave }}" data-estado-texto="{{ destinatario.estado_texto }}" data-estado-icono="{{ destinatario.estado_icono }}"{% endif %} aria-labelledby="detalle-titulo-{{ comunicado.pk }}">
   <header class="detalle-comunicado__cabecera">
     <span class="detalle-comunicado__icono" aria-hidden="true">{% include "partials/icon.html" with name=comunicado.urgente|yesno:"bell,megaphone" %}</span>
     <div class="detalle-comunicado__encabezado">
@@ -25,10 +25,22 @@
         {% if comunicado.editado %}<span class="detalle-comunicado__editado">· Editado el {{ comunicado.editado|date:"j b, H:i" }}</span>{% endif %}
       </p>
       {% if not gestion and destinatario.para_quien %}
-        <p class="detalle-comunicado__para">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Sobre: <strong>{{ destinatario.para_quien }}</strong></p>
+        <p class="detalle-comunicado__para">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Lo recibes como tutor de <strong>{{ destinatario.para_quien }}</strong></p>
       {% endif %}
     </div>
   </header>
+
+  {% if not gestion and comunicado.reconfirmar_en and comunicado.pide_respuesta and not destinatario.respondio %}
+    <div class="alert alert--warning detalle-comunicado__cambio" role="status">
+      {% include "partials/icon.html" with name="triangle-alert" icon_class="alert__icon" %}
+      <p class="alert__body">Este comunicado cambió el {{ comunicado.reconfirmar_en|date:"j b, H:i" }}. Si ya habías respondido, tu respuesta dejó de contar: revísalo y responde otra vez.</p>
+    </div>
+  {% endif %}
+  {% if not gestion and destinatario.estado_clave == "responder" %}
+    <a class="detalle-comunicado__pide" href="#respuesta-{{ comunicado.pk }}" data-ir-a-respuesta>
+      {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--sm" %} {{ destinatario.estado_texto }}: ir a tu respuesta
+    </a>
+  {% endif %}
 
   {% if gestion %}
     <nav class="detalle-comunicado__herramientas" aria-label="Acciones del comunicado">
@@ -38,6 +50,8 @@
     </nav>
   {% endif %}
 
+  <div class="detalle-comunicado__columnas">
+  <div class="detalle-comunicado__lectura">
   <div class="detalle-comunicado__descripcion contenido-comunicado">{{ contenido }}</div>
 
   {% if comunicado.tiene_evento %}
@@ -81,6 +95,37 @@
     </section>
   {% endif %}
 
+  </div>
+  {% if gestion %}
+    <aside class="seguimiento-lateral" aria-label="Seguimiento">
+      {% if comunicado.programado %}
+        <p class="seguimiento-lateral__titulo">Todavía no se publica</p>
+        <p class="seguimiento-lateral__nota">Lo verán {{ comunicado.alcanzables }} persona{{ comunicado.alcanzables|pluralize:"s" }} a partir del {{ comunicado.publicado_en|date:"j b, H:i" }}.</p>
+      {% else %}
+        <p class="seguimiento-lateral__titulo">{% if comunicado.faltan %}Falta{{ comunicado.faltan|pluralize:",n" }} {{ comunicado.faltan }} de {{ comunicado.alcanzables }}{% elif comunicado.pide_respuesta %}Todos respondieron{% else %}Todos lo abrieron{% endif %}</p>
+        <p class="seguimiento-lateral__nota">
+          {{ comunicado.porcentaje }}% abrió{% if comunicado.pide_respuesta %} · {{ comunicado.porcentaje_respuesta }}% respondió{% endif %}
+        </p>
+        <progress class="meter" max="100" value="{% if comunicado.pide_respuesta %}{{ comunicado.porcentaje_respuesta }}{% else %}{{ comunicado.porcentaje }}{% endif %}" aria-label="{% if comunicado.pide_respuesta %}{{ comunicado.porcentaje_respuesta }} % respondió{% else %}{{ comunicado.porcentaje }} % abrió{% endif %}"></progress>
+        {% if comunicado.n_sin_acceso %}<p class="seguimiento-lateral__aviso">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} {{ comunicado.n_sin_acceso }} sin acceso al portal: no pueden verlo y no cuentan aquí.</p>{% endif %}
+        <div class="recordar-comunicado">
+          <form method="post" action="{% url 'comunicados:recordar' comunicado.pk %}" data-recordar>
+            {% csrf_token %}
+            <button type="submit" class="btn btn--sm btn--primary"{% if motivo_sin_recordar %} disabled{% endif %}>{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Recordar{% if por_recordar %} a {{ por_recordar }}{% endif %}</button>
+          </form>
+          <p class="recordar-comunicado__nota">{% if motivo_sin_recordar %}{{ motivo_sin_recordar }}{% else %}Les llega otra vez el aviso, también al teléfono.{% endif %}{% if comunicado.recordatorios %} Se ha recordado {{ comunicado.recordatorios }} vez{{ comunicado.recordatorios|pluralize:",es" }}.{% endif %}</p>
+        </div>
+      {% endif %}
+      <dl class="seguimiento-lateral__datos">
+        <div><dt>Creado por</dt><dd>{{ comunicado.autor|nombre_visible }}{% if comunicado.rol_autor %} · {{ comunicado.rol_autor }}{% endif %}</dd></div>
+        <div><dt>Destinatarios</dt><dd>{{ comunicado.total }}: {% for tipo, numero, texto in comunicado.desglose %}{{ texto }}{% if not forloop.last %} · {% endif %}{% empty %}Sin destinatarios{% endfor %}</dd></div>
+        <div><dt>Estado</dt><dd>{% if comunicado.programado %}Programado{% elif comunicado.caducado %}Caducado{% else %}Activo{% endif %}{% if comunicado.expira %} · {% if comunicado.caducado %}Caducó{% else %}Se muestra hasta{% endif %} el {{ comunicado.expira|date:"j b Y, H:i" }}{% else %} · Sin fecha de expiración{% endif %}</dd></div>
+        {% if comunicado.responder_hasta %}<div><dt>Plazo para responder</dt><dd>{{ comunicado.responder_hasta|date:"j b Y, H:i" }}{% if comunicado.plazo_terminado %} · terminó{% endif %}</dd></div>{% endif %}
+      </dl>
+    </aside>
+  {% endif %}
+  </div>
+
   {% if not gestion and comunicado.pide_respuesta %}
     {# --- La respuesta de quien lo recibe ------------------------------------------------------------------------- #}
     <section class="respuesta-comunicado{% if destinatario.respondio %} respuesta-comunicado--lista{% endif %}" aria-labelledby="respuesta-{{ comunicado.pk }}" data-respuesta-comunicado>
@@ -88,13 +133,33 @@
         {% if comunicado.respuesta == "ENTERADO" %}Confirma que lo leíste{% elif comunicado.respuesta == "AUTORIZACION" %}{{ comunicado.pregunta|default:"¿Das tu autorización?" }}{% else %}{{ comunicado.pregunta }}{% endif %}
       </h3>
       {% if destinatario.respondio %}
-        <p class="respuesta-comunicado__hecha" data-respuesta-hecha>{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Respondiste: <strong>{{ destinatario.texto_de_respuesta }}</strong> · {{ destinatario.respondido_en|date:"j b Y, H:i" }}</p>
+        <p class="respuesta-comunicado__hecha" data-respuesta-hecha>{% include "partials/icon.html" with name="circle-check" icon_class="icon--sm" %} Respondiste: <strong>{{ destinatario.respuesta_detallada }}</strong> · {{ destinatario.respondido_en|date:"j b Y, H:i" }}</p>
       {% endif %}
-      {% if comunicado.respuesta != "ENTERADO" or not destinatario.respondio %}
+      {% if comunicado.responder_hasta and not comunicado.plazo_terminado %}
+        <p class="field__hint">Puedes responder hasta el {{ comunicado.responder_hasta|date:"j b Y, H:i" }}.</p>
+      {% endif %}
+      {% if comunicado.plazo_terminado %}
+        <p class="respuesta-comunicado__hecha">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} El plazo para responder terminó el {{ comunicado.responder_hasta|date:"j b Y, H:i" }}.</p>
+      {% elif comunicado.respuesta != "ENTERADO" or not destinatario.respondio %}
         <form class="respuesta-comunicado__formulario" method="post" action="{{ url_responder }}" data-responder>
           {% csrf_token %}
           {% if comunicado.respuesta == "ENTERADO" %}
             <button type="submit" class="btn btn--primary" name="respuesta" value="enterado">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Enterado</button>
+          {% elif comunicado.respuesta == "AUTORIZACION" and autorizaciones|length > 1 %}
+            {# Un tutor con varios hijos responde por cada uno #}
+            <div class="respuesta-comunicado__estudiantes">
+              {% for fila in autorizaciones %}
+                <fieldset class="respuesta-estudiante">
+                  <legend class="respuesta-estudiante__nombre">{{ fila.alumno.nombre_completo }}</legend>
+                  <div class="respuesta-estudiante__opciones">
+                    <label class="choice choice--radio"><input class="choice__input" type="radio" name="alumno_{{ fila.alumno_id }}" value="si"{% if fila.respuesta == "SI" %} checked{% endif %} required><span class="choice__box">Sí, autorizo</span></label>
+                    <label class="choice choice--radio"><input class="choice__input" type="radio" name="alumno_{{ fila.alumno_id }}" value="no"{% if fila.respuesta == "NO" %} checked{% endif %} required><span class="choice__box">No autorizo</span></label>
+                  </div>
+                </fieldset>
+              {% endfor %}
+            </div>
+            <button type="submit" class="btn btn--primary btn--sm">{% if destinatario.respondio %}Cambiar mi respuesta{% else %}Enviar respuesta{% endif %}</button>
+            {% if destinatario.respondio %}<p class="field__hint">Puedes cambiar tu respuesta mientras el comunicado siga disponible.</p>{% endif %}
           {% elif comunicado.respuesta == "AUTORIZACION" %}
             <div class="respuesta-comunicado__botones">
               <button type="submit" class="btn{% if destinatario.respuesta == 'SI' %} btn--primary{% endif %}" name="respuesta" value="si"{% if destinatario.respuesta == 'SI' %} aria-pressed="true"{% endif %}>{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Sí, autorizo</button>
@@ -120,43 +185,6 @@
   {% endif %}
 
   {% if gestion %}
-    <div class="detalle-comunicado__datos">
-      <section class="dato-comunicado" aria-label="Creado por">
-        <span class="dato-comunicado__icono dato-comunicado__icono--azul" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
-        <div>
-          <p class="dato-comunicado__etiqueta">Creado por</p>
-          <p class="dato-comunicado__valor">{{ comunicado.autor|nombre_visible }}</p>
-          {% if comunicado.rol_autor %}<span class="tag tag--primary">{{ comunicado.rol_autor }}</span>{% endif %}
-        </div>
-      </section>
-      <section class="dato-comunicado" aria-label="Estado de lectura">
-        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="eye" %}</span>
-        <div class="dato-comunicado__amplio">
-          <p class="dato-comunicado__etiqueta">Estado de lectura</p>
-          <p class="dato-comunicado__valor dato-comunicado__valor--grande">{{ comunicado.leidos }}/{{ comunicado.total }} <span class="dato-comunicado__nota">({{ comunicado.porcentaje }}%)</span></p>
-          <progress class="meter" max="100" value="{{ comunicado.porcentaje }}" aria-label="{{ comunicado.porcentaje }} % de lectura">{{ comunicado.porcentaje }} %</progress>
-        </div>
-      </section>
-      <section class="dato-comunicado" aria-label="Destinatarios">
-        <span class="dato-comunicado__icono dato-comunicado__icono--violeta" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
-        <div>
-          <p class="dato-comunicado__etiqueta">Destinatarios</p>
-          <p class="dato-comunicado__valor dato-comunicado__valor--grande">{{ comunicado.total }}</p>
-          <p class="dato-comunicado__nota">{% for tipo, numero, texto in comunicado.desglose %}{{ texto }}{% if not forloop.last %} · {% endif %}{% empty %}Sin destinatarios{% endfor %}</p>
-        </div>
-      </section>
-      <section class="dato-comunicado" aria-label="Estado">
-        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="badge-check" %}</span>
-        <div>
-          <p class="dato-comunicado__etiqueta">Estado</p>
-          {% if comunicado.programado %}<span class="tag tag--info">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} Programado</span>
-          {% elif comunicado.caducado %}<span class="tag">Caducado</span>
-          {% else %}<span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Activo</span>{% endif %}
-          <p class="dato-comunicado__nota">{% if comunicado.expira %}{% if comunicado.caducado %}Caducó{% else %}Se muestra hasta{% endif %} el {{ comunicado.expira|date:"j b Y, H:i" }}{% else %}Sin fecha de expiración{% endif %}</p>
-        </div>
-      </section>
-    </div>
-
     {% if respuestas %}
       <section class="seguimiento-comunicado" aria-labelledby="respuestas-{{ comunicado.pk }}">
         <h3 class="detalle-comunicado__subtitulo" id="respuestas-{{ comunicado.pk }}">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Respuestas · {{ comunicado.get_respuesta_display }}{% if comunicado.pregunta %}: «{{ comunicado.pregunta }}»{% endif %}</h3>
@@ -174,84 +202,85 @@
             <span class="barras-comunicado__cuantos">{{ respuestas.sin_responder }}</span>
           </li>
         </ul>
+        {% if respuestas_anteriores %}<p class="field__hint">{{ respuestas_anteriores }} respuesta{{ respuestas_anteriores|pluralize }} anterior{{ respuestas_anteriores|pluralize:"es" }} a un cambio importante: ya no cuenta{{ respuestas_anteriores|pluralize:",n" }} y está{{ respuestas_anteriores|pluralize:",n" }} en la lista en Excel.</p>{% endif %}
       </section>
     {% endif %}
 
     {% if por_grupo %}
       <section class="seguimiento-comunicado" aria-labelledby="por-grupo-{{ comunicado.pk }}">
-        <h3 class="detalle-comunicado__subtitulo" id="por-grupo-{{ comunicado.pk }}">{% include "partials/icon.html" with name="layers" icon_class="icon--sm" %} Lectura por grupo</h3>
+        <h3 class="detalle-comunicado__subtitulo" id="por-grupo-{{ comunicado.pk }}">{% include "partials/icon.html" with name="layers" icon_class="icon--sm" %} Apertura por grupo</h3>
         <ul class="barras-comunicado" role="list">
           {% for grupo in por_grupo %}
             <li class="barras-comunicado__fila">
               <span class="barras-comunicado__nombre">{{ grupo.nombre }}</span>
-              <progress class="meter barras-comunicado__barra" max="100" value="{{ grupo.porcentaje }}" aria-label="{{ grupo.nombre }}: {{ grupo.leidos }} de {{ grupo.total }} lo leyeron ({{ grupo.porcentaje }} %)">{{ grupo.porcentaje }} %</progress>
-              <span class="barras-comunicado__cuantos">{{ grupo.leidos }}/{{ grupo.total }} <span class="barras-comunicado__nota">({{ grupo.porcentaje }}%{% if comunicado.pide_respuesta %} · {{ grupo.respondidos }} resp.{% endif %})</span></span>
+              <progress class="meter barras-comunicado__barra" max="100" value="{{ grupo.porcentaje }}" aria-label="{{ grupo.nombre }}: {{ grupo.leidos }} de {{ grupo.total }} lo abrieron ({{ grupo.porcentaje }} %)">{{ grupo.porcentaje }} %</progress>
+              <span class="barras-comunicado__cuantos">{{ grupo.leidos }}/{{ grupo.total }} <span class="barras-comunicado__nota">({{ grupo.porcentaje }}%{% if comunicado.pide_respuesta %} · {{ grupo.respondidos }} resp.{% endif %}{% if grupo.sin_acceso %} · {{ grupo.sin_acceso }} sin acceso{% endif %})</span></span>
             </li>
           {% endfor %}
         </ul>
       </section>
     {% endif %}
 
-    {% if not comunicado.programado %}
-      <section class="recordar-comunicado" aria-label="Recordar a los pendientes">
-        <div class="recordar-comunicado__texto">
-          <p class="recordar-comunicado__titulo">{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Recordar a los pendientes</p>
-          <p class="recordar-comunicado__nota">{% if motivo_sin_recordar %}{{ motivo_sin_recordar }}{% else %}Les llega otra vez el aviso (también al teléfono) a {{ por_recordar }} persona{{ por_recordar|pluralize:"s" }} que {% if comunicado.pide_respuesta %}no ha{{ por_recordar|pluralize:",n" }} respondido{% else %}no lo ha{{ por_recordar|pluralize:",n" }} leído{% endif %}.{% endif %}{% if comunicado.recordatorios %} Se ha recordado {{ comunicado.recordatorios }} vez{{ comunicado.recordatorios|pluralize:",es" }}.{% endif %}</p>
-        </div>
-        <form method="post" action="{% url 'comunicados:recordar' comunicado.pk %}" data-recordar>
-          {% csrf_token %}
-          <button type="submit" class="btn btn--sm"{% if motivo_sin_recordar %} disabled{% endif %}>{% include "partials/icon.html" with name="send" icon_class="icon--sm" %} Recordar</button>
-        </form>
-      </section>
+    {% if por_estudiante %}
+      <details class="lista-destinatarios" data-lista-destinatarios open data-destinatarios-url="{% url 'comunicados:lista_por_estudiante' comunicado.pk %}">
+        <summary class="lista-destinatarios__resumen">
+          <span class="lista-destinatarios__icono" aria-hidden="true">{% include "partials/icon.html" with name="graduation-cap" %}</span>
+          <span class="lista-destinatarios__textos">
+            <span class="lista-destinatarios__titulo">Autorización por estudiante</span>
+            <span class="lista-destinatarios__conteo">{{ total_estudiantes }} estudiante{{ total_estudiantes|pluralize }}</span>
+          </span>
+          {% include "partials/icon.html" with name="chevron-down" icon_class="lista-destinatarios__flecha" %}
+        </summary>
+        {% if total_estudiantes > 8 %}
+          <div class="lista-destinatarios__herramientas">
+            <label class="lista-destinatarios__buscar">
+              <span class="visually-hidden">Buscar estudiante</span>
+              {% include "partials/icon.html" with name="search" icon_class="icon--sm" %}
+              <input class="field__control" type="search" placeholder="Buscar por nombre…" data-destinatarios-buscar autocomplete="off">
+            </label>
+            <div class="segmentado segmentado--chico" role="group" aria-label="Filtrar por estado">
+              <button type="button" class="segmentado__opcion is-activo" data-destinatarios-estado="" aria-pressed="true">Todos</button>
+              <button type="button" class="segmentado__opcion" data-destinatarios-estado="autorizado" aria-pressed="false">Autorizados</button>
+              <button type="button" class="segmentado__opcion" data-destinatarios-estado="no_autorizado" aria-pressed="false">No autorizados</button>
+              <button type="button" class="segmentado__opcion" data-destinatarios-estado="desacuerdo" aria-pressed="false">En desacuerdo</button>
+              <button type="button" class="segmentado__opcion" data-destinatarios-estado="sin_responder" aria-pressed="false">Sin responder</button>
+            </div>
+          </div>
+        {% endif %}
+        <ul class="lista-destinatarios__filas" role="list" data-destinatarios-filas>
+          {% include "comunicados/_por_estudiante.html" %}
+        </ul>
+      </details>
     {% endif %}
 
-    <details class="lista-destinatarios" data-lista-destinatarios{% if destinatarios|length <= 30 %} open{% endif %}>
+    <details class="lista-destinatarios" data-lista-destinatarios{% if comunicado.total <= 30 %} open{% endif %} data-destinatarios-url="{% url 'comunicados:lista_de_destinatarios' comunicado.pk %}">
       <summary class="lista-destinatarios__resumen">
         <span class="lista-destinatarios__icono" aria-hidden="true">{% include "partials/icon.html" with name="users" %}</span>
         <span class="lista-destinatarios__textos">
           <span class="lista-destinatarios__titulo">Lista de destinatarios</span>
-          <span class="lista-destinatarios__conteo">{{ comunicado.leidos }} leído{{ comunicado.leidos|pluralize }} • {{ comunicado.pendientes }} pendiente{{ comunicado.pendientes|pluralize }}{% if comunicado.pide_respuesta %} • {{ comunicado.respondidos }} respondi{{ comunicado.respondidos|pluralize:"ó,eron" }}{% endif %}</span>
+          <span class="lista-destinatarios__conteo">{{ comunicado.leidos }} abierto{{ comunicado.leidos|pluralize }} • {{ comunicado.pendientes }} sin abrir{% if comunicado.pide_respuesta %} • {{ comunicado.respondidos }} respondi{{ comunicado.respondidos|pluralize:"ó,eron" }}{% endif %}{% if comunicado.n_sin_acceso %} • {{ comunicado.n_sin_acceso }} sin acceso{% endif %}</span>
         </span>
         {% include "partials/icon.html" with name="chevron-down" icon_class="lista-destinatarios__flecha" %}
       </summary>
-      {% if destinatarios|length > 8 %}
+      {% if comunicado.total > 8 %}
         <div class="lista-destinatarios__herramientas">
           <label class="lista-destinatarios__buscar">
             <span class="visually-hidden">Buscar destinatario</span>
             {% include "partials/icon.html" with name="search" icon_class="icon--sm" %}
             <input class="field__control" type="search" placeholder="Buscar por nombre…" data-destinatarios-buscar autocomplete="off">
           </label>
-          <div class="segmentado segmentado--chico" role="group" aria-label="Filtrar por estado de lectura">
+          <div class="segmentado segmentado--chico" role="group" aria-label="Filtrar por estado">
             <button type="button" class="segmentado__opcion is-activo" data-destinatarios-estado="" aria-pressed="true">Todos</button>
-            <button type="button" class="segmentado__opcion" data-destinatarios-estado="leido" aria-pressed="false">Leídos</button>
-            <button type="button" class="segmentado__opcion" data-destinatarios-estado="pendiente" aria-pressed="false">Pendientes</button>
+            <button type="button" class="segmentado__opcion" data-destinatarios-estado="leido" aria-pressed="false">Abiertos</button>
+            <button type="button" class="segmentado__opcion" data-destinatarios-estado="pendiente" aria-pressed="false">Sin abrir</button>
             {% if comunicado.pide_respuesta %}<button type="button" class="segmentado__opcion" data-destinatarios-estado="sin-responder" aria-pressed="false">Sin responder</button>{% endif %}
+            {% if comunicado.n_sin_acceso %}<button type="button" class="segmentado__opcion" data-destinatarios-estado="sin-acceso" aria-pressed="false">Sin acceso</button>{% endif %}
           </div>
         </div>
       {% endif %}
       <ul class="lista-destinatarios__filas" role="list" data-destinatarios-filas>
-        {% for destinatario in destinatarios %}
-          <li class="destinatario-fila" data-nombre="{{ destinatario.nombre|lower }}" data-estado="{{ destinatario.leido_en|yesno:'leido,pendiente' }}"{% if comunicado.pide_respuesta and not destinatario.respondio %} data-sin-responder{% endif %}>
-            <span class="avatar avatar--sm avatar--tone-{{ destinatario.pk|tono_de }}" aria-hidden="true">{{ destinatario.nombre|iniciales_de }}</span>
-            <span class="destinatario-fila__texto">
-              <span class="destinatario-fila__nombre">{{ destinatario.nombre }}</span>
-              <span class="destinatario-fila__detalle">{% if destinatario.tipo == "TUTOR" and destinatario.detalle %}{{ destinatario.detalle }}{% else %}{{ destinatario.get_tipo_display }}{% if destinatario.detalle %} · {{ destinatario.detalle }}{% endif %}{% endif %}</span>
-            </span>
-            <span class="destinatario-fila__estado">
-              {% if comunicado.pide_respuesta %}
-                {% if destinatario.respondio %}<span class="tag tag--primary">{{ destinatario.texto_de_respuesta }}</span>{% else %}<span class="tag">Sin responder</span>{% endif %}
-              {% endif %}
-              {% if destinatario.leido_en %}
-                <span class="tag tag--success">{% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %} Leído</span>
-                <time class="destinatario-fila__hora" datetime="{{ destinatario.leido_en|date:'c' }}">{{ destinatario.leido_en|date:"j b Y, H:i" }}</time>
-              {% else %}
-                <span class="tag">Pendiente</span>
-              {% endif %}
-            </span>
-          </li>
-        {% endfor %}
+        {% include "comunicados/_destinatarios.html" %}
       </ul>
-      <p class="lista-destinatarios__vacio" data-destinatarios-vacio hidden>Nadie coincide con la búsqueda.</p>
     </details>
 
     {% if puede_eliminar %}
@@ -277,14 +306,14 @@
         <div>
           <p class="dato-comunicado__etiqueta">Enviado por</p>
           <p class="dato-comunicado__valor">{{ comunicado.autor|nombre_visible }}</p>
-          {% if comunicado.rol_autor %}<span class="tag tag--primary">{{ comunicado.rol_autor }}</span>{% endif %}
+          {% if comunicado.rol_autor %}<p class="dato-comunicado__nota">{{ comunicado.rol_autor }}</p>{% endif %}
         </div>
       </section>
-      <section class="dato-comunicado" aria-label="Tu lectura">
-        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name="check-check" %}</span>
+      <section class="dato-comunicado" aria-label="Tu estado">
+        <span class="dato-comunicado__icono dato-comunicado__icono--verde" aria-hidden="true">{% include "partials/icon.html" with name=destinatario.estado_icono %}</span>
         <div>
-          <p class="dato-comunicado__etiqueta">Tu lectura</p>
-          <p class="dato-comunicado__valor">Leído</p>
+          <p class="dato-comunicado__etiqueta">Tu estado</p>
+          <p class="dato-comunicado__valor">{{ destinatario.estado_texto }}</p>
           <p class="dato-comunicado__nota">Lo abriste por primera vez el {{ destinatario.leido_en|date:"j b Y, H:i" }}</p>
           {% if comunicado.expira %}<p class="dato-comunicado__nota">Disponible hasta el {{ comunicado.expira|date:"j b Y, H:i" }}</p>{% endif %}
         </div>

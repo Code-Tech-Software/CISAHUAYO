@@ -1,10 +1,10 @@
 {% extends base %}
 {% load static %}
 {% comment %}
-  Mensajería (Mensajes/views.py): a la izquierda las conversaciones y la búsqueda de personas; a la derecha la
-  conversación abierta, su historial y el campo para escribir. Es la misma pantalla en el sistema y en los portales
-  (`base` y `espacio` cambian). static/js/mensajes.js la mantiene al día en tiempo real con los eventos de avisos.js y
-  envía sin recargar; sin JavaScript también funciona (formularios normales).
+  Mensajería (Mensajes/views.py): a la izquierda las conversaciones y la búsqueda; a la derecha la conversación abierta, su
+  historial y el campo para escribir (templates/mensajes/_hilo.html). Es la misma pantalla en el sistema y en los portales
+  (`base` y `espacio` cambian). static/js/mensajes.js la mantiene al día en tiempo real con los eventos de avisos.js, envía
+  sin recargar y abre cada conversación sin perder la lista; sin JavaScript también funciona (formularios normales).
 {% endcomment %}
 
 {# Usa todo el ancho y casi todo el alto de la ventana (static/css/mensajes.css) #}
@@ -23,21 +23,16 @@
 {% block breadcrumbs %}
   {% if portal %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ portal.inicio }}">Inicio</a></li>
   {% else %}<li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>{% endif %}
-  {% if conversacion %}
-    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ urls.inicio }}{{ filtro_qs }}">Mensajes</a></li>
-    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">{{ otro.nombre|default:"Conversación" }}</span></li>
-  {% else %}
-    <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Mensajes</span></li>
-  {% endif %}
+  {# Sin recargar, static/js/mensajes.js muestra u oculta «Mensajes» y cambia el último #}
+  <li class="breadcrumb__item" data-chat-miga-mensajes{% if not conversacion %} hidden{% endif %}><a class="breadcrumb__link" href="{{ urls.inicio }}{{ filtro_qs }}">Mensajes</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page" data-chat-miga-actual>{% if conversacion %}{{ otro.nombre|default:"Conversación" }}{% else %}Mensajes{% endif %}</span></li>
 {% endblock %}
 
 {% block content %}
-  <div class="chat{% if conversacion %} chat--abierta{% endif %}" data-chat data-yo="{{ yo.pk }}" data-hoy="{{ hoy_iso }}"
-       data-contactos-url="{{ urls.contactos }}" data-buscar-url="{{ urls.buscar }}" data-nueva-url="{{ urls.nueva }}"
-       data-conversaciones-url="{{ urls.conversaciones }}"{% if sin_leer %} data-sin-leer{% endif %}
-       {% if conversacion %}data-conversacion="{{ conversacion.pk }}" data-enviar-url="{{ url_enviar }}" data-leida-url="{{ url_leida }}"
-       data-nuevos-url="{% url espacio|add:':nuevos' conversacion.pk %}" data-reportar-url="{% url espacio|add:':reportar' 0 %}"
-       data-conversacion-url="{% url espacio|add:':conversacion' conversacion.pk %}"{% if hay_posteriores %} data-hay-posteriores{% endif %}{% if asunto %} data-asunto="{{ asunto }}"{% endif %}{% endif %}>
+  <div class="chat{% if conversacion %} chat--abierta{% endif %}{% if yo.vista_compacta %} chat--compacta{% endif %}" data-chat data-yo="{{ yo.pk }}" data-hoy="{{ hoy_iso }}"
+       data-inicio-url="{{ urls.inicio }}" data-contactos-url="{{ urls.contactos }}" data-buscar-url="{{ urls.buscar }}" data-nueva-url="{{ urls.nueva }}"
+       data-conversaciones-url="{{ urls.conversaciones }}" data-directorio-url="{{ urls.directorio }}" data-filtro="{{ filtro_qs }}" data-vista="{{ vista_lista }}" data-tipo="{{ tipo_lista }}"
+       {% if sin_leer %} data-sin-leer{% endif %}{% if conversacion %} data-conversacion="{{ conversacion.pk }}"{% endif %}>
     {% csrf_token %}
 
     {# --- Conversaciones y búsqueda ------------------------------------------------------------------- #}
@@ -45,21 +40,85 @@
       <header class="chat__lista-encabezado">
         <h1 class="chat__titulo">Mensajes</h1>
         <span class="chat__no-leidos" data-mensajes-no-leidos aria-label="{{ mensajeria.no_leidos }} sin leer"{% if not mensajeria.no_leidos %} hidden{% endif %}>{{ mensajeria.no_leidos }}</span>
-        {% if not portal and perms.Mensajes.moderar %}
-          <a class="btn btn--ghost btn--sm chat__moderar" href="{% url 'mensajes:moderacion' %}" data-tooltip="Buscar y retirar mensajes inapropiados">{% include "partials/icon.html" with name="shield-check" icon_class="icon--sm" %} Moderar</a>
-        {% endif %}
+        <div class="menu chat__menu" data-menu>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-menu-trigger aria-expanded="false" aria-controls="menu-mensajes" aria-label="Más opciones" data-tooltip="Más opciones">
+            {% include "partials/icon.html" with name="more-horizontal" icon_class="icon--sm" %}
+          </button>
+          <div class="menu__panel" id="menu-mensajes" data-menu-panel hidden>
+            <ul class="menu__list">
+              <li>
+                <form method="post" action="{{ urls.preferencias }}" data-chat-compacta-forma>
+                  {% csrf_token %}
+                  <input type="hidden" name="compacta" value="{{ yo.vista_compacta|yesno:'0,1' }}">
+                  <button type="submit" class="menu__item" aria-pressed="{{ yo.vista_compacta|yesno:'true,false' }}" data-chat-compacta>
+                    {% include "partials/icon.html" with name="rows" %}
+                    <span data-chat-compacta-texto>{{ yo.vista_compacta|yesno:'Vista normal,Vista compacta' }}</span>
+                  </button>
+                </form>
+              </li>
+              <li>
+                <form method="post" action="{{ urls.marcar_todo }}" data-chat-marcar-todo>
+                  {% csrf_token %}{% include "mensajes/_filtros_ocultos.html" %}
+                  <button type="submit" class="menu__item">
+                    {% include "partials/icon.html" with name="check-check" %}
+                    Marcar todo como leído
+                  </button>
+                </form>
+              </li>
+              {% if not portal and perms.Mensajes.moderar %}
+                <li>
+                  <a class="menu__item" href="{% url 'mensajes:moderacion' %}">
+                    {% include "partials/icon.html" with name="shield-check" %}
+                    Moderar mensajes
+                  </a>
+                </li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
       </header>
-      <form class="chat__buscar" method="get" action="{{ urls.inicio }}" role="search">
+      <button type="button" class="btn btn--primary btn--sm chat__nuevo" data-modal-open="modal-nuevo-mensaje" data-chat-nuevo>
+        {% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Nuevo mensaje
+      </button>
+      <form class="chat__buscar" method="get" action="{{ urls.inicio }}" role="search" data-chat-buscar-forma>
         {% include "partials/icon.html" with name="search" icon_class="chat__buscar-icono" %}
         <input class="field__control" type="search" name="q" value="{{ busqueda }}" placeholder="Buscar personas o mensajes…"
                aria-label="Buscar a una persona o en tus mensajes" autocomplete="off" data-chat-buscar>
+        {# Los filtros de la búsqueda: funcionan aunque no se escriba nada (con adjuntos, de una fecha…) #}
+        <details class="chat__filtros"{% if con_filtros %} open{% endif %} data-chat-filtros>
+          <summary class="chat__filtros-boton{% if con_filtros %} is-activo{% endif %}" aria-label="Filtros de búsqueda" data-tooltip="Filtros de búsqueda">{% include "partials/icon.html" with name="filter" icon_class="icon--sm" %}</summary>
+          <div class="chat__filtros-panel">
+            {% for campo in busqueda_form %}
+              {% if campo.name == 'adjuntos' %}
+                <label class="choice choice--check" for="{{ campo.id_for_label }}">{{ campo }}<span class="choice__box">{{ campo.label }}</span></label>
+              {% else %}
+                <div class="chat__filtros-campo">
+                  <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+                  {{ campo }}
+                </div>
+              {% endif %}
+            {% endfor %}
+            <div class="chat__filtros-acciones">
+              <button type="submit" class="btn btn--sm">Aplicar</button>
+              <a class="btn btn--ghost btn--sm" href="{{ urls.inicio }}" data-chat-filtros-limpiar>Limpiar</a>
+            </div>
+          </div>
+        </details>
       </form>
       <p class="chat__buscando" role="status" data-chat-buscando hidden>Buscando…</p>
-      {# Todas o solo las que tienen algo sin leer (también las que se dejaron «no leídas»); la abierta se queda #}
+      {# Las bandejas; la conversación abierta se queda aunque no sea de la elegida #}
       <nav class="chat__filtro" aria-label="Qué conversaciones mostrar">
-        <a class="chat__filtro-opcion{% if not sin_leer %} is-activa{% endif %}" href="{{ request.path }}"{% if not sin_leer %} aria-current="page"{% endif %}>Todas</a>
-        <a class="chat__filtro-opcion{% if sin_leer %} is-activa{% endif %}" href="{{ request.path }}?sin_leer=1"{% if sin_leer %} aria-current="page"{% endif %}>Sin leer</a>
+        {% for pestana in pestanas %}
+          <a class="chat__filtro-opcion{% if pestana.activa %} is-activa{% endif %}{% if pestana.icono %} chat__filtro-opcion--icono{% endif %}" href="{{ request.path }}{{ pestana.qs }}" data-chat-filtro{% if pestana.activa %} aria-current="page"{% endif %}{% if pestana.icono %} aria-label="{{ pestana.texto }}" data-tooltip="{{ pestana.texto }}"{% endif %}>{% if pestana.icono %}{% include "partials/icon.html" with name=pestana.icono icon_class="icon--sm" %}{% else %}{{ pestana.texto }}{% endif %}</a>
+        {% endfor %}
       </nav>
+      {% if chips %}
+        <nav class="chat__chips" aria-label="Con quién son las conversaciones">
+          {% for chip in chips %}
+            <a class="chat__chip{% if chip.activa %} is-activa{% endif %}" href="{{ request.path }}{{ chip.qs }}" data-chat-filtro{% if chip.activa %} aria-current="true"{% endif %}>{{ chip.texto }}</a>
+          {% endfor %}
+        </nav>
+      {% endif %}
 
       <section class="chat__personas" aria-label="Personas a las que puedes escribir" data-chat-personas{% if contactos is None %} hidden{% endif %}>
         <h2 class="chat__subtitulo">Escribir a…</h2>
@@ -94,9 +153,12 @@
               </a>
             </li>
           {% empty %}
-            <li class="chat__nadie">Ningún mensaje tiene «{{ busqueda }}».</li>
+            <li class="chat__nadie">Ningún mensaje coincide con la búsqueda.</li>
           {% endfor %}
         </ul>
+        <p class="chat__mas-resultados" data-chat-encontrados-mas-fila hidden>
+          <button type="button" class="btn btn--ghost btn--sm" data-chat-encontrados-mas{% if mas_encontrados %} data-siguiente="{{ mas_encontrados }}"{% endif %}>Ver más resultados</button>
+        </p>
       </section>
 
       <ul class="chat__conversaciones" data-chat-conversaciones aria-label="Tus conversaciones">
@@ -104,7 +166,7 @@
       </ul>
       {% if siguientes %}
         <p class="chat__mas" data-chat-mas-fila>
-          <a class="btn btn--ghost btn--sm" href="?despues={{ siguientes }}{% if sin_leer %}&amp;sin_leer=1{% endif %}" data-chat-mas data-siguientes="{{ siguientes }}">Ver más conversaciones</a>
+          <a class="btn btn--ghost btn--sm" href="{% if filtro_qs %}{{ filtro_qs }}&amp;{% else %}?{% endif %}despues={{ siguientes }}" data-chat-mas data-siguientes="{{ siguientes }}">Ver más conversaciones</a>
         </p>
       {% endif %}
       <div class="chat__vacio" data-chat-sin-conversaciones{% if bandeja %} hidden{% endif %}>
@@ -112,133 +174,67 @@
         {% if sin_leer %}
           <p>No tienes conversaciones sin leer.</p>
           <a class="btn btn--ghost btn--sm" href="{{ request.path }}">Ver todas</a>
+        {% elif vista_lista == 'destacadas' %}
+          <p>Todavía no has destacado ninguna conversación. Usa la estrella para tenerla a la mano.</p>
+        {% elif vista_lista == 'archivadas' %}
+          <p>No tienes conversaciones archivadas.</p>
+        {% elif tipo_lista %}
+          <p>No tienes conversaciones de este tipo.</p>
         {% else %}
-          <p>Todavía no tienes conversaciones. Busca a una persona para escribirle.</p>
+          <p>Todavía no tienes conversaciones. Usa «Nuevo mensaje» para escribirle a alguien.</p>
         {% endif %}
       </div>
     </aside>
 
     {# --- Conversación abierta --------------------------------------------------------------------- #}
-    <section class="chat__hilo" aria-label="{% if conversacion %}Conversación con {{ otro.nombre }}{% else %}Conversación{% endif %}">
-      {% if conversacion %}
-        <header class="chat__hilo-encabezado">
-          <a class="btn btn--ghost btn--icon chat__volver" href="{{ urls.inicio }}{{ filtro_qs }}" aria-label="Volver a las conversaciones">{% include "partials/icon.html" with name="arrow-left" %}</a>
-          <span class="avatar chat-persona__avatar--{{ otro.tipo|lower }}" aria-hidden="true">{{ otro.iniciales }}</span>
-          <div class="chat__hilo-quien">
-            <h2 class="chat__hilo-nombre">{{ otro.nombre }}</h2>
-            <p class="chat__hilo-detalle">{{ descripcion_otro }}</p>
-            <p class="chat__escribiendo" aria-live="polite" data-chat-escribiendo hidden>{{ otro.nombre }} está escribiendo…</p>
-          </div>
-          {% if conversacion.ultimo_mensaje_id %}
-            {# Para atenderla después: vuelve a la lista con la conversación pendiente (Mensajes/views.no_leida) #}
-            <form class="chat__hilo-acciones" method="post" action="{{ url_no_leida }}">
-              {% csrf_token %}
-              {% if sin_leer %}<input type="hidden" name="sin_leer" value="1">{% endif %}
-              <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Marcar como no leída" data-tooltip="Marcar como no leída">
-                {% include "partials/icon.html" with name="mail" icon_class="icon--sm" %}
-              </button>
-            </form>
-          {% endif %}
+    {% include "mensajes/_hilo.html" %}
+
+    {# Se cortó el tiempo real (static/js/avisos.js): los mensajes ya enviados no se pierden #}
+    <p class="chat__conexion" role="status" data-chat-conexion hidden>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Reconectando… los mensajes nuevos pueden tardar en aparecer.</p>
+
+    {# «Deshacer» después de archivar #}
+    <div class="chat__deshacer" role="status" data-chat-deshacer hidden>
+      <span data-chat-deshacer-texto></span>
+      <button type="button" class="btn btn--ghost btn--sm" data-chat-deshacer-boton>Deshacer</button>
+    </div>
+
+    {# --- Nuevo mensaje: a quién se puede escribir (Mensajes/views.directorio) ------------------------- #}
+    <dialog class="modal chat-ventana" id="modal-nuevo-mensaje" aria-labelledby="modal-nuevo-mensaje-titulo" data-modal data-chat-directorio>
+      <div class="modal__panel">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-nuevo-mensaje-titulo">Nuevo mensaje</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
         </header>
-
-        <div class="chat__mensajes" data-chat-mensajes tabindex="0" role="log" aria-live="polite" aria-label="Mensajes">
-          {% if hay_anteriores %}
-            <p class="chat__anteriores"><a class="btn btn--sm btn--ghost" href="?antes={{ primero }}">Ver mensajes anteriores</a></p>
-          {% endif %}
-          {% for mensaje in mensajes %}
-            {% ifchanged mensaje.dia %}<p class="chat__dia" data-chat-dia="{{ mensaje.creado|date:'Y-m-d' }}"><span>{{ mensaje.dia }}</span></p>{% endifchanged %}
-            <div class="burbuja{% if mensaje.mio %} burbuja--mia{% endif %}{% if mensaje.pk == destacado %} is-destacado{% endif %}" id="mensaje-{{ mensaje.pk }}" data-mensaje="{{ mensaje.pk }}"
-                 data-autor="{{ mensaje.autor.nombre }}"{% if mensaje.reportado %} data-reportado{% endif %}{% if mensaje.editable_hasta %} data-editable-hasta="{{ mensaje.editable_hasta }}" data-url-editar="{% url espacio|add:':editar' mensaje.pk %}"{% endif %}>
-              {% if mensaje.cita %}
-                <a class="burbuja__cita" href="#mensaje-{{ mensaje.cita.id }}" data-chat-ir-a="{{ mensaje.cita.id }}">
-                  <span class="burbuja__cita-autor">{{ mensaje.cita.autor }}</span>
-                  <span class="burbuja__cita-texto">{{ mensaje.cita.texto }}</span>
-                </a>
-              {% endif %}
-              {% if mensaje.html_visible %}
-                {# Con formato: HTML limpio en el servidor (Mensajes/enriquecido.py) #}
-                <div class="burbuja__texto burbuja__texto--rico">{{ mensaje.html_visible }}</div>
-              {% elif not mensaje.sin_texto %}
-                <p class="burbuja__texto">{{ mensaje.texto|linebreaksbr }}</p>
-              {% endif %}
-              {% if mensaje.documentos %}{% include "mensajes/_documentos.html" with documentos=mensaje.documentos %}{% endif %}
-              <p class="burbuja__pie">
-                <time datetime="{{ mensaje.creado|date:'c' }}">{{ mensaje.creado|time:"H:i" }}</time>
-                {% if mensaje.editado %}<span class="burbuja__editado" data-tooltip="Corregido a las {{ mensaje.editado|time:'H:i' }}">editado</span>{% endif %}
-                {% if mensaje.reportado %}<span class="burbuja__reportado" data-tooltip="Lo reportaste al administrador del colegio">Reportado</span>{% endif %}
-                {% if mensaje.mio %}
-                  {% if mensaje.leido %}
-                    {# La hora de lectura: a la vista en el último leído; en los demás, al pasar el puntero #}
-                    <span class="burbuja__estado is-leido" data-estado data-leido-texto="{{ mensaje.texto_leido }}"{% if mensaje.pk != ultimo_leido_mio %} data-tooltip="{{ mensaje.texto_leido }}"{% endif %}>
-                      {% include "partials/icon.html" with name="check-check" icon_class="icon--sm" %}<span class="{% if mensaje.pk == ultimo_leido_mio %}burbuja__leido{% else %}visually-hidden{% endif %}" data-leido>{{ mensaje.texto_leido }}</span>
-                    </span>
-                  {% else %}
-                    <span class="burbuja__estado" data-estado>{% include "partials/icon.html" with name="check" icon_class="icon--sm" %}<span class="visually-hidden">Enviado</span></span>
-                  {% endif %}
-                {% endif %}
-              </p>
-            </div>
-          {% empty %}
-            <p class="chat__inicio-conversacion" data-chat-sin-mensajes><span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" %}</span>Aún no hay mensajes.{% if puede_escribir %} Escribe el primero.{% endif %}</p>
-          {% endfor %}
-          {% if hay_posteriores %}
-            {# Abierta en un mensaje anterior: los nuevos no se agregan aquí, se ven en los más recientes #}
-            <p class="chat__anteriores chat__recientes"><a class="btn btn--sm btn--ghost" href="{% url espacio|add:':conversacion' conversacion.pk %}" data-chat-recientes>Ver mensajes más recientes</a></p>
-          {% endif %}
+        <div class="modal__body">
+          <div class="chat-ventana__buscar">
+            {% include "partials/icon.html" with name="search" icon_class="chat__buscar-icono" %}
+            <input class="field__control" type="search" placeholder="Buscar por nombre…" aria-label="Buscar a una persona" autocomplete="off" autofocus data-chat-directorio-buscar>
+          </div>
+          <p class="chat__buscando" role="status" data-chat-directorio-estado hidden>Buscando…</p>
+          <div class="chat-ventana__grupos" data-chat-directorio-grupos></div>
         </div>
+      </div>
+    </dialog>
 
-        {% if puede_escribir %}
-          {% if fuera_de_horario %}
-            {# Un estudiante o un tutor que le escribe al personal fuera del horario de atención (Ajustes › Mensajes) #}
-            <p class="chat__horario" role="note">{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %} {{ fuera_de_horario }}</p>
-          {% endif %}
-          <p class="chat__error" role="alert" data-chat-error hidden></p>
-          <form class="chat__escribir" method="post" action="{{ url_enviar }}" data-chat-formulario data-no-busy>
-            {% csrf_token %}
-            <label class="visually-hidden" for="texto-mensaje">Mensaje para {{ otro.nombre }}</label>
-            {# Los documentos PDF que se van subiendo (static/js/mensajes.js); se envían con el mensaje #}
-            <ul class="chat__adjuntos" aria-label="Documentos por enviar" data-chat-adjuntos hidden></ul>
-            {# Respondiendo a un mensaje (static/js/mensajes.js): se envía con su id #}
-            <div class="chat__respuesta" data-chat-respuesta hidden>
-              <div class="chat__respuesta-texto">
-                <span class="chat__respuesta-autor" data-chat-respuesta-autor></span>
-                <span class="chat__respuesta-cita" data-chat-respuesta-cita></span>
-              </div>
-              <button type="button" class="btn btn--ghost btn--icon btn--sm" aria-label="No responder a ese mensaje" data-chat-respuesta-quitar>{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
-              <input type="hidden" name="responde_a" value="" data-chat-responde-a>
-            </div>
-            <input type="file" accept="{{ acepta_documentos }},application/pdf" multiple hidden data-chat-adjuntar-archivo
-                   data-url="{{ url_documentos }}" data-maximo-mb="{{ maximo_imagen_mb }}" data-maximo="{{ documentos_por_mensaje }}">
-            <div class="chat__caja" data-chat-caja>
-              {# Sin JavaScript se escribe aquí; con él, en el editor con formato (mensajes/_editor.html) #}
-              <textarea class="field__control chat__campo" id="texto-mensaje" name="texto" rows="1" maxlength="{{ maximo }}" required
-                        placeholder="Escribe un mensaje…" aria-describedby="atajos-mensaje" data-chat-campo></textarea>
-              {% include "mensajes/_editor.html" %}
-              <input type="hidden" name="html" value="" data-chat-html>
-              <button type="submit" class="btn btn--primary btn--icon chat__enviar" aria-label="Enviar" data-tooltip="Enviar (Intro)">
-                {% include "partials/icon.html" with name="send" %}
-              </button>
-            </div>
-            <p class="chat__atajos" id="atajos-mensaje"><kbd>Intro</kbd> para enviar · <kbd>Mayús</kbd> + <kbd>Intro</kbd> para un salto de línea<span data-chat-atajos-editor hidden> · En listas y tablas, <kbd>Intro</kbd> agrega un renglón y <kbd>Ctrl</kbd> + <kbd>Intro</kbd> envía</span></p>
-          </form>
-        {% else %}
-          <p class="chat__cerrada">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Ya no puedes escribir en esta conversación (la cuenta está inactiva o ya no tienen relación escolar). El historial se conserva.</p>
-        {% endif %}
-      {% else %}
-        <div class="chat__nada">
-          <span class="chat__icono-vacio" aria-hidden="true">{% include "partials/icon.html" with name="message-circle" icon_class="chat__nada-icono" %}</span>
-          <h2>Tus mensajes</h2>
-          <p>Elige una conversación o busca a una persona para escribirle. Los mensajes llegan al momento, sin recargar la página.</p>
+    {# --- Los archivos de la conversación abierta (Mensajes/views.archivos) ---------------------------- #}
+    <dialog class="modal chat-ventana" id="modal-archivos" aria-labelledby="modal-archivos-titulo" data-modal data-chat-archivos>
+      <div class="modal__panel">
+        <header class="modal__header">
+          <h2 class="modal__title" id="modal-archivos-titulo">Archivos de la conversación</h2>
+          <button type="button" class="btn btn--ghost btn--icon btn--sm" data-modal-close aria-label="Cerrar">{% include "partials/icon.html" with name="x" icon_class="icon--sm" %}</button>
+        </header>
+        <div class="modal__body">
+          <p class="chat__buscando" role="status" data-chat-archivos-estado hidden>Cargando…</p>
+          <ul class="chat-archivos" data-chat-archivos-lista></ul>
         </div>
-      {% endif %}
-    </section>
+      </div>
+    </dialog>
   </div>
 {% endblock %}
 
 {% block extra_js %}
-  {% if conversacion and puede_escribir %}
-    <script src="{% static 'js/caracteres-especiales.js' %}" defer></script>
-    <script src="{% static 'js/editor-mensajes.js' %}" defer></script>
-  {% endif %}
+  {# El editor se usa en cuanto se abre una conversación, también sin recargar #}
+  <script src="{% static 'js/caracteres-especiales.js' %}" defer></script>
+  <script src="{% static 'js/editor-mensajes.js' %}" defer></script>
   <script src="{% static 'js/mensajes.js' %}" defer></script>
 {% endblock %}

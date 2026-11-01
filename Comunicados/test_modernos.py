@@ -84,7 +84,7 @@ class EnlacesYParaQuienTests(Base):
     def test_el_tutor_sabe_de_cual_de_sus_hijos_trata(self):
         comunicado = self.publicar()
         cliente = self.portal()
-        self.assertContains(cliente.get(reverse('portal_tutores:comunicados:inicio')), 'Sobre: Lucía Herrera Campos (2.º A)')
+        self.assertContains(cliente.get(reverse('portal_tutores:comunicados:inicio')), 'Como tutor de Lucía Herrera Campos (2.º A)')
         self.assertContains(cliente.get(self.url_portal('recibido', comunicado)), 'Lucía Herrera Campos (2.º A)')
 
 
@@ -210,11 +210,11 @@ class CorregirTests(Base):
         self.client.post(reverse('comunicados:editar', args=[comunicado.pk]), {**self.datos(), 'archivos': [png()]})
         self.assertEqual([a.nombre_original for a in comunicado.adjuntos.all()], ['foto.png'])
 
-    def test_un_programado_se_publica_al_quitarle_la_hora(self):
+    def test_un_programado_se_publica_si_se_pide(self):
         comunicado = self.publicar(publicar_en=timezone.now() + timedelta(hours=2))
         self.assertIsNone(comunicado.avisado_en)
         with patch('Comunicados.tiempo_real.enviar_eventos') as eventos, self.captureOnCommitCallbacks(execute=True):
-            self.client.post(reverse('comunicados:editar', args=[comunicado.pk]), self.datos())
+            self.client.post(reverse('comunicados:editar', args=[comunicado.pk]), self.datos(publicar_ahora='on', destinatarios=json.dumps({'tutores': [self.ana.pk]})))
         comunicado.refresh_from_db()
         self.assertIsNotNone(comunicado.avisado_en)
         self.assertLessEqual(comunicado.publicado_en, timezone.now())
@@ -329,7 +329,7 @@ class FijarYCategoriasTests(Base):
         self.publicar(titulo='Excursión al museo', categoria=Comunicado.EVENTOS)
         cliente = self.portal()
         html = cliente.get(reverse('portal_tutores:comunicados:inicio')).content.decode()
-        lista = html[html.index('comunicados__rejilla'):]   # (la campana de arriba los ordena por fecha)
+        lista = html[html.index('comunicados__lista'):]   # (la campana de arriba los ordena por fecha)
         self.assertLess(lista.index('Reglamento escolar'), lista.index('Excursión al museo'))   # fijado, aunque es más viejo
         filtrado = cliente.get(reverse('portal_tutores:comunicados:inicio'), {'categoria': Comunicado.EVENTOS})
         self.assertEqual([copia.comunicado.titulo for copia in filtrado.context['pagina']], ['Excursión al museo'])

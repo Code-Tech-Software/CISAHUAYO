@@ -105,13 +105,14 @@ def avisar_retiro(conversacion_id, mensaje_id):
         }})
 
 
-def avisar_resumen(participante, conversacion_id):
+def avisar_resumen(participante, conversacion_id, organizada=False):
     """A las pestañas de la persona: su total sin leer y lo que le queda pendiente en esa conversación (0 al leerla; 1 o
-    más si la dejó «no leída»)."""
+    más si la dejó «no leída»). Con `organizada`, la destacó o la archivó: sus otras pestañas vuelven a pedir la lista."""
     from .reglas import sin_leer_por_conversacion
     pendientes = sin_leer_por_conversacion(participante)
     _enviar(participante.pk, {'type': 'mensajes.resumen', 'datos': {
         'conversacion': conversacion_id, 'no_leidos': sum(pendientes.values()), 'pendientes': pendientes.get(conversacion_id, 0),
+        'organizada': organizada,
     }})
 
 

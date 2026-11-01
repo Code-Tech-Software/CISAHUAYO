@@ -1,9 +1,10 @@
 """Pantallas de los comunicados.
 
 En el sistema (/comunicados/): las pestañas «Recibidos» (un profesor o alguien del personal), «Enviados» (quien da
-seguimiento a los suyos) y «Todos los comunicados» (la gestión global del administrador, aparte de su bandeja personal);
-crear (también a partir de otro: «Usar como base»), corregir, el detalle con su seguimiento (lectura por grupo,
-respuestas, «Recordar a los pendientes» y la lista en Excel), los archivos, las imágenes del texto y eliminar. En los
+seguimiento a los suyos), «Todos los comunicados» (la gestión global del administrador, aparte de su bandeja personal) y
+«Borradores» (lo que lleva escrito quien envía); crear (también a partir de otro: «Usar como base»), corregir, el detalle
+con su seguimiento (apertura por grupo, respuestas, «Recordar a los pendientes» y la lista en Excel), los archivos, las
+imágenes del texto y eliminar. En los
 portales (/portal/estudiantes/comunicados/ y /portal/tutores/comunicados/): solo lo recibido, con las mismas vistas de
 recepción y la sesión del portal (Comunicados/urls.py). Quien recibe puede responder (si se pide) y bajar el evento a
 su calendario.
@@ -17,6 +18,7 @@ from dataclasses import dataclass, field
 from functools import wraps
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Count
 from django.http import Http404, HttpResponse, JsonResponse
@@ -29,17 +31,22 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from CISAHUAYO import portales
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, paginar
 from CISAHUAYO.permisos import requiere_alguno, requiere_permisos
+from CISAHUAYO.sin_acentos import quitar_acentos
 from Mensajes import enriquecido
 
-from . import avisos, reglas
+from . import avisos, borradores, reglas
 from .alcance import ELIMINAR, ENVIAR, GESTIONAR, RECIBIR, SEGUIMIENTO, SIN_NIVELES, alcance_de, es_administrador
 from .forms import ACEPTA, AYUDA_DE_ARCHIVOS, CLAVES, TAMANO_MAXIMO_MB, ComunicadoForm
-from .models import Adjunto, Comunicado, Destinatario, ImagenComunicado
+from .models import Adjunto, BorradorComunicado, Comunicado, Destinatario, ImagenComunicado, RespuestaAnterior
 
 POR_PAGINA = 20
-VISTAS = {'recibidos': 'Recibidos', 'enviados': 'Enviados', 'gestion': 'Todos los comunicados'}
-ESTADOS_DE_GESTION = (('todos', 'Todos'), ('activos', 'Activos'), ('programados', 'Programados'), ('caducados', 'Caducados'))
-ESTADOS_DE_RECIBIDOS = (('todos', 'Todos'), ('pendientes', 'Sin leer'), ('por_responder', 'Por responder'), ('leidos', 'Leídos'))
+POR_PAGINA_DESTINATARIOS = 50
+VISTAS = {'recibidos': 'Recibidos', 'enviados': 'Enviados', 'gestion': 'Todos los comunicados', 'borradores': 'Borradores'}
+ESTADOS_DE_GESTION = (('todos', 'Todos'), ('activos', 'Activos'), ('con_pendientes', 'Con pendientes'), ('programados', 'Programados'),
+                      ('caducados', 'Caducados'))
+ESTADOS_DE_RECIBIDOS = (('todos', 'Todos'), ('por_atender', 'Por atender'), ('leidos', 'Abiertos'))
+# También se aceptan en la dirección, aunque no tengan botón: son parte de «Por atender»
+OTROS_ESTADOS_DE_RECIBIDOS = ('pendientes', 'por_responder')
 ACEPTA_IMAGENES = '.jpg,.jpeg,.png,.webp'
 
 
@@ -65,7 +72,7 @@ def _contexto_de_archivos():
             'maximo_descripcion': Comunicado.MAXIMO_DESCRIPCION, 'maximo_opciones': Comunicado.MAXIMO_OPCIONES,
             'categorias': Comunicado.CATEGORIAS, 'respuestas': Comunicado.RESPUESTAS,
             'url_imagenes': reverse('comunicados:imagen_subir'), 'acepta_imagenes': ACEPTA_IMAGENES,
-            'maximo_imagen_mb': ImagenComunicado.TAMANO_MAXIMO_MB}
+            'maximo_imagen_mb': ImagenComunicado.TAMANO_MAXIMO_MB, 'url_borrador': reverse('comunicados:borrador_guardar')}
 
 
 def _url_de_imagen_del_sistema(pk):
@@ -103,10 +110,12 @@ def _seleccion_de(comunicado):
 
 def _inicial_de(comunicado, usuario, copiar):
     """Lo que el formulario muestra ya escrito: el comunicado que se corrige (`copiar` False) o el que se usa como base."""
+    limite = timezone.localtime(comunicado.responder_hasta) if comunicado.responder_hasta and not copiar else None
     datos = {
         'titulo': comunicado.titulo, 'descripcion': comunicado.descripcion, 'urgente': comunicado.urgente,
         'categoria': comunicado.categoria, 'fijado': comunicado.fijado, 'respuesta': comunicado.respuesta,
         'pregunta': comunicado.pregunta, 'opciones': [o.texto for o in comunicado.opciones.all()],
+        'responder_fecha': limite.date().isoformat() if limite else '', 'responder_hora': f'{limite:%H:%M}' if limite else '',
         'evento_fecha': comunicado.evento_fecha.isoformat() if comunicado.evento_fecha else '',
         'evento_hora_inicio': f'{comunicado.evento_hora_inicio:%H:%M}' if comunicado.evento_hora_inicio else '',
         'evento_hora_fin': f'{comunicado.evento_hora_fin:%H:%M}' if comunicado.evento_hora_fin else '',
@@ -120,7 +129,8 @@ def _inicial_de(comunicado, usuario, copiar):
         publicado = timezone.localtime(comunicado.publicado_en)
         datos.update(expira_fecha=expira.date().isoformat() if expira else '', expira_hora=f'{expira:%H:%M}' if expira else '')
         if comunicado.programado:
-            datos.update(publicar_fecha=publicado.date().isoformat(), publicar_hora=f'{publicado:%H:%M}')
+            datos.update(publicar_fecha=publicado.date().isoformat(), publicar_hora=f'{publicado:%H:%M}',
+                         destinatarios=json.dumps(_seleccion_de(comunicado)))
     return datos
 
 
@@ -130,19 +140,23 @@ class _Datos:
         self.data = datos
 
 
-def _formulario(request, form=None, base=None, comunicado=None):
+def _formulario(request, form=None, base=None, comunicado=None, borrador=None):
     """Lo que necesita el formulario de crear (en la ventana del listado o en su propia página) o de corregir."""
     alcance = alcance_de(request.user)
-    if form is None and (base is not None or comunicado is not None):
+    if form is None and borrador is not None:
+        form = _Datos({**borrador.datos, 'titulo': borrador.titulo})
+    elif form is None and (base is not None or comunicado is not None):
         form = _Datos(_inicial_de(comunicado or base, request.user, copiar=comunicado is None))
     datos = getattr(form, 'data', {}) if form is not None else {}
     opciones = datos.getlist('opciones') if hasattr(datos, 'getlist') else list(datos.get('opciones') or [])
-    previos = list((comunicado or base).adjuntos.all()) if (comunicado or base) is not None else []
+    origen = comunicado or base
+    previos = list(origen.adjuntos.all()) if origen is not None else []
     contexto = {
         'form': form, 'clave_envio': (datos.get('clave_envio') if form is not None else '') or uuid.uuid4(),
         'alcance': alcance, 'url_crear': reverse('comunicados:crear'), 'url_destinatarios': reverse('comunicados:destinatarios'),
         'hoy': timezone.localdate(), 'opciones_iniciales': opciones + [''] * max(0, 2 - len(opciones)),
-        'base_comunicado': base, 'edicion': comunicado, 'adjuntos_previos': previos,
+        'base_comunicado': base, 'edicion': comunicado, 'adjuntos_previos': previos, 'borrador': borrador,
+        'adjuntos_borrador': list(borrador.adjuntos.all()) if borrador is not None else [],
         **_contexto_de_archivos(),
     }
     # El texto con formato que el editor muestra al abrir (limpio otra vez: también el de un envío que falló)
@@ -157,6 +171,8 @@ def _formulario(request, form=None, base=None, comunicado=None):
         contexto['url_crear'] = reverse('comunicados:editar', args=[comunicado.pk])
         contexto['programable'] = comunicado.avisado_en is None and comunicado.programado
         contexto['resumen_edicion'] = reglas.resumen_por_tipo(dict(comunicado.destinatarios.values_list('tipo').annotate(n=Count('pk'))))
+        # Cuántas respuestas hay en juego: con alguna, hay que decir qué tipo de corrección es
+        contexto['respuestas_dadas'] = comunicado.destinatarios.filter(respondido_en__isnull=False).count() if comunicado.pide_respuesta else 0
     else:
         contexto['programable'] = True
     return contexto
@@ -191,19 +207,56 @@ def _vistas_de(usuario):
         vistas.append('enviados')
     if es_administrador(usuario):
         vistas.append('gestion')
+    if usuario.has_perm(ENVIAR) and alcance_de(usuario).puede_enviar:
+        vistas.append('borradores')
     return vistas or ['recibidos'], lector
 
 
-def _vista_inicial(vistas):
+def _vista_inicial(vistas, lector=None):
+    """Lo pendiente de atender manda: quien tiene algo por abrir o responder entra a «Recibidos»."""
+    if 'recibidos' in vistas and lector is not None and lector.pendientes()[0]:
+        return 'recibidos'
     for preferida in ('gestion', 'enviados', 'recibidos'):
         if preferida in vistas:
             return preferida
     return vistas[0]
 
 
-def _fecha_pedida(request):
-    fecha = parse_date(request.GET.get('fecha', '') or '') if request.GET.get('fecha') else None
-    return fecha if fecha and fecha <= timezone.localdate() else None
+def _fecha(texto):
+    try:
+        return parse_date(texto or '')
+    except ValueError:
+        return None
+
+
+def _periodo_pedido(request):
+    """(desde, hasta) de publicación. `fecha` es un solo día (los enlaces de antes)."""
+    un_dia = _fecha(request.GET.get('fecha'))
+    if un_dia:
+        return un_dia, un_dia
+    return _fecha(request.GET.get('desde')), _fecha(request.GET.get('hasta'))
+
+
+def _en_periodo(consulta, desde, hasta, campo):
+    if desde:
+        consulta = consulta.filter(**{f'{campo}__date__gte': desde})
+    if hasta:
+        consulta = consulta.filter(**{f'{campo}__date__lte': hasta})
+    return consulta
+
+
+def _marcar_estados(copias):
+    ahora = timezone.now()
+    for copia in copias:
+        copia.estado_clave, copia.estado_texto, copia.estado_icono = reglas.estado_de(copia, ahora)
+    return copias
+
+
+def _autores_de_gestion():
+    from Usuarios.seguridad import nombre_de
+    ids = Comunicado.objects.visibles().order_by().values_list('autor', flat=True).distinct()
+    cuentas = get_user_model().objects.filter(pk__in=ids)
+    return sorted(((cuenta.pk, nombre_de(cuenta)) for cuenta in cuentas), key=lambda par: par[1].lower())
 
 
 @require_GET
@@ -214,32 +267,40 @@ def inicio(request):
     vistas, lector = _vistas_de(usuario)
     vista = request.GET.get('vista')
     if vista not in vistas:
-        vista = _vista_inicial(vistas)
+        vista = _vista_inicial(vistas, lector)
     texto = request.GET.get('q', '').strip()
-    fecha = _fecha_pedida(request)
+    desde, hasta = _periodo_pedido(request)
     categoria = _categoria_pedida(request)
     estados = ESTADOS_DE_RECIBIDOS if vista == 'recibidos' else ESTADOS_DE_GESTION
     estado = request.GET.get('estado', 'todos')
-    if estado not in dict(estados):
+    if estado not in dict(estados) and not (vista == 'recibidos' and estado in OTROS_ESTADOS_DE_RECIBIDOS):
         estado = 'todos'
+    autor = request.GET.get('autor', '')
+    autores = _autores_de_gestion() if vista == 'gestion' else []
+    if not any(str(pk) == autor for pk, _ in autores):
+        autor = ''
 
-    if vista == 'recibidos':
+    if vista == 'borradores':
+        consulta = reglas.buscar(BorradorComunicado.objects.filter(autor=usuario), texto, ('titulo',))
+    elif vista == 'recibidos':
         consulta = reglas.recibidos(lector, estado, categoria) if lector is not None else Destinatario.objects.none()
         consulta = reglas.buscar(consulta, texto, ('comunicado__titulo', 'comunicado__descripcion'))
-        if fecha:
-            consulta = consulta.filter(comunicado__publicado_en__date=fecha)
+        consulta = _en_periodo(consulta, desde, hasta, 'comunicado__publicado_en')
     else:
         consulta = reglas.gestionables(usuario, vista)
         consulta = reglas.filtrar_por_estado(consulta, estado)
         consulta = reglas.buscar(consulta, texto)
         if categoria:
             consulta = consulta.filter(categoria=categoria)
-        if fecha:
-            consulta = consulta.filter(publicado_en__date=fecha)
+        if autor:
+            consulta = consulta.filter(autor_id=autor)
+        consulta = _en_periodo(consulta, desde, hasta, 'publicado_en')
         consulta = reglas.con_estadisticas(consulta).order_by('-publicado_en', '-pk')
 
     pagina, rango, por_pagina = paginar(request, consulta, por_defecto=POR_PAGINA)
-    if vista != 'recibidos':
+    if vista == 'recibidos':
+        _marcar_estados(pagina.object_list)
+    elif vista != 'borradores':
         for comunicado in pagina.object_list:
             reglas.preparar(comunicado)
             comunicado.eliminable = reglas.puede_eliminar(usuario, comunicado)
@@ -249,12 +310,14 @@ def inicio(request):
     puede_crear = usuario.has_perm(ENVIAR)
     contexto = {
         'vista': vista, 'vistas': [(clave, VISTAS[clave]) for clave in vistas], 'estado': estado, 'estados': estados,
-        'texto': texto, 'fecha': fecha, 'categoria': categoria, 'categorias': Comunicado.CATEGORIAS,
+        'texto': texto, 'desde': desde, 'hasta': hasta, 'categoria': categoria, 'categorias': Comunicado.CATEGORIAS,
+        'autor': autor, 'autores': autores, 'n_borradores': BorradorComunicado.objects.filter(autor=usuario).count() if 'borradores' in vistas else 0,
+        'con_filtros': bool(desde or hasta or categoria or autor),
         'pagina': pagina, 'rango': rango, 'por_pagina': por_pagina, 'opciones': OPCIONES_POR_PAGINA,
         'lector': lector, 'pendientes': pendientes, 'hoy': timezone.localdate(), 'ahora': timezone.now(),
         'puede_crear': puede_crear, 'sin_niveles': puede_crear and not alcance.puede_enviar, 'mensaje_sin_niveles': SIN_NIVELES,
-        'alcance': alcance, 'filtrado': bool(texto or fecha or categoria or estado != 'todos'),
-        'seleccionable': vista != 'recibidos' and any(getattr(c, 'eliminable', False) for c in pagina.object_list),
+        'alcance': alcance, 'filtrado': bool(texto or desde or hasta or categoria or autor or estado != 'todos'),
+        'seleccionable': vista not in ('recibidos', 'borradores') and any(getattr(c, 'eliminable', False) for c in pagina.object_list),
         'base': 'base.html', 'espacio': 'comunicados',
     }
     if puede_crear and alcance.puede_enviar:
@@ -297,8 +360,11 @@ def crear(request):
         messages.warning(request, SIN_NIVELES)
         return redirect('comunicados:inicio')
     base = _base_pedida(request)
+    borrador = borradores.de(request.user, request.POST.get('borrador') or request.GET.get('borrador'))
+    if borrador is not None and base is None and borrador.base_id:
+        base = borrador.base if reglas.puede_dar_seguimiento(request.user, borrador.base) else None
     if request.method == 'GET':
-        return render(request, 'comunicados/crear.html', _formulario(request, form=_desde_estudiantes(request), base=base))
+        return render(request, 'comunicados/crear.html', _formulario(request, form=_desde_estudiantes(request), base=base, borrador=borrador))
 
     form = ComunicadoForm(request.POST, archivos=request.FILES.getlist('archivos'))
     rechazo = None
@@ -306,46 +372,82 @@ def crear(request):
         datos = form.cleaned_data
         copiar = []
         if base is not None:
-            ids = [int(pk) for pk in request.POST.getlist('copiar_adjuntos') if pk.isdigit()]
-            copiar = list(base.adjuntos.filter(pk__in=ids))
+            copiar += base.adjuntos.filter(pk__in=[int(pk) for pk in request.POST.getlist('copiar_adjuntos') if pk.isdigit()])
+        if borrador is not None:
+            copiar += borrador.adjuntos.filter(pk__in=[int(pk) for pk in request.POST.getlist('adjuntos_borrador') if pk.isdigit()])
         try:
             comunicado, nuevo = reglas.enviar(
                 request.user, titulo=datos['titulo'], descripcion=datos['descripcion'], html=datos['html'], urgente=datos['urgente'],
                 expira=datos['expira'], clave_envio=datos['clave_envio'], seleccion=datos['destinatarios'],
                 archivos=form.archivos_validos, categoria=datos['categoria'], fijado=datos['fijado'], publicar_en=datos['publicar_en'],
                 respuesta=datos['respuesta'], pregunta=datos['pregunta'], opciones=datos['opciones'], evento=datos['evento'],
-                copiar_adjuntos=copiar,
+                copiar_adjuntos=copiar, responder_hasta=datos['responder_hasta'],
             )
         except reglas.EnvioRechazado as error:
             rechazo = error
         else:
+            if borrador is not None:
+                borradores.eliminar(borrador)
             if nuevo:
                 total = comunicado.destinatarios.count()
-                if comunicado.avisado_en is None:
+                if comunicado.programado:
                     cuando = timezone.localtime(comunicado.publicado_en)
                     messages.success(request, f'Se programó «{comunicado.titulo}» para {total} destinatario{"s" if total != 1 else ""}: '
                                               f'se publicará el {cuando:%d/%m/%Y} a las {cuando:%H:%M}.')
                 else:
                     messages.success(request, f'Se publicó «{comunicado.titulo}» para {total} destinatario{"s" if total != 1 else ""}. '
-                                              'En su detalle verás quién lo ha leído.')
+                                              'En su detalle verás quién lo abrió y quién falta.')
             destino = f"{reverse('comunicados:inicio')}?vista=enviados"
             if _quiere_json(request):
                 return JsonResponse({'ok': True, 'redirect': destino, 'id': comunicado.pk})
             return redirect(destino)
-    return _responder_errores(request, 'comunicados/crear.html', _formulario(request, form, base=base), _errores_de(form, rechazo))
+    return _responder_errores(request, 'comunicados/crear.html', _formulario(request, form, base=base, borrador=borrador), _errores_de(form, rechazo))
+
+
+@require_POST
+@requiere_permisos(ENVIAR)
+def borrador_guardar(request):
+    """Guarda lo que lleva el formulario, sin validarlo (automático al escribir o con «Guardar borrador»)."""
+    if not alcance_de(request.user).puede_enviar:
+        return JsonResponse({'error': SIN_NIVELES}, status=403)
+    borrador = borradores.de(request.user, request.POST.get('borrador'))
+    try:
+        borrador = borradores.guardar(request.user, request.POST, request.FILES.getlist('archivos'), borrador=borrador, base=_base_pedida(request))
+    except reglas.EnvioRechazado as rechazo:
+        return JsonResponse({'error': rechazo.mensaje}, status=400)
+    if request.POST.get('salir') == '1':
+        messages.success(request, f'Se guardó el borrador «{borrador}». Nadie lo ve hasta que lo envíes.')
+    return JsonResponse({'id': borrador.pk, 'hora': f'{timezone.localtime(borrador.actualizado):%H:%M}',
+                         'redirect': f"{reverse('comunicados:inicio')}?vista=borradores"})
+
+
+@require_POST
+@requiere_permisos(ENVIAR)
+def borrador_descartar(request, pk):
+    borrador = borradores.de(request.user, pk)
+    if borrador is None:
+        raise Http404('No existe ese borrador.')
+    titulo = str(borrador)
+    borradores.eliminar(borrador)
+    if _quiere_json(request):
+        return JsonResponse({'ok': True})
+    messages.success(request, f'Se descartó el borrador «{titulo}».')
+    return redirect(f"{reverse('comunicados:inicio')}?vista=borradores")
 
 
 @require_http_methods(['GET', 'POST'])
 @requiere_permisos(ENVIAR)
 def editar(request, pk):
     """Corregir un comunicado ya enviado: el texto, el título, la urgencia, las fechas, la categoría, si va fijado, el
-    evento y los archivos (los destinatarios y la respuesta que se pide no cambian)."""
+    evento y los archivos. La respuesta que se pide no cambia; los destinatarios, solo mientras siga programado."""
     comunicado = get_object_or_404(Comunicado.objects.visibles(), pk=pk)
     if not reglas.puede_editar(request.user, comunicado):
         raise Http404('No existe ese comunicado.')
     if request.method == 'GET':
         return render(request, 'comunicados/editar.html', _formulario(request, comunicado=comunicado))
-    form = ComunicadoForm(request.POST, archivos=request.FILES.getlist('archivos'), para_editar=True)
+    programado = comunicado.avisado_en is None and comunicado.programado
+    form = ComunicadoForm(request.POST, archivos=request.FILES.getlist('archivos'), para_editar=True, comunicado=comunicado,
+                          con_destinatarios=programado)
     rechazo = None
     if form.is_valid():
         datos = form.cleaned_data
@@ -354,7 +456,8 @@ def editar(request, pk):
                 request.user, comunicado, titulo=datos['titulo'], descripcion=datos['descripcion'], html=datos['html'],
                 urgente=datos['urgente'], expira=datos['expira'], categoria=datos['categoria'], fijado=datos['fijado'],
                 evento=datos['evento'], publicar_en=datos['publicar_en'], conservar_adjuntos=request.POST.getlist('conservar_adjuntos'),
-                archivos=form.archivos_validos,
+                archivos=form.archivos_validos, cambio=datos['cambio'], responder_hasta=datos['responder_hasta'],
+                seleccion=datos['destinatarios'] if programado else None, publicar_ahora=datos['publicar_ahora'],
             )
         except reglas.EnvioRechazado as error:
             rechazo = error
@@ -435,9 +538,43 @@ def _comunicado_gestionable(request, pk):
 
 
 def _destinatarios_de(comunicado):
-    destinatarios = list(comunicado.destinatarios.select_related('alumno', 'tutor', 'profesor', 'usuario', 'opcion', 'grupo__grado', 'grupo__nombre'))
+    destinatarios = list(comunicado.destinatarios.select_related('alumno', 'tutor', 'profesor', 'usuario', 'opcion', 'grupo__grado', 'grupo__nombre')
+                         .prefetch_related('autorizaciones__alumno'))
     destinatarios.sort(key=lambda d: (reglas.ORDEN_DE_TIPOS.index(d.tipo), d.leido_en is not None, d.nombre.lower()))
     return destinatarios
+
+
+def _filtrar_destinatarios(comunicado, destinatarios, estado, texto):
+    if estado == 'leido':
+        destinatarios = [d for d in destinatarios if d.leido]
+    elif estado == 'pendiente':
+        destinatarios = [d for d in destinatarios if not d.leido and not d.sin_acceso]
+    elif estado == 'sin-responder' and comunicado.pide_respuesta:
+        destinatarios = [d for d in destinatarios if not d.respondio and not d.sin_acceso]
+    elif estado == 'sin-acceso':
+        destinatarios = [d for d in destinatarios if d.sin_acceso and not d.leido]
+    for palabra in quitar_acentos(texto).lower().split():
+        destinatarios = [d for d in destinatarios if palabra in quitar_acentos(d.nombre).lower()]
+    return destinatarios
+
+
+def _filtrar_por_estudiante(filas, estado, texto):
+    if estado:
+        filas = [fila for fila in filas if fila['clave'] == estado]
+    for palabra in quitar_acentos(texto).lower().split():
+        filas = [fila for fila in filas if palabra in quitar_acentos(fila['nombre']).lower()]
+    return filas
+
+
+def _pagina_pedida(request):
+    return int(request.GET['pagina']) if request.GET.get('pagina', '').isdigit() and int(request.GET['pagina']) > 0 else 1
+
+
+def _pagina_de_destinatarios(destinatarios, pagina=1):
+    """(filas de esa página, la siguiente o None): con cientos de destinatarios, la lista no se manda completa."""
+    inicio = (pagina - 1) * POR_PAGINA_DESTINATARIOS
+    fin = inicio + POR_PAGINA_DESTINATARIOS
+    return destinatarios[inicio:fin], pagina + 1 if len(destinatarios) > fin else None
 
 
 @require_GET
@@ -447,14 +584,19 @@ def detalle(request, pk):
     comunicado = _comunicado_gestionable(request, pk)
     destinatarios = _destinatarios_de(comunicado)
     por_grupo = reglas.lectura_por_grupo(destinatarios)
+    filas, siguiente = _pagina_de_destinatarios(destinatarios)
+    por_estudiante = reglas.autorizaciones_por_estudiante(comunicado) if comunicado.respuesta == Comunicado.AUTORIZACION else []
+    estudiantes, siguiente_estudiantes = _pagina_de_destinatarios(por_estudiante)
     contexto = {
-        'comunicado': comunicado, 'destinatarios': destinatarios, 'adjuntos': list(comunicado.adjuntos.all()),
+        'comunicado': comunicado, 'destinatarios': filas, 'siguiente': siguiente, 'adjuntos': list(comunicado.adjuntos.all()),
+        'por_estudiante': estudiantes, 'siguiente_estudiantes': siguiente_estudiantes, 'total_estudiantes': len(por_estudiante),
         'contenido': reglas.contenido_visible(comunicado, _url_de_imagen_del_sistema),
         'gestion': True, 'puede_eliminar': reglas.puede_eliminar(request.user, comunicado), 'ahora': timezone.now(),
         'puede_editar': reglas.puede_editar(request.user, comunicado), 'puede_usar_de_base': request.user.has_perm(ENVIAR),
         # Solo si alguien cuenta en un grupo (a solo profesores o personal no hay nada que desglosar)
         'por_grupo': por_grupo if any(fila['es_grupo'] for fila in por_grupo) else [],
         'respuestas': reglas.resumen_de_respuestas(comunicado, destinatarios) if comunicado.pide_respuesta else None,
+        'respuestas_anteriores': RespuestaAnterior.objects.filter(destinatario__comunicado=comunicado).count(),
         'por_recordar': reglas.por_recordar(comunicado).count(), 'motivo_sin_recordar': reglas.motivo_para_no_recordar(comunicado),
         'url_adjunto': 'comunicados:adjunto', 'url_calendario': reverse('comunicados:calendario', args=[comunicado.pk]),
         'base': 'base.html', 'espacio': 'comunicados',
@@ -462,6 +604,30 @@ def detalle(request, pk):
     }
     plantilla = 'comunicados/_detalle.html' if request.GET.get('parcial') == '1' else 'comunicados/detalle.html'
     respuesta = render(request, plantilla, contexto)
+    respuesta['Cache-Control'] = 'private, no-store'
+    return respuesta
+
+
+@require_GET
+@requiere_alguno(SEGUIMIENTO, GESTIONAR)
+def lista_de_destinatarios(request, pk):
+    """Una página de la lista del seguimiento, con su búsqueda y su filtro (static/js/comunicados.js la pide)."""
+    comunicado = _comunicado_gestionable(request, pk)
+    destinatarios = _filtrar_destinatarios(comunicado, _destinatarios_de(comunicado), request.GET.get('estado', ''), request.GET.get('q', ''))
+    filas, siguiente = _pagina_de_destinatarios(destinatarios, _pagina_pedida(request))
+    respuesta = render(request, 'comunicados/_destinatarios.html', {'comunicado': comunicado, 'destinatarios': filas, 'siguiente': siguiente})
+    respuesta['Cache-Control'] = 'private, no-store'
+    return respuesta
+
+
+@require_GET
+@requiere_alguno(SEGUIMIENTO, GESTIONAR)
+def lista_por_estudiante(request, pk):
+    """Una página de la autorización por estudiante, con su búsqueda y su filtro."""
+    comunicado = _comunicado_gestionable(request, pk)
+    filas = _filtrar_por_estudiante(reglas.autorizaciones_por_estudiante(comunicado), request.GET.get('estado', ''), request.GET.get('q', ''))
+    pagina, siguiente = _pagina_de_destinatarios(filas, _pagina_pedida(request))
+    respuesta = render(request, 'comunicados/_por_estudiante.html', {'por_estudiante': pagina, 'siguiente_estudiantes': siguiente})
     respuesta['Cache-Control'] = 'private, no-store'
     return respuesta
 
@@ -488,38 +654,56 @@ def recordar(request, pk):
 @require_GET
 @requiere_alguno(SEGUIMIENTO, GESTIONAR)
 def exportar(request, pk):
-    """La lista de lectura (y de respuestas) en Excel, con una hoja por grupo."""
+    """La lista de apertura (y de respuestas) en Excel, con una hoja por grupo."""
     from CISAHUAYO.xlsx import ENCABEZADO, SECCION, TITULO, Celda, Hoja, libro
     comunicado = _comunicado_gestionable(request, pk)
     destinatarios = _destinatarios_de(comunicado)
     publicado = timezone.localtime(comunicado.publicado_en)
-    encabezados = ['Nombre', 'Tipo', 'Grupo', 'Detalle', 'Leído', 'Fecha de lectura']
+    encabezados = ['Nombre', 'Tipo', 'Grupo', 'Detalle', 'Abierto', 'Fecha de apertura', 'Acceso al portal']
     if comunicado.pide_respuesta:
         encabezados += ['Respuesta', 'Fecha de respuesta']
     filas = [
         [Celda(comunicado.titulo, TITULO)],
         [f'Publicado el {publicado:%d/%m/%Y %H:%M} · {reglas.nombre_de_usuario(comunicado.autor)}'],
-        [f'Leído por {comunicado.leidos} de {comunicado.total} ({comunicado.porcentaje} %)'],
+        [f'Abierto por {comunicado.leidos} de {comunicado.alcanzables} ({comunicado.porcentaje} %)'
+         + (f' · {comunicado.n_sin_acceso} sin acceso al portal' if comunicado.n_sin_acceso else '')],
         [],
         [Celda(texto, ENCABEZADO) for texto in encabezados],
     ]
     for destinatario in destinatarios:
         fila = [destinatario.nombre, destinatario.get_tipo_display(), destinatario.grupo.corto if destinatario.grupo_id else '',
                 destinatario.detalle, 'Sí' if destinatario.leido else 'No',
-                timezone.localtime(destinatario.leido_en).replace(tzinfo=None) if destinatario.leido_en else None]
+                timezone.localtime(destinatario.leido_en).replace(tzinfo=None) if destinatario.leido_en else None,
+                'No' if destinatario.sin_acceso else 'Sí']
         if comunicado.pide_respuesta:
-            fila += [destinatario.texto_de_respuesta or 'Sin responder',
+            fila += [destinatario.respuesta_detallada or 'Sin responder',
                      timezone.localtime(destinatario.respondido_en).replace(tzinfo=None) if destinatario.respondido_en else None]
         filas.append(fila)
-    por_grupo = [[Celda('Lectura por grupo', TITULO)], [],
-                 [Celda(texto, ENCABEZADO) for texto in ['Grupo', 'Destinatarios', 'Leídos', '% de lectura'] + (['Respondieron'] if comunicado.pide_respuesta else [])]]
+    por_grupo = [[Celda('Apertura por grupo', TITULO)], [],
+                 [Celda(texto, ENCABEZADO) for texto in ['Grupo', 'Destinatarios', 'Abiertos', '% abierto', 'Sin acceso al portal'] + (['Respondieron'] if comunicado.pide_respuesta else [])]]
     for grupo in reglas.lectura_por_grupo(destinatarios):
-        por_grupo.append([grupo['nombre'], grupo['total'], grupo['leidos'], grupo['porcentaje']] + ([grupo['respondidos']] if comunicado.pide_respuesta else []))
+        por_grupo.append([grupo['nombre'], grupo['total'], grupo['leidos'], grupo['porcentaje'], grupo['sin_acceso']] + ([grupo['respondidos']] if comunicado.pide_respuesta else []))
     if comunicado.pide_respuesta:
         resumen = reglas.resumen_de_respuestas(comunicado, destinatarios)
         por_grupo += [[], [Celda('Respuestas', SECCION)]] + [[fila['texto'], fila['cuantos']] for fila in resumen['filas']]
         por_grupo.append(['Sin responder', resumen['sin_responder']])
-    contenido = libro([Hoja('Lectura', filas, anchos=[34, 14, 12, 40, 8, 18, 22, 18]), Hoja('Por grupo', por_grupo, anchos=[30, 14, 10, 14, 14])])
+    hojas = [Hoja('Lectura', filas, anchos=[34, 14, 12, 40, 8, 18, 12, 22, 18]), Hoja('Por grupo', por_grupo, anchos=[30, 14, 10, 14, 14, 14])]
+    estudiantes = reglas.autorizaciones_por_estudiante(comunicado) if comunicado.respuesta == Comunicado.AUTORIZACION else []
+    if estudiantes:
+        hojas.insert(1, Hoja('Por estudiante', [
+            [Celda('Autorización por estudiante', TITULO)], [],
+            [Celda(texto, ENCABEZADO) for texto in ['Estudiante', 'Grupo', 'Estado', 'Tutores']],
+            *[[fila['nombre'], fila['grupo'], fila['texto'], ' · '.join(f'{nombre}: {texto}' for nombre, texto in fila['tutores'])] for fila in estudiantes],
+        ], anchos=[34, 12, 22, 60]))
+    anteriores = RespuestaAnterior.objects.filter(destinatario__comunicado=comunicado).select_related('destinatario__alumno', 'destinatario__tutor', 'destinatario__profesor', 'destinatario__usuario')
+    if anteriores:
+        hojas.append(Hoja('Respuestas anteriores', [
+            [Celda('Respuestas anteriores a un cambio importante', TITULO)], [],
+            [Celda(texto, ENCABEZADO) for texto in ['Nombre', 'Respuesta', 'Respondió', 'Dejó de contar']],
+            *[[anterior.destinatario.nombre, anterior.texto, timezone.localtime(anterior.respondido_en).replace(tzinfo=None),
+               timezone.localtime(anterior.retirada_en).replace(tzinfo=None)] for anterior in anteriores],
+        ], anchos=[34, 24, 18, 18]))
+    contenido = libro(hojas)
     respuesta = HttpResponse(contenido, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     respuesta['Content-Disposition'] = f'attachment; filename="comunicado-{comunicado.pk}-lectura.xlsx"'
     respuesta['Cache-Control'] = 'private, no-store'
@@ -545,9 +729,11 @@ def _recibido(request, bandeja, pk):
     reglas.marcar_leido(destinatario)
     comunicado = destinatario.comunicado
     url_de_imagen = (lambda imagen: bandeja.url('imagen', imagen))
+    _marcar_estados([destinatario])
     contexto = {
         **bandeja.contexto, 'comunicado': comunicado, 'destinatario': destinatario, 'adjuntos': list(comunicado.adjuntos.all()),
         'contenido': reglas.contenido_visible(comunicado, url_de_imagen), 'opciones_encuesta': list(comunicado.opciones.all()),
+        'autorizaciones': list(destinatario.autorizaciones.select_related('alumno')),
         'gestion': False, 'url_adjunto': f'{bandeja.espacio}:adjunto', 'base': bandeja.base, 'espacio': bandeja.espacio,
         'url_responder': bandeja.url('responder', comunicado.pk), 'url_calendario': bandeja.url('calendario', comunicado.pk),
         'url_agenda': _url_de_la_agenda(bandeja.espacio, comunicado),
@@ -573,8 +759,9 @@ def _url_de_la_agenda(espacio, comunicado):
 def _responder(request, bandeja, pk):
     """La respuesta de quien lo recibe («Enterado», Sí / No o una opción de la encuesta)."""
     destinatario = _copia(bandeja, pk)
+    por_estudiante = {int(clave[7:]): valor for clave, valor in request.POST.items() if clave.startswith('alumno_') and clave[7:].isdigit()}
     try:
-        reglas.responder(destinatario, request.POST.get('respuesta', ''))
+        reglas.responder(destinatario, request.POST.get('respuesta', ''), por_estudiante=por_estudiante)
     except reglas.EnvioRechazado as rechazo:
         if _quiere_json(request):
             return JsonResponse({'error': rechazo.mensaje}, status=400)
@@ -719,20 +906,21 @@ def portal_inicio(request):
     bandeja = request.bandeja
     texto = request.GET.get('q', '').strip()
     estado = request.GET.get('estado', 'todos')
-    if estado not in dict(ESTADOS_DE_RECIBIDOS):
+    if estado not in dict(ESTADOS_DE_RECIBIDOS) and estado not in OTROS_ESTADOS_DE_RECIBIDOS:
         estado = 'todos'
-    fecha = _fecha_pedida(request)
+    desde, hasta = _periodo_pedido(request)
     categoria = _categoria_pedida(request)
     consulta = reglas.buscar(reglas.recibidos(bandeja.lector, estado, categoria), texto, ('comunicado__titulo', 'comunicado__descripcion'))
-    if fecha:
-        consulta = consulta.filter(comunicado__publicado_en__date=fecha)
+    consulta = _en_periodo(consulta, desde, hasta, 'comunicado__publicado_en')
     pagina, rango, por_pagina = paginar(request, consulta, por_defecto=POR_PAGINA)
+    _marcar_estados(pagina.object_list)
     return render(request, 'comunicados/inicio.html', {
         **bandeja.contexto, 'vista': 'recibidos', 'vistas': [], 'estado': estado, 'estados': ESTADOS_DE_RECIBIDOS,
-        'texto': texto, 'fecha': fecha, 'categoria': categoria, 'categorias': Comunicado.CATEGORIAS,
+        'texto': texto, 'desde': desde, 'hasta': hasta, 'categoria': categoria, 'categorias': Comunicado.CATEGORIAS,
+        'con_filtros': bool(desde or hasta or categoria), 'autores': [],
         'pagina': pagina, 'rango': rango, 'por_pagina': por_pagina, 'opciones': OPCIONES_POR_PAGINA,
         'lector': bandeja.lector, 'pendientes': bandeja.lector.pendientes()[0], 'hoy': timezone.localdate(), 'ahora': timezone.now(),
-        'puede_crear': False, 'filtrado': bool(texto or fecha or categoria or estado != 'todos'), 'seleccionable': False,
+        'puede_crear': False, 'filtrado': bool(texto or desde or hasta or categoria or estado != 'todos'), 'seleccionable': False,
         'base': bandeja.base, 'espacio': bandeja.espacio,
     })
 

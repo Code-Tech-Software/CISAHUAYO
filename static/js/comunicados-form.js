@@ -71,7 +71,7 @@
   const errores = qs('[data-errores-generales]', formulario);
   const textoDeErrores = qs('[data-errores-texto]', formulario);
   const campo = (nombre) => qs(`[data-campo="${nombre}"]`, formulario);
-  const CAMPOS_CON_ERROR = ['titulo', 'descripcion', 'expira', 'destinatarios', 'archivos', 'publicar', 'evento', 'respuesta'];
+  const CAMPOS_CON_ERROR = ['titulo', 'descripcion', 'expira', 'destinatarios', 'archivos', 'publicar', 'evento', 'respuesta', 'cambio'];
 
   const limpiarError = (nombre) => {
     const contenedor = campo(nombre);
@@ -121,7 +121,13 @@
   const enviar = qs('[data-formulario-enviar]', formulario);
   const textoEnviar = qs('[data-formulario-enviar-texto]', formulario);
   const urgente = qs('[name="urgente"]', formulario);
+  const publicarAhora = qs('[data-publicar-ahora]', formulario);
+  const responderFecha = qs('[data-responder-fecha]', formulario);
+  const responderHora = qs('[data-responder-hora]', formulario);
+  const expiraInicial = `${fecha?.value}|${hora?.value}`;
   let modificado = false;
+  let programarBorrador = () => {};   /* el guardado automático (abajo) */
+  let contarSinAcceso = () => 0;      /* lo sabe el selector */
 
   /* --- El editor con formato ------------------------------------------------------------------------------------- */
   const raizEditor = qs('[data-editor]', formulario);
@@ -148,6 +154,7 @@
     editor = new window.EditorEnriquecido(raizEditor, {
       alCambiar: () => {
         modificado = true;
+        programarBorrador();
         contarDescripcion();
         if (!editor?.vacio()) limpiarError('descripcion');
       },
@@ -166,11 +173,13 @@
 
   formulario.addEventListener('input', (evento) => {
     modificado = true;
+    programarBorrador();
     const contenedor = evento.target.closest?.('[data-campo]');
     if (contenedor && evento.target.value) limpiarError(contenedor.dataset.campo);
   });
   formulario.addEventListener('change', (evento) => {
     modificado = true;
+    programarBorrador();
     if (evento.target === fecha || evento.target === hora) limpiarError('expira');
     if (evento.target === publicarFecha || evento.target === publicarHora) limpiarError('publicar');
     resumirOpciones();
@@ -215,6 +224,8 @@
     cajaPregunta.hidden = !['AUTORIZACION', 'ENCUESTA'].includes(tipo);
     campoPregunta.placeholder = tipo === 'ENCUESTA' ? '¿Qué día prefieren para la junta de familias?' : '¿Autoriza que su hijo o hija asista a la excursión?';
     cajaOpciones.hidden = tipo !== 'ENCUESTA';
+    const cajaPlazo = qs('[data-respuesta-plazo]', formulario);
+    if (cajaPlazo) cajaPlazo.hidden = !tipo;
     tiposDeRespuesta.forEach((radio) => radio.closest('label')?.classList.toggle('is-activo', radio.checked));
     renumerarOpciones();
   };
@@ -274,8 +285,23 @@
     if (resumenCategoria) {
       resumenCategoria.textContent = [categoria?.value ? categoria.selectedOptions[0].textContent : '', fijado?.checked ? 'Fijado' : ''].filter(Boolean).join(' · ');
     }
+    pintarResumen();
   }
-  resumirOpciones();
+
+  /* El resumen que siempre está a la vista */
+  function pintarResumen() {
+    const lista = qs('[data-resumen-lineas]', formulario);
+    if (!lista) return;
+    const quienes = valorDestinatarios ? (total(confirmado) ? resumenDe(confirmado) : 'Sin destinatarios todavía')
+      : (qs('.fila-destinatarios__resumen', formulario)?.textContent.split(' · ')[0] || '');
+    const sinAcceso = contarSinAcceso();
+    const tipo = respuestaElegida();
+    const lineas = [quienes, sinAcceso ? `${sinAcceso} sin acceso al portal` : '',
+      programado() ? `Se publica el ${fechaLegible(publicarFecha.value, publicarHora.value)}` : (editando ? '' : 'Se publica al enviarlo'),
+      tipo ? `${NOMBRE_DE_RESPUESTA[tipo]}${responderFecha?.value ? ` hasta el ${fechaLegible(responderFecha.value, responderHora.value)}` : ''}` : '',
+      urgente?.checked ? 'Urgente' : '', fecha?.value ? `Caduca el ${fechaLegible(fecha.value, hora.value)}` : '', textoDelEvento() ? `Evento: ${textoDelEvento()}` : ''];
+    lista.replaceChildren(...lineas.filter(Boolean).map((linea) => crear('li', '', linea)));
+  }
 
   /* =============================================================== Archivos */
   const entradaArchivos = qs('[data-archivos-entrada]', formulario);
@@ -403,8 +429,9 @@
   };
   let escribirSeleccion = () => {};
   const selector = qs('[data-selector]');
+  resumirOpciones();
 
-  if (!editando && selector && valorDestinatarios) {
+  if (selector && valorDestinatarios) {
     const panel = qs('.selector', selector);
     const abrirSelector = qs('[data-selector-abrir]', formulario);
     const resumenFormulario = qs('[data-destinatarios-resumen]', formulario);
@@ -432,9 +459,12 @@
       const hay = total(confirmado) > 0;
       resumenFormulario.textContent = hay ? resumenDe(confirmado) : resumenInicial;
       filaDestinatarios.classList.toggle('is-elegidos', hay);
-      abrirSelector.textContent = hay ? 'Cambiar' : 'Abrir';
+      abrirSelector.textContent = hay ? 'Cambiar destinatarios' : 'Elegir destinatarios';
       if (hay) limpiarError('destinatarios');
+      pintarResumen();
     };
+    contarSinAcceso = () => (datos ? ['tutores', 'estudiantes'].reduce((suma, tipo) => suma
+      + [...confirmado[tipo]].filter((id) => indices.porId[tipo].get(id)?.sin_acceso).length, 0) : 0);
     if (total(confirmado)) escribirSeleccion();
 
     /* --- Datos e índices --------------------------------------------------------------------------------------- */
@@ -931,6 +961,7 @@
       if (!borrador || !total(borrador)) return;
       TIPOS.forEach((tipo) => { confirmado[tipo] = new Set(borrador[tipo]); });
       modificado = true;
+      programarBorrador();
       escribirSeleccion();
       cerrar();
     });
@@ -955,12 +986,20 @@
       ponerError('descripcion', 'Espera a que termine de subirse la imagen.');
       bien = false;
     }
-    if (!editando && !total(confirmado)) {
+    const radiosCambio = qsa('input[name="cambio"]', formulario);
+    if (radiosCambio.length && !radiosCambio.some((radio) => radio.checked)) {
+      ponerError('cambio', 'Elige si es una corrección menor o un cambio importante.');
+      bien = false;
+    }
+    if (valorDestinatarios && !total(confirmado)) {
       ponerError('destinatarios', 'Elige al menos un destinatario.');
       bien = false;
     }
     let publicacion = ahora;
-    if (publicarFecha && (publicarFecha.value || publicarHora.value)) {
+    if (publicarAhora && !publicarAhora.checked && !publicarFecha.value && !publicarHora.value) {
+      ponerError('publicar', 'Elige la fecha y la hora de publicación, o marca que se publique al guardar.');
+      bien = false;
+    } else if (publicarFecha && !publicarAhora?.checked && (publicarFecha.value || publicarHora.value)) {
       if (!publicarFecha.value || !publicarHora.value) {
         ponerError('publicar', 'Elige la fecha y la hora de publicación (o bórralas para enviarlo ya).');
         bien = false;
@@ -975,7 +1014,7 @@
     if (hora.value && !fecha.value) {
       ponerError('expira', 'Elige también la fecha de expiración (o borra la hora).');
       bien = false;
-    } else if (fecha.value) {
+    } else if (fecha.value && !(editando && `${fecha.value}|${hora.value}` === expiraInicial)) {
       const expira = momento(fecha.value, hora.value || '23:59');
       if (expira <= ahora) {
         ponerError('expira', 'La fecha de expiración debe ser posterior al momento del envío.');
@@ -1095,6 +1134,13 @@
     if (urgente?.checked) partes.push('Va como urgente.');
     if (fecha.value) partes.push(`Dejará de mostrarse el ${fechaLegible(fecha.value, hora.value || '23:59')}.`);
     revisionResumen.textContent = partes.join(' ');
+    const avisos = [];
+    if (respuestaElegida() === 'AUTORIZACION' && confirmado.estudiantes.size) {
+      avisos.push(`Pides una autorización a ${cantidad(confirmado.estudiantes.size, 'estudiantes')}: un estudiante no debería autorizarse a sí mismo. Si es para sus familias, elige a sus tutores.`);
+    }
+    if (contarSinAcceso()) avisos.push(`${contarSinAcceso()} de las personas elegidas no tienen acceso a su portal: no podrán verlo.`);
+    qs('[data-revision-aviso-texto]', formulario).replaceChildren(...avisos.map((aviso) => crear('p', '', aviso)));
+    qs('[data-revision-aviso]', formulario).hidden = !avisos.length;
     revisionVista.replaceChildren(vistaPrevia());
     pasoEditar.hidden = true;
     pasoRevisar.hidden = false;
@@ -1138,6 +1184,8 @@
         return;
       }
     }
+    window.clearTimeout(pausaBorrador);
+    if (guardando) await guardando;   /* para que el envío lleve el borrador que se está creando */
     if (editor) {
       descripcion.value = editor.vacio() ? '' : editor.texto();
       valorHtml.value = editor.vacio() ? '' : editor.html();
@@ -1172,6 +1220,64 @@
     }
   });
 
+  /* =============================================================== Borrador */
+  /* Se guarda solo unos segundos después de escribir (sin los archivos nuevos) y con «Guardar borrador» (con ellos) */
+  const urlBorrador = formulario.dataset.borradorUrl;
+  const idBorrador = qs('[data-borrador-id]', formulario);
+  const estadoBorrador = qs('[data-borrador-estado]', formulario);
+  var pausaBorrador = null;
+  var guardando = null;
+  const hayAlgo = () => Boolean(titulo.value.trim() || textoDeLaDescripcion() || total(confirmado));
+
+  const guardarBorrador = async ({ salir = false } = {}) => {
+    if (!urlBorrador || enviando || !hayAlgo()) return;
+    window.clearTimeout(pausaBorrador);
+    if (guardando) await guardando;
+    if (editor) {
+      descripcion.value = editor.vacio() ? '' : editor.texto();
+      valorHtml.value = editor.vacio() ? '' : editor.html();
+    }
+    const datos = new FormData(formulario);
+    datos.delete('archivos');
+    datos.set('guardar_adjuntos', '1');
+    if (salir) {
+      datos.set('salir', '1');
+      archivos.forEach(({ archivo }) => datos.append('archivos', archivo, archivo.name));
+    }
+    guardando = (async () => {
+      try {
+        const respuesta = await fetch(urlBorrador, {
+          method: 'POST', body: datos, credentials: 'same-origin', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const contenido = await respuesta.json().catch(() => ({}));
+        if (!respuesta.ok) throw new Error(contenido.error || 'No se pudo guardar el borrador.');
+        idBorrador.value = contenido.id;
+        estadoBorrador.textContent = `Borrador guardado ${contenido.hora}`;
+        estadoBorrador.hidden = false;
+        modificado = archivos.length > 0;   /* los archivos nuevos se guardan con el botón */
+        if (salir) {
+          modificado = false;
+          window.location.assign(contenido.redirect);
+        }
+      } catch (error) {
+        estadoBorrador.textContent = error.message;
+        estadoBorrador.hidden = false;
+        if (salir) ponerErroresGenerales([error.message]);
+      } finally {
+        guardando = null;
+      }
+    })();
+    await guardando;
+  };
+  if (urlBorrador) {
+    programarBorrador = () => {
+      window.clearTimeout(pausaBorrador);
+      pausaBorrador = window.setTimeout(() => guardarBorrador(), 5000);
+    };
+    qs('[data-borrador-guardar]', formulario)?.addEventListener('click', () => guardarBorrador({ salir: true }));
+    qs('[data-crear-guardar]')?.addEventListener('click', () => guardarBorrador({ salir: true }));
+  }
+
   /* Todo lo de arriba marcó «modificado» al preparar lo que ya venía escrito */
   modificado = false;
 
@@ -1189,6 +1295,14 @@
   let abridor = null;
 
   const reiniciar = () => {
+    window.clearTimeout(pausaBorrador);
+    if (idBorrador?.value) {   /* «Descartar» también borra lo que se guardó solo */
+      const datos = new FormData();
+      datos.set('csrfmiddlewaretoken', qs('[name="csrfmiddlewaretoken"]', formulario).value);
+      fetch(urlBorrador.replace('guardar/', `${idBorrador.value}/descartar/`), { method: 'POST', body: datos, credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => {});
+      idBorrador.value = '';
+      estadoBorrador.hidden = true;
+    }
     formulario.reset();
     editor?.vaciar();
     archivos.splice(0).forEach(({ url }) => url && URL.revokeObjectURL(url));

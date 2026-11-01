@@ -1,0 +1,31 @@
+{% load comunicados_extras %}{% comment %}
+  Una página de la lista de destinatarios del seguimiento (Comunicados/views.lista_de_destinatarios): con cientos de
+  personas no se manda completa. Dice por separado si abrió, si respondió y si no tiene acceso a su portal.
+{% endcomment %}
+{% for destinatario in destinatarios %}
+  <li class="destinatario-fila">
+    <span class="avatar avatar--sm avatar--tone-{{ destinatario.pk|tono_de }}" aria-hidden="true">{{ destinatario.nombre|iniciales_de }}</span>
+    <span class="destinatario-fila__texto">
+      <span class="destinatario-fila__nombre">{{ destinatario.nombre }}</span>
+      <span class="destinatario-fila__detalle">{% if destinatario.tipo == "TUTOR" and destinatario.detalle %}{{ destinatario.detalle }}{% else %}{{ destinatario.get_tipo_display }}{% if destinatario.detalle %} · {{ destinatario.detalle }}{% endif %}{% endif %}</span>
+    </span>
+    <span class="destinatario-fila__estado">
+      {% if comunicado.pide_respuesta %}
+        {% if destinatario.respondio %}<span class="tag tag--primary" title="{{ destinatario.respuesta_detallada }}">{{ destinatario.texto_de_respuesta }}</span>{% elif not destinatario.sin_acceso %}<span class="tag">Sin responder</span>{% endif %}
+      {% endif %}
+      {% if destinatario.leido_en %}
+        <span class="tag tag--success">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Abierto</span>
+        <time class="destinatario-fila__hora" datetime="{{ destinatario.leido_en|date:'c' }}">{{ destinatario.leido_en|date:"j b Y, H:i" }}</time>
+      {% elif destinatario.sin_acceso %}
+        <span class="tag tag--warning">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Sin acceso al portal</span>
+      {% else %}
+        <span class="tag">Sin abrir</span>
+      {% endif %}
+    </span>
+  </li>
+{% empty %}
+  <li class="lista-destinatarios__vacio">Nadie coincide con la búsqueda.</li>
+{% endfor %}
+{% if siguiente %}
+  <li class="lista-destinatarios__mas"><button type="button" class="btn btn--ghost btn--sm" data-destinatarios-mas="{{ siguiente }}">Ver más</button></li>
+{% endif %}

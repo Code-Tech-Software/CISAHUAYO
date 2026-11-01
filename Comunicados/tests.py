@@ -78,6 +78,12 @@ class Colegio:
         self.ana = crear_tutor(nombre='Ana', apellido_paterno='Campos', apellido_materno='Vega', usuario='ana.campos')
         self.ruben = crear_tutor(nombre='Rubén', apellido_paterno='Romero', usuario='ruben.romero')
         self.oscar = crear_tutor(nombre='Óscar', apellido_paterno='Martínez', usuario='oscar.martinez')
+        from Alumnos.models import Alumno, Tutor
+        Tutor.objects.filter(pk__in=[self.ana.pk, self.ruben.pk, self.oscar.pk]).update(contrasena='hash')
+        for alumno in Alumno.objects.all():
+            Alumno.objects.filter(pk=alumno.pk).update(correo_electronico=f'alumno{alumno.pk}@ejemplo.mx')
+        for persona in (self.ana, self.ruben, self.oscar, self.lucia, self.paula, self.hugo, self.zoe, self.sin_inscripcion):
+            persona.refresh_from_db()
         vincular(self.ana, self.lucia)
         vincular(self.ana, self.zoe)
         vincular(self.ruben, self.paula, parentesco='PADRE')
@@ -306,7 +312,7 @@ class LecturaYPrivacidadTests(Colegio, BaseTestCase):
     def test_quien_recibe_no_ve_a_los_demas_destinatarios(self):
         respuesta = self.client.get(self.url_ana)
         self.assertContains(respuesta, 'Reunión de familias')
-        self.assertContains(respuesta, 'Tu lectura')
+        self.assertContains(respuesta, 'Tu estado')
         for ajeno in ('Rubén', 'Paula', 'Lista de destinatarios', 'Estado de lectura'):
             self.assertNotContains(respuesta, ajeno)
         # Ni el seguimiento del sistema (no es una cuenta del sistema)
@@ -421,7 +427,7 @@ class PantallasTests(Colegio, BaseTestCase):
         super().setUp()
         self.armar()
 
-    def test_la_pantalla_principal_con_sus_tarjetas(self):
+    def test_la_pantalla_principal_con_su_tabla(self):
         urgente = self.enviar(titulo='Excursión urgente', urgente=True)
         self.enviar(titulo='Calendario escolar')
         self.client.force_login(self.laura)
@@ -429,9 +435,9 @@ class PantallasTests(Colegio, BaseTestCase):
         self.assertContains(respuesta, '2 comunicados')
         self.assertContains(respuesta, 'Buscar comunicados…')
         self.assertContains(respuesta, 'Crear comunicado')
-        self.assertContains(respuesta, 'Filtrar por fecha de publicación')
-        self.assertContains(respuesta, 'tarjeta-comunicado--urgente', count=1)
-        self.assertContains(respuesta, '0/2 leídos')
+        self.assertContains(respuesta, 'Publicados desde')
+        self.assertContains(respuesta, 'fila-enviada--urgente', count=1)
+        self.assertContains(respuesta, '0 de 2')
         self.assertContains(respuesta, '1 tutor · 1 estudiante')
         for estado in ('Todos', 'Activos', 'Caducados'):
             self.assertContains(respuesta, f'>{estado}</a>')

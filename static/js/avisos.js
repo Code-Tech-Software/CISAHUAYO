@@ -14,6 +14,8 @@
      aviso en pantalla y el del navegador si eran de ese mensaje.
    - Reenvía cada evento a la página como «mensajeria:evento» (la pantalla de mensajes lo usa: static/js/mensajes.js;
      los comunicados, static/js/comunicados-avisos.js) y, al reconectarse, avisa con «avisos:reconectado».
+   - Avisa si la conexión se cortó o volvió con «avisos:conexion» (la pantalla de mensajes lo muestra), y atiende
+     «avisos:titulo» (cambió el título de la página sin recargar) y «avisos:actualizar» (pedir el resumen otra vez).
 */
 (() => {
   'use strict';
@@ -31,7 +33,7 @@
   const activar = raiz.querySelector('[data-notificaciones-activar]');
   const logo = document.querySelector('link[rel="icon"]')?.href;
   const sprite = document.querySelector('svg use')?.getAttribute('href')?.split('#')[0] || '';
-  const tituloBase = document.title.replace(/^\(\d+\)\s*/, '');
+  let tituloBase = document.title.replace(/^\(\d+\)\s*/, '');
 
   const conversacionAbierta = () => Number(document.querySelector('[data-chat]')?.dataset.conversacion || 0);
   const aLaVista = () => document.visibilityState === 'visible';
@@ -90,6 +92,13 @@
     });
     pintarCampana();
   };
+
+  /* La pantalla de mensajes abrió otra conversación sin recargar la página */
+  document.addEventListener('avisos:titulo', ({ detail }) => {
+    tituloBase = detail;
+    pintarCampana();
+  });
+  document.addEventListener('avisos:actualizar', () => pedirResumen());
 
   /* ------------------------------------------------------------------ lista de la campana */
   const sincronizarLista = () => {
@@ -353,6 +362,7 @@
     socket.addEventListener('open', () => {
       abierto = socket;
       espera = 1000;
+      document.dispatchEvent(new CustomEvent('avisos:conexion', { detail: { conectado: true } }));
       if (reconexion) ponerseAlDia();
       latido = window.setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ evento: 'ping' }));
@@ -369,6 +379,7 @@
       if (abierto === socket) abierto = null;
       window.clearInterval(latido);
       if (evento.code === 4403) return;   /* la sesión ya no tiene mensajería: no insistir */
+      document.dispatchEvent(new CustomEvent('avisos:conexion', { detail: { conectado: false } }));
       reconexion = true;
       window.setTimeout(conectar, espera);
       espera = Math.min(espera * 2, 30000);

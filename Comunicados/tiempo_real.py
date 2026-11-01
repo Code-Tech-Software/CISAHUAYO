@@ -51,14 +51,14 @@ def vista_previa(texto):
     return texto if len(texto) <= VISTA_PREVIA else texto[:VISTA_PREVIA - 1].rstrip() + '…'
 
 
-def enviar_eventos(comunicado, destinatarios, recordatorio=False):
+def enviar_eventos(comunicado, destinatarios, recordatorio=False, cambio=False):
     """Un evento a cada destinatario ({tipo, alumno_id, tutor_id, profesor_id, usuario_id}) en su grupo."""
     capa = get_channel_layer()
     if capa is None:
         return
     from .reglas import nombre_de_usuario
     base = {
-        'id': comunicado.pk, 'titulo': comunicado.titulo, 'urgente': comunicado.urgente, 'recordatorio': recordatorio,
+        'id': comunicado.pk, 'titulo': comunicado.titulo, 'urgente': comunicado.urgente, 'recordatorio': recordatorio, 'cambio': cambio,
         'autor': nombre_de_usuario(comunicado.autor), 'vista_previa': vista_previa(comunicado.descripcion),
     }
     urls = {tipo: url_para(tipo, comunicado.pk) for tipo, _ in Destinatario.TIPOS}

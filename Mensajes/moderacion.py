@@ -20,7 +20,7 @@ from django.db.models import Count, Exists, Max, OuterRef, Prefetch, Q
 from django.utils import timezone
 
 from .models import ConfiguracionMensajes, Conversacion, ImagenMensaje, Mensaje, Miembro, Participante, ReporteMensaje
-from .reglas import CON_CUENTA
+from .reglas import CON_CUENTA, personas_que_coinciden
 from .reglas import ventana as ventana_alrededor
 
 MODERAR = 'Mensajes.moderar'
@@ -31,20 +31,6 @@ registro = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Búsqueda
 # ---------------------------------------------------------------------------
-def personas_que_coinciden(texto):
-    """Los participantes (de cualquier clase de cuenta) cuyo nombre, usuario o referencia contiene cada palabra."""
-    consulta = Participante.objects.all()
-    for palabra in (texto or '').split():
-        consulta = consulta.filter(
-            Q(usuario__first_name__icontains=palabra) | Q(usuario__last_name__icontains=palabra) | Q(usuario__username__icontains=palabra)
-            | Q(alumno__nombre__icontains=palabra) | Q(alumno__apellido_paterno__icontains=palabra)
-            | Q(alumno__apellido_materno__icontains=palabra) | Q(alumno__referencia__icontains=palabra)
-            | Q(tutor__nombre__icontains=palabra) | Q(tutor__apellido_paterno__icontains=palabra)
-            | Q(tutor__apellido_materno__icontains=palabra) | Q(tutor__usuario__icontains=palabra)
-        )
-    return consulta
-
-
 def buscar(persona='', texto='', desde=None, hasta=None):
     """Los mensajes de todas las conversaciones que coinciden, del más reciente al más antiguo. `persona`: los de las
     conversaciones donde participa (los que escribió y los que recibió); `texto`: cada palabra en el mensaje."""

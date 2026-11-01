@@ -1,0 +1,24 @@
+{% load usuarios_extras %}{% comment %}
+  Un comunicado recibido (la copia `destinatario` de quien mira). Su estado (Comunicados/reglas.estado_de) se dice con
+  icono y texto, nunca solo con color: urgente, por responder, sin abrir, confirmado, abierto o plazo terminado. Lo urgente
+  sin abrir va primero y después lo que espera respuesta (Comunicados/reglas.recibidos). Abrirla guarda la primera apertura.
+{% endcomment %}
+<li class="fila-comunicado fila-comunicado--{{ destinatario.estado_clave }}{% if not destinatario.leido_en %} is-pendiente{% endif %}" data-fila="{{ comunicado.pk }}">
+  <a class="fila-comunicado__enlace" href="{% url espacio|add:':recibido' comunicado.pk %}" data-abrir-detalle="{% url espacio|add:':recibido' comunicado.pk %}?parcial=1">
+    <span class="fila-comunicado__icono" aria-hidden="true" data-fila-icono>{% include "partials/icon.html" with name=destinatario.estado_icono icon_class="icon--sm" %}</span>
+    <span class="fila-comunicado__texto">
+      <span class="fila-comunicado__titulo">{{ comunicado.titulo }}</span>
+      <span class="fila-comunicado__meta">
+        <span>{{ comunicado.autor|nombre_visible }}</span>
+        <time datetime="{{ comunicado.publicado_en|date:'c' }}">{{ comunicado.publicado_en|date:"j b Y" }}</time>
+        {% if comunicado.categoria %}<span>{{ comunicado.nombre_categoria }}</span>{% endif %}
+        {% if comunicado.fijado %}<span>Fijado</span>{% endif %}
+        {% if destinatario.adjuntos %}<span aria-label="{{ destinatario.adjuntos }} archivo{{ destinatario.adjuntos|pluralize }}">{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ destinatario.adjuntos }}</span>{% endif %}
+      </span>
+      {% if destinatario.para_quien %}<span class="fila-comunicado__meta">Como tutor de {{ destinatario.para_quien }}</span>{% endif %}
+      {% if comunicado.tiene_evento %}<span class="fila-comunicado__meta">{% include "partials/icon.html" with name="calendar-range" icon_class="icon--sm" %} {{ comunicado.texto_del_evento }}</span>{% endif %}
+      <span class="fila-comunicado__extracto">{{ comunicado.descripcion|truncatechars:120 }}</span>
+    </span>
+    <span class="fila-comunicado__estado" data-fila-estado>{{ destinatario.estado_texto }}</span>
+  </a>
+</li>

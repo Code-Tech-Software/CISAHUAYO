@@ -24,6 +24,14 @@
    - Borradores (2026-10-27): lo que se está escribiendo (con su cita y sus documentos) se guarda en el navegador por
      conversación y vuelve al abrirla otra vez. El filtro «Sin leer» de la lista se conserva en sus enlaces, y el
      resumen de una conversación dejada «no leída» le pone su conteo.
+   - Sin recargar (2026-10-31): cada conversación se abre reemplazando solo el panel de la derecha (?panel=1,
+     templates/mensajes/_hilo.html), así que la lista se queda donde estaba; la dirección y el botón «atrás» siguen
+     funcionando. montarHilo() vuelve a tomar los elementos del panel nuevo; casi todas las escuchas están delegadas en
+     la pantalla y sirven para cualquier panel. Si algo falla, se abre la dirección normal.
+   - Los mensajes anteriores llegan al subir por la conversación. «Nuevo mensaje» abre el directorio de personas, la
+     búsqueda tiene filtros (y también hay una dentro de la conversación), y una ventana lista los archivos enviados.
+   - Destacar, archivar (con «Deshacer»), marcar todo como leído y la vista compacta se hacen sin recargar. Cerca del
+     límite aparece un contador de caracteres, y un aviso dice si se cortó el tiempo real (avisos.js → «avisos:conexion»).
    Sin JavaScript la pantalla funciona con formularios normales.
 */
 (() => {
@@ -32,15 +40,29 @@
   const chat = document.querySelector('[data-chat]');
   if (!chat) return;
 
-  const conversacion = Number(chat.dataset.conversacion || 0);
-  const hayPosteriores = chat.hasAttribute('data-hay-posteriores');
-  const sinLeer = chat.hasAttribute('data-sin-leer');   /* el filtro «Sin leer» de la lista: sus enlaces lo conservan */
-  const mensajes = chat.querySelector('[data-chat-mensajes]');
-  const formulario = chat.querySelector('[data-chat-formulario]');
-  const campo = chat.querySelector('[data-chat-campo]');
-  const error = chat.querySelector('[data-chat-error]');
+  /* Lo de la conversación abierta: cambia al abrir otra sin recargar la página (montarHilo) */
+  let hilo = null;
+  let conversacion = 0;
+  let hayPosteriores = false;
+  let mensajes = null;
+  let formulario = null;
+  let campo = null;
+  let error = null;
+  let caja = null;
+  let campoHtml = null;
+  let raizEditor = null;
+  let archivoAdjunto = null;
+  let listaAdjuntos = null;
+  let barraRespuesta = null;
+  let respondeA = null;
+  let escribiendo = null;
+  let contador = null;
+
+  const filtroDeLista = chat.dataset.filtro || '';   /* la bandeja elegida («?sin_leer=1»): sus enlaces la conservan */
+  const lista = chat.querySelector('.chat__lista');
   const conversaciones = chat.querySelector('[data-chat-conversaciones]');
   const sinConversaciones = chat.querySelector('[data-chat-sin-conversaciones]');
+  const formaBuscar = chat.querySelector('[data-chat-buscar-forma]');
   const buscar = chat.querySelector('[data-chat-buscar]');
   const personas = chat.querySelector('[data-chat-personas]');
   const personasLista = chat.querySelector('[data-chat-personas-lista]');
@@ -48,11 +70,6 @@
   const encontradosLista = chat.querySelector('[data-chat-encontrados-lista]');
   const buscando = chat.querySelector('[data-chat-buscando]');
   const csrf = chat.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '';
-  const caja = chat.querySelector('[data-chat-caja]');
-  const campoHtml = chat.querySelector('[data-chat-html]');
-  const raizEditor = chat.querySelector('[data-editor]');
-  const archivoAdjunto = chat.querySelector('[data-chat-adjuntar-archivo]');
-  const listaAdjuntos = chat.querySelector('[data-chat-adjuntos]');
   const sprite = document.querySelector('svg use')?.getAttribute('href')?.split('#')[0] || '';
 
   const elemento = (etiqueta, clase, texto) => {
@@ -126,14 +143,17 @@
     const margen = destino.classList.contains('is-destacado') ? (mensajes.clientHeight - lugar.height) / 2 : mensajes.clientHeight - lugar.height;
     mensajes.scrollTop += lugar.top - caja.top - Math.max(0, margen);
   };
-  const destino = window.location.hash.startsWith('#mensaje-') ? document.querySelector(window.location.hash) : null;
-  if (destino && mensajes) {
-    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';   /* al recargar, tampoco */
-    irAlMensaje(destino);
-    window.addEventListener('load', () => irAlMensaje(destino), { once: true });   /* ya con las imágenes cargadas */
-  } else {
-    alFinal();
-  }
+  /* Al abrir la conversación: en el mensaje de la dirección (#mensaje-N) o al final */
+  const colocar = () => {
+    const destino = window.location.hash.startsWith('#mensaje-') ? document.querySelector(window.location.hash) : null;
+    if (destino && mensajes) {
+      if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';   /* al recargar, tampoco */
+      irAlMensaje(destino);
+      if (document.readyState !== 'complete') window.addEventListener('load', () => irAlMensaje(destino), { once: true });   /* ya con las imágenes cargadas */
+    } else {
+      alFinal();
+    }
+  };
 
   /* Enviado (✓) o leído (✓✓, con la hora de lectura) */
   const estado = (leido, texto = 'Leído') => {
@@ -172,7 +192,12 @@
       const texto = elemento('span', 'documento-adjunto__texto');
       texto.append(elemento('span', 'documento-adjunto__nombre', documento.nombre), elemento('span', 'documento-adjunto__tamano', documento.tamano));
       enlace.append(marca, texto);
-      fila.append(enlace);
+      const descargar = elemento('a', 'documento-adjunto__descargar');
+      descargar.href = `${documento.url}?descargar=1`;
+      descargar.setAttribute('aria-label', `Descargar ${documento.nombre}`);
+      descargar.dataset.tooltip = 'Descargar';
+      descargar.append(icono('download'));
+      fila.append(enlace, descargar);
       contenedor.append(fila);
     });
     return contenedor;
@@ -181,7 +206,7 @@
   /* ------------------------------------------------------------------ citas y correcciones */
   const citaDe = (cita) => {
     const enlace = elemento('a', 'burbuja__cita');
-    enlace.href = `#mensaje-${cita.id}`;
+    enlace.href = `${hilo?.dataset.conversacionUrl || ''}?mensaje=${cita.id}#mensaje-${cita.id}`;
     enlace.dataset.chatIrA = String(cita.id);
     enlace.append(elemento('span', 'burbuja__cita-autor', cita.autor), elemento('span', 'burbuja__cita-texto', cita.texto));
     return enlace;
@@ -210,7 +235,7 @@
       acciones.append(corregir);
       window.setTimeout(() => corregir.remove(), restante);
     }
-    if (chat.dataset.reportarUrl && !burbuja.classList.contains('burbuja--mia') && !burbuja.hasAttribute('data-reportado')) {
+    if (hilo?.dataset.reportarUrl && !burbuja.classList.contains('burbuja--mia') && !burbuja.hasAttribute('data-reportado')) {
       acciones.append(boton('flag', 'Reportar al administrador', 'reportar'));
     }
     if (acciones.children.length) burbuja.append(acciones);
@@ -246,7 +271,7 @@
       try {
         const cuerpo = new FormData();
         cuerpo.append('motivo', motivo.value);
-        const url = chat.dataset.reportarUrl.replace(/\/0\/reportar\/$/, `/${burbuja.dataset.mensaje}/reportar/`);
+        const url = hilo.dataset.reportarUrl.replace(/\/0\/reportar\/$/, `/${burbuja.dataset.mensaje}/reportar/`);
         const respuesta = await post(url, cuerpo);
         const datos = await respuesta.json().catch(() => ({}));
         if (!respuesta.ok) throw new Error(datos.error || 'No se pudo reportar el mensaje.');
@@ -368,8 +393,6 @@
   };
 
   /* Respondiendo a un mensaje: su cita arriba de la caja, hasta enviar o quitarla */
-  const barraRespuesta = chat.querySelector('[data-chat-respuesta]');
-  const respondeA = chat.querySelector('[data-chat-responde-a]');
   const quitarRespuesta = () => {
     if (!barraRespuesta) return;
     barraRespuesta.hidden = true;
@@ -391,9 +414,16 @@
     if (editor) editor.enfocar();
     else campo?.focus();
   };
-  chat.querySelector('[data-chat-respuesta-quitar]')?.addEventListener('click', quitarRespuesta);
 
-  mensajes?.addEventListener('click', (evento) => {
+  chat.addEventListener('click', (evento) => {
+    if (evento.target.closest('[data-chat-respuesta-quitar]')) {
+      quitarRespuesta();
+      return;
+    }
+    if (evento.target.closest('[data-chat-adjuntar]')) {
+      archivoAdjunto?.click();
+      return;
+    }
     const accion = evento.target.closest('[data-chat-accion]');
     if (accion) {
       const burbuja = accion.closest('.burbuja');
@@ -404,20 +434,19 @@
       return;
     }
     const cita = evento.target.closest('[data-chat-ir-a]');
-    const citado = cita && document.getElementById(`mensaje-${cita.dataset.chatIrA}`);
-    if (citado) {   /* si no está cargado, el enlace abre la conversación en ese mensaje */
-      evento.preventDefault();
+    if (!cita) return;
+    evento.preventDefault();
+    const citado = document.getElementById(`mensaje-${cita.dataset.chatIrA}`);
+    if (citado) {
       citado.scrollIntoView({ block: 'center', behavior: 'smooth' });
       citado.classList.add('is-destacado');
       window.setTimeout(() => citado.classList.remove('is-destacado'), 1600);
+    } else {   /* no está a la vista: se abre la conversación en ese mensaje */
+      abrir(cita.href);
     }
   });
 
-  /* Los mensajes que ya vienen en la página */
-  mensajes?.querySelectorAll('.burbuja').forEach((burbuja) => ponerAcciones(burbuja));
-
   /* ------------------------------------------------------------------ «escribiendo…» */
-  const escribiendo = chat.querySelector('[data-chat-escribiendo]');
   let finEscribiendo = null;
   const ocultarEscribiendo = () => {
     if (escribiendo) escribiendo.hidden = true;
@@ -490,8 +519,8 @@
 
   let porLeer = false;
   const marcarLeida = () => {
-    if (!chat.dataset.leidaUrl) return;
-    post(chat.dataset.leidaUrl).catch(() => {});
+    if (!hilo?.dataset.leidaUrl) return;
+    post(hilo.dataset.leidaUrl).catch(() => {});
   };
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
@@ -510,9 +539,22 @@
     });
   };
 
+  /* Si la conversación de un mensaje que llegó sigue en la bandeja que se está viendo */
+  const entraEnLaLista = (datos, fila) => {
+    if (datos.conversacion === conversacion) return true;
+    if (chat.dataset.vista === 'archivadas') return false;   /* un mensaje nuevo la regresa a la bandeja */
+    if (chat.dataset.vista === 'destacadas' && !fila) return false;
+    const tipo = (datos.con?.tipo || '').toUpperCase();
+    return !chat.dataset.tipo || !tipo || chat.dataset.tipo === tipo;
+  };
+
   const actualizarItem = (datos) => {
     if (!conversaciones) return;
     let fila = conversaciones.querySelector(`[data-conversacion-item="${datos.conversacion}"]`);
+    if (!entraEnLaLista(datos, fila)) {
+      fila?.remove();
+      return;
+    }
     if (!fila) {
       /* Una conversación que aún no está en la lista: también la propia recién empezada (con quién: datos.con) */
       const con = datos.con || { nombre: datos.autor, iniciales: datos.iniciales, tipo: '' };
@@ -521,7 +563,7 @@
       fila.dataset.conversacionItem = String(datos.conversacion);
       fila.dataset.texto = con.nombre.toLowerCase();
       const enlace = elemento('a', `chat-item${actual ? ' is-actual' : ''}`);
-      enlace.href = `${datos.url}${sinLeer ? '?sin_leer=1' : ''}`;
+      enlace.href = `${datos.url}${filtroDeLista}`;
       if (actual) enlace.setAttribute('aria-current', 'page');
       const avatar = elemento('span', `avatar chat-item__avatar${con.tipo ? ` chat-persona__avatar--${con.tipo}` : ''}`, con.iniciales);
       avatar.setAttribute('aria-hidden', 'true');
@@ -529,7 +571,11 @@
       const arriba = elemento('span', 'chat-item__fila');
       const hora = elemento('time', 'chat-item__hora');
       hora.dataset.chatItemHora = '';
-      arriba.append(elemento('span', 'chat-item__nombre', con.nombre), hora);
+      const estrella = elemento('span', 'chat-item__marca');
+      estrella.dataset.chatItemEstrella = '';
+      estrella.hidden = true;
+      estrella.append(icono('star'), elemento('span', 'visually-hidden', 'Destacada'));
+      arriba.append(elemento('span', 'chat-item__nombre', con.nombre), estrella, hora);
       const abajo = elemento('span', 'chat-item__fila');
       const vista = elemento('span', 'chat-item__vista');
       vista.dataset.chatItemVista = '';
@@ -570,15 +616,15 @@
     fila.querySelector('.chat-item')?.classList.toggle('is-sin-leer', Boolean(pendientes));
   };
 
-  /* La dirección de la lista de conversaciones (siguientes o toda), con el filtro «Sin leer» si está puesto */
+  /* La dirección de la lista de conversaciones (siguientes o toda), en la bandeja elegida */
   const urlDeLista = (despues) => {
     const url = new URL(chat.dataset.conversacionesUrl, window.location.href);
+    new URLSearchParams(filtroDeLista).forEach((valor, clave) => url.searchParams.set(clave, valor));
     if (despues) url.searchParams.set('despues', despues);
     if (conversacion) url.searchParams.set('actual', String(conversacion));
-    if (sinLeer) url.searchParams.set('sin_leer', '1');
     return url;
   };
-  const enlaceDeSiguientes = (despues) => `?despues=${encodeURIComponent(despues)}${sinLeer ? '&sin_leer=1' : ''}`;
+  const enlaceDeSiguientes = (despues) => `${filtroDeLista ? `${filtroDeLista}&` : '?'}despues=${encodeURIComponent(despues)}`;
 
   /* «Ver más conversaciones»: las siguientes, sin recargar (sin JavaScript, el enlace lleva a la página siguiente) */
   chat.addEventListener('click', async (evento) => {
@@ -672,6 +718,7 @@
       marcarLeidosHasta(datos.hasta, datos.leido);
     } else if (datos.evento === 'resumen') {
       ponerConteo(datos.conversacion, Number(datos.pendientes) || 0);
+      if (datos.organizada) refrescarLista().catch(() => {});   /* la destacó o la archivó en esta u otra pestaña */
     }
   });
 
@@ -713,13 +760,13 @@
 
   const ponerAlDiaLaConversacion = async () => {
     /* Abierta en una parte anterior, lo nuevo se ve con «Ver mensajes más recientes» */
-    if (!conversacion || hayPosteriores || !mensajes || !chat.dataset.nuevosUrl) return;
+    if (!conversacion || hayPosteriores || !mensajes || !hilo?.dataset.nuevosUrl) return;
     const ids = [...mensajes.querySelectorAll('.burbuja[data-mensaje]')].map((burbuja) => Number(burbuja.dataset.mensaje));
     let despues = ids.length ? Math.max(...ids) : 0;
     let datos = null;
     let llegaron = false;
     for (let vuelta = 0; vuelta < 10; vuelta += 1) {   /* de 50 en 50, por si fueron muchos */
-      const url = new URL(chat.dataset.nuevosUrl, window.location.href);
+      const url = new URL(hilo.dataset.nuevosUrl, window.location.href);
       url.searchParams.set('despues', String(despues));
       if (vuelta === 0 && ids.length) url.searchParams.set('desde', String(Math.min(...ids)));
       datos = await pedirJsonDe(url);
@@ -756,10 +803,21 @@
   let subiendoAdjuntos = 0;
   let editor = null;
 
+  /* Cuántos caracteres lleva, cerca del límite (quien decide es el servidor: reglas.preparar_contenido) */
+  const actualizarContador = () => {
+    if (!contador) return;
+    const maximo = Number(contador.dataset.maximo) || 2000;
+    const largo = (editor ? (editor.vacio() ? '' : editor.texto()) : campo?.value || '').length;
+    contador.hidden = largo < maximo * 0.8;
+    contador.textContent = `${largo} / ${maximo}`;
+    contador.classList.toggle('is-excedido', largo > maximo);
+  };
+
   const actualizarCaja = () => {
     const vacia = editor ? editor.vacio() : !campo?.value.trim();
     caja?.classList.toggle('is-vacia', (vacia && !adjuntos.length) || Boolean(editor?.subiendo()) || subiendoAdjuntos > 0);
     if (campo && !editor) campo.required = !adjuntos.length;
+    actualizarContador();
   };
 
   const mostrarError = (texto) => {
@@ -806,6 +864,7 @@
     if (!archivoAdjunto || !listaAdjuntos) return;
     const maximo = Number(archivoAdjunto.dataset.maximo) || 10;
     const maximoMb = Number(archivoAdjunto.dataset.maximoMb) || 5;
+    const deEsta = conversacion;   /* si mientras sube se abre otra, el archivo no le toca a esa */
     mostrarError('');
     for (const archivo of [...archivos]) {
       if (adjuntos.length + subiendoAdjuntos >= maximo) {
@@ -831,16 +890,20 @@
         datos.append('documento', archivo, archivo.name);
         const respuesta = await post(archivoAdjunto.dataset.url, datos);
         const resultado = await respuesta.json().catch(() => ({}));
+        if (conversacion !== deEsta) return;
         if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo adjuntar el documento.');
         listoParaEnviar({ id: resultado.id, nombre: resultado.nombre, tamano: resultado.tamano, subido: Date.now() }, piezas);
         guardarBorradorLuego();
       } catch (problema) {
+        if (conversacion !== deEsta) return;
         ficha.remove();
         mostrarError(problema.message || 'No se pudo adjuntar el documento. Revisa tu conexión e inténtalo de nuevo.');
       } finally {
-        subiendoAdjuntos -= 1;
-        listaAdjuntos.hidden = !listaAdjuntos.children.length;
-        actualizarCaja();
+        if (conversacion === deEsta) {
+          subiendoAdjuntos -= 1;
+          listaAdjuntos.hidden = !listaAdjuntos.children.length;
+          actualizarCaja();
+        }
       }
     }
   };
@@ -860,7 +923,7 @@
   const VIGENCIA_BORRADOR = 7 * 24 * 3600 * 1000;
   const VIGENCIA_ADJUNTO = 20 * 3600 * 1000;
   const prefijoPropio = `${PREFIJO_BORRADOR}${chat.dataset.yo || ''}.`;
-  const llaveBorrador = conversacion && formulario ? `${prefijoPropio}${conversacion}` : '';
+  let llaveBorrador = '';
   const almacen = (() => {
     try {
       return window.localStorage;
@@ -979,17 +1042,18 @@
     return true;
   };
 
-  chat.querySelector('[data-chat-adjuntar]')?.addEventListener('click', () => archivoAdjunto?.click());
-  archivoAdjunto?.addEventListener('change', () => {
+  chat.addEventListener('change', (evento) => {
+    if (evento.target !== archivoAdjunto) return;
     if (archivoAdjunto.files.length) subirAdjuntos(archivoAdjunto.files);
     archivoAdjunto.value = '';
   });
   /* Soltar documentos sobre la caja de escribir (las imágenes las inserta el editor) */
-  const soloDocumentos = (lista) => [...(lista || [])].filter((archivo) => /\.pdf$/i.test(archivo.name) || archivo.type === 'application/pdf');
-  caja?.addEventListener('dragover', (evento) => {
-    if (archivoAdjunto && [...(evento.dataTransfer?.types || [])].includes('Files')) evento.preventDefault();
+  const soloDocumentos = (archivos) => [...(archivos || [])].filter((archivo) => /\.pdf$/i.test(archivo.name) || archivo.type === 'application/pdf');
+  chat.addEventListener('dragover', (evento) => {
+    if (evento.target.closest('[data-chat-caja]') && archivoAdjunto && [...(evento.dataTransfer?.types || [])].includes('Files')) evento.preventDefault();
   });
-  caja?.addEventListener('drop', (evento) => {
+  chat.addEventListener('drop', (evento) => {
+    if (!evento.target.closest('[data-chat-caja]')) return;
     const documentos = soloDocumentos(evento.dataTransfer?.files);
     if (!documentos.length || !archivoAdjunto) return;
     evento.preventDefault();
@@ -997,41 +1061,20 @@
   });
 
   /* ------------------------------------------------------------------ escribir */
-  const enviarAhora = () => formulario?.requestSubmit();
-  if (raizEditor && window.EditorEnriquecido && campo) {
-    editor = new window.EditorEnriquecido(raizEditor, {
-      alEnviar: enviarAhora,
-      alCambiar: () => {
-        actualizarCaja();
-        if (restaurando) return;   /* el borrador recuperado al abrir: nadie está escribiendo */
-        if (!editor?.vacio()) avisarQueEscribo();
-        guardarBorradorLuego();
-      },
-    });
-    campo.hidden = true;
-    campo.required = false;
-    caja?.classList.add('chat__caja--editor', 'is-vacia');
-    chat.querySelector('[data-chat-atajos-editor]')?.removeAttribute('hidden');
-  }
-
   const ajustarAltura = () => {
     if (!campo) return;
     campo.style.height = 'auto';
     campo.style.height = `${Math.min(campo.scrollHeight + 2, 144)}px`;
   };
-  campo?.addEventListener('input', () => {
+  chat.addEventListener('input', (evento) => {
+    if (!campo || evento.target !== campo) return;
     ajustarAltura();
+    actualizarContador();
     if (campo.value.trim()) avisarQueEscribo();
     if (!editor) guardarBorradorLuego();
   });
-  limpiarBorradores();
-  const conBorrador = restaurarBorrador();
-  /* Abierta desde otro lugar con un asunto (p. ej. una cita del portal): si no había borrador, ya viene escrito */
-  if (!conBorrador && chat.dataset.asunto) {
-    if (editor) editor.poner(parrafos(`${chat.dataset.asunto}: `));
-    else if (campo) campo.value = `${chat.dataset.asunto}: `;
-  }
-  campo?.addEventListener('keydown', (evento) => {
+  chat.addEventListener('keydown', (evento) => {
+    if (!campo || evento.target !== campo) return;
     if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
       evento.preventDefault();
       formulario?.requestSubmit();
@@ -1039,8 +1082,7 @@
   });
 
   let enviando = false;
-  formulario?.addEventListener('submit', async (evento) => {
-    evento.preventDefault();
+  const enviarMensaje = async () => {
     if (enviando) return;
     if (subiendoAdjuntos) {
       mostrarError('Espera a que termine de subirse el documento.');
@@ -1058,6 +1100,7 @@
       return;
     }
     enviando = true;
+    const deEsta = conversacion;   /* si mientras se envía se abre otra, el mensaje no se muestra en esa */
     const boton = formulario.querySelector('button[type="submit"]');
     boton.disabled = true;
     boton.classList.add('is-loading');
@@ -1068,9 +1111,14 @@
       const respuesta = await post(formulario.action, cuerpo);
       const datos = await respuesta.json().catch(() => ({}));
       if (!respuesta.ok) throw new Error(datos.error || 'No se pudo enviar el mensaje.');
+      if (conversacion !== deEsta) {
+        almacen?.removeItem(`${prefijoPropio}${deEsta}`);
+        actualizarItem(datos);
+        return;
+      }
       if (hayPosteriores) {   /* se estaba viendo una parte anterior: a los más recientes, con el nuevo */
         borrarBorrador();
-        window.location.href = `${chat.dataset.conversacionUrl}#mensaje-${datos.id}`;
+        abrir(`${hilo.dataset.conversacionUrl}#mensaje-${datos.id}`);
         return;
       }
       agregar(datos);
@@ -1085,7 +1133,7 @@
       ajustarAltura();
       actualizarCaja();
     } catch (problema) {
-      if (error) {
+      if (error && conversacion === deEsta) {
         error.textContent = problema.message || 'No se pudo enviar el mensaje. Revisa tu conexión e inténtalo de nuevo.';
         error.hidden = false;
       }
@@ -1093,23 +1141,37 @@
       enviando = false;
       boton.disabled = false;
       boton.classList.remove('is-loading');
-      if (editor) editor.enfocar();
-      else campo.focus();
+      if (conversacion === deEsta) {
+        if (editor) editor.enfocar();
+        else campo?.focus();
+      }
     }
-  });
-  if (window.matchMedia('(min-width: 48rem)').matches) {
-    if (editor) {
-      editor.enfocar();
-      if (conBorrador) editor.ponerCursorAlFinal();   /* para seguir escribiendo donde se quedó */
-    } else {
-      campo?.focus({ preventScroll: true });
-    }
-  }
+  };
 
   /* ------------------------------------------------------------------ buscar */
   function normal(texto) {
     return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   }
+
+  /* Una persona a la que se puede escribir: al elegirla se abre (o se retoma) la conversación */
+  const filaDePersona = (contacto) => {
+    const fila = elemento('li');
+    const forma = elemento('form');
+    forma.method = 'post';
+    forma.action = chat.dataset.nuevaUrl;
+    const token = elemento('input');
+    Object.assign(token, { type: 'hidden', name: 'csrfmiddlewaretoken', value: csrf });
+    const boton = elemento('button', 'chat-persona');
+    Object.assign(boton, { type: 'submit', name: 'destinatario', value: contacto.clave });
+    const avatar = elemento('span', `avatar avatar--sm chat-persona__avatar--${contacto.tipo.toLowerCase()}`, contacto.iniciales);
+    avatar.setAttribute('aria-hidden', 'true');
+    const texto = elemento('span', 'chat-persona__texto');
+    texto.append(elemento('span', 'chat-persona__nombre', contacto.nombre), elemento('span', 'chat-persona__detalle', contacto.detalle));
+    boton.append(avatar, texto);
+    forma.append(token, boton);
+    fila.append(forma);
+    return fila;
+  };
 
   const pintarPersonas = (contactos, consulta) => {
     if (!personas || !personasLista) return;
@@ -1117,89 +1179,598 @@
     if (!contactos.length) {
       personasLista.append(elemento('li', 'chat__nadie', `Nadie coincide con «${consulta}» entre las personas a las que puedes escribir.`));
     }
-    contactos.forEach((contacto) => {
-      const fila = elemento('li');
-      const forma = elemento('form');
-      forma.method = 'post';
-      forma.action = chat.dataset.nuevaUrl;
-      const token = elemento('input');
-      Object.assign(token, { type: 'hidden', name: 'csrfmiddlewaretoken', value: csrf });
-      const boton = elemento('button', 'chat-persona');
-      Object.assign(boton, { type: 'submit', name: 'destinatario', value: contacto.clave });
-      const avatar = elemento('span', `avatar avatar--sm chat-persona__avatar--${contacto.tipo.toLowerCase()}`, contacto.iniciales);
-      avatar.setAttribute('aria-hidden', 'true');
-      const texto = elemento('span', 'chat-persona__texto');
-      texto.append(elemento('span', 'chat-persona__nombre', contacto.nombre), elemento('span', 'chat-persona__detalle', contacto.detalle));
-      boton.append(avatar, texto);
-      forma.append(token, boton);
-      fila.append(forma);
-      personasLista.append(fila);
-    });
+    contactos.forEach((contacto) => personasLista.append(filaDePersona(contacto)));
     personas.hidden = false;
   };
 
-  /* Los mensajes que tienen lo buscado: al tocar uno, se abre la conversación en ese mensaje */
-  const pintarEncontrados = (lista, consulta) => {
+  /* Un mensaje encontrado: al tocarlo, se abre la conversación en ese mensaje */
+  const filaDeResultado = (resultado) => {
+    const fila = elemento('li');
+    const enlace = elemento('a', 'chat-resultado');
+    enlace.href = resultado.url;
+    const avatar = elemento('span', `avatar avatar--sm chat-persona__avatar--${resultado.tipo}`, resultado.iniciales);
+    avatar.setAttribute('aria-hidden', 'true');
+    const texto = elemento('span', 'chat-resultado__texto');
+    const arriba = elemento('span', 'chat-resultado__fila');
+    arriba.append(elemento('span', 'chat-resultado__nombre', resultado.nombre), elemento('span', 'chat-resultado__hora', resultado.hora));
+    const fragmento = elemento('span', 'chat-resultado__fragmento');
+    /* Escapado en el servidor (Mensajes/reglas.resaltar): solo agrega <mark> en lo que coincide */
+    fragmento.innerHTML = `${resultado.mio ? 'Tú: ' : ''}${resultado.fragmento}`;
+    texto.append(arriba, fragmento);
+    enlace.append(avatar, texto);
+    fila.append(enlace);
+    return fila;
+  };
+
+  const masEncontrados = chat.querySelector('[data-chat-encontrados-mas]');
+  const filaDeMasEncontrados = chat.querySelector('[data-chat-encontrados-mas-fila]');
+  const ponerSiguienteEncontrado = (siguiente) => {
+    if (!masEncontrados) return;
+    masEncontrados.dataset.siguiente = siguiente || '';
+    filaDeMasEncontrados.hidden = !siguiente;
+  };
+
+  const pintarEncontrados = (resultados, siguiente, { agregar: alFinalDeLaLista = false } = {}) => {
     if (!encontrados || !encontradosLista) return;
-    encontradosLista.replaceChildren();
-    if (!lista.length) encontradosLista.append(elemento('li', 'chat__nadie', `Ningún mensaje tiene «${consulta}».`));
-    lista.forEach((resultado) => {
-      const fila = elemento('li');
-      const enlace = elemento('a', 'chat-resultado');
-      enlace.href = resultado.url;
-      const avatar = elemento('span', `avatar avatar--sm chat-persona__avatar--${resultado.tipo}`, resultado.iniciales);
-      avatar.setAttribute('aria-hidden', 'true');
-      const texto = elemento('span', 'chat-resultado__texto');
-      const arriba = elemento('span', 'chat-resultado__fila');
-      arriba.append(elemento('span', 'chat-resultado__nombre', resultado.nombre), elemento('span', 'chat-resultado__hora', resultado.hora));
-      const fragmento = elemento('span', 'chat-resultado__fragmento');
-      /* Escapado en el servidor (Mensajes/reglas.resaltar): solo agrega <mark> en lo que coincide */
-      fragmento.innerHTML = `${resultado.mio ? 'Tú: ' : ''}${resultado.fragmento}`;
-      texto.append(arriba, fragmento);
-      enlace.append(avatar, texto);
-      fila.append(enlace);
-      encontradosLista.append(fila);
-    });
+    if (!alFinalDeLaLista) encontradosLista.replaceChildren();
+    if (!resultados.length && !alFinalDeLaLista) encontradosLista.append(elemento('li', 'chat__nadie', 'Ningún mensaje coincide con la búsqueda.'));
+    resultados.forEach((resultado) => encontradosLista.append(filaDeResultado(resultado)));
+    ponerSiguienteEncontrado(siguiente);
     encontrados.hidden = false;
   };
 
-  const pedirJson = async (url, consulta, senal) => {
-    const respuesta = await fetch(`${url}?q=${encodeURIComponent(consulta)}`, {
+  const pedirJson = async (url, parametros, senal) => {
+    const respuesta = await fetch(`${url}?${parametros}`, {
       headers: { Accept: 'application/json' }, credentials: 'same-origin', signal: senal,
     });
     return respuesta.ok ? respuesta.json() : null;
   };
 
+  /* Lo escrito y lo elegido en los filtros, sin lo vacío */
+  const parametrosDeBusqueda = () => {
+    const parametros = new URLSearchParams();
+    if (formaBuscar) {
+      new FormData(formaBuscar).forEach((valor, clave) => {
+        if (String(valor).trim()) parametros.set(clave, String(valor).trim());
+      });
+    }
+    return parametros;
+  };
+
+  /* Mientras se busca, los resultados ocupan el lugar de las conversaciones */
+  const ponerBuscando = (activa) => lista?.classList.toggle('is-buscando', activa);
+
+  const botonDeFiltros = chat.querySelector('.chat__filtros-boton');
   let pedido = null;
   let pausa = null;
-  buscar?.addEventListener('input', () => {
-    const consulta = buscar.value.trim();
-    filtrarConversaciones();
+  const buscarAhora = async () => {
     window.clearTimeout(pausa);
-    if (consulta.length < 2) {
-      pedido?.abort();
+    const parametros = parametrosDeBusqueda();
+    const consulta = parametros.get('q') || '';
+    const conFiltros = [...parametros.keys()].some((clave) => clave !== 'q');
+    botonDeFiltros?.classList.toggle('is-activo', conFiltros);
+    pedido?.abort();
+    if (consulta.length < 2 && !conFiltros) {
       if (buscando) buscando.hidden = true;
       if (personas) personas.hidden = true;
       if (encontrados) encontrados.hidden = true;
+      ponerBuscando(false);
       return;
     }
-    pausa = window.setTimeout(async () => {
-      pedido?.abort();
-      const este = new AbortController();
-      pedido = este;
-      if (buscando) buscando.hidden = false;
-      try {
-        const [deContactos, deMensajes] = await Promise.all([
-          pedirJson(chat.dataset.contactosUrl, consulta, este.signal),
-          chat.dataset.buscarUrl ? pedirJson(chat.dataset.buscarUrl, consulta, este.signal) : null,
-        ]);
-        if (deContactos) pintarPersonas(deContactos.contactos, consulta);
-        if (deMensajes) pintarEncontrados(deMensajes.mensajes, consulta);
-      } catch (problema) {
-        /* búsqueda cancelada o sin conexión */
-      } finally {
-        if (pedido === este && buscando) buscando.hidden = true;
-      }
-    }, 250);
+    const este = new AbortController();
+    pedido = este;
+    if (buscando) buscando.hidden = false;
+    try {
+      const [deContactos, deMensajes] = await Promise.all([
+        consulta.length >= 2 ? pedirJson(chat.dataset.contactosUrl, new URLSearchParams({ q: consulta }), este.signal) : null,
+        pedirJson(chat.dataset.buscarUrl, parametros, este.signal),
+      ]);
+      if (deContactos) pintarPersonas(deContactos.contactos, consulta);
+      else if (personas) personas.hidden = true;
+      if (deMensajes) pintarEncontrados(deMensajes.mensajes, deMensajes.siguiente);
+      ponerBuscando(true);
+    } catch (problema) {
+      /* búsqueda cancelada o sin conexión */
+    } finally {
+      if (pedido === este && buscando) buscando.hidden = true;
+    }
+  };
+
+  formaBuscar?.addEventListener('input', () => {
+    filtrarConversaciones();
+    window.clearTimeout(pausa);
+    pausa = window.setTimeout(buscarAhora, 250);
   });
+  formaBuscar?.addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    /* El panel ocupa casi toda la columna: al aplicar se cierra para dejar ver los resultados */
+    const panelDeFiltros = chat.querySelector('[data-chat-filtros]');
+    if (panelDeFiltros) panelDeFiltros.open = false;
+    buscarAhora();
+  });
+  chat.querySelector('[data-chat-filtros-limpiar]')?.addEventListener('click', (evento) => {
+    evento.preventDefault();
+    [...formaBuscar.elements].forEach((campoDeFiltro) => {
+      if (campoDeFiltro.name === 'q' || !campoDeFiltro.name) return;
+      if (campoDeFiltro.type === 'checkbox') campoDeFiltro.checked = false;
+      else campoDeFiltro.value = '';
+    });
+    buscarAhora();
+  });
+  masEncontrados?.addEventListener('click', async () => {
+    const parametros = parametrosDeBusqueda();
+    parametros.set('antes', masEncontrados.dataset.siguiente || '');
+    masEncontrados.disabled = true;
+    try {
+      const datos = await pedirJson(chat.dataset.buscarUrl, parametros);
+      if (datos) pintarEncontrados(datos.mensajes, datos.siguiente, { agregar: true });
+    } catch (problema) {
+      /* sin conexión: se puede volver a intentar */
+    } finally {
+      masEncontrados.disabled = false;
+    }
+  });
+
+  /* ------------------------------------------------------------------ buscar en la conversación */
+  const cerrarBusquedaDelHilo = () => {
+    const panel = hilo?.querySelector('[data-chat-busqueda-hilo]');
+    if (!panel) return;
+    panel.hidden = true;
+    hilo.querySelector('[data-chat-abrir-busqueda]')?.setAttribute('aria-expanded', 'false');
+  };
+
+  let pausaEnHilo = null;
+  let pedidoEnHilo = null;
+  const buscarEnElHilo = async (consulta) => {
+    const listaEnHilo = hilo.querySelector('[data-chat-busqueda-hilo-lista]');
+    const estado = hilo.querySelector('[data-chat-busqueda-hilo-estado]');
+    pedidoEnHilo?.abort();
+    if (consulta.length < 2) {
+      listaEnHilo.replaceChildren();
+      estado.hidden = true;
+      return;
+    }
+    const este = new AbortController();
+    pedidoEnHilo = este;
+    estado.hidden = false;
+    try {
+      const datos = await pedirJson(chat.dataset.buscarUrl, new URLSearchParams({ q: consulta, conversacion: String(conversacion) }), este.signal);
+      if (!datos) return;
+      listaEnHilo.replaceChildren(...datos.mensajes.map(filaDeResultado));
+      if (!datos.mensajes.length) listaEnHilo.append(elemento('li', 'chat__nadie', 'Ningún mensaje coincide en esta conversación.'));
+    } catch (problema) {
+      /* búsqueda cancelada o sin conexión */
+    } finally {
+      if (pedidoEnHilo === este) estado.hidden = true;
+    }
+  };
+
+  chat.addEventListener('click', (evento) => {
+    const abrirla = evento.target.closest('[data-chat-abrir-busqueda]');
+    if (abrirla) {
+      const panel = hilo.querySelector('[data-chat-busqueda-hilo]');
+      panel.hidden = !panel.hidden;
+      abrirla.setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) panel.querySelector('input')?.focus();
+    } else if (evento.target.closest('[data-chat-cerrar-busqueda]')) {
+      cerrarBusquedaDelHilo();
+    }
+  });
+  chat.addEventListener('input', (evento) => {
+    if (!evento.target.matches('[data-chat-busqueda-hilo-campo]')) return;
+    window.clearTimeout(pausaEnHilo);
+    const consulta = evento.target.value.trim();
+    pausaEnHilo = window.setTimeout(() => buscarEnElHilo(consulta), 250);
+  });
+  chat.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape' && evento.target.matches('[data-chat-busqueda-hilo-campo]')) cerrarBusquedaDelHilo();
+  });
+
+  /* ------------------------------------------------------------------ nuevo mensaje */
+  const directorio = chat.querySelector('[data-chat-directorio]');
+  const buscarEnDirectorio = chat.querySelector('[data-chat-directorio-buscar]');
+  const gruposDelDirectorio = chat.querySelector('[data-chat-directorio-grupos]');
+  const estadoDelDirectorio = chat.querySelector('[data-chat-directorio-estado]');
+
+  const pintarDirectorio = (grupos, consulta) => {
+    gruposDelDirectorio.replaceChildren();
+    if (!grupos.length) {
+      gruposDelDirectorio.append(elemento('p', 'chat__nadie', consulta
+        ? `Nadie coincide con «${consulta}» entre las personas a las que puedes escribir.`
+        : 'Por ahora no hay personas a las que puedas escribir.'));
+    }
+    grupos.forEach((grupo) => {
+      const seccion = elemento('section', 'chat-ventana__grupo');
+      const personasDelGrupo = elemento('ul', 'chat-ventana__lista');
+      grupo.contactos.forEach((contacto) => personasDelGrupo.append(filaDePersona(contacto)));
+      seccion.append(elemento('h3', 'chat__subtitulo', grupo.titulo), personasDelGrupo);
+      if (grupo.hay_mas) seccion.append(elemento('p', 'chat-ventana__mas', 'Hay más personas: escribe un nombre para encontrarlas.'));
+      gruposDelDirectorio.append(seccion);
+    });
+  };
+
+  let pedidoDeDirectorio = null;
+  let pausaDeDirectorio = null;
+  const cargarDirectorio = async (consulta = '') => {
+    pedidoDeDirectorio?.abort();
+    const este = new AbortController();
+    pedidoDeDirectorio = este;
+    estadoDelDirectorio.hidden = false;
+    try {
+      const datos = await pedirJson(chat.dataset.directorioUrl, new URLSearchParams(consulta ? { q: consulta } : {}), este.signal);
+      if (!datos) throw new Error('sin respuesta');
+      pintarDirectorio(datos.grupos, consulta);
+    } catch (problema) {
+      if (problema.name === 'AbortError') return;
+      gruposDelDirectorio.replaceChildren(elemento('p', 'chat__nadie', 'No se pudo cargar la lista de personas. Revisa tu conexión e inténtalo de nuevo.'));
+    } finally {
+      if (pedidoDeDirectorio === este) estadoDelDirectorio.hidden = true;
+    }
+  };
+
+  chat.addEventListener('click', (evento) => {
+    if (evento.target.closest('[data-chat-nuevo]') && directorio) {
+      buscarEnDirectorio.value = '';
+      cargarDirectorio();
+    }
+  });
+  buscarEnDirectorio?.addEventListener('input', () => {
+    window.clearTimeout(pausaDeDirectorio);
+    pausaDeDirectorio = window.setTimeout(() => cargarDirectorio(buscarEnDirectorio.value.trim()), 250);
+  });
+
+  /* ------------------------------------------------------------------ archivos de la conversación */
+  const ventanaDeArchivos = chat.querySelector('[data-chat-archivos]');
+  const listaDeArchivos = chat.querySelector('[data-chat-archivos-lista]');
+  const estadoDeArchivos = chat.querySelector('[data-chat-archivos-estado]');
+
+  const filaDeArchivo = (archivo) => {
+    const fila = elemento('li', 'chat-archivo');
+    const marca = elemento('span', 'documento-adjunto__icono');
+    marca.setAttribute('aria-hidden', 'true');
+    marca.append(icono(archivo.documento ? 'file-text' : 'image'));
+    const texto = elemento('span', 'chat-archivo__texto');
+    const enlace = elemento('a', 'chat-archivo__nombre', archivo.nombre);
+    Object.assign(enlace, { href: archivo.url, target: '_blank', rel: 'noopener' });
+    texto.append(enlace, elemento('span', 'chat-archivo__detalle', `${archivo.autor} · ${archivo.fecha} · ${archivo.tamano}`));
+    const ver = elemento('a', 'btn btn--ghost btn--icon btn--sm');
+    ver.href = archivo.mensaje;
+    ver.dataset.chatVerMensaje = '';
+    ver.dataset.tooltip = 'Ver en la conversación';
+    ver.setAttribute('aria-label', `Ver ${archivo.nombre} en la conversación`);
+    ver.append(icono('message-circle'));
+    const descargar = elemento('a', 'btn btn--ghost btn--icon btn--sm');
+    descargar.href = archivo.descargar;
+    descargar.dataset.tooltip = 'Descargar';
+    descargar.setAttribute('aria-label', `Descargar ${archivo.nombre}`);
+    descargar.append(icono('download'));
+    fila.append(marca, texto, ver, descargar);
+    return fila;
+  };
+
+  const cargarArchivos = async () => {
+    listaDeArchivos.replaceChildren();
+    estadoDeArchivos.hidden = false;
+    try {
+      const datos = await pedirJson(hilo.dataset.archivosUrl, new URLSearchParams());
+      if (!datos) throw new Error('sin respuesta');
+      listaDeArchivos.replaceChildren(...datos.archivos.map(filaDeArchivo));
+      if (!datos.archivos.length) listaDeArchivos.append(elemento('li', 'chat__nadie', 'Todavía no se han enviado archivos en esta conversación.'));
+    } catch (problema) {
+      listaDeArchivos.replaceChildren(elemento('li', 'chat__nadie', 'No se pudieron cargar los archivos. Revisa tu conexión e inténtalo de nuevo.'));
+    } finally {
+      estadoDeArchivos.hidden = true;
+    }
+  };
+
+  chat.addEventListener('click', (evento) => {
+    if (evento.target.closest('[data-chat-abrir-archivos]')) cargarArchivos();
+    const ver = evento.target.closest('[data-chat-ver-mensaje]');
+    if (ver) {
+      evento.preventDefault();
+      ventanaDeArchivos?.close();
+      abrir(ver.href);
+    }
+  });
+
+  /* ------------------------------------------------------------------ organizar */
+  const avisoDeDeshacer = chat.querySelector('[data-chat-deshacer]');
+  let accionDeDeshacer = null;
+  let finDeDeshacer = null;
+  const ocultarDeshacer = () => {
+    window.clearTimeout(finDeDeshacer);
+    accionDeDeshacer = null;
+    if (avisoDeDeshacer) avisoDeDeshacer.hidden = true;
+  };
+  const ofrecerDeshacer = (texto, accion) => {
+    if (!avisoDeDeshacer) return;
+    avisoDeDeshacer.querySelector('[data-chat-deshacer-texto]').textContent = texto;
+    avisoDeDeshacer.hidden = false;
+    accionDeDeshacer = accion;
+    window.clearTimeout(finDeDeshacer);
+    finDeDeshacer = window.setTimeout(ocultarDeshacer, 7000);
+  };
+  chat.querySelector('[data-chat-deshacer-boton]')?.addEventListener('click', () => {
+    const accion = accionDeDeshacer;
+    ocultarDeshacer();
+    accion?.();
+  });
+
+  const destacar = async (forma) => {
+    try {
+      const respuesta = await post(forma.action, new FormData(forma));
+      if (!respuesta.ok) throw new Error('sin respuesta');
+      const activa = forma.elements.valor.value === '1';
+      forma.elements.valor.value = activa ? '0' : '1';
+      const boton = forma.querySelector('button');
+      boton.classList.toggle('is-activa', activa);
+      boton.setAttribute('aria-pressed', String(activa));
+      boton.dataset.tooltip = activa ? 'Quitar de destacadas' : 'Destacar';
+      const marca = conversaciones?.querySelector(`[data-conversacion-item="${conversacion}"] [data-chat-item-estrella]`);
+      if (marca) marca.hidden = !activa;
+    } catch (problema) {
+      mostrarError('No se pudo cambiar. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  };
+
+  const archivar = async (forma) => {
+    const accion = forma.action;
+    const datos = new FormData(forma);
+    const archivada = datos.get('valor') === '1';
+    const abierta = hilo.dataset.conversacionUrl;
+    try {
+      const respuesta = await post(accion, datos);
+      if (!respuesta.ok) throw new Error('sin respuesta');
+      await abrir(`${chat.dataset.inicioUrl}${filtroDeLista}`);
+      await refrescarLista();
+      ofrecerDeshacer(archivada ? 'Se archivó la conversación.' : 'La conversación regresó a la bandeja.', async () => {
+        const contraria = new FormData();
+        contraria.append('valor', archivada ? '0' : '1');
+        await post(accion, contraria).catch(() => {});
+        await abrir(abierta);
+        await refrescarLista();
+      });
+    } catch (problema) {
+      mostrarError('No se pudo archivar. Revisa tu conexión e inténtalo de nuevo.');
+    }
+  };
+
+  const marcarTodo = async (forma) => {
+    document.dispatchEvent(new CustomEvent('app:close-menus'));
+    try {
+      const respuesta = await post(forma.action, new FormData(forma));
+      if (!respuesta.ok) throw new Error('sin respuesta');
+      await refrescarLista();
+      document.dispatchEvent(new CustomEvent('avisos:actualizar'));
+    } catch (problema) {
+      /* sin conexión: la lista sigue como estaba */
+    }
+  };
+
+  const cambiarDensidad = (forma) => {
+    document.dispatchEvent(new CustomEvent('app:close-menus'));
+    const compacta = forma.elements.compacta.value === '1';
+    post(forma.action, new FormData(forma)).catch(() => {});
+    chat.classList.toggle('chat--compacta', compacta);
+    forma.elements.compacta.value = compacta ? '0' : '1';
+    forma.querySelector('[data-chat-compacta]')?.setAttribute('aria-pressed', String(compacta));
+    forma.querySelector('[data-chat-compacta-texto]').textContent = compacta ? 'Vista normal' : 'Vista compacta';
+  };
+
+  chat.addEventListener('submit', (evento) => {
+    const forma = evento.target;
+    const accion = [['[data-chat-formulario]', enviarMensaje], ['[data-chat-destacar]', destacar], ['[data-chat-archivar]', archivar],
+      ['[data-chat-marcar-todo]', marcarTodo], ['[data-chat-compacta-forma]', cambiarDensidad]].find(([selector]) => forma.matches(selector));
+    if (!accion) return;
+    evento.preventDefault();
+    accion[1](forma);
+  });
+
+  /* ------------------------------------------------------------------ mensajes anteriores, al subir */
+  let cargandoAnteriores = false;
+  const cargarAnteriores = async () => {
+    const fila = mensajes?.querySelector('[data-chat-anteriores]');
+    if (!fila || cargandoAnteriores) return;
+    const deEsta = conversacion;
+    cargandoAnteriores = true;
+    fila.classList.add('is-cargando');
+    try {
+      const datos = await pedirJson(hilo.dataset.anterioresUrl, new URLSearchParams({ antes: fila.dataset.primero }));
+      if (!datos || conversacion !== deEsta) return;
+      const plantilla = document.createElement('template');
+      plantilla.innerHTML = datos.html;   /* lo pinta el servidor (templates/mensajes/_mensajes.html) */
+      const altura = mensajes.scrollHeight;
+      const arriba = mensajes.scrollTop;
+      const primerDia = mensajes.querySelector('[data-chat-dia]');
+      const dias = [...plantilla.content.querySelectorAll('[data-chat-dia]')];
+      const burbujas = [...plantilla.content.querySelectorAll('.burbuja')];
+      mensajes.setAttribute('aria-busy', 'true');   /* lo que llega del historial no se lee en voz alta */
+      fila.after(plantilla.content);
+      burbujas.forEach(ponerAcciones);
+      /* El día en que terminan los anteriores puede ser el mismo en que empezaban los que ya estaban */
+      if (primerDia && dias[dias.length - 1]?.dataset.chatDia === primerDia.dataset.chatDia) primerDia.remove();
+      mensajes.scrollTop = arriba + mensajes.scrollHeight - altura;
+      mensajes.removeAttribute('aria-busy');
+      ponerLectura();
+      if (datos.hay_anteriores) {
+        fila.dataset.primero = String(datos.primero);
+        fila.querySelector('a').href = `?antes=${datos.primero}`;
+      } else {
+        fila.remove();
+      }
+    } catch (problema) {
+      /* sin conexión: queda el enlace para volver a intentar */
+    } finally {
+      cargandoAnteriores = false;
+      fila.classList.remove('is-cargando');
+    }
+  };
+  const alDesplazar = () => {
+    if (mensajes.scrollTop < 200) cargarAnteriores();
+  };
+  chat.addEventListener('click', (evento) => {
+    if (!evento.target.closest('[data-chat-anteriores] a')) return;
+    evento.preventDefault();
+    cargarAnteriores();
+  });
+
+  /* ------------------------------------------------------------------ abrir sin recargar */
+  /* Toma los elementos del panel que está en la página y lo deja listo: al cargar y al abrir otra conversación */
+  const montarHilo = () => {
+    hilo = chat.querySelector('[data-chat-hilo]');
+    conversacion = Number(hilo?.dataset.conversacion || 0);
+    hayPosteriores = Boolean(hilo?.hasAttribute('data-hay-posteriores'));
+    mensajes = hilo?.querySelector('[data-chat-mensajes]') || null;
+    formulario = hilo?.querySelector('[data-chat-formulario]') || null;
+    campo = hilo?.querySelector('[data-chat-campo]') || null;
+    error = hilo?.querySelector('[data-chat-error]') || null;
+    caja = hilo?.querySelector('[data-chat-caja]') || null;
+    campoHtml = hilo?.querySelector('[data-chat-html]') || null;
+    raizEditor = hilo?.querySelector('[data-editor]') || null;
+    archivoAdjunto = hilo?.querySelector('[data-chat-adjuntar-archivo]') || null;
+    listaAdjuntos = hilo?.querySelector('[data-chat-adjuntos]') || null;
+    barraRespuesta = hilo?.querySelector('[data-chat-respuesta]') || null;
+    respondeA = hilo?.querySelector('[data-chat-responde-a]') || null;
+    escribiendo = hilo?.querySelector('[data-chat-escribiendo]') || null;
+    contador = hilo?.querySelector('[data-chat-contador]') || null;
+
+    chat.dataset.conversacion = conversacion || '';
+    chat.classList.toggle('chat--abierta', Boolean(conversacion));
+    adjuntos.length = 0;
+    subiendoAdjuntos = 0;
+    porLeer = false;
+    enviando = false;
+    ultimoAviso = 0;
+    editor = null;
+    llaveBorrador = conversacion && formulario ? `${prefijoPropio}${conversacion}` : '';
+
+    hilo?.querySelectorAll('[data-chat-abrir-busqueda], [data-chat-abrir-archivos]').forEach((boton) => { boton.hidden = false; });
+    mensajes?.querySelectorAll('.burbuja').forEach((burbuja) => ponerAcciones(burbuja));
+    mensajes?.addEventListener('scroll', alDesplazar, { passive: true });
+
+    if (raizEditor && window.EditorEnriquecido && campo) {
+      editor = new window.EditorEnriquecido(raizEditor, {
+        alEnviar: () => formulario?.requestSubmit(),
+        alCambiar: () => {
+          actualizarCaja();
+          if (restaurando) return;   /* el borrador recuperado al abrir: nadie está escribiendo */
+          if (!editor?.vacio()) avisarQueEscribo();
+          guardarBorradorLuego();
+        },
+      });
+      campo.hidden = true;
+      campo.required = false;
+      caja?.classList.add('chat__caja--editor', 'is-vacia');
+      hilo.querySelector('[data-chat-atajos-editor]')?.removeAttribute('hidden');
+    }
+
+    const conBorrador = restaurarBorrador();
+    /* Abierta desde otro lugar con un asunto (p. ej. una cita del portal): si no había borrador, ya viene escrito */
+    if (!conBorrador && hilo?.dataset.asunto) {
+      if (editor) editor.poner(parrafos(`${hilo.dataset.asunto}: `));
+      else if (campo) campo.value = `${hilo.dataset.asunto}: `;
+    }
+    actualizarCaja();
+    colocar();
+    if (formulario && window.matchMedia('(min-width: 48rem)').matches) {
+      if (editor) {
+        editor.enfocar();
+        if (conBorrador) editor.ponerCursorAlFinal();   /* para seguir escribiendo donde se quedó */
+      } else {
+        campo?.focus({ preventScroll: true });
+      }
+    }
+  };
+
+  let scrollDeLaLista = 0;
+  const desmontarHilo = () => {
+    if (pausaBorrador) guardarBorrador();
+    mensajes?.removeEventListener('scroll', alDesplazar);
+    editor?.destruir();
+    ocultarEscribiendo();
+    scrollDeLaLista = conversaciones?.scrollTop || scrollDeLaLista;   /* en el celular, la lista se oculta */
+  };
+
+  /* Lo que está fuera del panel: el título, la ruta de arriba y la lista */
+  const alCambiarDeHilo = () => {
+    document.dispatchEvent(new CustomEvent('avisos:titulo', { detail: hilo.dataset.titulo }));
+    const actual = document.querySelector('[data-chat-miga-actual]');
+    if (actual) actual.textContent = conversacion ? hilo.dataset.nombre : 'Mensajes';
+    const miga = document.querySelector('[data-chat-miga-mensajes]');
+    if (miga) miga.hidden = !conversacion;
+    chat.querySelectorAll('[data-chat-filtro]').forEach((enlace) => { enlace.pathname = window.location.pathname; });
+    conversaciones?.querySelectorAll('.chat-item.is-actual').forEach((enlace) => {
+      enlace.classList.remove('is-actual');
+      enlace.removeAttribute('aria-current');
+    });
+    const fila = conversaciones?.querySelector(`[data-conversacion-item="${conversacion}"]`);
+    if (fila) {
+      const enlace = fila.querySelector('.chat-item');
+      enlace.classList.add('is-actual');
+      enlace.setAttribute('aria-current', 'page');
+      if (!hayPosteriores) ponerConteo(conversacion, 0);
+    } else if (conversacion) {
+      refrescarLista().catch(() => {});   /* abierta desde un resultado: se agrega a la lista */
+    }
+    if (!conversacion && conversaciones) conversaciones.scrollTop = scrollDeLaLista;
+    if (!conectado) document.dispatchEvent(new CustomEvent('avisos:actualizar'));
+  };
+
+  let pedidoDeHilo = null;
+  async function abrir(direccion, { apilar = true } = {}) {
+    const destino = new URL(direccion, window.location.href);
+    if (apilar && destino.href === window.location.href) return;
+    const panel = new URL(destino);
+    panel.hash = '';
+    panel.searchParams.set('panel', '1');
+    pedidoDeHilo?.abort();
+    const este = new AbortController();
+    pedidoDeHilo = este;
+    hilo?.setAttribute('aria-busy', 'true');
+    try {
+      const respuesta = await fetch(panel, { credentials: 'same-origin', headers: { Accept: 'text/html' }, signal: este.signal });
+      if (!respuesta.ok || respuesta.redirected) throw new Error('sin panel');
+      const plantilla = document.createElement('template');
+      plantilla.innerHTML = await respuesta.text();
+      const nuevo = plantilla.content.querySelector('[data-chat-hilo]');
+      if (!nuevo) throw new Error('sin panel');
+      if (pedidoDeHilo !== este) return;
+      if (apilar) window.history.pushState({}, '', destino);
+      desmontarHilo();
+      hilo.replaceWith(nuevo);
+      montarHilo();
+      alCambiarDeHilo();
+    } catch (problema) {
+      if (problema.name !== 'AbortError') window.location.href = destino.href;
+    }
+  }
+
+  chat.addEventListener('click', (evento) => {
+    if (evento.defaultPrevented || evento.button || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return;
+    const enlace = evento.target.closest('.chat-item, .chat-resultado, [data-chat-volver], [data-chat-recientes]');
+    if (!enlace) return;
+    evento.preventDefault();
+    abrir(enlace.href);
+  });
+  window.addEventListener('popstate', () => abrir(window.location.href, { apilar: false }));
+
+  /* ------------------------------------------------------------------ conexión */
+  const avisoDeConexion = chat.querySelector('[data-chat-conexion]');
+  let conectado = true;
+  let pausaDeConexion = null;
+  document.addEventListener('avisos:conexion', ({ detail }) => {
+    conectado = detail.conectado;
+    window.clearTimeout(pausaDeConexion);
+    if (conectado) {
+      if (avisoDeConexion) avisoDeConexion.hidden = true;
+    } else {   /* un corte de unos segundos se arregla solo: no vale la pena avisarlo */
+      pausaDeConexion = window.setTimeout(() => {
+        if (avisoDeConexion) avisoDeConexion.hidden = false;
+      }, 4000);
+    }
+  });
+
+  limpiarBorradores();
+  ponerSiguienteEncontrado(masEncontrados?.dataset.siguiente);
+  montarHilo();
 })();

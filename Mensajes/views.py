@@ -24,6 +24,7 @@ from CISAHUAYO import portales
 from CISAHUAYO.permisos import requiere_alguno
 
 from . import limpieza, reglas
+from .forms import FiltroBusquedaForm
 from .models import Conversacion, ImagenMensaje, Mensaje, Participante
 from .tiempo_real import datos_de_mensaje
 
@@ -117,32 +118,95 @@ def _resultado(mensaje, cuenta):
     }
 
 
-def _sin_leer(request):
-    """Si la bandeja está en el filtro «Sin leer» (?sin_leer=1: lo conservan los enlaces de la lista)."""
-    return (request.GET.get('sin_leer') or request.POST.get('sin_leer')) == '1'
+TIPOS_DE_LISTA = {Participante.SISTEMA: 'Personal', Participante.TUTOR: 'Familias', Participante.ESTUDIANTE: 'Estudiantes'}
+VISTAS = (reglas.DESTACADAS, reglas.ARCHIVADAS)
 
 
-def _pantalla(request, cuenta, conversacion=None, **extra):
-    participante = cuenta.participante
-    limpieza.limpiar_si_toca()   # una vez al día: los archivos que se subieron y nunca se enviaron
-    busqueda = request.GET.get('q', '').strip()
-    sin_leer = _sin_leer(request)
-    bandeja, siguientes = reglas.pagina_de_bandeja(participante, despues=request.GET.get('despues') or None, solo_sin_leer=sin_leer,
-                                                   incluir=conversacion.pk if conversacion else None)
-    contexto = {
-        **cuenta.contexto, 'base': cuenta.base, 'espacio': cuenta.espacio, 'yo': participante,
-        'bandeja': bandeja, 'siguientes': siguientes, 'conversacion': conversacion, 'busqueda': busqueda,
-        'sin_leer': sin_leer, 'filtro_qs': '?sin_leer=1' if sin_leer else '',
-        'contactos': reglas.contactos(participante, busqueda) if busqueda else None,
-        'encontrados': [_resultado(m, cuenta) for m in reglas.buscar_mensajes(participante, busqueda)] if busqueda else None,
+@dataclass(frozen=True)
+class Lista:
+    """Qué bandeja se está viendo: «Sin leer», una de `VISTAS` o, sin nada, «Todas», y con qué clase de persona. Los enlaces de
+    la lista lo conservan (?sin_leer=1, ?vista=archivadas, ?tipo=TUTOR)."""
+    sin_leer: bool = False
+    vista: str = ''
+    tipo: str = ''
+
+    def qs(self, **cambios):
+        datos = {'sin_leer': self.sin_leer, 'vista': self.vista, 'tipo': self.tipo, **cambios}
+        parametros = {clave: '1' if valor is True else valor for clave, valor in datos.items() if valor}
+        return f'?{urlencode(parametros)}' if parametros else ''
+
+
+def _lista(request, cuenta):
+    def pedido(nombre):
+        return request.GET.get(nombre) or request.POST.get(nombre) or ''
+
+    vista, tipo = pedido('vista'), pedido('tipo')
+    return Lista(
+        sin_leer=pedido('sin_leer') == '1', vista=vista if vista in VISTAS else '',
+        tipo=tipo if tipo in TIPOS_DE_LISTA and cuenta.participante.tipo == Participante.SISTEMA else '',
+    )
+
+
+def _pestanas(lista):
+    return [
+        {'texto': 'Todas', 'qs': lista.qs(sin_leer=False, vista=''), 'activa': not lista.sin_leer and not lista.vista, 'icono': ''},
+        {'texto': 'Sin leer', 'qs': lista.qs(sin_leer=True, vista=''), 'activa': lista.sin_leer, 'icono': ''},
+        {'texto': 'Destacadas', 'qs': lista.qs(sin_leer=False, vista=reglas.DESTACADAS), 'activa': lista.vista == reglas.DESTACADAS, 'icono': 'star'},
+        {'texto': 'Archivadas', 'qs': lista.qs(sin_leer=False, vista=reglas.ARCHIVADAS), 'activa': lista.vista == reglas.ARCHIVADAS, 'icono': 'archive'},
+    ]
+
+
+def _chips(participante, lista):
+    """Los filtros por clase de persona: al personal que conversa con más de una clase."""
+    if participante.tipo != Participante.SISTEMA:
+        return []
+    con_quien = set(Participante.objects.filter(membresias__conversacion__miembros__participante=participante).exclude(pk=participante.pk)
+                    .order_by().values_list('tipo', flat=True).distinct())
+    if len(con_quien) < 2 and not lista.tipo:
+        return []
+    return [{'texto': texto, 'qs': lista.qs(tipo='' if lista.tipo == tipo else tipo), 'activa': lista.tipo == tipo}
+            for tipo, texto in TIPOS_DE_LISTA.items()]
+
+
+def _busqueda_form(request, cuenta):
+    return FiltroBusquedaForm(request.GET or None, con_tipo=cuenta.participante.tipo == Participante.SISTEMA, auto_id='filtro-busqueda-%s')
+
+
+def _contexto_comun(request, cuenta, conversacion, lista):
+    return {
+        **cuenta.contexto, 'base': cuenta.base, 'espacio': cuenta.espacio, 'yo': cuenta.participante, 'conversacion': conversacion,
+        'filtro_qs': lista.qs(), 'sin_leer': lista.sin_leer, 'vista_lista': lista.vista, 'tipo_lista': lista.tipo,
         'hoy_iso': timezone.localdate().isoformat(),
         'urls': {
             'inicio': cuenta.url('inicio'), 'contactos': cuenta.url('contactos'), 'nueva': cuenta.url('nueva'),
             'resumen': cuenta.url('resumen'), 'buscar': cuenta.url('buscar'), 'conversaciones': cuenta.url('conversaciones'),
+            'directorio': cuenta.url('directorio'), 'marcar_todo': cuenta.url('marcar_todo'), 'preferencias': cuenta.url('preferencias'),
         },
-        **extra,
     }
-    return render(request, 'mensajes/bandeja.html', contexto)
+
+
+def _pantalla(request, cuenta, conversacion=None, **extra):
+    """La pantalla completa o, con ?panel=1, solo el panel de la derecha: static/js/mensajes.js abre así las conversaciones,
+    sin perder la lista."""
+    participante = cuenta.participante
+    lista = _lista(request, cuenta)
+    contexto = _contexto_comun(request, cuenta, conversacion, lista)
+    if request.GET.get('panel') == '1':
+        return render(request, 'mensajes/_hilo.html', {**contexto, **extra})
+    limpieza.limpiar_si_toca()   # una vez al día: los archivos que se subieron y nunca se enviaron
+    busqueda = request.GET.get('q', '').strip()
+    formulario = _busqueda_form(request, cuenta)
+    filtro = formulario.filtro()
+    encontrados, mas = reglas.pagina_de_busqueda(participante, busqueda, filtro) if busqueda or filtro.activo else (None, None)
+    bandeja, siguientes = reglas.pagina_de_bandeja(participante, despues=request.GET.get('despues') or None, solo_sin_leer=lista.sin_leer,
+                                                   incluir=conversacion.pk if conversacion else None, vista=lista.vista, tipo=lista.tipo)
+    return render(request, 'mensajes/bandeja.html', {
+        **contexto, 'bandeja': bandeja, 'siguientes': siguientes, 'busqueda': busqueda, 'busqueda_form': formulario,
+        'con_filtros': filtro.activo, 'pestanas': _pestanas(lista), 'chips': _chips(participante, lista),
+        'contactos': reglas.contactos(participante, busqueda) if busqueda else None,
+        'encontrados': None if encontrados is None else [_resultado(m, cuenta) for m in encontrados], 'mas_encontrados': mas,
+        **extra,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -153,22 +217,10 @@ def bandeja(request):
     return _pantalla(request, request.mensajeria)
 
 
-@require_GET
-def conversacion(request, pk):
-    cuenta = request.mensajeria
+def _preparar(mensajes, cuenta, conversacion):
+    """Lo que necesita cada mensaje para mostrarse a la persona (templates/mensajes/_mensajes.html). Devuelve (hasta dónde
+    leyó la otra persona, el último mensaje propio leído que se está mostrando)."""
     participante = cuenta.participante
-    conversacion = _conversacion(cuenta, pk)
-    antes, destacado = request.GET.get('antes', ''), request.GET.get('mensaje', '')
-    if destacado.isdigit():   # abierta en un mensaje encontrado al buscar: los de antes y después de él
-        mensajes, hay_anteriores, hay_posteriores = reglas.ventana(conversacion, int(destacado))
-    else:
-        mensajes, hay_anteriores = reglas.historial(conversacion, antes=int(antes) if antes.isdigit() else None)
-        hay_posteriores = antes.isdigit() and conversacion.mensajes.filter(pk__gte=int(antes)).exists()
-    # Al consultarla, queda leída; abierta en una parte anterior, solo hasta lo que se ve (lo más reciente sigue sin leer)
-    if not hay_posteriores:
-        reglas.marcar_leida(conversacion, participante)
-    elif mensajes:
-        reglas.marcar_leida(conversacion, participante, hasta=mensajes[-1].pk)
     reglas.con_documentos(mensajes, lambda documento: cuenta.url('documento', documento))
     leido_hasta = reglas.leido_por_el_otro(conversacion, participante)
     reportados = reglas.reportados_por(participante, mensajes)
@@ -187,8 +239,29 @@ def conversacion(request, pk):
             mensaje.editable_hasta = (mensaje.creado + timedelta(minutes=reglas.MINUTOS_PARA_EDITAR)).isoformat()
         # Con formato: el HTML limpio otra vez al mostrarlo (Mensajes/enriquecido.py), con las imágenes de su espacio
         mensaje.html_visible = mark_safe(reglas.html_visible(mensaje, participante)) if mensaje.html else ''
+    return leido_hasta, ultimo_leido_mio
+
+
+@require_GET
+def conversacion(request, pk):
+    cuenta = request.mensajeria
+    participante = cuenta.participante
+    conversacion = _conversacion(cuenta, pk)
+    antes, destacado = request.GET.get('antes', ''), request.GET.get('mensaje', '')
+    if destacado.isdigit():   # abierta en un mensaje encontrado al buscar: los de antes y después de él
+        mensajes, hay_anteriores, hay_posteriores = reglas.ventana(conversacion, int(destacado))
+    else:
+        mensajes, hay_anteriores = reglas.historial(conversacion, antes=int(antes) if antes.isdigit() else None)
+        hay_posteriores = antes.isdigit() and conversacion.mensajes.filter(pk__gte=int(antes)).exists()
+    # Al consultarla, queda leída; abierta en una parte anterior, solo hasta lo que se ve (lo más reciente sigue sin leer)
+    if not hay_posteriores:
+        reglas.marcar_leida(conversacion, participante)
+    elif mensajes:
+        reglas.marcar_leida(conversacion, participante, hasta=mensajes[-1].pk)
+    leido_hasta, ultimo_leido_mio = _preparar(mensajes, cuenta, conversacion)
     otro = reglas.el_otro(conversacion, participante)
     puede_escribir = reglas.puede_escribir_en(conversacion, participante)
+    suyo = reglas.miembro_de(conversacion, participante)
     return _pantalla(
         request, cuenta, conversacion,
         asunto=' '.join(request.GET.get('asunto', '').split())[:ASUNTO_MAXIMO] if puede_escribir else '',
@@ -197,8 +270,10 @@ def conversacion(request, pk):
         primero=mensajes[0].pk if mensajes else None, leido_hasta=leido_hasta, ultimo_leido_mio=ultimo_leido_mio,
         puede_escribir=puede_escribir, maximo=Mensaje.MAXIMO,
         fuera_de_horario=reglas.aviso_fuera_de_horario(participante, otro) if puede_escribir else '',
+        destacada=suyo.destacada_en is not None, archivada=suyo.archivada_en is not None,
         url_enviar=cuenta.url('enviar', conversacion.pk), url_leida=cuenta.url('leida', conversacion.pk),
-        url_no_leida=cuenta.url('no_leida', conversacion.pk),
+        url_no_leida=cuenta.url('no_leida', conversacion.pk), url_destacar=cuenta.url('destacar', conversacion.pk),
+        url_archivar=cuenta.url('archivar', conversacion.pk),
         url_imagenes=cuenta.url('imagen_subir', conversacion.pk), acepta_imagenes=ACEPTA_IMAGENES,
         url_documentos=cuenta.url('documento_subir', conversacion.pk), acepta_documentos=ACEPTA_DOCUMENTOS,
         maximo_imagen_mb=ImagenMensaje.TAMANO_MAXIMO_MB, documentos_por_mensaje=ImagenMensaje.DOCUMENTOS_POR_MENSAJE,
@@ -419,7 +494,91 @@ def no_leida(request, pk):
         messages.error(request, str(rechazo))
         return redirect(cuenta.url('conversacion', conversacion.pk))
     messages.success(request, 'La conversación quedó como no leída.')
-    return redirect(cuenta.url('inicio') + ('?sin_leer=1' if _sin_leer(request) else ''))
+    return redirect(cuenta.url('inicio') + _lista(request, cuenta).qs())
+
+
+def _quiere_valor(request):
+    return request.POST.get('valor') != '0'
+
+
+@require_POST
+def destacar(request, pk):
+    """Marca o quita la estrella de la conversación (solo para quien lo hace)."""
+    cuenta = request.mensajeria
+    conversacion = _conversacion(cuenta, pk)
+    valor = _quiere_valor(request)
+    reglas.destacar(conversacion, cuenta.participante, valor)
+    if _quiere_json(request):
+        return JsonResponse({'destacada': valor})
+    return redirect(cuenta.url('conversacion', conversacion.pk) + _lista(request, cuenta).qs())
+
+
+@require_POST
+def archivar(request, pk):
+    """La saca de la bandeja o la regresa (solo para quien lo hace; no borra nada)."""
+    cuenta = request.mensajeria
+    conversacion = _conversacion(cuenta, pk)
+    valor = _quiere_valor(request)
+    reglas.archivar(conversacion, cuenta.participante, valor)
+    if _quiere_json(request):
+        return JsonResponse({'archivada': valor})
+    messages.success(request, 'Se archivó la conversación.' if valor else 'La conversación regresó a la bandeja.')
+    return redirect(cuenta.url('inicio') + _lista(request, cuenta).qs())
+
+
+@require_POST
+def marcar_todo(request):
+    """«Marcar todo como leído»."""
+    cuenta = request.mensajeria
+    reglas.marcar_todas_leidas(cuenta.participante)
+    if _quiere_json(request):
+        return JsonResponse({'no_leidos': reglas.no_leidos(cuenta.participante)})
+    return redirect(cuenta.url('inicio') + _lista(request, cuenta).qs())
+
+
+@require_POST
+def preferencias(request):
+    """La vista compacta de la lista de conversaciones: se guarda con la persona, en cualquier clase de cuenta."""
+    cuenta = request.mensajeria
+    compacta = request.POST.get('compacta') == '1'
+    Participante.objects.filter(pk=cuenta.participante.pk).update(vista_compacta=compacta)
+    if _quiere_json(request):
+        return JsonResponse({'compacta': compacta})
+    return redirect(cuenta.url('inicio'))
+
+
+@require_GET
+def anteriores(request, pk):
+    """Los mensajes anteriores a `antes`, al subir por la conversación: {html, hay_anteriores, primero}."""
+    cuenta = request.mensajeria
+    conversacion = _conversacion(cuenta, pk)
+    antes = request.GET.get('antes', '')
+    if not antes.isdigit():
+        return JsonResponse({'html': '', 'hay_anteriores': False, 'primero': None})
+    mensajes, hay_anteriores = reglas.historial(conversacion, antes=int(antes))
+    _, ultimo_leido_mio = _preparar(mensajes, cuenta, conversacion)
+    html = render_to_string('mensajes/_mensajes.html', {
+        'mensajes': mensajes, 'espacio': cuenta.espacio, 'conversacion': conversacion, 'ultimo_leido_mio': ultimo_leido_mio,
+    }, request=request)
+    return JsonResponse({'html': html, 'hay_anteriores': hay_anteriores, 'primero': mensajes[0].pk if mensajes else None})
+
+
+@require_GET
+def archivos(request, pk):
+    """Los archivos enviados en la conversación, para consultarlos sin recorrerla: {archivos}."""
+    cuenta = request.mensajeria
+    conversacion = _conversacion(cuenta, pk)
+    participante = cuenta.participante
+    lista = []
+    for archivo in reglas.archivos_de(conversacion):
+        url = cuenta.url('documento' if archivo.es_documento else 'imagen', archivo.pk)
+        lista.append({
+            'id': archivo.pk, 'nombre': archivo.nombre_original, 'tamano': archivo.tamano_texto, 'documento': archivo.es_documento,
+            'autor': 'Tú' if archivo.autor_id == participante.pk else archivo.autor.nombre,
+            'fecha': timezone.localtime(archivo.creada).strftime('%d/%m/%Y'), 'url': url, 'descargar': f'{url}?descargar=1',
+            'mensaje': f"{cuenta.url('conversacion', conversacion.pk)}?mensaje={archivo.mensaje_id}#mensaje-{archivo.mensaje_id}",
+        })
+    return JsonResponse({'archivos': lista})
 
 
 @require_GET
@@ -430,26 +589,38 @@ def contactos(request):
 
 
 @require_GET
-def buscar(request):
-    """Los mensajes de sus conversaciones que tienen el texto buscado (la búsqueda de la bandeja)."""
+def directorio(request):
+    """«Nuevo mensaje»: a quién puede escribir, por clase de persona: {grupos}."""
     cuenta = request.mensajeria
     texto = request.GET.get('q', '').strip()[:100]
-    return JsonResponse({'mensajes': [_resultado(m, cuenta) for m in reglas.buscar_mensajes(cuenta.participante, texto)]})
+    return JsonResponse({'grupos': [grupo.como_dict() for grupo in reglas.directorio(cuenta.participante, texto)]})
+
+
+@require_GET
+def buscar(request):
+    """Los mensajes de sus conversaciones que tienen el texto buscado y cumplen los filtros (la búsqueda de la bandeja y, con
+    ?conversacion=, la de una conversación): {mensajes, siguiente}."""
+    cuenta = request.mensajeria
+    texto = request.GET.get('q', '').strip()[:100]
+    conversacion, antes = request.GET.get('conversacion', ''), request.GET.get('antes', '')
+    filtro = _busqueda_form(request, cuenta).filtro(conversacion=int(conversacion) if conversacion.isdigit() else None)
+    mensajes, siguiente = reglas.pagina_de_busqueda(cuenta.participante, texto, filtro, antes=int(antes) if antes.isdigit() else None)
+    return JsonResponse({'mensajes': [_resultado(m, cuenta) for m in mensajes], 'siguiente': siguiente or ''})
 
 
 @require_GET
 def conversaciones(request):
     """Las conversaciones que siguen en la bandeja («Ver más conversaciones», y toda la lista al reconectarse):
-    {html, siguientes}. Con ?sin_leer=1, las del filtro «Sin leer» (y la abierta, `actual`)."""
+    {html, siguientes}, con los filtros de la lista (y la abierta, `actual`)."""
     cuenta = request.mensajeria
     actual = request.GET.get('actual', '')
     actual = int(actual) if actual.isdigit() else None
-    sin_leer = _sin_leer(request)
+    lista = _lista(request, cuenta)
     bandeja, siguientes = reglas.pagina_de_bandeja(cuenta.participante, despues=request.GET.get('despues') or None,
-                                                   solo_sin_leer=sin_leer, incluir=actual)
+                                                   solo_sin_leer=lista.sin_leer, incluir=actual, vista=lista.vista, tipo=lista.tipo)
     html = render_to_string('mensajes/_conversaciones.html', {
         'bandeja': bandeja, 'espacio': cuenta.espacio, 'hoy_iso': timezone.localdate().isoformat(),
-        'actual': actual, 'filtro_qs': '?sin_leer=1' if sin_leer else '',
+        'actual': actual, 'filtro_qs': lista.qs(),
     }, request=request)
     return JsonResponse({'html': html, 'siguientes': siguientes or ''})
 

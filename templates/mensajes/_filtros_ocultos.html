@@ -1,0 +1,4 @@
+{% comment %}Lo que conservan los formularios para volver a la misma bandeja (Mensajes/views.Lista).{% endcomment %}
+{% if sin_leer %}<input type="hidden" name="sin_leer" value="1">{% endif %}
+{% if vista_lista %}<input type="hidden" name="vista" value="{{ vista_lista }}">{% endif %}
+{% if tipo_lista %}<input type="hidden" name="tipo" value="{{ tipo_lista }}">{% endif %}

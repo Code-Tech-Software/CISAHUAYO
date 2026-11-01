@@ -3,9 +3,6 @@
    - Detalle en ventana: cada tarjeta abre su comunicado en una ventana (lo pide con ?parcial=1); sin JavaScript, o con
      Ctrl/Cmd+clic, el enlace lleva a su página. Si quien lo abre es un destinatario, el servidor guarda ahí su primera
      lectura: la tarjeta deja de verse «Sin leer» y se avisa a los contadores (static/js/comunicados-avisos.js).
-   - Filtro por fecha de creación: calendario con «Hoy», «Ayer», «Hace 7 días» (exactamente esa fecha, no un rango) y
-     «Limpiar». Los atajos parten del día del colegio que manda el servidor (zona horaria del proyecto), no del reloj
-     del navegador. Se combina con la búsqueda y el estado (van en el mismo formulario).
    - Papelera: entra al modo de selección; se marcan las tarjetas (solo las que se pueden eliminar) y se confirma.
    - En el detalle de quien envió: búsqueda y filtro de la lista de destinatarios y confirmación para eliminar.
 */
@@ -22,35 +19,69 @@
     if (!detalle || detalle.dataset.listo) return;
     detalle.dataset.listo = '1';
 
-    const buscar = qs('[data-destinatarios-buscar]', detalle);
-    const filas = qsa('.destinatario-fila', detalle);
-    const vacio = qs('[data-destinatarios-vacio]', detalle);
-    let estado = '';
-    const filtrar = () => {
-      const texto = (buscar?.value || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      let visibles = 0;
-      filas.forEach((fila) => {
-        const nombre = fila.dataset.nombre.normalize('NFD').replace(/[̀-ͯ]/g, '');
-        const delEstado = !estado || (estado === 'sin-responder' ? fila.hasAttribute('data-sin-responder') : fila.dataset.estado === estado);
-        const ver = (!texto || nombre.includes(texto)) && delEstado;
-        fila.hidden = !ver;
-        visibles += ver;
+    /* Las listas del seguimiento (destinatarios y autorización por estudiante) vienen del servidor por páginas: buscar,
+       filtrar y «Ver más» piden la que toca */
+    qsa('[data-lista-destinatarios]', detalle).forEach((caja) => {
+      const filas = qs('[data-destinatarios-filas]', caja);
+      const buscar = qs('[data-destinatarios-buscar]', caja);
+      let estado = '';
+      let pausa = null;
+      let pedido = null;
+      const pedirFilas = async (pagina = 1) => {
+        pedido?.abort();
+        const este = new AbortController();
+        pedido = este;
+        const url = new URL(caja.dataset.destinatariosUrl, window.location.href);
+        url.searchParams.set('pagina', pagina);
+        if (estado) url.searchParams.set('estado', estado);
+        if (buscar?.value.trim()) url.searchParams.set('q', buscar.value.trim());
+        filas.setAttribute('aria-busy', 'true');
+        try {
+          const respuesta = await fetch(url, { credentials: 'same-origin', signal: este.signal });
+          if (!respuesta.ok) throw new Error(String(respuesta.status));
+          const plantilla = document.createElement('template');
+          plantilla.innerHTML = await respuesta.text();
+          if (pagina === 1) filas.replaceChildren(plantilla.content);
+          else {
+            qs('.lista-destinatarios__mas', filas)?.remove();
+            filas.append(plantilla.content);
+          }
+        } catch (problema) {
+          if (problema.name === 'AbortError') return;
+          const aviso = document.createElement('li');
+          aviso.className = 'lista-destinatarios__vacio';
+          aviso.textContent = 'No se pudo cargar la lista. Inténtalo de nuevo.';
+          filas.replaceChildren(aviso);
+        } finally {
+          if (pedido === este) filas.removeAttribute('aria-busy');
+        }
+      };
+      buscar?.addEventListener('input', () => {
+        window.clearTimeout(pausa);
+        pausa = window.setTimeout(() => pedirFilas(), 250);
       });
-      if (vacio) {
-        vacio.hidden = Boolean(visibles);
-        vacio.textContent = estado === 'leido' && !texto ? 'Nadie lo ha leído todavía.' : estado === 'pendiente' && !texto ? 'Todos lo han leído.'
-          : estado === 'sin-responder' && !texto ? 'Todos han respondido.' : 'Nadie coincide con la búsqueda.';
-      }
-    };
-    buscar?.addEventListener('input', filtrar);
-    qsa('[data-destinatarios-estado]', detalle).forEach((boton) => boton.addEventListener('click', () => {
-      estado = boton.dataset.destinatariosEstado;
-      qsa('[data-destinatarios-estado]', detalle).forEach((otro) => {
-        otro.classList.toggle('is-activo', otro === boton);
-        otro.setAttribute('aria-pressed', String(otro === boton));
+      qsa('[data-destinatarios-estado]', caja).forEach((boton) => boton.addEventListener('click', () => {
+        estado = boton.dataset.destinatariosEstado;
+        qsa('[data-destinatarios-estado]', caja).forEach((otro) => {
+          otro.classList.toggle('is-activo', otro === boton);
+          otro.setAttribute('aria-pressed', String(otro === boton));
+        });
+        pedirFilas();
+      }));
+      filas.addEventListener('click', (evento) => {
+        const mas = evento.target.closest('[data-destinatarios-mas]');
+        if (!mas) return;
+        mas.disabled = true;
+        pedirFilas(Number(mas.dataset.destinatariosMas));
       });
-      filtrar();
-    }));
+    });
+
+    /* «Ir a tu respuesta»: sin cambiar la dirección */
+    qs('[data-ir-a-respuesta]', detalle)?.addEventListener('click', (evento) => {
+      evento.preventDefault();
+      qs('[data-respuesta-comunicado]', detalle)?.scrollIntoView({ block: 'center' });
+      qs('[data-respuesta-comunicado] button, [data-respuesta-comunicado] input', detalle)?.focus();
+    });
 
     /* Eliminar: se confirma ahí mismo (sin JavaScript, el enlace lleva a la página de confirmación) */
     const eliminar = qs('[data-detalle-eliminar]', detalle);
@@ -92,9 +123,8 @@
         const resultado = await respuesta.json().catch(() => ({}));
         if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo guardar. Inténtalo de nuevo.');
         if (formulario.matches('[data-responder]')) {
-          /* La tarjeta deja de pedir respuesta y la ventana se vuelve a pedir con la respuesta ya guardada */
-          qs(`[data-tarjeta="${detalle.dataset.comunicado}"] [data-tarjeta-responder]`)?.remove();
-          if (origen) abrirDetalle(origen);
+          /* La ventana se vuelve a pedir con la respuesta ya guardada; al llegar, la fila toma su estado nuevo */
+          if (origen) abrirDetalle(origen, { historia: false });
         } else {
           const nota = qs('.recordar-comunicado__nota', detalle);
           if (nota) nota.textContent = resultado.mensaje || 'Se recordó el comunicado.';
@@ -133,19 +163,19 @@
     return bloque;
   };
 
-  const marcarLeida = (tarjeta) => {
-    if (!tarjeta || !tarjeta.classList.contains('is-pendiente')) return false;
-    tarjeta.classList.remove('is-pendiente');
-    const nuevo = qs('[data-tarjeta-nuevo]', tarjeta);
-    if (nuevo) nuevo.hidden = true;
-    const lectura = qs('[data-tarjeta-lectura]', tarjeta);
-    if (lectura) {
-      lectura.replaceChildren(icono('check-check', 'icon icon--sm'), document.createTextNode(' Leído hoy'));
-    }
-    return true;
+  /* La fila dice lo que dice el servidor: su estado, con icono y texto */
+  const ponerEstado = (fila, detalle) => {
+    if (!fila || !detalle.dataset.estadoClave) return false;
+    const eraPendiente = fila.classList.contains('is-pendiente');
+    fila.className = fila.className.replace(/fila-comunicado--\S+/, `fila-comunicado--${detalle.dataset.estadoClave}`);
+    fila.classList.remove('is-pendiente');
+    const estado = qs('[data-fila-estado]', fila);
+    if (estado) estado.textContent = detalle.dataset.estadoTexto;
+    qs('[data-fila-icono]', fila)?.replaceChildren(icono(detalle.dataset.estadoIcono, 'icon icon--sm'));
+    return eraPendiente;
   };
 
-  const abrirDetalle = async (enlace) => {
+  const abrirDetalle = async (enlace, { historia = true } = {}) => {
     if (!ventana || typeof ventana.showModal !== 'function') {
       window.location.href = enlace.href;
       return;
@@ -155,6 +185,8 @@
     contenido.replaceChildren(esqueleto());
     ventana.setAttribute('aria-busy', 'true');
     if (!ventana.open) {
+      /* Cada comunicado abierto tiene su dirección: se puede compartir y «Atrás» regresa a la lista */
+      if (historia) window.history.pushState({ comunicado: enlace.getAttribute('href') }, '', enlace.href);
       ventana.showModal();
       document.documentElement.classList.add('is-scroll-locked');
     }
@@ -173,9 +205,9 @@
       prepararDetalle(detalle);
       qs('[data-detalle-titulo]', detalle)?.focus();
       if (detalle.dataset.pendientes !== undefined) {
-        const tarjeta = enlace.closest('[data-tarjeta]');
-        const urgente = tarjeta?.classList.contains('tarjeta-comunicado--urgente');
-        const eraPendiente = marcarLeida(tarjeta);   /* la primera lectura ya la guardó el servidor */
+        const fila = enlace.closest('[data-fila]');
+        const urgente = fila?.classList.contains('fila-comunicado--urgente');
+        const eraPendiente = ponerEstado(fila, detalle);   /* la primera apertura ya la guardó el servidor */
         document.dispatchEvent(new CustomEvent('comunicados:pendientes', {
           detail: { pendientes: Number(detalle.dataset.pendientes), urgente: Boolean(eraPendiente && urgente) },
         }));
@@ -200,10 +232,10 @@
       reintentar.className = 'btn btn--sm';
       reintentar.textContent = 'Reintentar';
       reintentar.addEventListener('click', () => abrirDetalle(enlace));
-      acciones.append(reintentar);
+      if (error.message !== '404') acciones.append(reintentar);
       aviso.append(icono('triangle-alert', 'icon icon--lg empty-state__icon'), titulo, texto, acciones);
       contenido.replaceChildren(aviso);
-      reintentar.focus();
+      (reintentar.isConnected ? reintentar : qs('[data-detalle-cerrar]', ventana))?.focus();
     } finally {
       if (miTurno === turno) ventana.removeAttribute('aria-busy');
     }
@@ -218,6 +250,15 @@
     contenido.replaceChildren();
     if (!qs('dialog[open]')) document.documentElement.classList.remove('is-scroll-locked');
     origen?.focus();
+    if (window.history.state?.comunicado) window.history.back();
+  });
+  window.addEventListener('popstate', (evento) => {
+    if (!evento.state?.comunicado) {
+      cerrarDetalle();
+      return;
+    }
+    const enlace = qsa('[data-abrir-detalle]').find((candidato) => candidato.getAttribute('href') === evento.state.comunicado);
+    if (enlace) abrirDetalle(enlace, { historia: false });
   });
   ventana?.addEventListener('click', (evento) => {
     if (evento.target === ventana) cerrarDetalle();   /* clic en el velo */
@@ -239,7 +280,7 @@
     qsa('[data-seleccion-cuenta]').forEach((nodo) => { nodo.textContent = texto; });
     qsa('[data-seleccion-cuenta-confirmar]').forEach((nodo) => { nodo.textContent = n === 1 ? '1 comunicado' : `${n} comunicados`; });
     if (botonEliminar) botonEliminar.disabled = !n;
-    casillas().forEach((casilla) => casilla.closest('[data-tarjeta]')?.classList.toggle('is-elegida', casilla.checked));
+    casillas().forEach((casilla) => casilla.closest('[data-fila]')?.classList.toggle('is-elegida', casilla.checked));
   };
 
   const alternarSeleccion = (activar = !seleccionando) => {
@@ -274,7 +315,7 @@
     if (!enlace || evento.defaultPrevented || evento.button !== 0 || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return;
     evento.preventDefault();
     if (seleccionando) {
-      const casilla = qs('[data-seleccion-casilla]', enlace.closest('[data-tarjeta]'));
+      const casilla = qs('[data-seleccion-casilla]', enlace.closest('[data-fila]'));
       if (casilla) {
         casilla.checked = !casilla.checked;
         contarSeleccion();
@@ -287,155 +328,4 @@
   document.addEventListener('keydown', (evento) => {
     if (evento.key === 'Escape' && seleccionando && !qs('dialog[open]')) alternarSeleccion(false);
   });
-
-  /* =============================================================== Calendario del filtro por fecha */
-  const formulario = qs('[data-comunicados-filtros]');
-  /* La categoría se aplica al elegirla */
-  qs('[data-comunicados-categoria]', formulario || document)?.addEventListener('change', () => formulario?.requestSubmit());
-  const entrada = qs('[data-fecha-filtro]');
-  const botonCalendario = qs('[data-calendario-abrir]');
-  const calendario = qs('[data-calendario-filtro]');
-  if (!formulario || !entrada || !botonCalendario || !calendario || !HTMLElement.prototype.showPopover) return;
-
-  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-  const leer = (texto) => {
-    const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto || '');
-    return partes ? new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3])) : null;
-  };
-  const iso = (fecha) => `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
-  const sumarDias = (fecha, dias) => new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate() + dias);
-  const mismoDia = (a, b) => Boolean(a && b) && a.getTime() === b.getTime();
-  /* «Hoy» es el del colegio (lo manda el servidor con su zona horaria), no el del reloj de este equipo */
-  const hoy = leer(entrada.dataset.hoy) || (() => { const a = new Date(); return new Date(a.getFullYear(), a.getMonth(), a.getDate()); })();
-
-  const titulo = qs('[data-calendario-mes]', calendario);
-  const cuerpo = qs('[data-calendario-dias]', calendario);
-  const [anterior, siguiente] = qsa('[data-calendario-paso]', calendario);
-  const limpiar = qs('[data-calendario-limpiar]', calendario);
-  calendario.hidden = false;
-  calendario.removeAttribute('hidden');
-  document.body.append(calendario);
-
-  const elegida = leer(entrada.value);
-  let mes = new Date((elegida || hoy).getFullYear(), (elegida || hoy).getMonth(), 1);
-  let foco = elegida || hoy;
-
-  qsa('[data-calendario-atajo]', calendario).forEach((atajo) => {
-    atajo.classList.toggle('is-elegido', mismoDia(sumarDias(hoy, -Number(atajo.dataset.calendarioAtajo)), elegida));
-  });
-
-  const pintar = () => {
-    titulo.textContent = `${MESES[mes.getMonth()]} ${mes.getFullYear()}`;
-    siguiente.disabled = mes.getFullYear() > hoy.getFullYear() || (mes.getFullYear() === hoy.getFullYear() && mes.getMonth() >= hoy.getMonth());
-    const inicio = sumarDias(mes, -((mes.getDay() + 6) % 7));   /* el lunes de la primera semana */
-    const filas = [];
-    for (let semana = 0; semana < 6; semana += 1) {
-      const fila = document.createElement('tr');
-      for (let dia = 0; dia < 7; dia += 1) {
-        const fecha = sumarDias(inicio, semana * 7 + dia);
-        const celda = document.createElement('td');
-        const boton = document.createElement('button');
-        boton.type = 'button';
-        boton.className = 'calendario__dia';
-        boton.textContent = String(fecha.getDate());
-        boton.dataset.fecha = iso(fecha);
-        boton.setAttribute('aria-label', `${DIAS[fecha.getDay()]} ${fecha.getDate()} de ${MESES[fecha.getMonth()]} de ${fecha.getFullYear()}`);
-        if (fecha.getMonth() !== mes.getMonth()) boton.classList.add('is-otro-mes');
-        if (fecha > hoy) {
-          boton.disabled = true;
-          boton.classList.add('is-futuro');
-        }
-        if (mismoDia(fecha, hoy)) {
-          boton.classList.add('is-hoy');
-          boton.setAttribute('aria-current', 'date');
-        }
-        if (mismoDia(fecha, elegida)) {
-          boton.classList.add('is-elegido');
-          boton.setAttribute('aria-pressed', 'true');
-        }
-        boton.tabIndex = mismoDia(fecha, foco) ? 0 : -1;
-        celda.append(boton);
-        fila.append(celda);
-      }
-      filas.push(fila);
-      if (sumarDias(inicio, (semana + 1) * 7).getMonth() !== mes.getMonth() && semana >= 3) break;
-    }
-    cuerpo.replaceChildren(...filas);
-  };
-
-  const colocar = () => {
-    if (window.CISAHUAYO?.pickers?.place) {
-      window.CISAHUAYO.pickers.place(calendario, botonCalendario);
-      return;
-    }
-    const ancla = botonCalendario.getBoundingClientRect();
-    calendario.style.top = `${ancla.bottom + 6}px`;
-    calendario.style.left = `${Math.max(8, Math.min(ancla.left, window.innerWidth - calendario.offsetWidth - 8))}px`;
-  };
-
-  const abierto = () => calendario.matches(':popover-open');
-  const abrir = () => {
-    mes = new Date((elegida || hoy).getFullYear(), (elegida || hoy).getMonth(), 1);
-    foco = elegida || hoy;
-    pintar();
-    calendario.showPopover();
-    colocar();
-    botonCalendario.setAttribute('aria-expanded', 'true');
-    qs('.calendario__dia[tabindex="0"]', calendario)?.focus();
-  };
-  const cerrar = (devolverFoco = true) => {
-    if (abierto()) calendario.hidePopover();
-    botonCalendario.setAttribute('aria-expanded', 'false');
-    if (devolverFoco) botonCalendario.focus();
-  };
-  const aplicar = (fecha) => {
-    entrada.value = fecha ? iso(fecha) : '';
-    qsa('input[name="page"]', formulario).forEach((campo) => campo.remove());
-    qsa('input[name="q"]', formulario).forEach((campo) => { campo.disabled = !campo.value.trim(); });   /* sin «q=» vacío */
-    cerrar(false);
-    formulario.requestSubmit ? formulario.requestSubmit() : formulario.submit();
-  };
-
-  botonCalendario.addEventListener('click', () => (abierto() ? cerrar() : abrir()));
-  anterior.addEventListener('click', () => {
-    mes = new Date(mes.getFullYear(), mes.getMonth() - 1, 1);
-    foco = mes;
-    pintar();
-  });
-  siguiente.addEventListener('click', () => {
-    mes = new Date(mes.getFullYear(), mes.getMonth() + 1, 1);
-    foco = mes > hoy ? hoy : mes;
-    pintar();
-  });
-  cuerpo.addEventListener('click', (evento) => {
-    const boton = evento.target.closest('.calendario__dia');
-    if (boton && !boton.disabled) aplicar(leer(boton.dataset.fecha));
-  });
-  cuerpo.addEventListener('keydown', (evento) => {
-    const pasos = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-    if (!(evento.key in pasos)) return;
-    evento.preventDefault();
-    const nueva = sumarDias(foco, pasos[evento.key]);
-    if (nueva > hoy) return;
-    foco = nueva;
-    if (foco.getMonth() !== mes.getMonth() || foco.getFullYear() !== mes.getFullYear()) mes = new Date(foco.getFullYear(), foco.getMonth(), 1);
-    pintar();
-    qs('.calendario__dia[tabindex="0"]', calendario)?.focus();
-  });
-  qsa('[data-calendario-atajo]', calendario).forEach((atajo) => atajo.addEventListener('click', () => {
-    aplicar(sumarDias(hoy, -Number(atajo.dataset.calendarioAtajo)));
-  }));
-  limpiar?.addEventListener('click', () => aplicar(null));
-  calendario.addEventListener('keydown', (evento) => {
-    if (evento.key === 'Escape') {
-      evento.preventDefault();
-      cerrar();
-    }
-  });
-  document.addEventListener('pointerdown', (evento) => {
-    if (abierto() && !calendario.contains(evento.target) && !botonCalendario.contains(evento.target)) cerrar(false);
-  });
-  window.addEventListener('resize', () => { if (abierto()) colocar(); });
-  window.addEventListener('scroll', () => { if (abierto()) colocar(); }, { passive: true });
 })();

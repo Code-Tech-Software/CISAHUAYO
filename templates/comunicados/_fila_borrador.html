@@ -1,0 +1,17 @@
+{% comment %}
+  Un borrador en la bandeja «Borradores»: se sigue en la página de crear (Comunicados/views.crear con ?borrador=N).
+{% endcomment %}
+<li class="fila-comunicado fila-comunicado--borrador">
+  <a class="fila-comunicado__enlace" href="{% url 'comunicados:crear' %}?borrador={{ borrador.pk }}">
+    <span class="fila-comunicado__icono" aria-hidden="true">{% include "partials/icon.html" with name="notebook-pen" icon_class="icon--sm" %}</span>
+    <span class="fila-comunicado__texto">
+      <span class="fila-comunicado__titulo">{{ borrador }}</span>
+      <span class="fila-comunicado__meta"><span>Guardado el {{ borrador.actualizado|date:"j b Y, H:i" }}</span></span>
+    </span>
+    <span class="fila-comunicado__estado">Continuar</span>
+  </a>
+  <form method="post" action="{% url 'comunicados:borrador_descartar' borrador.pk %}" class="fila-comunicado__accion">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--ghost btn--icon btn--sm" aria-label="Descartar «{{ borrador }}»" data-tooltip="Descartar">{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %}</button>
+  </form>
+</li>

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Cancelar un evento (en una ventana sobre el calendario o como página): sigue en la agenda, tachado y con su motivo, y se
+  avisa a quienes lo ven. Si es de una serie, se elige si se cancela solo ese o ese y los siguientes. Para quitarlo de la
+  agenda de todos está «Eliminar».
+{% endcomment %}
+
+{% block title %}Cancelar evento · Agenda | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/agenda.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ volver }}">Agenda</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Cancelar evento</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">¿Cancelar «{{ evento.titulo }}»?</h1>
+      <p class="page-header__description">Seguirá en la agenda, tachado y con el motivo, para que nadie se presente. Se puede volver a activar.</p>
+    </div>
+  </header>
+
+  <form class="form-page" method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    <section class="card agenda-ficha" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+      <div class="card__body form-grid">
+        <div class="form-grid__full">
+          <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
+          <p class="agenda-ficha__resumen"><strong>{{ evento.titulo }}</strong><br>{{ evento.texto_de_fechas }} · {{ evento.texto_de_horario }}</p>
+        </div>
+        {% include "partials/field.html" with campo=form.motivo clase="form-grid__full" %}
+        <div class="field form-grid__full">
+          <label class="choice choice--check" for="{{ form.avisar.id_for_label }}">{{ form.avisar }}<span class="choice__box">{{ form.avisar.label }}</span></label>
+          <p class="field__hint">Les llega en la campana y en el teléfono (si activaron las notificaciones).</p>
+        </div>
+        {% if evento.serie %}
+          <fieldset class="agenda-serie form-grid__full">
+            <legend class="field__label">{{ evento.repeticion|default:"Este evento se repite" }}</legend>
+            <label class="choice choice--check"><input class="choice__input" type="radio" name="alcance" value="este" checked><span class="choice__box">Solo este</span></label>
+            <label class="choice choice--check"><input class="choice__input" type="radio" name="alcance" value="siguientes"><span class="choice__box">Este y los siguientes de la serie ({{ siguientes }} en total)</span></label>
+          </fieldset>
+        {% endif %}
+      </div>
+    </section>
+    <div class="action-bar">
+      <a class="btn" href="{{ volver }}">No cancelar</a>
+      <button type="submit" class="btn btn--danger">Cancelar evento</button>
+    </div>
+  </form>
+{% endblock %}

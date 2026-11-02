@@ -97,7 +97,7 @@ class MesTests(BaseTestCase):
         self.assertEqual(semana.carriles, 2)
 
     def test_lo_que_no_cabe_en_un_dia_se_cuenta_como_mas_eventos(self):
-        eventos = [evento(f'Evento {n}', inicio=date(2026, 10, 20), horas=(time(8 + n), time(9 + n))) for n in range(5)]
+        eventos = [evento(f'Evento {n}', inicio=date(2026, 10, 20), horas=(time(8 + n), time(9 + n))) for n in range(calendario.CARRILES + 2)]
         semana = calendario.semanas(eventos, OCTUBRE, hoy=OCTUBRE)[3]
         martes = semana.dias[1]
         self.assertEqual(len(semana.tramos), calendario.CARRILES)
@@ -316,7 +316,7 @@ class VisibilidadTests(BaseTestCase):
         self.personal('sinniveles')
         respuesta = self.client.get(CALENDARIO, {'mes': '2026-10'})
         self.ve(respuesta, COLEGIO)
-        self.assertTrue(respuesta.context['sin_niveles'])
+        self.assertIn('no tiene niveles educativos asignados', respuesta.context['aviso_sin_niveles'])
         self.assertContains(respuesta, 'no tiene niveles educativos asignados')
 
     def test_el_servidor_niega_registrar_editar_y_eliminar_a_quien_no_es_administrador(self):

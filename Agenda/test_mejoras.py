@@ -36,7 +36,7 @@ def datos_del_evento(**cambios):
     datos = {
         'titulo': 'Taller de lectura', 'alcance': 'PRIMARIA', 'tipo': '', 'fecha_inicio': '2026-11-04', 'fecha_fin': '',
         'todo_el_dia': 'on', 'hora_inicio': '', 'hora_fin': '', 'lugar': 'Biblioteca', 'descripcion': '',
-        'volver': f'{CALENDARIO}?mes=2026-11',
+        'para_familias': 'on', 'para_estudiantes': 'on', 'volver': f'{CALENDARIO}?mes=2026-11',
     }
     datos.update(cambios)
     return {clave: valor for clave, valor in datos.items() if valor is not None}
@@ -90,10 +90,13 @@ class OtrosModulosTests(BaseTestCase):
         respuesta = self.client.get(CALENDARIO, {'mes': f'{ciclo.fecha_inicio:%Y-%m}'})
         self.assertIn(f'ci{ciclo.pk}i', [dato['id'] for dato in externos(respuesta, 'ci')])
 
-    def test_con_filtro_de_nivel_no_aparece_lo_que_no_tiene_nivel(self):
+    def test_con_filtro_de_nivel_el_ciclo_escolar_sigue_a_la_vista(self):
+        """El filtro de nivel aplica a lo que tiene nivel; el ciclo escolar (y los comunicados y reuniones de quien mira) se
+        ven siempre (2026-11-02)."""
         ciclo = ciclo_actual_de_prueba()
-        respuesta = self.client.get(CALENDARIO, {'mes': f'{ciclo.fecha_inicio:%Y-%m}', 'nivel': 'PRIMARIA'})
-        self.assertEqual(externos(respuesta, 'ci'), [])
+        for filtro in ('PRIMARIA', 'COLEGIO'):
+            respuesta = self.client.get(CALENDARIO, {'mes': f'{ciclo.fecha_inicio:%Y-%m}', 'nivel': filtro})
+            self.assertEqual([dato['id'] for dato in externos(respuesta, 'ci')], [f'ci{ciclo.pk}i'])
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +130,7 @@ class HistorialYEnlacesTests(BaseTestCase):
         original = evento('Festival', 'SECUNDARIA', lugar='Auditorio', tipo=FESTIVAL, importante=True)
         form = self.client.get(NUEVO, {'copiar': original.pk}).context['form']
         self.assertEqual((form['titulo'].value(), form['alcance'].value(), form['lugar'].value(), form['tipo'].value()),
-                         ('Festival', 'SECUNDARIA', 'Auditorio', FESTIVAL))
+                         ('Festival', ['SECUNDARIA'], 'Auditorio', FESTIVAL))
         self.assertTrue(form['importante'].value())
         self.assertEqual([dato.get('duplicar', '') for dato in self.client.get(CALENDARIO, {'mes': '2026-10'}).context['datos_eventos']],
                          [f'{NUEVO}?copiar={original.pk}&volver=%2Fagenda%2F%3Fmes%3D2026-10'])
@@ -293,6 +296,8 @@ class CalendarioDelTelefonoTests(BaseTestCase):
 class RecordatoriosTests(BaseTestCase):
     def setUp(self):
         super().setUp()
+        # Los recordatorios no salen de noche: estas pruebas no dependen de la hora en que se corren
+        self.enterContext(mock.patch.multiple(recordatorios, HORA_DESDE=0, HORA_HASTA=24))
         self.hoy = timezone.localdate()
         ciclo = ciclo_actual_de_prueba()
         self.lucia = crear_alumno(nombre='Lucía')

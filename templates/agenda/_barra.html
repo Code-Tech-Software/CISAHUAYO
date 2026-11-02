@@ -1,0 +1,11 @@
+{% comment %}
+  Lo de dentro de la barra de un evento en el mes y en la semana: si viene de antes o sigue después, su icono, la hora,
+  los colores de sus niveles (si es de varios) y el título; para el lector de pantalla, también su alcance, sus fechas,
+  su horario y si está cancelado. Parámetros: evento, antes y despues.
+{% endcomment %}{% if antes %}<span class="agenda-evento__sigue" aria-hidden="true">‹</span>{% endif %}
+{% if evento.tipo or evento.es_externo %}<span class="agenda-evento__icono" aria-hidden="true">{% include "partials/icon.html" with name=evento.icono icon_class="icon--sm" %}</span>{% endif %}
+{% if evento.colores_de_niveles %}<span class="agenda-evento__niveles" aria-hidden="true">{% for color in evento.colores_de_niveles %}<i style="--punto: {{ color }}"></i>{% endfor %}</span>{% endif %}
+{% if evento.hora_corta and not antes %}<span class="agenda-evento__hora">{{ evento.hora_corta }}</span>{% endif %}
+<span class="agenda-evento__titulo">{{ evento.titulo }}</span>
+<span class="visually-hidden">{% if evento.cancelado %} · Cancelado{% endif %} · {{ evento.nombre_alcance }} · {{ evento.texto_de_fechas }} · {{ evento.texto_de_horario }}</span>
+{% if despues %}<span class="agenda-evento__sigue agenda-evento__sigue--fin" aria-hidden="true">›</span>{% endif %}

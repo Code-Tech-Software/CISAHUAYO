@@ -117,6 +117,20 @@ def ciclo_editar(request, pk):
 # ---------------------------------------------------------------------------
 # Detalle
 # ---------------------------------------------------------------------------
+def _dia_sin_clases_pedido(request, ciclo):
+    """Lo que el formulario de días sin clases trae ya escrito: el ciclo y, desde un evento de vacaciones de la agenda
+    («Registrar en Asistencia»), sus fechas, su motivo y sus niveles. Se registra hasta que se confirma aquí."""
+    inicial = {'ciclo': ciclo}
+    for campo in ('desde', 'hasta', 'motivo'):
+        valor = request.GET.get(f'sin_clases_{campo}', '').strip()
+        if valor:
+            inicial[campo] = valor[:120]
+    niveles = request.GET.getlist('sin_clases_niveles')
+    if niveles:
+        inicial['niveles'] = niveles
+    return inicial
+
+
 @requiere_permisos('Alumnos.view_cicloescolar')
 def ciclo_detalle(request, pk):
     ciclo = get_object_or_404(CicloEscolar.objects.select_related('activado_por', 'cerrado_por'), pk=pk)
@@ -158,7 +172,7 @@ def ciclo_detalle(request, pk):
         'impide_borrar': ligado(ciclo) if usuario.has_perm('Alumnos.delete_cicloescolar') else None,
         # Días sin clases de las fechas del ciclo; se agregan solo al actual o a uno próximo
         'dias_sin_clases': dias_sin_clases_registrados(ciclo=ciclo),
-        'dia_form': DiaNoLectivoForm(initial={'ciclo': ciclo}) if vigente and usuario.has_perm('Alumnos.add_dianolectivo') else None,
+        'dia_form': DiaNoLectivoForm(initial=_dia_sin_clases_pedido(request, ciclo)) if vigente and usuario.has_perm('Alumnos.add_dianolectivo') else None,
         'hoy': timezone.localdate(),
     })
 
@@ -173,7 +187,9 @@ def dias_sin_clases(request):
     )
     if ciclo is None:
         return redirect('ciclos:lista')
-    return redirect(f'{ciclo.get_absolute_url()}#dias-sin-clases')
+    # «Registrar en Asistencia» desde un evento de vacaciones de la agenda trae el formulario ya lleno (sin_clases_*)
+    consulta = request.GET.urlencode()
+    return redirect(f'{ciclo.get_absolute_url()}{"?" + consulta if consulta else ""}#dias-sin-clases')
 
 
 # ---------------------------------------------------------------------------

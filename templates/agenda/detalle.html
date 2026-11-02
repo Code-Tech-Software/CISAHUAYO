@@ -1,9 +1,10 @@
 {% extends base %}
 {% load static %}
 {% comment %}
-  El detalle de un evento como página (sin JavaScript o desde un enlace directo, como el de un recordatorio; con él se
-  abre en una ventana sobre el calendario). En el sistema y en los portales: «Agregar a mi calendario» para todos;
-  duplicar, editar y eliminar solo para quien gestiona la agenda.
+  El detalle de un evento como página (sin JavaScript, desde un enlace directo como el de un aviso, o para lo que no cabe
+  en la ventana del calendario). En el sistema y en los portales: «Agregar a mi calendario» y sus archivos para todos; en
+  el portal de tutores, «¿Asistirán?» si el evento lo pide; para quien gestiona, el resumen de las confirmaciones,
+  duplicar, editar, cancelar o reactivar, eliminar, «Avisar con un comunicado» y «Registrar en Asistencia».
 {% endcomment %}
 
 {% block title %}{{ evento.titulo }} · Agenda | CISAHUAYO{% endblock %}
@@ -21,27 +22,98 @@
 {% endblock %}
 
 {% block content %}
-  <article class="card agenda-ficha" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
+  <article class="card agenda-ficha{% if evento.cancelado %} is-cancelado{% endif %}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">
     <header class="card__header agenda-ficha__cabeza">
-      <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
-      {% if evento.tipo %}<span class="agenda-etiqueta">{% include "partials/icon.html" with name=evento.icono icon_class="icon--sm" %} {{ evento.nombre_tipo }}</span>{% endif %}
+      <span class="agenda-ficha__etiquetas">
+        <span class="agenda-etiqueta agenda-etiqueta--color">{{ evento.nombre_alcance }}</span>
+        {% if evento.tipo %}<span class="agenda-etiqueta">{% include "partials/icon.html" with name=evento.icono icon_class="icon--sm" %} {{ evento.nombre_tipo }}</span>{% endif %}
+        {% if evento.cancelado %}<span class="agenda-estado">Cancelado</span>{% endif %}
+      </span>
       <h1 class="agenda-ficha__titulo">{{ evento.titulo }}</h1>
     </header>
     <div class="card__body">
+      {% if evento.cancelado %}
+        <div class="alert alert--warning" role="status">
+          {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
+          <div class="alert__body"><p><strong>Este evento se canceló</strong>{% if evento.cancelado_en %} el {{ evento.cancelado_en|date:"j \d\e F"|lower }}{% endif %}.{% if evento.motivo_cancelacion %} {{ evento.motivo_cancelacion }}{% endif %}</p></div>
+        </div>
+      {% endif %}
       <dl class="agenda-detalle__datos">
         <div><dt>{% include "partials/icon.html" with name="calendar" icon_class="icon--sm" %}<span class="visually-hidden">Fechas</span></dt><dd>{{ evento.texto_de_fechas }}</dd></div>
         <div><dt>{% include "partials/icon.html" with name="clock" icon_class="icon--sm" %}<span class="visually-hidden">Horario</span></dt><dd>{{ evento.texto_de_horario }}</dd></div>
         {% if evento.lugar %}<div><dt>{% include "partials/icon.html" with name="map-pin" icon_class="icon--sm" %}<span class="visually-hidden">Lugar</span></dt><dd>{{ evento.lugar }}</dd></div>{% endif %}
+        {% if publico %}<div><dt>{% include "partials/icon.html" with name="users" icon_class="icon--sm" %}<span class="visually-hidden">Para quién</span></dt><dd>{{ publico }}</dd></div>{% endif %}
         {% if evento.repeticion %}<div><dt>{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %}<span class="visually-hidden">Se repite</span></dt><dd>{{ evento.repeticion }}{% if de_la_serie %} ({{ de_la_serie }} fechas){% endif %}</dd></div>{% endif %}
       </dl>
       {% if descripcion %}<div class="agenda-detalle__descripcion">{{ descripcion }}</div>{% endif %}
-      {% if evento.importante %}<p class="agenda-detalle__importante">{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Se recuerda un día antes en la campana y en el teléfono.</p>{% endif %}
+      {% if adjuntos %}
+        <ul class="agenda-adjuntos" aria-label="Archivos">
+          {% for adjunto, url in adjuntos %}
+            <li><a class="agenda-adjuntos__archivo" href="{{ url }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name=adjunto.es_imagen|yesno:"image,file-text" icon_class="icon--sm" %} {{ adjunto.nombre_original }}</a>
+              <a class="btn btn--ghost btn--icon btn--sm" href="{{ url }}?descargar=1" aria-label="Descargar {{ adjunto.nombre_original }}" data-tooltip="Descargar">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if evento.importante and not evento.cancelado %}<p class="agenda-detalle__importante">{% include "partials/icon.html" with name="bell" icon_class="icon--sm" %} Se recuerda {{ evento.get_recordar_dias_display|lower }} en la campana y en el teléfono.</p>{% endif %}
+      {% if url_comunicado_enviado %}<p class="agenda-detalle__vinculo">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %} Se avisó con el comunicado «{{ evento.comunicado.titulo }}». <a href="{{ url_comunicado_enviado }}">Ver su seguimiento</a></p>{% endif %}
+
+      {% if url_confirmar %}
+        <section class="agenda-confirmar" aria-labelledby="titulo-confirmar">
+          <h2 class="agenda-confirmar__titulo" id="titulo-confirmar">¿Asistirán?</h2>
+          {% if mi_confirmacion %}<p class="agenda-confirmar__actual">Respondiste: <strong>{% if mi_confirmacion.asistira %}asistiremos ({{ mi_confirmacion.personas }} persona{{ mi_confirmacion.personas|pluralize }}){% else %}no asistiremos{% endif %}</strong>{% if puede_confirmar %}. Puedes cambiarlo hasta el día del evento.{% endif %}</p>{% endif %}
+          {% if puede_confirmar %}
+            <form class="agenda-confirmar__form" method="post" action="{{ url_confirmar }}">
+              {% csrf_token %}
+              <input type="hidden" name="volver" value="{{ volver }}">
+              <label class="field agenda-confirmar__personas"><span class="field__label">Personas que asistirán</span>
+                <select class="field__control field__control--select" name="personas">
+                  {% for n in personas_posibles %}<option value="{{ n }}"{% if mi_confirmacion.personas == n %} selected{% endif %}>{{ n }}</option>{% endfor %}
+                </select>
+              </label>
+              <button type="submit" class="btn btn--primary" name="asistira" value="si">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Sí asistiremos</button>
+              <button type="submit" class="btn" name="asistira" value="no">No asistiremos</button>
+            </form>
+          {% elif not mi_confirmacion %}
+            <p class="agenda-semanal__nada">Este evento ya no recibe confirmaciones.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      {% if confirmaciones %}
+        <section class="agenda-confirmar" aria-labelledby="titulo-confirmaciones">
+          <h2 class="agenda-confirmar__titulo" id="titulo-confirmaciones">Confirmaciones de asistencia</h2>
+          <ul class="agenda-confirmar__cifras">
+            <li><strong>{{ confirmaciones.si }}</strong> familia{{ confirmaciones.si|pluralize }} asistirá{{ confirmaciones.si|pluralize:"n" }} ({{ confirmaciones.personas }} persona{{ confirmaciones.personas|pluralize }})</li>
+            <li><strong>{{ confirmaciones.no }}</strong> no asistirá{{ confirmaciones.no|pluralize:"n" }}</li>
+            <li><strong>{{ confirmaciones.sin_responder }}</strong> sin responder</li>
+          </ul>
+          {% if confirmaciones.respuestas %}
+            <div class="table-card table-card--flush agenda-confirmar__tabla">
+              <table class="table">
+                <thead class="table__head"><tr><th class="table__th" scope="col">Familia</th><th class="table__th" scope="col">Respuesta</th><th class="table__th" scope="col">Personas</th><th class="table__th" scope="col">Respondió</th></tr></thead>
+                <tbody>
+                  {% for respuesta in confirmaciones.respuestas %}
+                    <tr class="table__row"><td class="table__cell">{{ respuesta.tutor }}</td><td class="table__cell">{% if respuesta.asistira %}Asistirá{% else %}No asistirá{% endif %}</td><td class="table__cell">{% if respuesta.asistira %}{{ respuesta.personas }}{% else %}—{% endif %}</td><td class="table__cell">{{ respuesta.respondido_en|date:"j b, H:i" }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        </section>
+      {% endif %}
     </div>
     <footer class="card__footer agenda-ficha__pie">
       <a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver a la agenda</a>
       <a class="btn btn--ghost" href="{{ url_ics }}">{% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Agregar a mi calendario</a>
+      {% if url_comunicado %}<a class="btn btn--ghost" href="{{ url_comunicado }}">{% include "partials/icon.html" with name="megaphone" icon_class="icon--sm" %} Avisar con un comunicado</a>{% endif %}
+      {% if url_sin_clases %}<a class="btn btn--ghost" href="{{ url_sin_clases }}">{% include "partials/icon.html" with name="sun" icon_class="icon--sm" %} Registrar en Asistencia</a>{% endif %}
       {% if gestiona %}
         <a class="btn btn--ghost" href="{% url 'agenda:crear' %}?copiar={{ evento.pk }}&amp;volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="copy" icon_class="icon--sm" %} Duplicar</a>
+        {% if evento.cancelado %}
+          <form method="post" action="{% url 'agenda:reactivar' evento.pk %}" class="agenda-ficha__form">{% csrf_token %}<input type="hidden" name="volver" value="{{ volver }}"><button type="submit" class="btn btn--ghost">{% include "partials/icon.html" with name="undo" icon_class="icon--sm" %} Reactivar</button></form>
+        {% else %}
+          <a class="btn btn--ghost" href="{% url 'agenda:cancelar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="circle-x" icon_class="icon--sm" %} Cancelar evento</a>
+        {% endif %}
         <a class="btn btn--danger-text" href="{% url 'agenda:eliminar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="trash" icon_class="icon--sm" %} Eliminar</a>
         <a class="btn btn--primary" href="{% url 'agenda:editar' evento.pk %}?volver={{ volver|urlencode }}" data-modal-form>{% include "partials/icon.html" with name="pencil" icon_class="icon--sm" %} Editar</a>
       {% endif %}

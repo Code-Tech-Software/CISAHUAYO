@@ -1,0 +1,25 @@
+{% comment %}
+  El mes en miniatura (Agenda/calendario.mini_mes): en el teléfono, sobre la lista del mes (cada día con eventos lleva a
+  su lugar en la lista) y en la vista del ciclo escolar. Hasta tres puntos con los colores de los eventos de cada día; los
+  días sin clases, sombreados. Parámetros: semanas, titulo (para el lector de pantalla) y enlazar.
+{% endcomment %}
+<table class="agenda-mini">
+  <caption class="visually-hidden">{{ titulo }}</caption>
+  <thead><tr><th scope="col" abbr="Lunes">L</th><th scope="col" abbr="Martes">M</th><th scope="col" abbr="Miércoles">M</th><th scope="col" abbr="Jueves">J</th><th scope="col" abbr="Viernes">V</th><th scope="col" abbr="Sábado">S</th><th scope="col" abbr="Domingo">D</th></tr></thead>
+  <tbody>
+    {% for semana in semanas %}
+      <tr>
+        {% for dia in semana %}
+          <td class="agenda-mini__dia{% if not dia.en_mes %} is-fuera{% endif %}{% if dia.es_hoy %} is-hoy{% endif %}{% if dia.sin_clases %} is-sin-clases{% endif %}"{% if dia.sin_clases %} title="Sin clases: {{ dia.sin_clases }}"{% endif %}>
+            {% if enlazar and dia.en_mes and dia.eventos %}
+              <a class="agenda-mini__numero" href="#dia-{{ dia.fecha|date:'Y-m-d' }}" data-agenda-ir-al-dia aria-label="{{ dia.texto }}: {{ dia.eventos|length }} evento{{ dia.eventos|length|pluralize }}"{% if dia.es_hoy %} aria-current="date"{% endif %}>{{ dia.fecha.day }}</a>
+            {% else %}
+              <span class="agenda-mini__numero"{% if dia.es_hoy %} aria-current="date"{% endif %}>{% if dia.en_mes %}{{ dia.fecha.day }}{% endif %}</span>
+            {% endif %}
+            {% if dia.en_mes and dia.colores %}<span class="agenda-mini__puntos" aria-hidden="true">{% for color in dia.colores %}<i style="--punto: {{ color }}"></i>{% endfor %}</span>{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

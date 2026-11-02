@@ -298,9 +298,14 @@ MODULOS = (
         }),
     )),
     Modulo('agenda', 'Agenda', 'calendar', 'El calendario de eventos del colegio por nivel educativo. Todos consultan los de sus niveles y los de todo el colegio.', (
+        Funcion('Eventos de sus niveles', {'editar': 'Agenda.gestionar_nivel'}, etiquetas={'editar': 'Gestionar'}, ayuda={
+            'editar': 'Registrar, corregir, cancelar y eliminar los eventos que son solo de sus niveles (los que tiene como '
+                      'docente, dirección o coordinación, y los «Niveles para comunicados» o «para retiros» de su ficha). Los '
+                      'de todo el colegio siguen siendo del administrador.',
+        }),
         Funcion('Eventos de la agenda', {'editar': 'Agenda.gestionar'}, etiquetas={'editar': 'Gestionar'},
                 reservado={'editar': ADMINISTRADOR}, ayuda={
-            'editar': 'Crear, editar y eliminar los eventos de cualquier nivel o de todo el colegio. Exclusivo del administrador.',
+            'editar': 'Crear, editar, cancelar y eliminar los eventos de cualquier nivel o de todo el colegio. Exclusivo del administrador.',
         }),
     )),
     Modulo('panel', 'Panel de control', 'layout-dashboard', 'Los indicadores del colegio y las alertas de los estudiantes que requieren atención.', (

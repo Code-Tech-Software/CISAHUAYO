@@ -18,7 +18,7 @@ from .reglas import EnvioRechazado
 # Los campos del formulario que se guardan tal como vienen
 CAMPOS = ('descripcion', 'html', 'urgente', 'categoria', 'fijado', 'respuesta', 'pregunta', 'responder_fecha', 'responder_hora',
           'publicar_fecha', 'publicar_hora', 'expira_fecha', 'expira_hora', 'evento_fecha', 'evento_hora_inicio', 'evento_hora_fin',
-          'evento_lugar', 'destinatarios')
+          'evento_lugar', 'destinatarios', 'evento_agenda')
 MAXIMO_POR_CAMPO = Comunicado.MAXIMO_HTML * 3
 
 

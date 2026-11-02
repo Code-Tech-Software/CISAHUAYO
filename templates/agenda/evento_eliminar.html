@@ -21,7 +21,8 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">¿Eliminar «{{ evento.titulo }}»?</h1>
-      <p class="page-header__description">Se quitará de la agenda de todos los que lo ven. No se puede deshacer, pero queda anotado en la Bitácora de cambios.</p>
+      <p class="page-header__description">Se quitará de la agenda de todos los que lo ven, sin avisarles. No se puede deshacer, pero queda anotado en la Bitácora de cambios.
+        {% if not evento.cancelado %}Si el evento ya no se hará, mejor <a href="{% url 'agenda:cancelar' evento.pk %}?volver={{ volver|urlencode }}">cancélalo</a>: seguirá visible con el motivo y se avisará a quienes lo ven.{% endif %}</p>
     </div>
   </header>
 

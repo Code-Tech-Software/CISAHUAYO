@@ -22,6 +22,7 @@ class EventoIcs:
     descripcion: str = ''
     lugar: str = ''
     url: str = ''
+    cancelado: bool = False         # sigue en el calendario, marcado como cancelado
 
 
 def texto(valor):
@@ -60,7 +61,9 @@ def _lineas(evento, ahora):
         lineas += [f'DTSTART:{utc(inicio)}', f'DTEND:{utc(termina)}']
     else:
         lineas += [f'DTSTART;VALUE=DATE:{evento.fecha_inicio:%Y%m%d}', f'DTEND;VALUE=DATE:{fin + timedelta(days=1):%Y%m%d}']
-    lineas.append(f'SUMMARY:{texto(evento.titulo)}')
+    if evento.cancelado:
+        lineas.append('STATUS:CANCELLED')
+    lineas.append(f'SUMMARY:{texto(("Cancelado: " if evento.cancelado else "") + evento.titulo)}')
     descripcion = (evento.descripcion or '')[:1000] + (f'\n\n{evento.url}' if evento.url else '')
     if descripcion.strip():
         lineas.append(f'DESCRIPTION:{texto(descripcion.strip())}')

@@ -10,6 +10,8 @@ Lo de otros módulos (solo para leer: se cambia en su propio módulo), cada cosa
 - Reuniones con familias programadas o confirmadas: las del tutor y las del personal que participa o es responsable.
 - Fechas de captura de calificaciones (periodos por fechas): para quien captura o cierra calificaciones, de sus niveles.
 - Inicio y fin del ciclo escolar: para todos.
+El filtro de nivel aplica a lo que tiene nivel (días sin clases y fechas de calificaciones); los comunicados, las
+reuniones y el ciclo escolar de quien mira se ven siempre (2026-11-02).
 Si una fuente falla (p. ej. sin la migración de su módulo), la agenda sigue con las demás.
 """
 import logging
@@ -109,6 +111,12 @@ class EventoExterno:
     es_externo = True
     importante = False
     serie = None
+    cancelado = False
+    por_grupos = False
+    pide_confirmacion = False
+    comunicado_id = None
+    colores_de_niveles = ()
+    repeticion = ''
 
     @property
     def pk(self):
@@ -125,6 +133,10 @@ class EventoExterno:
     @property
     def todo_el_dia(self):
         return self.hora_inicio is None
+
+    @property
+    def con_horario(self):
+        return self.hora_inicio is not None
 
     @property
     def varios_dias(self):
@@ -318,9 +330,7 @@ def _seguro(funcion, *argumentos):
 
 
 def externos(persona, desde, hasta, filtro=''):
-    """Todo lo de otros módulos que ve esa persona entre esas fechas. Con filtro de nivel, solo lo que tiene nivel (los
-    días sin clases y las fechas de calificaciones)."""
-    eventos = _seguro(dias_sin_clases, persona, desde, hasta, filtro) + _seguro(periodos, persona, desde, hasta, filtro)
-    if not filtro:
-        eventos += _seguro(comunicados, persona, desde, hasta) + _seguro(reuniones, persona, desde, hasta) + _seguro(ciclos, persona, desde, hasta)
-    return eventos
+    """Todo lo de otros módulos que ve esa persona entre esas fechas. El filtro de nivel aplica a lo que tiene nivel (los
+    días sin clases y las fechas de calificaciones); sus comunicados, sus reuniones y el ciclo escolar se ven siempre."""
+    return (_seguro(dias_sin_clases, persona, desde, hasta, filtro) + _seguro(periodos, persona, desde, hasta, filtro)
+            + _seguro(comunicados, persona, desde, hasta) + _seguro(reuniones, persona, desde, hasta) + _seguro(ciclos, persona, desde, hasta))

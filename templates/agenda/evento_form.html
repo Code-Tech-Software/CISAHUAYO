@@ -2,8 +2,10 @@
 {% load static %}
 {% comment %}
   Registrar, duplicar o editar un evento (Agenda/forms.py). Se abre en una ventana sobre el calendario (data-modal-form)
-  o como página. Sin «Todo el día» se piden las horas; con «Repetir», hasta cuándo (static/js/agenda-formulario.js
-  muestra u oculta cada parte). Al editar uno de una serie se elige si los cambios van también a los siguientes.
+  o como página. Cuatro partes: qué (título, tipo, descripción y archivos), cuándo (fechas, horario y repetición), para
+  quién (niveles, grados o grupos, familias y estudiantes) y avisos (recordatorio, confirmación de asistencia y, al
+  editar, avisar del cambio). Debajo, un resumen de para quién es. static/js/agenda-formulario.js muestra u oculta cada
+  parte y arma el resumen; el servidor vuelve a revisar todo.
 {% endcomment %}
 
 {% block title %}{% if evento %}Editar evento{% else %}Nuevo evento{% endif %} · Agenda | CISAHUAYO{% endblock %}
@@ -22,11 +24,11 @@
   <header class="page-header">
     <div>
       <h1 class="page-header__title">{% if evento %}Editar «{{ evento.titulo }}»{% elif original %}Duplicar «{{ original.titulo }}»{% else %}Nuevo evento{% endif %}</h1>
-      <p class="page-header__description">El color sale del alcance. Los eventos de todo el colegio se ven en todos los niveles. La agenda es informativa: no cambia asistencias, calificaciones ni días sin clases.</p>
+      <p class="page-header__description">La agenda es informativa: no cambia asistencias, calificaciones ni días sin clases.</p>
     </div>
   </header>
 
-  <form class="form-page" method="post" novalidate data-agenda-formulario>
+  <form class="form-page agenda-formulario" method="post" enctype="multipart/form-data" novalidate data-agenda-formulario>
     {% csrf_token %}
     <input type="hidden" name="volver" value="{{ volver }}">
     {% if form.non_field_errors %}
@@ -35,12 +37,33 @@
         <div class="alert__body">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>
       </div>
     {% endif %}
-    <section class="card">
+
+    <section class="card" aria-labelledby="parte-que">
+      <header class="card__header"><h2 class="card__title" id="parte-que">Qué</h2></header>
       <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.titulo clase="form-grid__full" %}
-        {% include "partials/field.html" with campo=form.alcance %}
         {% include "partials/field.html" with campo=form.tipo %}
-        {% include "partials/field.html" with campo=form.lugar clase="form-grid__full" %}
+        {% include "partials/field.html" with campo=form.lugar %}
+        {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
+        <div class="field form-grid__full">
+          <label class="field__label" for="agenda-archivos">Archivos (convocatoria, permiso para firmar…)</label>
+          {% if form.adjuntos_guardados %}
+            <ul class="agenda-adjuntos agenda-adjuntos--editar">
+              {% for adjunto in form.adjuntos_guardados %}
+                <li><span>{% include "partials/icon.html" with name="paperclip" icon_class="icon--sm" %} {{ adjunto.nombre_original }}</span>
+                  <label class="choice choice--check"><input class="choice__input" type="checkbox" name="quitar_adjuntos" value="{{ adjunto.pk }}"><span class="choice__box">Quitar</span></label></li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <input class="field__control" type="file" id="agenda-archivos" name="archivos" multiple accept="{{ acepta }}">
+          <p class="field__hint">Hasta {{ maximo_adjuntos }} fotos o PDF de 5 MB como máximo cada uno. Solo los ve quien tiene el evento en su agenda.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="parte-cuando">
+      <header class="card__header"><h2 class="card__title" id="parte-cuando">Cuándo</h2></header>
+      <div class="card__body form-grid">
         {% include "partials/field.html" with campo=form.fecha_inicio %}
         {% include "partials/field.html" with campo=form.fecha_fin %}
         <div class="field form-grid__full">
@@ -51,13 +74,7 @@
         <div class="agenda-horas form-grid__full" data-agenda-horas{% if form.todo_el_dia.value %} hidden{% endif %}>
           {% include "partials/field.html" with campo=form.hora_inicio %}
           {% include "partials/field.html" with campo=form.hora_fin %}
-        </div>
-        {% include "partials/field.html" with campo=form.descripcion clase="form-grid__full" %}
-        <div class="field form-grid__full">
-          <label class="choice choice--check" for="{{ form.importante.id_for_label }}">
-            {{ form.importante }}<span class="choice__box">{{ form.importante.label|capfirst }}</span>
-          </label>
-          <p class="field__hint">{{ form.importante.help_text }}</p>
+          <p class="field__hint agenda-horas__nota">Si dura varios días, empieza a la hora de inicio del primer día y termina a la hora de finalización del último.</p>
         </div>
         {% if form.repetir %}
           <div class="agenda-repetir form-grid__full" data-agenda-repeticion>
@@ -67,7 +84,7 @@
               <label class="choice choice--check" for="{{ form.saltar_sin_clases.id_for_label }}">
                 {{ form.saltar_sin_clases }}<span class="choice__box">{{ form.saltar_sin_clases.label }}</span>
               </label>
-              <p class="field__hint">Se crea un evento por cada fecha (como máximo un año). Después se puede corregir o eliminar uno solo o ese y los siguientes.</p>
+              <p class="field__hint">Se crea un evento por cada fecha (como máximo un año). Después se puede corregir, cancelar o eliminar uno solo o ese y los siguientes.</p>
             </div>
           </div>
         {% endif %}
@@ -82,6 +99,85 @@
         {% endif %}
       </div>
     </section>
+
+    <section class="card" aria-labelledby="parte-quien">
+      <header class="card__header"><h2 class="card__title" id="parte-quien">Para quién</h2></header>
+      <div class="card__body agenda-quien">
+        <fieldset class="field agenda-quien__niveles{% if form.alcance.errors %} is-invalid{% endif %}" data-agenda-niveles>
+          <legend class="field__label field__label--required">Niveles</legend>
+          <div class="agenda-casillas">
+            {% for casilla in form.alcance %}
+              <label class="choice choice--check" for="{{ casilla.id_for_label }}">{{ casilla.tag }}<span class="choice__box">{{ casilla.choice_label }}</span></label>
+            {% endfor %}
+          </div>
+          {% for error in form.alcance.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          <p class="field__hint">El personal de esos niveles lo ve siempre. «Todos los niveles» incluye al personal sin nivel asignado.</p>
+        </fieldset>
+
+        {% if form.grados.field.queryset.exists %}
+          <details class="agenda-quien__cursos"{% if form.grados.value or form.grupos.value or form.grados.errors %} open{% endif %} data-agenda-cursos>
+            <summary>Solo algunos grados o grupos (opcional)</summary>
+            <p class="field__hint">Las familias y los estudiantes de los demás grados no lo verán. El personal del nivel, sí.</p>
+            <fieldset class="field">
+              <legend class="field__label">Grados</legend>
+              <div class="agenda-casillas">
+                {% for casilla in form.grados %}<label class="choice choice--check" for="{{ casilla.id_for_label }}">{{ casilla.tag }}<span class="choice__box">{{ casilla.choice_label }}</span></label>{% endfor %}
+              </div>
+              {% for error in form.grados.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+            </fieldset>
+            {% if form.grupos.field.queryset.exists %}
+              <fieldset class="field">
+                <legend class="field__label">Grupos</legend>
+                <div class="agenda-casillas">
+                  {% for casilla in form.grupos %}<label class="choice choice--check" for="{{ casilla.id_for_label }}">{{ casilla.tag }}<span class="choice__box">{{ casilla.choice_label }}</span></label>{% endfor %}
+                </div>
+              </fieldset>
+            {% endif %}
+          </details>
+        {% endif %}
+
+        <fieldset class="field">
+          <legend class="field__label">Además del personal, lo ven</legend>
+          <div class="agenda-casillas">
+            <label class="choice choice--check" for="{{ form.para_familias.id_for_label }}">{{ form.para_familias }}<span class="choice__box">Las familias (portal de tutores)</span></label>
+            <label class="choice choice--check" for="{{ form.para_estudiantes.id_for_label }}">{{ form.para_estudiantes }}<span class="choice__box">Los estudiantes (su portal)</span></label>
+          </div>
+          <p class="field__hint">Sin ninguna de las dos, es un evento interno: solo lo ve el personal (una junta de consejo técnico, por ejemplo).</p>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="parte-avisos">
+      <header class="card__header"><h2 class="card__title" id="parte-avisos">Avisos</h2></header>
+      <div class="card__body form-grid">
+        <div class="field form-grid__full agenda-recordar">
+          <label class="choice choice--check" for="{{ form.importante.id_for_label }}">
+            {{ form.importante }}<span class="choice__box">Recordar antes del evento</span>
+          </label>
+          <div class="agenda-recordar__cuando" data-agenda-recordar{% if not form.importante.value %} hidden{% endif %}>
+            {% include "partials/field.html" with campo=form.recordar_dias %}
+          </div>
+          <p class="field__hint">{{ form.importante.help_text }} Los recordatorios salen entre las 7:00 y las 21:00.</p>
+        </div>
+        <div class="field form-grid__full">
+          <label class="choice choice--check" for="{{ form.pide_confirmacion.id_for_label }}">
+            {{ form.pide_confirmacion }}<span class="choice__box">{{ form.pide_confirmacion.label|capfirst }}</span>
+          </label>
+          {% for error in form.pide_confirmacion.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          <p class="field__hint">{{ form.pide_confirmacion.help_text }}</p>
+        </div>
+        {% if form.avisar_cambio %}
+          <div class="field form-grid__full">
+            <label class="choice choice--check" for="{{ form.avisar_cambio.id_for_label }}">
+              {{ form.avisar_cambio }}<span class="choice__box">{{ form.avisar_cambio.label }}</span>
+            </label>
+            <p class="field__hint">{{ form.avisar_cambio.help_text }}</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <p class="agenda-resumen" role="status" data-agenda-resumen hidden></p>
     <div class="action-bar">
       <a class="btn" href="{{ volver }}">Cancelar</a>
       <button type="submit" class="btn btn--primary">{% if evento %}Guardar cambios{% else %}Registrar evento{% endif %}</button>

@@ -15,7 +15,7 @@
           <li class="proximos-agenda__item" style="--color: {{ evento.color }}">
             <span class="proximos-agenda__dia{% if item.dia == 'Hoy' %} is-hoy{% endif %}">{{ item.dia }}</span>
             <a class="proximos-agenda__evento" href="{{ item.url }}">
-              <span class="proximos-agenda__titulo">{{ evento.titulo }}</span>
+              <span class="proximos-agenda__titulo">{% if evento.cancelado %}<s>{{ evento.titulo }}</s> <span class="tag tag--danger">Cancelado</span>{% else %}{{ evento.titulo }}{% endif %}</span>
               <span class="proximos-agenda__datos">{% if evento.varios_dias %}{{ evento.texto_de_fechas }} · {% endif %}{{ evento.texto_de_horario }}{% if evento.lugar %} · {{ evento.lugar }}{% endif %}</span>
             </a>
           </li>

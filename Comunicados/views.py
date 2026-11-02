@@ -190,6 +190,35 @@ def _desde_estudiantes(request):
     return _Datos({'destinatarios': json.dumps({'tutores': tutores, 'estudiantes': [], 'profesores': [], 'personal': []})})
 
 
+def _evento_de_la_agenda(request, pk):
+    """El evento de la agenda del que se avisa con este comunicado: uno que quien envía ve y que todavía no tiene
+    comunicado."""
+    from Agenda import alcance as alcance_de_la_agenda
+    from Agenda.models import EventoAgenda
+    pk = str(pk or '')
+    if not (pk.isascii() and pk.isdigit()):
+        return None
+    evento = EventoAgenda.objects.filter(pk=pk, comunicado__isnull=True).first()
+    return evento if evento is not None and alcance_de_la_agenda.de_usuario(request.user).puede_ver(evento) else None
+
+
+def _desde_agenda(request):
+    """«Avisar con un comunicado» desde un evento de la agenda (Agenda/views._detalle): el formulario abre con su título,
+    su descripción y su fecha, horario y lugar como evento del comunicado. Al enviarlo, el evento queda ligado al
+    comunicado: así no aparece dos veces en la agenda. Los destinatarios se eligen aquí, como siempre."""
+    evento = _evento_de_la_agenda(request, request.GET.get('desde_agenda'))
+    if evento is None:
+        return None
+    horas = evento.con_horario
+    return _Datos({
+        'titulo': evento.titulo[:Comunicado.MAXIMO_TITULO], 'descripcion': evento.descripcion,
+        'html': enriquecido.texto_con_enlaces(evento.descripcion) if evento.descripcion else '',
+        'evento_fecha': evento.fecha_inicio.isoformat(), 'evento_hora_inicio': f'{evento.hora_inicio:%H:%M}' if horas else '',
+        'evento_hora_fin': f'{evento.hora_fin:%H:%M}' if horas and evento.hora_fin else '', 'evento_lugar': evento.lugar,
+        'evento_agenda': str(evento.pk),
+    })
+
+
 def _categoria_pedida(request):
     categoria = request.GET.get('categoria', '')
     return categoria if categoria in dict(Comunicado.CATEGORIAS) else ''
@@ -364,7 +393,8 @@ def crear(request):
     if borrador is not None and base is None and borrador.base_id:
         base = borrador.base if reglas.puede_dar_seguimiento(request.user, borrador.base) else None
     if request.method == 'GET':
-        return render(request, 'comunicados/crear.html', _formulario(request, form=_desde_estudiantes(request), base=base, borrador=borrador))
+        return render(request, 'comunicados/crear.html', _formulario(request, form=_desde_estudiantes(request) or _desde_agenda(request),
+                                                                     base=base, borrador=borrador))
 
     form = ComunicadoForm(request.POST, archivos=request.FILES.getlist('archivos'))
     rechazo = None
@@ -388,6 +418,9 @@ def crear(request):
         else:
             if borrador is not None:
                 borradores.eliminar(borrador)
+            evento = _evento_de_la_agenda(request, request.POST.get('evento_agenda'))
+            if evento is not None:
+                type(evento).objects.filter(pk=evento.pk, comunicado__isnull=True).update(comunicado=comunicado)
             if nuevo:
                 total = comunicado.destinatarios.count()
                 if comunicado.programado:

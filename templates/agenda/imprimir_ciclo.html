@@ -1,0 +1,65 @@
+{% load static %}<!doctype html>
+{% comment %}
+  El ciclo escolar completo en una hoja (Agenda/views.imprimir con vista=ciclo): cada mes en miniatura, con los días sin
+  clases sombreados y los días con eventos subrayados del color del primero, y debajo la lista de sus eventos (uno que se
+  repite, una vez). Para el periódico mural o para guardarlo en PDF. Al abrirse pide imprimir (static/js/agenda-imprimir.js).
+{% endcomment %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda · Ciclo escolar {{ ciclo.nombre }} | CISAHUAYO</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/agenda-imprimir.css' %}">
+</head>
+<body>
+  <header class="hoja__cabeza">
+    <img class="hoja__logo" src="{% static 'img/logointer.svg' %}" alt="">
+    <div>
+      <p class="hoja__colegio">Colegio Interamericano de Sahuayo</p>
+      <h1 class="hoja__titulo">Agenda · Ciclo escolar {{ ciclo.nombre }}</h1>
+      {% if filtro or tipo or curso %}<p class="hoja__filtro">{{ curso|default:filtro }}{% if tipo %}{% if filtro or curso %} · {% endif %}{{ tipo }}{% endif %}</p>{% endif %}
+    </div>
+    <nav class="hoja__acciones">
+      <button type="button" class="hoja__boton" data-imprimir>Imprimir o guardar en PDF</button>
+      <a class="hoja__volver" href="{{ volver }}">Volver a la agenda</a>
+    </nav>
+  </header>
+
+  <div class="hoja__ciclo">
+    {% for mes in meses %}
+      <section class="hoja__mes-ciclo">
+        <h2>{{ mes.primero|date:"F Y"|capfirst }}</h2>
+        <table class="hoja__mini">
+          <thead><tr><th>L</th><th>M</th><th>M</th><th>J</th><th>V</th><th>S</th><th>D</th></tr></thead>
+          <tbody>
+            {% for semana in mes.semanas %}
+              <tr>
+                {% for dia in semana %}
+                  <td class="{% if dia.en_mes and dia.sin_clases %}is-sin-clases{% endif %}{% if dia.en_mes and dia.colores %} con-evento{% endif %}"{% if dia.en_mes and dia.colores %} style="--punto: {{ dia.colores.0 }}"{% endif %}>{% if dia.en_mes %}{{ dia.fecha.day }}{% endif %}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if mes.eventos %}
+          <ul class="hoja__lista">
+            {% for evento in mes.eventos %}
+              <li class="{% if evento.cancelado %}is-cancelado{% endif %}" style="--color: {{ evento.color }}"><b>{% if evento.fecha_inicio < mes.primero %}{{ evento.fecha_inicio|date:"j b" }}{% else %}{{ evento.fecha_inicio|date:"j" }}{% endif %}{% if evento.varios_dias %}–{{ evento.fecha_fin|date:"j" }}{% if evento.fecha_fin.month != mes.primero.month or evento.fecha_fin.year != mes.primero.year %} {{ evento.fecha_fin|date:"b" }}{% endif %}{% endif %}</b> {{ evento.titulo }}{% if evento.repeticion %} ({{ evento.repeticion|lower }}){% endif %}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+
+  <footer class="hoja__pie">
+    <ul class="hoja__leyenda">
+      {% for clave, nombre, color, texto in leyenda %}<li><span class="hoja__marca" style="--color: {{ color }}"></span>{{ nombre }}</li>{% endfor %}
+      <li><span class="hoja__marca" style="--color: #e5e7eb"></span>Sin clases</li>
+    </ul>
+    <p class="hoja__fecha">Impreso el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}</p>
+  </footer>
+  <script src="{% static 'js/agenda-imprimir.js' %}" defer></script>
+</body>
+</html>

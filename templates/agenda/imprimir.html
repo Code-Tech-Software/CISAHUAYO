@@ -1,8 +1,8 @@
 {% load static %}<!doctype html>
 {% comment %}
   El mes de la agenda en una hoja limpia (Agenda/views.imprimir): para el periódico mural o para guardarla en PDF desde
-  el diálogo de impresión. Todos los eventos de cada día (sin «+N más»), con su color y la leyenda; sin menús. Al abrirse
-  pide imprimir (static/js/agenda-imprimir.js).
+  el diálogo de impresión. Todos los eventos de cada día (sin «+N más»), con su color y la leyenda; los días sin clases,
+  sombreados; los cancelados, tachados; sin menús. Al abrirse pide imprimir (static/js/agenda-imprimir.js).
 {% endcomment %}
 <html lang="es">
 <head>
@@ -18,7 +18,7 @@
     <div>
       <p class="hoja__colegio">Colegio Interamericano de Sahuayo</p>
       <h1 class="hoja__titulo">Agenda · {{ primero|date:"F Y"|capfirst }}</h1>
-      {% if filtro or tipo %}<p class="hoja__filtro">{{ filtro }}{% if filtro and tipo %} · {% endif %}{{ tipo }}</p>{% endif %}
+      {% if filtro or tipo or curso %}<p class="hoja__filtro">{{ curso|default:filtro }}{% if tipo %}{% if filtro or curso %} · {% endif %}{{ tipo }}{% endif %}</p>{% endif %}
     </div>
     <nav class="hoja__acciones">
       <button type="button" class="hoja__boton" data-imprimir>Imprimir o guardar en PDF</button>
@@ -31,11 +31,11 @@
     <tbody>
       {% for semana in semanas %}
         <tr>
-          {% for fecha, en_mes, eventos in semana %}
-            <td class="{% if not en_mes %}is-fuera{% endif %}">
-              <span class="hoja__dia">{{ fecha.day }}</span>
+          {% for fecha, en_mes, eventos, sin_clases in semana %}
+            <td class="{% if not en_mes %}is-fuera{% endif %}{% if sin_clases %} is-sin-clases{% endif %}">
+              <span class="hoja__dia">{{ fecha.day }}{% if sin_clases and en_mes %} <small>Sin clases</small>{% endif %}</span>
               {% for evento in eventos %}
-                <span class="hoja__evento" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">{% if evento.hora_corta and evento.fecha_inicio == fecha %}<b>{{ evento.hora_corta }}</b> {% endif %}{{ evento.titulo }}</span>
+                <span class="hoja__evento{% if evento.cancelado %} is-cancelado{% endif %}" style="--color: {{ evento.color }}; --texto: {{ evento.color_texto }}">{% if evento.cancelado %}Cancelado: {% endif %}{% if evento.hora_corta and evento.fecha_inicio == fecha %}<b>{{ evento.hora_corta }}</b> {% endif %}{{ evento.titulo }}</span>
               {% endfor %}
             </td>
           {% endfor %}

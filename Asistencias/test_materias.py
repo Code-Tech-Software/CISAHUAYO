@@ -345,8 +345,11 @@ class JustificarTests(BaseMateriasTestCase):
 
     def test_el_permiso_se_valida_en_el_servidor(self):
         registro = self.falta()
+        # Las fechas de la falta, explícitas: sin ellas la matriz muestra el mes en curso y, si el lunes de prueba es de
+        # la primera semana del mes, la falta (una semana antes) queda en el mes anterior y nada se podría justificar
+        rango = {'materia': self.mat.pk, 'desde': registro.fecha.isoformat(), 'hasta': registro.fecha.isoformat()}
         self.con_permisos('view_asistenciageneral', 'view_asistenciamateria', 'change_asistenciamateria', 'view_justificacion')
-        respuesta = self.client.get(URL, {'materia': self.mat.pk})
+        respuesta = self.client.get(URL, rango)
         self.assertNotContains(respuesta, 'data-justificable')
         self.assertNotContains(respuesta, 'data-justificar-dialogo')
         self.assertEqual(self.justificar(registro).status_code, 403)
@@ -354,11 +357,11 @@ class JustificarTests(BaseMateriasTestCase):
         # Justificar es solo del administrador (y de prefectura): otro rol no lo recibe aunque se le pida
         rol = crear_rol('Control', {'Alumnos.view_asistenciageneral', 'Alumnos.view_asistenciamateria', 'Alumnos.add_justificacion'})
         self.client.force_login(crear_usuario('lupe', rol))
-        self.assertNotContains(self.client.get(URL, {'materia': self.mat.pk}), 'data-justificable')
+        self.assertNotContains(self.client.get(URL, rango), 'data-justificable')
         self.assertEqual(self.justificar(registro).status_code, 403)
         # El administrador, sí
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get(URL, {'materia': self.mat.pk}), 'data-justificable')
+        self.assertContains(self.client.get(URL, rango), 'data-justificable')
         self.assertEqual(self.justificar(registro).status_code, 200)
         self.assertEqual(Justificacion.objects.get().registrada_por, self.admin)
 

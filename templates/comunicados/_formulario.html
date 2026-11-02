@@ -20,6 +20,7 @@
     <input type="hidden" name="destinatarios" value="{{ form.data.destinatarios|default:'' }}" data-destinatarios-valor>
   {% endif %}
   {% if base_comunicado %}<input type="hidden" name="base" value="{{ base_comunicado.pk }}">{% endif %}
+  {% if form.data.evento_agenda and not edicion %}<input type="hidden" name="evento_agenda" value="{{ form.data.evento_agenda }}">{% endif %}
   <input type="hidden" name="html" value="" data-html-valor>
   <template data-html-inicial>{{ html_inicial|safe }}</template>
 

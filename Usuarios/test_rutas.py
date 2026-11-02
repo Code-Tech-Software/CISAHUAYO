@@ -25,6 +25,7 @@ SOLO_CON_SESION = {
     'agenda:evento_ics': 'agregar un evento a su propio calendario: solo si ese evento está en su agenda (si no, 404)',
     'agenda:suscripcion': 'el enlace personal para ver su propia agenda en el calendario del teléfono',
     'agenda:imprimir': 'el mes de su propia agenda en una hoja para imprimir',
+    'agenda:adjunto': 'un archivo de un evento: solo si ese evento está en su agenda (si no, 404)',
 }
 SIN_SESION = {
     'login': 'iniciar sesión',

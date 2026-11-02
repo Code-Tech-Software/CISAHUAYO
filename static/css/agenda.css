@@ -1089,9 +1089,13 @@
 }
 
 /* --- El mes en miniatura (teléfono y ciclo escolar) -------------------------------------------------------- */
-.agenda-telefono {
-  display: grid;
-  gap: var(--space-3);
+/* Solo en el teléfono: fuera de la consulta, esta regla (que va después) le ganaría al «display: none» de la
+   computadora y el mes en miniatura con su lista saldría debajo del mes */
+@media (max-width: 47.99rem) {
+  .agenda-telefono {
+    display: grid;
+    gap: var(--space-3);
+  }
 }
 
 .agenda-mini {

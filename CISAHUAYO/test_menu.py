@@ -30,7 +30,8 @@ class MenuConRutasRealesTests(SimpleTestCase):
         self.assertEqual(list(self.items), [
             'Panel de control', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias', 'Estudiantes', 'Tutores', 'Profesores',
             'Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias', 'Asignaciones de materias', 'Bloques simultáneos',
-            'Horarios', 'Calificaciones', 'Bitácoras por grupo', 'Asistencias', 'Retiros anticipados', 'Registro de conducta', 'Reportes de conducta',
+            'Horarios', 'Calificaciones', 'Comentarios por periodo', 'Bitácoras por grupo', 'Asistencias', 'Retiros anticipados', 'Registro de conducta',
+            'Reportes de conducta',
             'Usuarios', 'Roles y permisos', 'Bitácora de cambios', 'Ajustes',
         ])
 
@@ -78,7 +79,8 @@ class MenuConRutasRealesTests(SimpleTestCase):
             ('Prefectura', ['Inicio', 'Estudiantes', 'Asistencia', 'Conducta', 'Retiros anticipados', 'Seguimiento', 'Reportes']),
             ('Comunidad escolar', ['Estudiantes', 'Tutores', 'Profesores']),
             ('Gestión académica', ['Ciclos escolares', 'Grados', 'Grupos', 'Periodos', 'Inscripciones a grupos', 'Materias',
-                                   'Asignaciones de materias', 'Bloques simultáneos', 'Horarios', 'Calificaciones', 'Bitácoras por grupo']),
+                                   'Asignaciones de materias', 'Bloques simultáneos', 'Horarios', 'Calificaciones', 'Comentarios por periodo',
+                                   'Bitácoras por grupo']),
             # La general, debajo de Gestión académica (pedido del 2026-10-14)
             ('Prefectura', ['Asistencias', 'Retiros anticipados', 'Registro de conducta', 'Reportes de conducta']),
             ('Sistema', ['Usuarios', 'Roles y permisos', 'Bitácora de cambios', 'Ajustes']),

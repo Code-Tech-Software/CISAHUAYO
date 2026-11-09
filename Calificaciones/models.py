@@ -16,6 +16,10 @@
 - **Bachillerato por semestres** (pedido del 2026-10-28): sobre las calificaciones de los periodos, los exámenes del
   semestre (`ExamenSemestral`: final, extraordinario y regularización, cada uno por separado) y la bitácora del
   semestre (`CambioSemestre`: apertura, cierre, reapertura con motivo y cada examen capturado).
+- **Comentarios por periodo** (pedido del 2026-11-09): el comentario de cada docente por estudiante, materia cursada y
+  periodo (`ComentarioPeriodo`), la boleta de comentarios de cada estudiante en el periodo (`BoletaComentarios`: se
+  publica aparte de la de calificaciones y guarda lo publicado) y su bitácora (`CambioComentario`). Las reglas están
+  en Calificaciones/comentarios.py.
 
 Los cálculos viven en Calificaciones/calculo.py y Calificaciones/calculo_semestral.py (puros) y las reglas de negocio
 en Calificaciones/reglas.py y Calificaciones/semestres.py.
@@ -350,3 +354,89 @@ class DatosOficialesNivel(models.Model):
     @property
     def cargo_o_predeterminado(self):
         return self.cargo or f'Dirección de {self.get_nivel_display()}'
+
+
+class ComentarioPeriodo(models.Model):
+    """El comentario de un estudiante en una materia que cursa, en un periodo: uno solo aunque en el periodo cambie de
+    docente o de grupo (de clase o base), porque se guarda por la materia de su plan y no por la clase. `asignacion` es
+    la clase en que se escribió por última vez; la autoría (`autor`, `docente`, `capturado_en`) es de quien lo escribió
+    primero y se conserva. Solo cuenta como capturado si tiene texto."""
+
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.PROTECT, related_name='comentarios_periodo', verbose_name='Inscripción')
+    materia = models.ForeignKey(Materia, on_delete=models.PROTECT, related_name='comentarios_periodo', verbose_name='Materia')
+    periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name='comentarios', verbose_name='Periodo')
+    asignacion = models.ForeignKey(MateriaGrado, null=True, blank=True, on_delete=models.SET_NULL, related_name='comentarios_periodo',
+                                   verbose_name='Materia del grupo')
+    texto = models.TextField(blank=True, verbose_name='Comentario')
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+', verbose_name='Autor')
+    # El nombre del docente autor como sale en la boleta (su ficha de profesor; si no tiene, el de su cuenta)
+    docente = models.CharField(max_length=200, blank=True, verbose_name='Docente autor')
+    capturado_en = models.DateTimeField(null=True, blank=True, verbose_name='Capturado el')
+    actualizado_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+                                        verbose_name='Actualizado por')
+    actualizado_en = models.DateTimeField(null=True, blank=True, verbose_name='Actualizado el')
+    # Sube con cada cambio: si dos personas lo editan a la vez, la segunda en guardar se entera y no lo pisa
+    version = models.PositiveIntegerField(default=0, editable=False)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Comentario del periodo'
+        verbose_name_plural = 'Comentarios del periodo'
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=['inscripcion', 'materia', 'periodo'], name='comentario_por_materia_y_periodo')]
+
+    def __str__(self):
+        return f'{self.materia} · {self.periodo.nombre}'
+
+    @property
+    def capturado(self):
+        return bool(self.texto.strip())
+
+
+class BoletaComentarios(models.Model):
+    """La boleta de comentarios de un estudiante en un periodo. Se publica sola, aparte de la de calificaciones, cuando
+    todas sus materias del periodo tienen comentario; al publicarse guarda lo publicado (`contenido`), que es lo que ven
+    el estudiante y sus tutores. Publicada, sus comentarios ya no se editan: se corrigen reabriéndola con motivo."""
+
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.PROTECT, related_name='boletas_comentarios', verbose_name='Inscripción')
+    periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name='boletas_comentarios', verbose_name='Periodo')
+    publicada = models.BooleanField(default=False, verbose_name='Publicada')
+    publicada_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+    publicada_en = models.DateTimeField(null=True, blank=True, verbose_name='Publicada el')
+    contenido = models.JSONField(default=dict, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    modificado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Boleta de comentarios'
+        verbose_name_plural = 'Boletas de comentarios'
+        default_permissions = ()
+        permissions = [('publicar_comentarios', 'Publicar las boletas de comentarios')]
+        constraints = [models.UniqueConstraint(fields=['inscripcion', 'periodo'], name='boleta_comentarios_por_periodo')]
+
+    def __str__(self):
+        return f'Boleta de comentarios · {self.periodo.nombre}'
+
+
+class CambioComentario(models.Model):
+    """Bitácora de los comentarios de un estudiante en un periodo: cada comentario escrito o corregido (el texto anterior
+    y el nuevo), la publicación de su boleta y cada reapertura (con motivo y lo que estaba publicado). No se edita ni se
+    borra."""
+
+    CAPTURA, PUBLICACION, REAPERTURA = 'CAPTURA', 'PUBLICACION', 'REAPERTURA'
+    ACCIONES = [(CAPTURA, 'Comentario'), (PUBLICACION, 'Publicación'), (REAPERTURA, 'Reapertura')]
+
+    inscripcion = models.ForeignKey(Inscripcion, on_delete=models.PROTECT, related_name='+')
+    periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name='+')
+    materia = models.ForeignKey(Materia, null=True, blank=True, on_delete=models.PROTECT, related_name='+')
+    accion = models.CharField(max_length=12, choices=ACCIONES)
+    anterior = models.TextField(blank=True)
+    nuevo = models.TextField(blank=True)
+    motivo = models.TextField(blank=True)
+    datos = models.JSONField(default=dict, blank=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha', '-pk']
+        default_permissions = ()

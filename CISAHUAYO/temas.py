@@ -83,6 +83,14 @@ TEMAS = (
         'letra': 'Inter',
         'fuentes': 'family=Inter:wght@400;500;600;700',
     },
+    {
+        'clave': 'mosaico',
+        'nombre': 'Mosaico',
+        'descripcion': 'Azul petróleo con amarillo, coral y verde lima.',
+        'color': '#0e5d84',
+        'letra': 'Mulish y Montserrat',
+        'fuentes': 'family=Mulish:wght@400;500;600;700&family=Montserrat:wght@600;700',
+    },
 )
 
 POR_CLAVE = {tema['clave']: tema for tema in TEMAS}

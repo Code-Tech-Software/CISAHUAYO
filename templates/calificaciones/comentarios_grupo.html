@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Boletas de comentarios de un grupo en un periodo (Calificaciones/views_comentarios.comentarios_grupo): el estado de la
+  de cada estudiante (publicada, lista o con materias pendientes), publicar de una vez las completas e imprimirlas todas.
+{% endcomment %}
+
+{% block title %}Boletas de comentarios · {{ grupo }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+  <link rel="stylesheet" href="{% static 'css/comentarios.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'calificaciones:comentarios' %}?grupo={{ grupo.pk }}&amp;periodo={{ periodo.pk }}">Comentarios por periodo</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Boletas de {{ grupo }}</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Boletas de comentarios de {{ grupo }}</h1>
+      <p class="page-header__description">{{ periodo.nombre }} · Ciclo {{ periodo.ciclo }}. {{ publicadas }} publicada{{ publicadas|pluralize }}, {{ listas }} lista{{ listas|pluralize }} para publicar de {{ boletas|length }}.</p>
+    </div>
+    <div class="page-header__actions">
+      <a class="btn" href="{% url 'calificaciones:comentarios_grupo_hoja' grupo.pk %}?periodo={{ periodo.pk }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir todas</a>
+      {% if puede_publicar and listas %}
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="periodo" value="{{ periodo.pk }}">
+          <button type="submit" class="btn btn--primary">{% include "partials/icon.html" with name="send" icon_class="icon--sm" %} Publicar las {{ listas }} completa{{ listas|pluralize }}</button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if periodos|length > 1 %}
+    <form class="filters cal-selector" method="get" aria-label="Periodo" data-cal-selector>
+      <div class="filters__field">
+        <label class="field__label" for="grupo-periodo">Periodo</label>
+        <select class="field__control field__control--select" id="grupo-periodo" name="periodo">
+          {% for opcion in periodos %}<option value="{{ opcion.pk }}"{% if opcion.pk == periodo.pk %} selected{% endif %}>{{ opcion.nombre }} · {{ opcion.estado_display|lower }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filters__actions"><button type="submit" class="btn btn--primary btn--sm" data-cal-ver>Ver</button></div>
+    </form>
+  {% endif %}
+
+  {% if not boletas %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+        <p class="empty-state__title">{{ grupo }} no tiene estudiantes inscritos en el ciclo {{ periodo.ciclo }}</p>
+      </div>
+    </div>
+  {% else %}
+    <div class="table-card">
+      <table class="table">
+        <caption class="visually-hidden">Boletas de comentarios de {{ grupo }}, {{ periodo.nombre }}</caption>
+        <thead class="table__head">
+          <tr>
+            <th class="table__th" scope="col">Estudiante</th>
+            <th class="table__th" scope="col">Comentarios</th>
+            <th class="table__th" scope="col">Estado</th>
+            <th class="table__th table__th--actions" scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="table__body">
+          {% for b in boletas %}
+            <tr class="table__row">
+              <td class="table__cell table__cell--main">{{ b.alumno.apellido_paterno }} {{ b.alumno.apellido_materno }} {{ b.alumno.nombre }}<span class="text-muted"> · {{ b.alumno.referencia }}</span></td>
+              <td class="table__cell" data-label="Comentarios">
+                {{ b.capturadas }} de {{ b.materias|length }}
+                {% if b.pendientes and not b.publicada %}<span class="bol-grupo__pendientes">· Faltan: {% for m in b.pendientes %}{{ m.materia.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+              </td>
+              <td class="table__cell" data-label="Estado">
+                {% if b.publicada %}<span class="tag tag--success">Publicada</span>
+                {% elif b.completa %}<span class="tag tag--info">Lista</span>
+                {% elif b.materias %}<span class="tag tag--warning">Pendiente</span>
+                {% else %}<span class="tag">Sin materias</span>{% endif %}
+              </td>
+              <td class="table__cell table__cell--actions"><a class="btn btn--ghost btn--sm" href="{% url 'calificaciones:boletas_periodo' b.alumno.pk %}?periodo={{ periodo.pk }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/calificaciones.js' %}" defer></script>
+{% endblock %}

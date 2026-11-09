@@ -151,6 +151,9 @@ NAVEGACION = (
             {'etiqueta': 'Bloques simultáneos', 'icono': 'layers', 'ruta': 'asignaciones:bloques', 'permiso': 'Alumnos.view_bloquesimultaneo'},
             {'etiqueta': 'Horarios', 'icono': 'clock', 'ruta': 'horarios:lista', 'permiso': 'Alumnos.view_horariomateria'},
             {'etiqueta': 'Calificaciones', 'icono': 'award', 'ruta': 'calificaciones:inicio', 'destinos': ((_entra_a_calificaciones, 'calificaciones:inicio'),)},
+            # El comentario de cada estudiante por materia y periodo (2026-11-09): quien entra a Calificaciones
+            {'etiqueta': 'Comentarios por periodo', 'icono': 'file-text', 'ruta': 'calificaciones:comentarios',
+             'destinos': ((_entra_a_calificaciones, 'calificaciones:comentarios'),)},
             {'etiqueta': 'Bitácoras por grupo', 'icono': 'notebook-pen', 'ruta': 'bitacoras:lista', 'destinos': ((_entra_a_bitacoras, 'bitacoras:lista'),)},
         ),
     },

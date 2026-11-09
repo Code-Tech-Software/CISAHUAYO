@@ -185,7 +185,8 @@ MODULOS = (
     )),
     Modulo('calificaciones', 'Calificaciones', 'award', 'Rubros y porcentajes de cada materia, captura de procedimientos y exámenes, cierre y concentrado.', (
         Funcion('Calificaciones de sus materias', {'crear': 'Calificaciones.capturar'}, etiquetas={'crear': 'Capturar'}, ayuda={
-            'crear': 'Un docente consulta y captura las calificaciones de sus materias asignadas (actividades, conducta, punto de academia) mientras el periodo está abierto.',
+            'crear': 'Un docente consulta y captura las calificaciones de sus materias asignadas (actividades, conducta, punto de academia) '
+                     'y el comentario de cada estudiante por periodo, mientras el periodo está abierto.',
         }),
         Funcion('Calificaciones de todas las materias', {'ver': 'Calificaciones.ver_todas', 'editar': 'Calificaciones.gestionar_todas'},
                 etiquetas={'editar': 'Capturar y gestionar'}, ayuda={
@@ -197,7 +198,12 @@ MODULOS = (
         }),
         Funcion('Reapertura de calificaciones', {'editar': 'Calificaciones.reabrir'}, etiquetas={'editar': 'Reabrir'},
                 requiere=('Calificaciones.ver_todas',), ayuda={
-            'editar': 'Reabrir calificaciones cerradas indicando el motivo (lo cerrado queda en el historial).',
+            'editar': 'Reabrir calificaciones cerradas o una boleta de comentarios publicada indicando el motivo (lo cerrado queda en el historial).',
+        }),
+        Funcion('Publicación de boletas de comentarios', {'editar': 'Calificaciones.publicar_comentarios'}, etiquetas={'editar': 'Publicar'},
+                requiere=('Calificaciones.ver_todas',), ayuda={
+            'editar': 'Publicar la boleta de comentarios de un estudiante cuando todas sus materias del periodo tienen comentario: '
+                      'desde entonces la ven el estudiante y sus tutores en su portal.',
         }),
         Funcion('Configuración de calificaciones', _permisos('configuracionevaluacion', ('ver', 'crear', 'editar'), app='Calificaciones'), ayuda={
             'ver': 'Consultar los rubros, porcentajes y reglas de cada materia (Ajustes › Calificaciones).',

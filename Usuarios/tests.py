@@ -815,7 +815,7 @@ class MenuSegunElRolTests(BaseUsuariosTestCase):
     def test_cada_rol_ve_solo_sus_modulos(self):
         casos = {
             'Docente': {'Estudiantes', 'Tutores', 'Grados', 'Grupos', 'Materias', 'Asignaciones de materias', 'Horarios', 'Periodos', 'Asistencias', 'Calificaciones',
-                        'Bitácoras por grupo', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'},
+                        'Comentarios por periodo', 'Bitácoras por grupo', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'},
             # El personal también recibe comunicados (2026-10-27)
             'Recepción': {'Estudiantes', 'Asistencias', 'Mensajes', 'Comunicados', 'Agenda', 'Reuniones con familias'},
         }

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_boletas, views_configuracion
+from . import views, views_boletas, views_comentarios, views_configuracion
 
 app_name = 'calificaciones'
 
@@ -24,6 +24,14 @@ urlpatterns = [
     path('calificaciones/boletas/estudiante/<int:pk>/', views_boletas.boleta_estudiante, name='boleta'),
     path('calificaciones/boletas/grupo/<int:pk>/', views_boletas.boletas_grupo, name='boletas_grupo'),
     path('calificaciones/kardex/<int:pk>/', views_boletas.kardex, name='kardex'),
+    # Comentarios por periodo: la captura del docente y las boletas de comentarios (de un estudiante y de un grupo)
+    path('calificaciones/comentarios/', views_comentarios.captura, name='comentarios'),
+    path('calificaciones/boletas/estudiante/<int:pk>/periodo/', views_comentarios.boletas_periodo, name='boletas_periodo'),
+    path('calificaciones/boletas/estudiante/<int:pk>/comentarios/', views_comentarios.boleta_comentarios, name='boleta_comentarios'),
+    path('calificaciones/boletas/estudiante/<int:pk>/comentarios/publicar/', views_comentarios.publicar, name='comentarios_publicar'),
+    path('calificaciones/boletas/estudiante/<int:pk>/comentarios/reabrir/', views_comentarios.reabrir, name='comentarios_reabrir'),
+    path('calificaciones/boletas/grupo/<int:pk>/comentarios/', views_comentarios.comentarios_grupo, name='comentarios_grupo'),
+    path('calificaciones/boletas/grupo/<int:pk>/comentarios/imprimir/', views_comentarios.comentarios_grupo_hoja, name='comentarios_grupo_hoja'),
 
     # Sistema › Ajustes › Calificaciones: rubros, porcentajes y reglas de cada materia
     path('ajustes/calificaciones/', views_configuracion.configuracion, name='configuracion'),

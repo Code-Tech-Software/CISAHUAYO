@@ -23,6 +23,7 @@
     </div>
     {% if acta or asignacion and ve_todas %}
       <div class="page-header__actions">
+        {% if acta %}<a class="btn" href="{% url 'calificaciones:comentarios' %}?ciclo={{ ciclo.pk }}&amp;materia={{ asignacion.pk }}&amp;periodo={{ periodo.pk }}">{% include "partials/icon.html" with name="file-text" icon_class="icon--sm" %} Comentarios del periodo</a>{% endif %}
         {% if asignacion and ve_todas %}
           <a class="btn" href="{% url 'calificaciones:boletas_grupo' asignacion.grupo_id %}?ciclo={{ ciclo.pk }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Boletas de {{ asignacion.grupo }}</a>
         {% endif %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Comentarios por periodo (Calificaciones/views_comentarios.captura): el docente elige materia y periodo (el mismo
+  selector de Calificaciones) y escribe el comentario de cada estudiante de la lista real de la clase en el periodo. Se
+  guarda con «Guardar comentarios» (solo lo que cambió), en las veces que haga falta; el contador dice cuántos van. Un
+  comentario vacío es pendiente. Si la boleta de comentarios del estudiante ya se publicó, el suyo queda bloqueado.
+{% endcomment %}
+
+{% block title %}Comentarios por periodo | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+  <link rel="stylesheet" href="{% static 'css/comentarios.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Comentarios por periodo</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Comentarios por periodo</h1>
+      <p class="page-header__description">{% if ve_todas %}El comentario de cada estudiante en cada materia del colegio.{% else %}El comentario de cada uno de tus estudiantes en tus materias.{% endif %} Elige la materia y el periodo.</p>
+    </div>
+    {% if captura %}
+      <div class="page-header__actions">
+        <a class="btn" href="{{ url_calificaciones }}">{% include "partials/icon.html" with name="award" icon_class="icon--sm" %} Calificaciones</a>
+        {% if boletas_del_grupo %}<a class="btn" href="{{ boletas_del_grupo }}">{% include "partials/icon.html" with name="file-text" icon_class="icon--sm" %} Boletas de comentarios de {{ asignacion.grupo }}</a>{% endif %}
+      </div>
+    {% endif %}
+  </header>
+
+  {% if not asignaciones %}
+    <div class="table-card">
+      <div class="empty-state">
+        {% include "partials/icon.html" with name="file-text" icon_class="icon--lg empty-state__icon" %}
+        {% if not ve_todas and not profesor %}
+          <p class="empty-state__title">Esta sección es para docentes</p>
+          <p class="empty-state__text">Tu cuenta no está vinculada a una ficha de profesor. Quien administra el sistema puede vincularla desde la ficha del profesor («Dar acceso al sistema»).</p>
+        {% elif not ciclo %}
+          <p class="empty-state__title">No hay materias que mostrar</p>
+          <p class="empty-state__text">Todavía no hay un ciclo escolar con materias asignadas{% if not ve_todas %} a ti{% endif %}.</p>
+        {% else %}
+          <p class="empty-state__title">No hay materias en el ciclo {{ ciclo }}</p>
+          <p class="empty-state__text">{% if ve_todas %}Asigna materias a los grupos para escribir sus comentarios.{% else %}Cuando dirección te asigne una materia, aparecerá aquí.{% endif %}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    {% include "calificaciones/_selector.html" %}
+
+    {% if not periodo %}
+      <div class="table-card">
+        <div class="empty-state">
+          {% include "partials/icon.html" with name="clipboard-check" icon_class="icon--lg empty-state__icon" %}
+          <p class="empty-state__title">El nivel no tiene periodos de evaluación en el ciclo {{ ciclo }}</p>
+          <p class="empty-state__text">Los comentarios se escriben por periodo (parcial, bimestre…). Registra los periodos del nivel para empezar.</p>
+          {% if perms.Alumnos.view_periodo %}<a class="btn btn--sm" href="{% url 'periodos:lista' %}">Ver periodos</a>{% endif %}
+        </div>
+      </div>
+    {% else %}
+      <section class="card cal-estado" aria-label="Estado de los comentarios">
+        <dl class="cal-estado__datos">
+          <div><dt>Materia</dt><dd>{{ asignacion.materia }}</dd></div>
+          <div><dt>{% if asignacion.es_de_clase %}Grupo de clase{% else %}Grupo{% endif %}</dt><dd>{{ asignacion.grupo }}</dd></div>
+          <div><dt>Docente</dt><dd>{{ asignacion.profesor|default:"Sin docente asignado" }}</dd></div>
+          <div><dt>Periodo</dt><dd>{{ periodo.nombre }} <span class="tag{% if periodo.esta_abierto %} tag--success{% endif %}">{{ periodo.estado_display }}</span></dd></div>
+          <div>
+            <dt>Avance</dt>
+            <dd>
+              <span class="com-avance" data-com-avance>{{ captura.capturados }} de {{ captura.filas|length }}</span> capturados
+              <span class="com-avance__barra" role="progressbar" aria-label="Comentarios capturados" aria-valuemin="0" aria-valuemax="{{ captura.filas|length }}" aria-valuenow="{{ captura.capturados }}"><span style="width: {{ captura.porcentaje }}%" data-com-barra></span></span>
+            </dd>
+          </div>
+        </dl>
+        {% if solo_lectura %}
+          <div class="alert alert--info cal-estado__aviso" role="note">
+            {% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}
+            <p class="alert__body">{{ solo_lectura }}</p>
+          </div>
+        {% endif %}
+      </section>
+
+      {% if not captura.filas %}
+        <div class="table-card">
+          <div class="empty-state">
+            {% include "partials/icon.html" with name="users" icon_class="icon--lg empty-state__icon" %}
+            <p class="empty-state__title">{% if asignacion.es_de_clase %}La clase no tiene integrantes en {{ periodo.nombre }}{% else %}El grupo no tiene estudiantes inscritos{% endif %}</p>
+          </div>
+        </div>
+      {% else %}
+        <form method="post" action="{{ url }}" class="com-captura" data-com-captura data-limite="{{ limite }}">
+          {% csrf_token %}
+          <ol class="com-lista">
+            {% for fila in captura.filas %}
+              <li class="card com-fila{% if fila.error %} has-error{% endif %}" data-com-fila{% if fila.capturado %} data-capturado{% endif %}>
+                <div class="com-fila__cabeza">
+                  <span class="com-fila__numero">{{ fila.numero }}</span>
+                  <label class="com-fila__nombre" for="comentario-{{ fila.inscripcion.pk }}">{{ fila.nombre }}</label>
+                  {% if fila.materia != asignacion.materia %}<span class="tag">Cuenta como {{ fila.materia }}</span>{% endif %}
+                  {% if fila.salio %}<span class="tag tag--warning">Salió de la clase el {{ fila.salio|date:"d/m/Y" }}</span>{% endif %}
+                  {% if fila.inscripcion.concluida %}<span class="tag">Semestre concluido</span>{% endif %}
+                  <span class="com-fila__estado">
+                    {% if fila.publicada %}<span class="tag tag--info">{% include "partials/icon.html" with name="lock" icon_class="icon--sm" %} Boleta publicada</span>
+                    {% elif fila.capturado %}<span class="tag tag--success" data-com-estado>Capturado</span>
+                    {% else %}<span class="tag tag--warning" data-com-estado>Pendiente</span>{% endif %}
+                  </span>
+                </div>
+                {% if editable and not fila.publicada %}
+                  <textarea class="field__control com-fila__texto" id="comentario-{{ fila.inscripcion.pk }}" name="comentario-{{ fila.inscripcion.pk }}" rows="3" maxlength="{{ limite }}"
+                            aria-describedby="ayuda-{{ fila.inscripcion.pk }}{% if fila.error %} error-{{ fila.inscripcion.pk }}{% endif %}"{% if fila.error %} aria-invalid="true"{% endif %}
+                            data-com-texto data-original="{{ fila.texto }}">{{ fila.escrito }}</textarea>
+                  <input type="hidden" name="version-{{ fila.inscripcion.pk }}" value="{{ fila.version }}">
+                {% else %}
+                  <p class="com-fila__leido" id="comentario-{{ fila.inscripcion.pk }}">{% if fila.texto %}{{ fila.texto|linebreaksbr }}{% else %}<span class="text-muted">Sin comentario.</span>{% endif %}</p>
+                {% endif %}
+                {% if fila.error %}<p class="field__error" id="error-{{ fila.inscripcion.pk }}" role="alert">{{ fila.error }}</p>{% endif %}
+                <p class="com-fila__meta" id="ayuda-{{ fila.inscripcion.pk }}">
+                  {% if fila.comentario.capturado_en %}Escrito por {{ fila.comentario.docente|default:fila.comentario.autor }} el {{ fila.comentario.capturado_en|date:"d/m/Y H:i" }}{% if fila.comentario.actualizado_en and fila.comentario.actualizado_en != fila.comentario.capturado_en %} · actualizado{% if fila.comentario.actualizado_por and fila.comentario.actualizado_por != fila.comentario.autor %} por {{ fila.comentario.actualizado_por.get_full_name|default:fila.comentario.actualizado_por.username }}{% endif %} el {{ fila.comentario.actualizado_en|date:"d/m/Y H:i" }}{% endif %}{% endif %}
+                  {% if editable and not fila.publicada %}<span class="com-fila__contador" data-com-contador aria-live="polite">{{ fila.escrito|length }} / {{ limite }}</span>{% endif %}
+                </p>
+              </li>
+            {% endfor %}
+          </ol>
+          {% if editable %}
+            <div class="com-guardar">
+              <p class="com-guardar__texto" data-com-aviso role="status" aria-live="polite">Puedes guardar y seguir después: solo se guarda lo que cambió.</p>
+              <button type="submit" class="btn btn--primary">{% include "partials/icon.html" with name="check" icon_class="icon--sm" %} Guardar comentarios</button>
+            </div>
+          {% endif %}
+        </form>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/calificaciones.js' %}" defer></script>
+  <script src="{% static 'js/comentarios.js' %}" defer></script>
+{% endblock %}

@@ -12,6 +12,7 @@ app_name = 'portal_estudiantes'
 urlpatterns = [
     path('', views.inicio, name='inicio'),
     path('salir/', views.salir, name='salir'),
+    path('boletas/comentarios/<int:pk>/', views.boleta_comentarios, name='boleta_comentarios'),
     path('mensajes/', include((rutas_de_portal(portales.ESTUDIANTE), 'mensajes'))),
     path('comunicados/', include((rutas_de_comunicados(portales.ESTUDIANTE), 'comunicados'))),
     path('agenda/', include((rutas_de_agenda(portales.ESTUDIANTE), 'agenda'))),

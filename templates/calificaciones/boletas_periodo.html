@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  Boletas de un estudiante en un periodo (Calificaciones/views_comentarios.boletas_periodo): dos opciones
+  independientes, la boleta de calificaciones (la del ciclo, con los periodos cerrados) y la boleta de comentarios del
+  periodo, con su estado, lo que falta para publicarla, publicarla o reabrirla con motivo, y su historial.
+{% endcomment %}
+
+{% block title %}Boletas · {{ alumno }} | CISAHUAYO{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'css/calificaciones.css' %}">
+  <link rel="stylesheet" href="{% static 'css/comentarios.css' %}">
+{% endblock %}
+
+{% block breadcrumbs %}
+  <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'inicio' %}">Panel de control</a></li>
+  {% if perms.Alumnos.view_alumno %}
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{% url 'alumnos:lista' %}">Estudiantes</a></li>
+    <li class="breadcrumb__item"><a class="breadcrumb__link" href="{{ alumno.get_absolute_url }}#academico">{{ alumno }}</a></li>
+  {% endif %}
+  <li class="breadcrumb__item"><span class="breadcrumb__current" aria-current="page">Boletas</span></li>
+{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <h1 class="page-header__title">Boletas de {{ alumno }}</h1>
+      <p class="page-header__description">Matrícula {{ alumno.referencia }} · {{ inscripcion.grupo }} · Ciclo {{ inscripcion.ciclo }}. Elige el periodo: cada boleta se emite por separado.</p>
+    </div>
+    {% if perms.Alumnos.view_alumno %}
+      <div class="page-header__actions"><a class="btn" href="{{ alumno.get_absolute_url }}#academico">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Expediente</a></div>
+    {% endif %}
+  </header>
+
+  <form class="filters cal-selector" method="get" aria-label="Periodo" data-cal-selector>
+    <div class="filters__field">
+      <label class="field__label" for="bol-periodo">Periodo</label>
+      <select class="field__control field__control--select" id="bol-periodo" name="periodo">
+        {% regroup pares by 0.ciclo as por_ciclo %}
+        {% for grupo in por_ciclo %}
+          <optgroup label="Ciclo {{ grupo.grouper }}">
+            {% for opcion, ins in grupo.list %}<option value="{{ opcion.pk }}"{% if opcion.pk == periodo.pk %} selected{% endif %}>{{ opcion.nombre }}{% if opcion.semestre_id %} · {{ opcion.semestre.nombre }}{% endif %} · {{ opcion.estado_display|lower }}</option>{% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="filters__actions"><button type="submit" class="btn btn--primary btn--sm" data-cal-ver>Ver</button></div>
+  </form>
+
+  <div class="bol-opciones">
+    {# --- Boleta de calificaciones: la del ciclo, con su propio flujo (cierre de actas) ---------------------------------- #}
+    <section class="card bol-opcion" aria-labelledby="titulo-calificaciones">
+      <h2 class="bol-opcion__titulo" id="titulo-calificaciones">{% include "partials/icon.html" with name="award" %} Boleta de calificaciones</h2>
+      <p class="bol-opcion__texto">La del ciclo {{ inscripcion.ciclo }}: cada materia con la calificación y las faltas de los periodos ya cerrados, {{ periodo.nombre }} incluido cuando su acta esté cerrada.</p>
+      <div class="bol-opcion__acciones">
+        <a class="btn" href="{% url 'calificaciones:boleta' alumno.pk %}?ciclo={{ inscripcion.ciclo_id }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Ver e imprimir</a>
+        <a class="btn btn--ghost" href="{% url 'calificaciones:boleta' alumno.pk %}?ciclo={{ inscripcion.ciclo_id }}&amp;pdf=1" target="_blank" rel="noopener">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+      </div>
+    </section>
+
+    {# --- Boleta de comentarios del periodo ------------------------------------------------------------------------- #}
+    <section class="card bol-opcion" aria-labelledby="titulo-comentarios">
+      <h2 class="bol-opcion__titulo" id="titulo-comentarios">{% include "partials/icon.html" with name="file-text" %} Boleta de comentarios</h2>
+      <p class="bol-opcion__texto">
+        {{ periodo.nombre }}:
+        {% if boleta.publicada %}
+          <span class="tag tag--success">Publicada</span> el {{ boleta.registro.publicada_en|date:"j \d\e F \d\e Y, H:i"|lower }}{% if boleta.registro.publicada_por %} por {{ boleta.registro.publicada_por.get_full_name|default:boleta.registro.publicada_por.username }}{% endif %}. La ven el estudiante y sus tutores en su portal.
+        {% elif boleta.completa %}
+          <span class="tag tag--info">Lista para publicar</span> todas sus materias tienen comentario.
+        {% elif boleta.materias %}
+          <span class="tag tag--warning">Pendiente</span> {{ boleta.capturadas }} de {{ boleta.materias|length }} materias con comentario.
+        {% else %}
+          <span class="tag">Sin materias</span> no cursa materias en este periodo.
+        {% endif %}
+      </p>
+
+      {% if boleta.materias %}
+        <ul class="bol-materias" aria-label="Materias del periodo">
+          {% for m in boleta.materias %}
+            <li>
+              <span>{{ m.materia.nombre }} <span class="bol-materias__docente">· {{ m.docente|default:"sin docente" }}</span></span>
+              {% if m.capturada %}<span class="tag tag--success">Con comentario</span>{% else %}<span class="tag tag--warning">Falta</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <div class="bol-opcion__acciones">
+        <a class="btn" href="{% url 'calificaciones:boleta_comentarios' alumno.pk %}?periodo={{ periodo.pk }}" target="_blank" rel="noopener">{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} {% if boleta.publicada %}Ver e imprimir{% else %}Ver borrador{% endif %}</a>
+        <a class="btn btn--ghost" href="{% url 'calificaciones:boleta_comentarios' alumno.pk %}?periodo={{ periodo.pk }}&amp;pdf=1" target="_blank" rel="noopener">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+        {% if puede_publicar %}
+          <form method="post" action="{% url 'calificaciones:comentarios_publicar' alumno.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="periodo" value="{{ periodo.pk }}">
+            <button type="submit" class="btn btn--primary"{% if problemas %} disabled aria-describedby="bol-problemas"{% endif %}>{% include "partials/icon.html" with name="send" icon_class="icon--sm" %} Publicar</button>
+          </form>
+        {% endif %}
+      </div>
+      {% if puede_publicar and problemas %}<p class="bol-opcion__texto" id="bol-problemas">Para publicarla: {{ problemas|join:" " }}</p>{% endif %}
+
+      {% if bloqueo_reapertura %}
+        <div class="alert alert--info" role="note">{% include "partials/icon.html" with name="lock" icon_class="alert__icon" %}<p class="alert__body">{{ bloqueo_reapertura }}</p></div>
+      {% elif puede_reabrir %}
+        <details class="bol-reabrir">
+          <summary>Reabrir para corregir un comentario</summary>
+          <form method="post" action="{% url 'calificaciones:comentarios_reabrir' alumno.pk %}" class="bol-reabrir">
+            {% csrf_token %}
+            <input type="hidden" name="periodo" value="{{ periodo.pk }}">
+            <label class="field__label" for="motivo-reabrir">Motivo</label>
+            <textarea class="field__control" id="motivo-reabrir" name="motivo" rows="2" required minlength="5" maxlength="1000"></textarea>
+            <p class="field__help">El portal deja de mostrarla hasta que se vuelva a publicar. Lo publicado y el motivo quedan en el historial.</p>
+            <div><button type="submit" class="btn">{% include "partials/icon.html" with name="refresh-cw" icon_class="icon--sm" %} Reabrir</button></div>
+          </form>
+        </details>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if historial %}
+    <section class="card" aria-labelledby="titulo-historial">
+      <header class="card__header card__header--icon">{% include "partials/icon.html" with name="clock" %}<h2 class="card__title" id="titulo-historial">Historial de los comentarios de {{ periodo.nombre }}</h2></header>
+      <div class="card__body">
+        <ul class="bol-historial">
+          {% for cambio in historial %}
+            <li>
+              <span><strong>{% if cambio.accion == 'CAPTURA' %}{{ cambio.materia }}{% else %}{{ cambio.get_accion_display }}{% endif %}</strong> · {{ cambio.fecha|date:"d/m/Y H:i" }} · {{ cambio.usuario.get_full_name|default:cambio.usuario.username|default:"—" }}</span>
+              {% if cambio.accion == 'CAPTURA' %}
+                {% if cambio.anterior %}<p class="bol-historial__texto"><span class="text-muted">Antes:</span> {{ cambio.anterior }}</p>{% endif %}
+                <p class="bol-historial__texto"><span class="text-muted">{% if cambio.anterior %}Después:{% else %}Escrito:{% endif %}</span> {{ cambio.nuevo|default:"(vacío)" }}</p>
+              {% elif cambio.motivo %}
+                <p class="bol-historial__texto"><span class="text-muted">Motivo:</span> {{ cambio.motivo }}</p>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{% static 'js/calificaciones.js' %}" defer></script>
+{% endblock %}

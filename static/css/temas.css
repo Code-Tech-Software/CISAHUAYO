@@ -400,6 +400,50 @@
   --t-radius-xl: 0.875rem;
 }
 
+/* Mosaico (imagen del usuario, 2026-11-02): azul petróleo #0e5d84 (acción), amarillo #fdb53d (acento), coral #f0576b
+   (marca en oscuro y tono 3), verde lima #92bb16 (franja, velo del fondo y tono 4), el azul profundo de sus lengüetas
+   #0a4a6b (menú de color); el fondo de las páginas, blanco (pedido del usuario, en lugar del lavanda #dbe0f4 de la
+   imagen). Con texto blanco encima, el coral exacto da 3.4:1: la marca, el peligro y los tonos usan el coral y el verde
+   más profundos para llegar a AA. */
+[data-tema="mosaico"] {
+  /* Colores */
+  --t-primary: #0e5d84;
+  --t-primary-hover: #0a4867;
+  --t-primary-dark: #6cb6dd;
+  --t-accent: #fdb53d;
+  --t-accent-text: #7a4a00;
+  --t-brand: #c8304a;
+  --t-brand-dark: #f0576b;
+  --t-stripe: #92bb16;
+  --t-sidebar: #0a4a6b;
+  --t-fondo: #ffffff;
+  /* Estados (etiquetas, avisos, asistencia) */
+  --t-success: #4b6d06;
+  --t-warning: #8f5400;
+  --t-danger: #b02840;
+  --t-info: #0e5d84;
+  /* Tonos (tarjetas de grado, avatares, horario, roles) */
+  --t-tone-1: #0e5d84;
+  --t-tone-1-base: #1f7fb0;
+  --t-tone-2: #8a5300;
+  --t-tone-2-base: #fdb53d;
+  --t-tone-3: #b8283f;
+  --t-tone-3-base: #f0576b;
+  --t-tone-4: #4b6d06;
+  --t-tone-4-base: #92bb16;
+  --t-tone-5: #5b47b0;
+  --t-tone-5-base: #8b7fe0;
+  --t-tone-6: #4a5568;
+  --t-tone-6-base: #94a3b8;
+  /* Letra y forma */
+  --t-font-sans: "Mulish", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-font-display: "Montserrat", "Mulish", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-radius-sm: 0.625rem;
+  --t-radius-md: 0.875rem;
+  --t-radius-lg: 1.25rem;
+  --t-radius-xl: 1.75rem;
+}
+
 
 /* --- 2. Roles a partir de las entradas ---------------------------------------------------------
    Los neutros (fondos, bordes y textos) llevan un hilo del color del tema para que todo combine. Los
@@ -583,7 +627,8 @@
      Violeta    DM Sans y Space Grotesk · esquinas justas · contorno fino · etiquetas de contorno
      Grafito    IBM Plex Sans · esquinas rectas · plano, sin sombras · etiquetas de contorno rectas
      Next Level Nunito y Fredoka (como la plataforma) · gordito · botones y tarjetas en «3D» · etiquetas sólidas
-     Corporate  Inter · esquinas medias · tarjetas Brilliance · sombras grises nítidas · etiquetas suaves con borde */
+     Corporate  Inter · esquinas medias · tarjetas Brilliance · sombras grises nítidas · etiquetas suaves con borde
+     Mosaico    Mulish y Montserrat · muy redondeado · botones de píldora · sombras azuladas · etiquetas sólidas */
 
 /* Letra y esquinas (en claro y en oscuro) */
 :root[data-tema]:not([data-tema="institucional"]) {
@@ -596,7 +641,7 @@
 }
 
 /* Sombras teñidas del color del tema */
-:root:is([data-tema="oceano"], [data-tema="esmeralda"], [data-tema="mandarina"]) {
+:root:is([data-tema="oceano"], [data-tema="esmeralda"], [data-tema="mandarina"], [data-tema="mosaico"]) {
   --shadow-xs: 0 1px 2px color-mix(in srgb, var(--t-primary) 12%, transparent);
   --shadow-sm: 0 2px 6px color-mix(in srgb, var(--t-primary) 12%, transparent), 0 1px 2px color-mix(in srgb, var(--t-primary) 8%, transparent);
   --shadow-md: 0 12px 28px -12px color-mix(in srgb, var(--t-primary) 32%, transparent), 0 3px 8px -3px color-mix(in srgb, var(--t-primary) 12%, transparent);
@@ -615,7 +660,8 @@
   --shadow-press-hover: 0 10px 24px -8px color-mix(in srgb, var(--t-primary) 75%, transparent);
 }
 
-:root[data-tema="frambuesa"] .btn {
+/* Botones de píldora: Frambuesa y Mosaico (como los bloques redondeados de su imagen) */
+:root:is([data-tema="frambuesa"], [data-tema="mosaico"]) .btn {
   border-radius: var(--radius-full);
 }
 
@@ -701,7 +747,7 @@
 }
 
 /* Etiquetas sólidas: el color lleno y el texto del color de la superficie (blanco en claro, oscuro en oscuro) */
-:root:is([data-tema="frambuesa"], [data-tema="mandarina"], [data-tema="nextlevel"]) .tag:is(
+:root:is([data-tema="frambuesa"], [data-tema="mandarina"], [data-tema="nextlevel"], [data-tema="mosaico"]) .tag:is(
   .tag--success, .tag--warning, .tag--danger, .tag--info, .tag--primary,
   .tag--tono-1, .tag--tono-2, .tag--tono-3, .tag--tono-4
 ) {

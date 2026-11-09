@@ -102,3 +102,73 @@
     margin-top: var(--space-8);
   }
 }
+
+/* --- Boleta de comentarios (templates/calificaciones/boleta_comentarios_hoja.html, 2026-11-09) ---------------------
+   Una fila por materia con su docente y el comentario completo: el texto se ajusta al ancho y, si es largo, sigue en
+   la página siguiente (nunca se recorta). El encabezado de la tabla se repite en cada página. */
+.boleta-comentarios__tabla {
+  table-layout: fixed;
+}
+
+.boleta-comentarios__tabla .boleta-comentarios__materia {
+  width: 22%;
+  white-space: normal;
+  vertical-align: top;
+}
+
+.boleta-comentarios__tabla .boleta-comentarios__docente {
+  width: 20%;
+  color: var(--color-text-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+.boleta-comentarios__tabla th:last-child,
+.boleta-comentarios__tabla .boleta-comentarios__texto {
+  text-align: left;
+}
+
+.boleta-comentarios__tabla .boleta-comentarios__texto {
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.boleta-comentarios__falta {
+  color: var(--color-warning);
+  font-style: italic;
+}
+
+.boleta-comentarios__borrador {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-warning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+@media print {
+  .boleta-comentarios__tabla thead {
+    display: table-header-group;
+  }
+
+  /* Una fila larga puede partirse entre páginas; una corta no se separa de su materia */
+  .boleta-comentarios__tabla tr {
+    break-inside: auto;
+  }
+
+  .boleta-comentarios__tabla th,
+  .boleta-comentarios__tabla td {
+    padding: 0.3rem 0.4rem;
+    font-size: 9pt;
+  }
+
+  .boleta-comentarios__borrador {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

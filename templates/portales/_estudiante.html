@@ -216,3 +216,26 @@
     </section>
   {% endfor %}
 {% endif %}
+
+{# --- Boletas de comentarios publicadas (2026-11-09): de cualquier ciclo, la más reciente primero ------------------- #}
+{% if boletas_comentarios %}
+  <section class="card portal-section" aria-labelledby="titulo-boletas">
+    <header class="card__header card__header--icon">
+      {% include "partials/icon.html" with name="file-text" %}<h2 class="card__title" id="titulo-boletas">Boletas de comentarios</h2>
+    </header>
+    <div class="card__body">
+      <p class="portal-section__lead">El comentario de cada profesor sobre {% if quien == "Tu" %}tu{% else %}su{% endif %} desempeño en cada materia, por periodo.</p>
+      <ul class="timeline">
+        {% for item in boletas_comentarios %}
+          <li class="timeline__item">
+            <span class="timeline__main">{{ item.boleta.periodo.nombre }} · Ciclo {{ item.boleta.periodo.ciclo }}</span>
+            <span class="timeline__tags">
+              <a class="btn btn--ghost btn--sm" href="{{ item.url }}">{% include "partials/icon.html" with name="eye" icon_class="icon--sm" %} Ver</a>
+              <a class="btn btn--ghost btn--sm" href="{{ item.url }}?pdf=1">{% include "partials/icon.html" with name="download" icon_class="icon--sm" %} PDF</a>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+{% endif %}

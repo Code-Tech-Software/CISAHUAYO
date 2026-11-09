@@ -1,0 +1,99 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+  Boletas de comentarios listas para imprimir o guardar en PDF (Calificaciones/views_comentarios.hoja; también desde los
+  portales): una por estudiante, cada una en su página, con el formato de la boleta de calificaciones. Una fila por
+  materia del periodo con su docente autor y el comentario completo (los largos siguen en la página siguiente; no se
+  recortan). Publicada, muestra lo que se publicó; si no, es un borrador marcado como tal. Con ?pdf=1 abre solo el
+  diálogo de impresión.
+{% endcomment %}
+<html lang="es" data-tema="{{ apariencia.tema }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ titulo }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'img/logointer.svg' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  {% if apariencia.fuentes %}<link rel="stylesheet" href="{{ apariencia.fuentes }}">{% endif %}
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/temas.css' %}">
+  <link rel="stylesheet" href="{% static 'css/asistencias.css' %}">
+  <link rel="stylesheet" href="{% static 'css/boletas.css' %}">
+  <style>@page { size: A4 portrait; margin: 12mm; }</style>
+</head>
+<body class="hoja-reporte"{% if imprimir_al_abrir %} data-imprimir-al-abrir{% endif %}>
+  <div class="hoja-reporte__barra">
+    <a class="btn btn--ghost" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver</a>
+    <span class="text-muted">{{ hojas|length }} boleta{{ hojas|length|pluralize }} de comentarios</span>
+    <button type="button" class="btn btn--primary" data-imprimir>{% include "partials/icon.html" with name="printer" icon_class="icon--sm" %} Imprimir o guardar en PDF</button>
+  </div>
+
+  {% for h in hojas %}
+    {% with c=h.c %}
+      <main class="reporte boleta boleta-comentarios">
+        <header class="reporte__encabezado">
+          <div class="reporte__marca">
+            <img class="reporte__logo" src="{% static 'img/logointer.svg' %}" alt="" width="40" height="44">
+            <div>
+              <p class="reporte__colegio">Colegio Interamericano de Sahuayo</p>
+              <h1 class="reporte__titulo">Boleta de comentarios</h1>
+              <p class="boleta__nivel">{{ c.nivel }}{% if c.cct %} · CCT {{ c.cct }}{% endif %} · Ciclo escolar {{ c.ciclo }} · {{ c.periodo }}{% if c.semestre %} ({{ c.semestre }}){% endif %}</p>
+            </div>
+          </div>
+          <dl class="reporte__datos">
+            <div><dt>Estudiante</dt><dd>{{ c.alumno }}</dd></div>
+            <div><dt>Matrícula</dt><dd>{{ c.matricula }}</dd></div>
+            <div><dt>Nivel</dt><dd>{{ c.nivel }}</dd></div>
+            <div><dt>Grado</dt><dd>{{ c.grado }}</dd></div>
+            <div><dt>Grupo</dt><dd>{{ c.grupo }}</dd></div>
+            <div><dt>Ciclo escolar</dt><dd>{{ c.ciclo }}</dd></div>
+            <div><dt>Periodo</dt><dd>{{ c.periodo }}</dd></div>
+          </dl>
+        </header>
+
+        {% if not h.publicada %}
+          <p class="boleta-comentarios__borrador" role="note">Borrador: no está publicada{% if h.pendientes %} y le falta{{ h.pendientes|pluralize:"n" }} {{ h.pendientes }} comentario{{ h.pendientes|pluralize }}{% endif %}.</p>
+        {% endif %}
+
+        {% if c.materias %}
+          <section class="reporte__seccion">
+            <div class="reporte__marco-tabla">
+              <table class="reporte__tabla boleta-comentarios__tabla">
+                <thead>
+                  <tr>
+                    <th scope="col" class="boleta-comentarios__materia">Materia</th>
+                    <th scope="col" class="boleta-comentarios__docente">Docente</th>
+                    <th scope="col">Comentario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for m in c.materias %}
+                    <tr>
+                      <th scope="row" class="boleta-comentarios__materia">{{ m.materia }}</th>
+                      <td class="boleta-comentarios__docente">{{ m.docente|default:"—" }}</td>
+                      <td class="boleta-comentarios__texto">{% if m.pendiente %}<span class="boleta-comentarios__falta">Sin comentario todavía</span>{% else %}{{ m.comentario|linebreaksbr }}{% endif %}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        {% else %}
+          <p class="boleta__aviso">No cursa materias en {{ c.periodo }}.</p>
+        {% endif %}
+
+        <div class="reporte__firmas">
+          <div><span class="reporte__linea"></span>{{ c.director|default:"" }}<span class="text-muted">{{ c.cargo|default:"Dirección" }}</span></div>
+          <div><span class="reporte__linea"></span>Padre, madre o tutor<span class="text-muted">Nombre y firma</span></div>
+        </div>
+        <p class="boleta__pie">
+          {% if h.publicada and h.registro.publicada_en %}Publicada el {{ h.registro.publicada_en|date:"j \d\e F \d\e Y"|lower }}.{% endif %}
+          Generada el {{ generado|date:"j \d\e F \d\e Y, H:i"|lower }}{% if usuario %} por {{ usuario }}{% endif %}.
+        </p>
+      </main>
+    {% endwith %}
+  {% endfor %}
+
+  <script src="{% static 'js/imprimir.js' %}" defer></script>
+</body>
+</html>

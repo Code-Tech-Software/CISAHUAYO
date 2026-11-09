@@ -411,6 +411,8 @@
               </a>
             </header>
             <div class="card__body">
+              {# Por periodo: la boleta de calificaciones y la de comentarios, cada una con su propia emisión (2026-11-09) #}
+              <p><a class="btn btn--sm" href="{% url 'calificaciones:boletas_periodo' alumno.pk %}">{% include "partials/icon.html" with name="file-text" icon_class="icon--sm" %} Boletas por periodo (calificaciones y comentarios)</a></p>
               <ul class="timeline">
                 {% for ciclo in boletas_ciclos %}
                   <li class="timeline__item">

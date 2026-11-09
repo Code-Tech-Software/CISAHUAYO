@@ -4,6 +4,7 @@ Solo ve a los estudiantes con los que tiene un vínculo activo (TutorAlumno.acti
 estudiante en su portal (PortalEstudiantes/resumen.py). El acceso y la sesión están en CISAHUAYO/portales.py.
 """
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from Alumnos.models import NotificacionAsistencia, TutorAlumno
@@ -11,6 +12,7 @@ from Alumnos.semanas import fecha_de
 from Asistencias.context_processors import pendientes_de
 from CISAHUAYO import portales
 from PortalEstudiantes.resumen import resumen
+from PortalEstudiantes.views import boletas_de_comentarios, hoja_de_comentarios
 
 TIPO = portales.TUTOR
 
@@ -39,7 +41,19 @@ def estudiante(request, pk):
     pendientes_de(request.cuenta_portal).filter(inscripcion__alumno_id=pk).update(leida=True)
     return render(request, 'portales/tutores/estudiante.html', {
         **portales.contexto(request), **resumen(vinculo.alumno, semana=fecha_de(request.GET.get('semana'))), 'vinculo': vinculo,
+        'boletas_comentarios': boletas_de_comentarios(vinculo.alumno, 'portal_tutores:boleta_comentarios'),
     })
+
+
+@portales.portal_requerido(TIPO)
+def boleta_comentarios(request, pk):
+    """La boleta de comentarios publicada de uno de sus estudiantes (404 si no está vinculado con él o no está
+    publicada)."""
+    from Calificaciones.models import BoletaComentarios
+    registro = get_object_or_404(BoletaComentarios.objects.select_related('inscripcion__alumno', 'periodo__ciclo'), pk=pk, publicada=True,
+                                 inscripcion__alumno__in=_vinculos(request.cuenta_portal).values('alumno'))
+    volver = f"{reverse('portal_tutores:estudiante', args=[registro.inscripcion.alumno_id])}#titulo-boletas"
+    return hoja_de_comentarios(request, registro, volver)
 
 
 @portales.portal_requerido(TIPO)

@@ -356,8 +356,9 @@
   --t-radius-xl: 1.75rem;
 }
 
-/* Corporate (paleta del usuario, 2026-10-13): Brilliance #fcfdfd (tarjetas, sección 4), Springtime Rain #edeff3
-   (fondo), Wind Weaver #c6d1d7 (acento y marca en oscuro), Wild Thistle #9fa0b5 (tono 2), Soothing Sapphire
+/* Corporate (paleta del usuario, 2026-10-13): Brilliance #fcfdfd (tarjetas, sección 4), #f2f4f7 (fondo de las páginas,
+   pedido del 2026-11-09; antes Springtime Rain #edeff3; el menú lateral tiene sus propios colores, sección 4), Wind
+   Weaver #c6d1d7 (acento y marca en oscuro), Wild Thistle #9fa0b5 (tono 2), Soothing Sapphire
    #2f7eda (franja, velo del fondo y tono 1) y Blackwater #555663 (marca y menú de color). Con texto blanco encima,
    el zafiro exacto da 4.1:1: los botones y enlaces usan el mismo zafiro un poco más profundo para llegar a AA. */
 [data-tema="corporate"] {
@@ -372,7 +373,7 @@
   --t-brand-dark: #c6d1d7;
   --t-stripe: #2f7eda;
   --t-sidebar: #555663;
-  --t-fondo: #edeff3;
+  --t-fondo: #f2f4f7;
   /* Estados (etiquetas, avisos, asistencia) */
   --t-success: #166534;
   --t-warning: #92400e;
@@ -703,7 +704,7 @@
   transform: translateY(2px);
 }
 
-/* Corporate: tarjetas Brilliance sobre el fondo Springtime Rain y sombras nítidas teñidas de Blackwater */
+/* Corporate: tarjetas Brilliance sobre el fondo #f2f4f7 y sombras nítidas teñidas de Blackwater */
 :root[data-tema="corporate"] {
   --shadow-xs: 0 1px 2px color-mix(in srgb, #555663 10%, transparent);
   --shadow-sm: 0 1px 3px color-mix(in srgb, #555663 14%, transparent), 0 1px 2px color-mix(in srgb, #555663 8%, transparent);

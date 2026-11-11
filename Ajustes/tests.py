@@ -272,10 +272,13 @@ class ColoresDeLosTemasTests(SimpleTestCase):
     def test_los_estados_del_menu_claro_de_corporate_se_leen(self):
         selector = ':root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .sidebar'
         menu = dict(re.findall(r'--color-([a-z-]+): (#[0-9a-f]{6});', bloque(TEMAS_CSS.read_text(encoding='utf-8'), selector)))
+        # La opción actual va en zafiro sólido con letra blanca (paquete «Institucional», 2026-11-11)
+        zafiro = entradas_de_cada_tema()['corporate']['primary']
         for estado, texto, fondo in (
             ('normal', menu['text-soft'], menu['surface']),
             ('bajo el ratón', menu['text-strong'], menu['surface-hover']),
-            ('actual', menu['primary-text'], menu['primary-soft']),
+            ('actual', self.BLANCO, zafiro),
+            ('contador de mensajes en la actual', zafiro, self.BLANCO),
         ):
             with self.subTest(estado=estado):
                 self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')

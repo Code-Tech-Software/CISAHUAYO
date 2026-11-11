@@ -357,22 +357,26 @@
 }
 
 /* Corporate (paleta del usuario, 2026-10-13): Brilliance #fcfdfd (tarjetas, sección 4), #f2f4f7 (fondo de las páginas,
-   pedido del 2026-11-09; antes Springtime Rain #edeff3; el menú lateral tiene sus propios colores, sección 4), Wind
-   Weaver #c6d1d7 (acento y marca en oscuro), Wild Thistle #9fa0b5 (tono 2), Soothing Sapphire
-   #2f7eda (franja, velo del fondo y tono 1) y Blackwater #555663 (marca y menú de color). Con texto blanco encima,
-   el zafiro exacto da 4.1:1: los botones y enlaces usan el mismo zafiro un poco más profundo para llegar a AA. */
+   pedido del 2026-11-09; antes Springtime Rain #edeff3; el menú lateral tiene sus propios colores, sección 4),
+   Soothing Sapphire #2f7eda (franja, velo del fondo y tono 1) y Blackwater #555663 (sombras). Con texto blanco
+   encima, el zafiro exacto da 4.1:1: los botones y enlaces usan el mismo zafiro un poco más profundo para llegar a AA.
+   Paquete «Institucional» (pedido del 2026-11-11, para que el sitio no se vea tan apagado): los colores del escudo y
+   de la franja del colegio. Acento oro #eabf6d (pestaña activa, contador del filtro activo; antes Wind Weaver
+   #c6d1d7), marca tinto #a22a47 (nombre del colegio, insignias y avisos; antes Blackwater) y los tonos 2, 4 y 6 en
+   tinto, oro y aqua de la franja (antes dos grises y un ámbar). El menú de color pasa a un Blackwater un poco más
+   hondo (#4b4c58): con el #555663 el nombre del colegio en oro daba 4.2:1. */
 [data-tema="corporate"] {
   /* Colores */
   --t-primary: #2c76cd;
   --t-primary-hover: #2665ae;
   --t-primary-text: #286cbb;
   --t-primary-dark: #6da5e5;
-  --t-accent: #c6d1d7;
-  --t-accent-text: #555663;
-  --t-brand: #555663;
-  --t-brand-dark: #c6d1d7;
+  --t-accent: #eabf6d;
+  --t-accent-text: #7a5600;
+  --t-brand: #a22a47;
+  --t-brand-dark: #e8a0b0;
   --t-stripe: #2f7eda;
-  --t-sidebar: #555663;
+  --t-sidebar: #4b4c58;
   --t-fondo: #f2f4f7;
   /* Estados (etiquetas, avisos, asistencia) */
   --t-success: #166534;
@@ -382,16 +386,16 @@
   /* Tonos (tarjetas de grado, avatares, horario, roles) */
   --t-tone-1: #235da1;
   --t-tone-1-base: #2f7eda;
-  --t-tone-2: #555663;
-  --t-tone-2-base: #9fa0b5;
+  --t-tone-2: #8e2440;
+  --t-tone-2-base: #d0607c;
   --t-tone-3: #0f766e;
   --t-tone-3-base: #2dd4bf;
-  --t-tone-4: #92400e;
-  --t-tone-4-base: #fbbf24;
+  --t-tone-4: #8a5a00;
+  --t-tone-4-base: #eabf6d;
   --t-tone-5: #6d28d9;
   --t-tone-5-base: #a78bfa;
-  --t-tone-6: #45535b;
-  --t-tone-6-base: #c6d1d7;
+  --t-tone-6: #2f6f75;
+  --t-tone-6-base: #a2c6ca;
   /* Letra y forma */
   --t-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --t-font-display: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -745,6 +749,101 @@
 
 :root[data-tema="corporate"] .nav__link[aria-current="page"]::before {
   content: none;
+}
+
+/* Paquete «Institucional» (2026-11-11): en el menú claro, la opción actual en zafiro sólido con letra blanca (antes
+   #e1ebf4 con letra #0062b5). Tampoco cambia bajo el ratón (esta regla le gana a la del hover). El contador de
+   mensajes sin leer que lleva dentro se invierte: blanco con el número en zafiro. */
+:root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .nav__link[aria-current="page"] {
+  --color-primary: #ffffff;
+  --color-on-primary: var(--t-primary);
+  background: var(--t-primary);
+  color: #ffffff;
+}
+
+/* Paquete «Institucional»: el icono de cada cifra del panel en un círculo de su tono (panel/inicio.html le pone a
+   cada tarjeta su panel-kpi--tono-N), en claro y en oscuro. Solo el primer icono del título: el de ayuda no. */
+:root[data-tema="corporate"] .panel-kpi__titulo > .icon:first-child {
+  box-sizing: content-box;
+  padding: 0.3125rem;
+  border-radius: 50%;
+  background: var(--kpi-tinte, var(--color-tone-1-tint));
+  color: var(--kpi-tono, var(--color-tone-1));
+}
+
+:root[data-tema="corporate"] .panel-kpi--tono-2 { --kpi-tinte: var(--color-tone-2-tint); --kpi-tono: var(--color-tone-2); }
+:root[data-tema="corporate"] .panel-kpi--tono-3 { --kpi-tinte: var(--color-tone-3-tint); --kpi-tono: var(--color-tone-3); }
+:root[data-tema="corporate"] .panel-kpi--tono-4 { --kpi-tinte: var(--color-tone-4-tint); --kpi-tono: var(--color-tone-4); }
+:root[data-tema="corporate"] .panel-kpi--tono-5 { --kpi-tinte: var(--color-tone-5-tint); --kpi-tono: var(--color-tone-5); }
+:root[data-tema="corporate"] .panel-kpi--tono-6 { --kpi-tinte: var(--color-tone-6-tint); --kpi-tono: var(--color-tone-6); }
+
+/* Encabezados de las tablas en zafiro sólido con letra blanca (pedido del 2026-11-11), en claro y en pantalla: en
+   oscuro siguen en la superficie del tema y en papel salen como antes. Como en el menú de color, dentro del
+   encabezado se redefinen los roles, así lo que lleva adentro (subtítulos, porcentajes, casillas, botones,
+   etiquetas, líneas) pasa a blanco sin tocar cada módulo. Todo el texto va en blanco: el zafiro da 4.6:1 con blanco
+   y ningún blanco atenuado llega a AA. Fuera: los calendarios (días de la semana) y las tablas que las personas
+   escriben en comunicados y mensajes. */
+@media screen {
+  :root[data-tema="corporate"]:not([data-theme="dark"]) table:not(
+    .calendario__tabla, .agenda-mini, :is(.contenido-comunicado, .editor__area, .burbuja__texto--rico) table
+  ) > thead {
+    --encabezado-fondo: #2c76cd;
+    --encabezado-hondo: #235da1;
+    --color-surface: var(--encabezado-fondo);
+    --color-surface-2: var(--encabezado-fondo);
+    --color-surface-hover: color-mix(in srgb, #ffffff 12%, var(--encabezado-fondo));
+    --color-field-bg: var(--encabezado-fondo);
+    --color-border: color-mix(in srgb, #ffffff 24%, var(--encabezado-fondo));
+    --color-border-strong: color-mix(in srgb, #ffffff 45%, var(--encabezado-fondo));
+    --border: var(--border-width) solid var(--color-border);
+    --color-hover-tint: rgb(255 255 255 / 0.12);
+    --color-text: #ffffff;
+    --color-text-strong: #ffffff;
+    --color-text-soft: #ffffff;
+    --color-text-muted: #ffffff;
+    --color-text-subtle: color-mix(in srgb, #ffffff 65%, var(--encabezado-fondo));
+    --color-primary: #ffffff;
+    --color-primary-hover: #ffffff;
+    --color-on-primary: var(--encabezado-fondo);
+    --color-primary-soft: rgb(255 255 255 / 0.15);
+    --color-primary-soft-hover: rgb(255 255 255 / 0.22);
+    --color-primary-text: #ffffff;
+    --color-danger: #ffffff;
+    --color-focus: #ffffff;
+    --ring-focus: 0 0 0 4px color-mix(in srgb, var(--color-focus) 30%, transparent);
+    background: var(--encabezado-fondo);
+    color: #ffffff;
+  }
+
+  /* Matriz de asistencia: la banda de los meses alterna zafiro hondo y Blackwater (los dos colores de marca), la
+     fila de días queda en zafiro y hoy se invierte (blanco con letra y línea en zafiro hondo) */
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .asistencia-matriz__mes-grupo {
+    background: var(--encabezado-hondo);
+  }
+
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .asistencia-matriz__mes-grupo.is-par {
+    background: #555663;
+    color: #ffffff;
+  }
+
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .asistencia-matriz__dia,
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .asistencia-matriz__dia.is-mes-par {
+    background: var(--encabezado-fondo);
+  }
+
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .asistencia-matriz__dia.is-hoy {
+    background: #ffffff;
+    box-shadow: inset 0 -3px 0 var(--encabezado-hondo);
+  }
+
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .asistencia-matriz__dia.is-hoy :is(.asistencia-matriz__num, .asistencia-matriz__inicial) {
+    color: var(--encabezado-hondo);
+  }
+
+  /* Reporte de asistencia: los días de suspensión, en el rojo de la suspensión oscurecido para la letra blanca */
+  :root[data-tema="corporate"]:not([data-theme="dark"]) .reporte__tabla thead th.is-suspension {
+    background: color-mix(in srgb, var(--asistencia-suspension-bg) 85%, #000000);
+  }
 }
 
 /* Etiquetas sólidas: el color lleno y el texto del color de la superficie (blanco en claro, oscuro en oscuro) */

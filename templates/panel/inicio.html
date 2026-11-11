@@ -56,7 +56,7 @@
       <section class="panel-kpis" aria-label="Indicadores principales">
         {% if p.estudiantes %}
           {% with d=estudiantes %}
-            <article class="panel-kpi">
+            <article class="panel-kpi panel-kpi--tono-1">
               <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="graduation-cap" icon_class="icon--sm" %} Estudiantes activos</h2>
               {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>{% else %}
                 <p class="panel-kpi__valor">{{ d.total }}</p>
@@ -74,7 +74,7 @@
 
         {% if p.asistencia %}
           {% with d=entrada_hoy %}
-            <article class="panel-kpi">
+            <article class="panel-kpi panel-kpi--tono-3">
               <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="user-check" icon_class="icon--sm" %} Asistencia de hoy
                 <span class="panel-ayuda" tabindex="0" data-tooltip="Asistencia de entrada al colegio: presentes y retardos entre los estudiantes con registro de hoy. Quien no tiene registro todavía no cuenta como falta; los suspendidos no se cuentan.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
               </h2>
@@ -93,7 +93,7 @@
 
         {% if p.calificaciones %}
           {% with d=academico %}
-            <article class="panel-kpi">
+            <article class="panel-kpi panel-kpi--tono-5">
               <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="award" icon_class="icon--sm" %} Rendimiento académico
                 <span class="panel-ayuda" tabindex="0" data-tooltip="Promedio de las calificaciones finales de las actas cerradas (cada calificación de materia cuenta una vez). Las actas en captura y las calificaciones pendientes no se incluyen.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
               </h2>
@@ -106,7 +106,7 @@
               {% endif %}
               <a class="panel-kpi__enlace" href="#academico">Ver desempeño</a>
             </article>
-            <article class="panel-kpi">
+            <article class="panel-kpi panel-kpi--tono-4">
               <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="triangle-alert" icon_class="icon--sm" %} Con materias reprobadas
                 <span class="panel-ayuda" tabindex="0" data-tooltip="Estudiantes distintos con al menos una calificación final menor que la aprobatoria de su nivel, entre quienes tienen calificaciones cerradas en el periodo.">{% include "partials/icon.html" with name="info" icon_class="icon--sm" %}<span class="visually-hidden">Cómo se calcula</span></span>
               </h2>
@@ -124,7 +124,7 @@
         {# Finanzas no está implementado: en su lugar, incidencias de hoy y retiros de hoy #}
         {% if p.conducta %}
           {% with d=conducta %}
-            <article class="panel-kpi">
+            <article class="panel-kpi panel-kpi--tono-2">
               <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="flag" icon_class="icon--sm" %} Incidencias de hoy</h2>
               {% if d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>
               {% elif not filtros.hoy_en_ciclo %}<p class="panel-kpi__valor panel-kpi__valor--texto">No aplica</p><p class="panel-kpi__periodo">El ciclo elegido no es el actual</p>
@@ -138,7 +138,7 @@
         {% endif %}
         {% if p.retiros %}
           {% with d=retiros %}
-            <article class="panel-kpi">
+            <article class="panel-kpi panel-kpi--tono-6">
               <h2 class="panel-kpi__titulo">{% include "partials/icon.html" with name="log-out" icon_class="icon--sm" %} Retiros de hoy</h2>
               {% if not filtros.hoy_en_ciclo %}<p class="panel-kpi__valor panel-kpi__valor--texto">No aplica</p><p class="panel-kpi__periodo">El ciclo elegido no es el actual</p>
               {% elif d.error %}<p class="panel-kpi__estado">No se pudo consultar</p>

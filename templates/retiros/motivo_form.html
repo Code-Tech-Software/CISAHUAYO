@@ -12,7 +12,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if motivo %}Editar «{{ motivo.nombre }}»{% else %}Nuevo motivo de retiro{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if motivo %}Editar «{{ motivo.nombre }}»{% else %}Nuevo motivo de retiro{% endif %}</h1>
       <p class="page-header__description">{% if usado %}Este motivo ya se usó en avisos: si cambias su nombre, el historial mostrará el nuevo. Para dejar de ofrecerlo, desactívalo.{% else %}Los tutores lo eligen al avisar un retiro anticipado. Los de número de orden menor aparecen primero.{% endif %}</p>
     </div>
   </header>

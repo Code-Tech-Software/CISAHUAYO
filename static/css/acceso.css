@@ -2,9 +2,14 @@
    CISAHUAYO · Pantallas de acceso (iniciar y cerrar sesión del sistema y de los portales) y páginas de error sueltas
    Siempre con la paleta Corporate: acceso_base.html y error_base.html llevan data-tema="corporate", así que aquí se
    usan los colores de rol de app.css (que temas.css calcula para ese tema) y sus entradas --t-* para el panel de marca.
-   El escudo del colegio es el protagonista: en pantallas anchas, al centro del panel izquierdo (claro y discreto, para
-   que el guinda del escudo destaque); en pantallas angostas, centrado arriba de la tarjeta. Es el SVG del colegio, así
-   que se ve nítido a cualquier tamaño; siempre completo y con sus proporciones (ancho fijo y alto automático).
+   El escudo del colegio es el protagonista: en pantallas anchas, al centro del panel izquierdo; en pantallas angostas,
+   centrado arriba de la tarjeta. Es el SVG del colegio, así que se ve nítido a cualquier tamaño; siempre completo y con
+   sus proporciones (ancho fijo y alto automático).
+   Paleta institucional (revisión del 2026-11-11): el panel de marca en tinto #A22A47 liso, con el escudo y los textos
+   en blanco y, en la orilla que da al formulario, una franja vertical blanca, amarilla #EABF6D y azul #A2C6CA (la
+   opción que eligió el usuario; sin burbujas ni formas). El botón principal y los acentos (pestaña elegida, foco) van
+   en el mismo tinto. En escritorio el formulario va sobre blanco, sin tarjeta; en teléfonos, el escudo blanco centrado
+   sobre una franja tinto y el formulario en una hoja blanca que sube sobre ella.
    Orden: 1. Estructura · 2. Escudo y panel de marca · 3. Tarjeta · 4. Selector de acceso · 5. Formulario · 6. Sesión
    cerrada y errores · 7. Teléfonos y pantallas anchas. Sin degradados: colores lisos y formas planas.
    ========================================================================== */
@@ -12,7 +17,7 @@
 /* --- 1. Estructura ------------------------------------------------------------------------------------- */
 .access-page {
   margin: 0;
-  background: var(--color-bg);
+  background: var(--color-surface);
 }
 
 /* Filete del borde superior: la franja tricolor institucional de app.css, la misma del menú en todos los temas */
@@ -21,16 +26,30 @@
   position: fixed;
   inset: 0 0 auto;
   z-index: 5;
-  height: 3px;
+  height: 4px;
   background: var(--franja-institucional);
 }
 
+/* Los colores del colegio. El tinto da 7.1:1 con letra blanca (botón) y sobre blanco (acentos); en oscuro, los acentos
+   van en un tinto claro que se lee sobre el fondo oscuro. --color-focus hace tintos los contornos de foco de toda la
+   pantalla (botones, enlaces y el borde de los campos). */
 .access {
-  --escudo: #791729;   /* el guinda del escudo (static/img/logointer.svg) */
-  --panel: color-mix(in srgb, var(--t-sidebar) 5%, var(--color-surface));
+  --acceso-tinto: #a22a47;
+  --acceso-tinto-hondo: #8a2240;
+  --acceso-oro: #eabf6d;
+  --acceso-azul: #a2c6ca;
+  --acceso-acento: var(--acceso-tinto);
+  --color-focus: var(--acceso-acento);
+  --panel: var(--acceso-tinto);
   display: grid;
   min-height: 100vh;
   min-height: 100dvh;
+}
+
+/* En oscuro, el panel en un tinto más hondo, para no deslumbrar junto al fondo oscuro */
+:root[data-theme="dark"] .access {
+  --acceso-acento: #e8a0b0;
+  --panel: color-mix(in srgb, var(--acceso-tinto) 78%, #000000);
 }
 
 /* Una columna: el escudo y el nombre arriba, la tarjeta debajo, al centro de la pantalla (si no caben, desde arriba) */
@@ -70,51 +89,11 @@
   display: none;
 }
 
-.access__shapes {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.access__disc,
-.access__ring,
-.access__bubble,
-.access__dot {
-  position: absolute;
-  border-radius: 50%;
-}
-
-.access__disc {
-  bottom: -20rem;
-  left: -16rem;
-  width: 34rem;
-  height: 34rem;
-  background: color-mix(in srgb, var(--t-sidebar) 5%, transparent);
-}
-
-.access__ring {
-  top: -7rem;
-  right: -7rem;
-  width: 22rem;
-  height: 22rem;
-  border: 2px solid color-mix(in srgb, var(--t-accent) 70%, transparent);
-}
-
-.access__bubble {
-  top: 6.5rem;
-  right: 11rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  background: var(--t-stripe);
-}
-
-.access__dot {
-  top: 10rem;
-  right: 8.75rem;
-  width: 0.75rem;
-  height: 0.75rem;
-  background: var(--escudo);
+/* Sobre el tinto, el escudo en blanco: la versión de una sola tinta del SVG del colegio (el filtro lo vuelve blanco
+   sin tocar su forma ni sus proporciones), tanto en el panel como arriba de la tarjeta en teléfonos */
+.access__brand .access__emblem-img,
+.access__compact-brand .access__emblem-img {
+  filter: brightness(0) invert(1);
 }
 
 /* El escudo al centro; debajo, el nombre del colegio y la frase, centrados, y al pie los accesos */
@@ -148,10 +127,12 @@
   text-align: center;
 }
 
+/* Los textos del panel, en blanco: el nombre del colegio y el rótulo al 100 % (7.1:1 sobre el tinto), la frase al 88 %
+   (5.7:1) y el aviso legal al 82 % (4.9:1) */
 .access__school {
   max-width: 13em;   /* «Colegio Interamericano» en una línea y «de Sahuayo» en la otra */
   margin: 0;
-  color: var(--color-text-strong);
+  color: #ffffff;
   font-size: clamp(1.625rem, 1rem + 1.4vw, 2.25rem);
   font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
@@ -165,18 +146,18 @@
   gap: var(--space-2);
   max-width: 26rem;
   margin: 0;
-  color: var(--color-text-soft);
+  color: color-mix(in srgb, #ffffff 88%, var(--panel));
   font-size: var(--text-base);
   line-height: 1.5;
   text-wrap: balance;
 }
 
-/* «Sistema de Gestión Integral CIS» entre dos filetes cortos */
+/* «Sistema de Gestión Integral CIS» en blanco, entre dos filetes amarillos */
 .access__eyebrow {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  color: var(--color-primary-text);
+  color: #ffffff;
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
@@ -189,11 +170,7 @@
   width: 1.5rem;
   height: 3px;
   border-radius: 3px;
-  background: var(--t-stripe);
-}
-
-.access__eyebrow::after {
-  background: var(--escudo);
+  background: var(--acceso-oro);
 }
 
 /* Al pie del panel: los tres accesos, en fichas discretas (solo si la pantalla es alta), y el aviso legal */
@@ -211,16 +188,17 @@
   list-style: none;
 }
 
+/* Las fichas, translúcidas sobre el tinto, con letra blanca (al 92 % la descripción: 5:1) */
 .access__point {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-3);
-  border: var(--border);
+  border: var(--border-width) solid rgb(255 255 255 / 0.22);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
-  color: var(--color-text-muted);
+  background: rgb(255 255 255 / 0.08);
+  color: color-mix(in srgb, #ffffff 92%, var(--panel));
   font-size: var(--text-xs);
   line-height: 1.4;
 }
@@ -228,7 +206,7 @@
 .access__point strong {
   display: block;
   margin-bottom: 0.125rem;
-  color: var(--color-text-strong);
+  color: #ffffff;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
 }
@@ -240,8 +218,8 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: var(--radius-md);
-  background: var(--color-primary-soft);
-  color: var(--color-primary-text);
+  background: rgb(255 255 255 / 0.16);
+  color: #ffffff;
 }
 
 .access__point-icon .icon {
@@ -250,7 +228,7 @@
 
 .access__legal {
   margin: 0;
-  color: var(--color-text-muted);
+  color: color-mix(in srgb, #ffffff 82%, var(--panel));
   font-size: var(--text-xs);
   text-align: center;
 }
@@ -285,12 +263,13 @@
 }
 
 .access__head {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .access__title {
   margin: 0;
   font-size: clamp(1.5rem, 1.25rem + 0.8vw, 1.875rem);
+  font-weight: var(--weight-bold);
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -309,16 +288,16 @@
   font-weight: var(--weight-semibold);
 }
 
-/* --- 4. Selector de acceso (pestañas Escuela · Estudiantes · Tutores) ---------------------------------------- */
+/* --- 4. Selector de acceso (pestañas Personal · Estudiantes · Familias) -------------------------------------- */
 .access-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-1);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
   padding: var(--space-1);
   border: var(--border);
   border-radius: var(--radius-lg);
-  background: var(--color-surface-2);
+  background: color-mix(in srgb, var(--acceso-azul) 16%, var(--color-surface));
 }
 
 .access-tab {
@@ -341,15 +320,17 @@
   color: var(--color-text-strong);
 }
 
+/* Foco: contorno tinto de 2 px (antes un halo al 22 % que casi no se veía) */
 .access-tab:focus-visible {
-  outline: none;
-  box-shadow: var(--ring-focus);
+  outline: 2px solid var(--acceso-acento);
+  outline-offset: 2px;
 }
 
+/* La elegida: blanca, con letra e icono tintos y una raya amarilla abajo */
 .access-tab[aria-selected="true"] {
   background: var(--color-surface);
-  color: var(--color-primary-text);
-  box-shadow: var(--shadow-sm);
+  color: var(--acceso-acento);
+  box-shadow: var(--shadow-sm), inset 0 -2px 0 var(--acceso-oro);
 }
 
 .access-tab__icon {
@@ -362,7 +343,7 @@
 }
 
 .access-tab[aria-selected="true"] .access-tab__icon {
-  background: var(--color-primary-soft);
+  background: color-mix(in srgb, var(--acceso-acento) 10%, transparent);
 }
 
 .access-tab__label {
@@ -394,10 +375,38 @@
   position: relative;
 }
 
+/* Campos de 48 px con borde de 1.5 px, esquinas de 10 px y letra de 15 px; con el foco, borde tinto y halo tenue
+   (con error, en rojo) */
 .access-input .field__control {
   min-height: 3rem;
   padding-left: 2.75rem;
+  border-width: 1.5px;
+  border-radius: 0.625rem;
+  font-size: 0.9375rem;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+/* Una sola línea: el borde tinto (7:1) ya marca el foco; sin el contorno general, que lo duplicaría */
+.access-input .field__control:focus-visible {
+  outline: none;
+  border-color: var(--acceso-acento);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acceso-acento) 22%, transparent);
+}
+
+.field.is-invalid .access-input .field__control:focus-visible {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
+}
+
+/* Relleno automático del navegador: sin su fondo propio (azul o amarillo), del color de los demás campos */
+.access-input .field__control:autofill {
+  -webkit-text-fill-color: var(--color-text);
+  box-shadow: inset 0 0 0 100vmax var(--color-field-bg);
+  caret-color: var(--color-text);
+}
+
+.access-input .field__control:autofill:focus-visible {
+  box-shadow: inset 0 0 0 100vmax var(--color-field-bg), 0 0 0 3px color-mix(in srgb, var(--acceso-acento) 22%, transparent);
 }
 
 .access-input__icon {
@@ -413,7 +422,7 @@
 }
 
 .access-input:focus-within .access-input__icon {
-  color: var(--color-primary-text);
+  color: var(--acceso-acento);
 }
 
 /* Con error, el icono también se pinta del color de peligro (el borde y el mensaje ya lo hacen) */
@@ -425,11 +434,15 @@
   padding-right: 3rem;
 }
 
+/* El botón del ojo, de 40 px para tocarlo con el dedo (antes 32) */
 .password-field__toggle {
   position: absolute;
   top: 0;
-  right: 0.375rem;
+  right: 0.25rem;
   bottom: 0;
+  width: 2.5rem;
+  min-height: 2.5rem;
+  height: 2.5rem;
   margin-block: auto;
   color: var(--color-text-muted);
 }
@@ -450,14 +463,23 @@
   color: var(--color-warning);
 }
 
-/* El botón de entrar: alto, con la flecha que avanza al pasar el ratón; al enviar, «Entrando…» con su indicador
-   (acceso.js) en lugar de la flecha */
+/* El botón de entrar: tinto, de 48 px, con la flecha que avanza al pasar el ratón; al enviar, «Entrando…» con su
+   indicador (acceso.js) en lugar de la flecha */
 .access__submit {
-  min-height: 3.125rem;
+  --btn-bg: var(--acceso-tinto);
+  --btn-bg-hover: var(--acceso-tinto-hondo);
+  --btn-fg: #ffffff;
+  min-height: 3rem;
   margin-top: var(--space-1);
+  border-radius: 0.625rem;
+  box-shadow: 0 2px 6px -2px color-mix(in srgb, var(--acceso-tinto) 55%, transparent);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   transition: background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.access__submit:hover:not(:disabled) {
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--acceso-tinto) 60%, transparent);
 }
 
 .access__submit .icon {
@@ -477,13 +499,19 @@
 }
 
 .access__help {
-  margin: var(--space-6) 0 0;
+  margin: var(--space-5) 0 0;
   padding-top: var(--space-4);
   border-top: var(--border);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   text-align: center;
   text-wrap: balance;
+}
+
+/* Lo que hay que hacer, en tinto */
+.access__help strong {
+  color: var(--acceso-acento);
+  font-weight: var(--weight-semibold);
 }
 
 .access__link {
@@ -520,18 +548,39 @@
 }
 
 /* --- 7. Teléfonos y pantallas anchas ------------------------------------------------------------------------- */
-@media (max-width: 30rem) {
+
+/* Teléfonos y tabletas (una columna): arriba, una franja tinto lisa con el escudo blanco centrado y el nombre del
+   colegio debajo; el formulario va en una hoja blanca que sube sobre la franja, con las esquinas de arriba
+   redondeadas (revisión del 2026-11-11). */
+@media (max-width: 59.99rem) {
   .access__main {
-    gap: var(--space-5);
-    padding: var(--space-6) var(--space-3) var(--space-8);
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+
+  .access__compact-brand {
+    --emblema: clamp(3.5rem, min(16vw, 10vh), 4.5rem);
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-4) calc(var(--space-5) + 1.25rem);
+    background: var(--panel);
+  }
+
+  .access__compact-school {
+    max-width: 16em;
+    color: #ffffff;
+    font-size: 1.0625rem;
   }
 
   .access__card {
-    padding: var(--space-6) var(--space-4);
-  }
-
-  .access__head {
-    margin-bottom: var(--space-5);
+    position: relative;
+    width: min(100%, 30rem);
+    margin: -1.25rem auto 0;
+    padding: var(--space-5) var(--space-5) var(--space-6);
+    border: 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+    box-shadow: none;
   }
 }
 
@@ -540,6 +589,7 @@
   .access__compact-brand {
     grid-auto-flow: column;
     align-items: center;
+    padding-block: var(--space-3) calc(var(--space-3) + 1.25rem);
     text-align: left;
   }
 
@@ -548,6 +598,7 @@
   }
 }
 
+/* Escritorio: a la izquierda el panel de marca y a la derecha el formulario directo sobre el blanco, sin tarjeta */
 @media (min-width: 60rem) {
   .access {
     grid-template-columns: minmax(0, 11fr) minmax(0, 10fr);
@@ -566,8 +617,9 @@
     height: 100dvh;
     padding: var(--space-12) var(--space-10) var(--space-8);
     overflow: hidden;
-    border-right: var(--border);
     background: var(--panel);
+    /* La franja vertical en la orilla que da al formulario: blanca, amarilla y azul, de 10 px cada una */
+    box-shadow: inset -10px 0 0 var(--acceso-azul), inset -20px 0 0 var(--acceso-oro), inset -30px 0 0 #ffffff;
   }
 
   .access__lockup {
@@ -588,8 +640,17 @@
     display: none;
   }
 
+  .access__main {
+    padding-inline: var(--space-6);
+  }
+
   .access__card {
-    padding: var(--space-10) var(--space-8);
+    width: min(100%, 26rem);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 }
 
@@ -605,22 +666,98 @@
   }
 }
 
-/* Pantallas anchas pero bajas (laptops de 720–800 px): la tarjeta, más compacta, para que todo quepa sin desplazarse */
-@media (min-width: 60rem) and (max-height: 52rem) {
-  .access__main {
-    padding-block: var(--space-6);
-  }
-
-  .access__card {
-    padding-block: var(--space-8);
-  }
-
+/* Pantallas bajas (laptops de 720 a 900 px y teléfonos): menos aire entre las partes para que el formulario quepa sin
+   desplazarse (pedido del 2026-11-11; antes, en una laptop de 1366 × 768 sobraban 49 px y en una de 1280 × 720, 96) */
+@media (max-height: 52rem) {
   .access__head {
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--space-4);
+  }
+
+  .access__title {
+    font-size: clamp(1.375rem, 1.2rem + 0.5vw, 1.625rem);
   }
 
   .access-tabs {
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--space-4);
+  }
+
+  .access-tab {
+    padding: var(--space-2) var(--space-1);
+  }
+
+  .access-tab__icon {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .access-panel__lead,
+  .access-panel > .alert {
+    margin-bottom: var(--space-4);
+  }
+
+  .access__form {
+    gap: var(--space-4);
+  }
+
+  .access__help {
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+  }
+}
+
+@media (min-width: 60rem) and (max-height: 52rem) {
+  .access__main {
+    padding-block: var(--space-4);
+  }
+}
+
+/* Teléfonos: campos de 44 px y un poco menos de aire, para que todo quepa sin desplazarse en uno de 390 × 664 */
+@media (max-width: 59.99rem) and (max-height: 52rem) {
+  .access__card {
+    padding-block: var(--space-5) var(--space-3);
+  }
+
+  .access__head,
+  .access-tabs,
+  .access-panel__lead,
+  .access-panel > .alert {
+    margin-bottom: var(--space-3);
+  }
+
+  .access__form {
+    gap: var(--space-3);
+  }
+
+  .access-input .field__control {
+    min-height: 2.75rem;
+  }
+
+  .access__help {
+    margin-top: var(--space-3);
+  }
+}
+
+/* Si la columna del formulario tiene ancho para el nombre junto al icono (29 rem: en dos columnas, desde unos 975 px
+   de pantalla; en una, desde 464 px): cada pestaña en una sola línea y el icono sin su círculo (la elegida ya se
+   distingue por su fondo). Más angosta, se quedan con el icono arriba, para que «Estudiantes» quepa completo. */
+.access__main {
+  container: acceso / inline-size;
+}
+
+@container acceso (min-width: 29rem) {
+  .access-tab {
+    grid-auto-flow: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+
+  .access-tab__icon,
+  .access-tab[aria-selected="true"] .access-tab__icon {
+    width: auto;
+    height: auto;
+    background: none;
   }
 }
 

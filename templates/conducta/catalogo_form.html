@@ -17,7 +17,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if objeto.pk %}Editar {{ catalogo.singular }}{% else %}{{ catalogo.nueva }}{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if objeto.pk %}Editar {{ catalogo.singular }}{% else %}{{ catalogo.nueva }}{% endif %}</h1>
       <p class="page-header__description">{{ catalogo.plural }} de {{ nombre_de_nivel|lower }}. {% if en_uso %}Ya se usa en el historial: los registros conservan el nombre que tenía al registrarse.{% else %}Cada nivel tiene su propio catálogo.{% endif %}</p>
     </div>
   </header>

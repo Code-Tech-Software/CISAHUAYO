@@ -24,7 +24,7 @@
 
   <nav class="nav" aria-label="Navegación principal">
     {% for seccion in navegacion %}
-      <div class="nav__section">
+      <div class="nav__section"{% if seccion.clave %} data-seccion="{{ seccion.clave }}"{% endif %}>
         {% if seccion.titulo %}
           <p class="nav__title" id="nav-titulo-{{ forloop.counter }}">{{ seccion.titulo }}</p>
         {% endif %}

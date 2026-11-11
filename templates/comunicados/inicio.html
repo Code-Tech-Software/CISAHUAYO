@@ -32,7 +32,7 @@
   <section class="comunicados" data-comunicados aria-labelledby="comunicados-titulo" data-vista="{{ vista }}">
     <header class="page-header comunicados__cabecera">
       <div>
-        <h1 class="page-header__title" id="comunicados-titulo">Comunicados</h1>
+        <h1 class="page-header__title" id="comunicados-titulo">{% include "partials/icono_seccion.html" %}Comunicados</h1>
         <p class="page-header__description">
           {% if vista == "recibidos" %}Los avisos que te envía el colegio{% if pendientes %} · <strong>{{ pendientes }} por atender</strong>{% endif %}
           {% elif vista == "gestion" %}Todos los comunicados del colegio, de cualquier emisor

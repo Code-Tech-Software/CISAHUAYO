@@ -20,7 +20,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% block encabezado %}{% endblock %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% block encabezado %}{% endblock %}</h1>
       <p class="page-header__description">{% block descripcion %}{% endblock %}</p>
     </div>
     <div class="page-header__actions">{% block acciones %}{% endblock %}</div>

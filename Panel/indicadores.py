@@ -143,7 +143,7 @@ def asistencia_del_rango(filtros):
         nombres = _nombres(unidad, [f[campo] for f in filas], filtros)
         comparacion = sorted(
             ({'nombre': nombres.get(f[campo], str(f[campo])), 'orden': _orden(unidad, f[campo], filtros), 'valor': porcentaje(f['p'], f['r'], f['n']),
-              'base': f['n']} for f in filas), key=lambda x: x['orden'])
+              'base': f['n'], 'nivel': _nivel_de_la_fila(unidad, f[campo], filtros)} for f in filas), key=lambda x: x['orden'])
         for fila in comparacion:
             fila['ancho'] = _ancho(fila['valor'], 100)
 
@@ -184,6 +184,12 @@ def _nombres(unidad, claves, filtros):
     if unidad == 'grado':
         return {g.pk: str(g) for g in filtros.grados if g.pk in set(claves)}
     return {g.pk: g.corto for g in filtros.grupos if g.pk in set(claves)}
+
+
+def _nivel_de_la_fila(unidad, clave, filtros):
+    """El nivel escolar de una fila de la comparación: el suyo si se compara por nivel; si no, el del alcance (por grado,
+    grupo o materia siempre se está dentro de un nivel). Da a la barra el color de su nivel (panel/_barras.html)."""
+    return clave if unidad == 'nivel' else (filtros.nivel or None)
 
 
 def _orden(unidad, clave, filtros):
@@ -258,7 +264,8 @@ def academico_del_alcance(filtros, evaluaciones):
         grupos[clave(r)].append(r.final)
     nombres = {} if unidad == 'materia' else _nombres(unidad, list(grupos), filtros)
     comparacion = [{'nombre': nombres.get(k, str(k)), 'valor': academico.promedio(v), 'base': len(v),
-                    'orden': (k if unidad == 'materia' else _orden(unidad, k, filtros))} for k, v in grupos.items()]
+                    'orden': (k if unidad == 'materia' else _orden(unidad, k, filtros)),
+                    'nivel': _nivel_de_la_fila(unidad, k, filtros)} for k, v in grupos.items()]
     comparacion.sort(key=lambda x: x['orden'])
     for fila in comparacion:
         fila['ancho'] = _ancho(fila['valor'], academico.ESCALA)

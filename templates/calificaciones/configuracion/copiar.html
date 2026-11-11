@@ -18,7 +18,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Copiar configuración de otra materia</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Copiar configuración de otra materia</h1>
       <p class="page-header__description">A <strong>{{ materia.nombre }}</strong>{% if materia.grado %} ({{ materia.grado }}){% endif %} en el ciclo {{ ciclo }}. Se copian rubros y porcentajes (y, si quieres, las reglas adicionales); nunca estudiantes, actividades ni calificaciones. La copia es independiente: cambiar después la materia de origen no la afecta.</p>
     </div>
   </header>

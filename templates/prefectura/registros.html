@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Faltas y retardos</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Faltas y retardos</h1>
       <p class="page-header__description">Del pase de lista por materia o de la entrada al colegio, de tus grupos. Por omisión, los de hoy. Las faltas por materia (cada registro) y los estudiantes con inasistencia (cada estudiante una vez) se cuentan aparte.</p>
     </div>
     {% if puede.justificar %}

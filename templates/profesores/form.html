@@ -23,7 +23,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar profesor{% else %}Registrar profesor{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar profesor{% else %}Registrar profesor{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Actualiza los datos de {{ profesor }}.{% else %}Captura sus datos y, si lo necesita, dale acceso al sistema con su propia cuenta. Las materias que imparte se asignan desde su perfil o desde «Asignaciones académicas».{% endif %}
       </p>

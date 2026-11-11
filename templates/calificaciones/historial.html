@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Historial de calificaciones</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Historial de calificaciones</h1>
       <p class="page-header__description">{{ acta.asignacion.materia }} · {{ acta.asignacion.grupo }} · {{ acta.periodo.nombre }}: quién cambió qué, cuándo, el valor anterior y el nuevo.</p>
     </div>
     <div class="page-header__actions"><a class="btn" href="{{ volver }}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Volver</a></div>

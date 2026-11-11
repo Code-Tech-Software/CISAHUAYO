@@ -17,7 +17,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Reabrir {{ semestre.en_frase }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Reabrir {{ semestre.en_frase }}</h1>
       <p class="page-header__description">Ciclo {{ semestre.ciclo }}, cerrado el {{ semestre.cerrado_en|date:"d/m/Y H:i" }}{% if semestre.cerrado_por %} por {{ semestre.cerrado_por.get_full_name|default:semestre.cerrado_por.username }}{% endif %}.</p>
     </div>
   </header>

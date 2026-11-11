@@ -23,7 +23,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Conversación entre {% for persona in miembros %}{{ persona.nombre }}{% if not forloop.last %} y {% endif %}{% endfor %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Conversación entre {% for persona in miembros %}{{ persona.nombre }}{% if not forloop.last %} y {% endif %}{% endfor %}</h1>
       <p class="page-header__description">Solo lectura. Al retirar un mensaje se borra por completo para las dos personas, con sus imágenes.</p>
     </div>
     <div class="page-header__actions">

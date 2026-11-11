@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Cerrar {{ semestre.en_frase }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Cerrar {{ semestre.en_frase }}</h1>
       <p class="page-header__description">Ciclo {{ semestre.ciclo }} · {{ datos.materias|length }} materia{{ datos.materias|length|pluralize }} · {{ datos.periodos|length }} periodo{{ datos.periodos|length|pluralize }}.</p>
     </div>
   </header>

@@ -269,6 +269,18 @@ class ColoresDeLosTemasTests(SimpleTestCase):
                 with self.subTest(tema=clave, par=que):
                     self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')
 
+    def test_los_colores_de_la_propuesta_moderada_de_corporate_se_leen(self):
+        """Títulos de las secciones del menú claro en su tono y etiquetas de estado al 14 % (pedido del 2026-11-11)."""
+        t = entradas_de_cada_tema()['corporate']
+        selector = ':root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .sidebar'
+        menu = dict(re.findall(r'--color-([a-z-]+): (#[0-9a-f]{6});', bloque(TEMAS_CSS.read_text(encoding='utf-8'), selector)))
+        pares = [(f'título de la sección en el tono {n}', t[f'tone-{n}'], menu['surface']) for n in range(1, 7)]
+        pares += [(f'etiqueta {estado} al 14 %', t[estado], mezcla(t[estado], 14, self.BLANCO)) for estado in ('success', 'warning', 'danger')]
+        pares.append(('etiqueta info al 14 %', t['primary-hover'], mezcla(t['info'], 14, self.BLANCO)))
+        for que, texto, fondo in pares:
+            with self.subTest(par=que):
+                self.assertGreaterEqual(round(contraste(texto, fondo), 2), 4.5, f'{texto} sobre {fondo}')
+
     def test_los_estados_del_menu_claro_de_corporate_se_leen(self):
         selector = ':root[data-tema="corporate"]:not([data-theme="dark"]):not([data-menu="color"]) .sidebar'
         menu = dict(re.findall(r'--color-([a-z-]+): (#[0-9a-f]{6});', bloque(TEMAS_CSS.read_text(encoding='utf-8'), selector)))

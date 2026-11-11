@@ -25,7 +25,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Boletas de {{ alumno }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Boletas de {{ alumno }}</h1>
       <p class="page-header__description">Matrícula {{ alumno.referencia }} · {{ inscripcion.grupo }} · Ciclo {{ inscripcion.ciclo }}. Elige el periodo: cada boleta se emite por separado.</p>
     </div>
     {% if perms.Alumnos.view_alumno %}

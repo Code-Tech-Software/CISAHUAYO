@@ -1,0 +1,5 @@
+{% comment %}
+  Ícono de la sección del menú a la que pertenece la página, al principio de su título (el h1 page-header__title).
+  seccion_actual lo pone CISAHUAYO.context_processors.navegacion. Solo el tema Corporate lo muestra, en un círculo del
+  color de la sección (static/css/temas.css); los demás temas lo ocultan (app.css).
+{% endcomment %}{% if seccion_actual.icono %}<span class="page-header__icono" aria-hidden="true">{% include "partials/icon.html" with name=seccion_actual.icono %}</span>{% endif %}

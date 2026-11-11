@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Cambiar contraseña</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Cambiar contraseña</h1>
       <p class="page-header__description">
         {% if obligatorio %}Entraste con una contraseña temporal. Elige una propia para continuar.{% else %}Elige una contraseña nueva. Tu sesión actual seguirá abierta.{% endif %}
       </p>

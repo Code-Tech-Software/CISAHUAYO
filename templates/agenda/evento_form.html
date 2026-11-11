@@ -23,7 +23,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if evento %}Editar «{{ evento.titulo }}»{% elif original %}Duplicar «{{ original.titulo }}»{% else %}Nuevo evento{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if evento %}Editar «{{ evento.titulo }}»{% elif original %}Duplicar «{{ original.titulo }}»{% else %}Nuevo evento{% endif %}</h1>
       <p class="page-header__description">La agenda es informativa: no cambia asistencias, calificaciones ni días sin clases.</p>
     </div>
   </header>

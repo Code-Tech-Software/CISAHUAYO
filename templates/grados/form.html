@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar grado{% else %}Nuevo grado{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Cambia los grupos o la equivalencia de {{ grado.nombre_de_nivel }}{% if not form.bloqueado %}, o corrige su nivel o su número{% endif %}.{% else %}Elige el nivel, el grado y sus grupos. Después podrás inscribir estudiantes en cada grupo.{% endif %}
       </p>

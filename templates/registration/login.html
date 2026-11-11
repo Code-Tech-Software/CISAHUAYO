@@ -3,7 +3,9 @@
   Pantalla de inicio de sesión (vista CISAHUAYO/acceso.py, ruta /admin/login/). Tres accesos en pestañas:
   - Sistema: personal y docentes (usuario y contraseña de su cuenta; lo que puede hacer cada una lo define su rol).
   - Estudiantes: correo electrónico y contraseña (portal de estudiantes).
-  - Tutores: usuario y contraseña (portal de tutores).
+  - Tutores: usuario y contraseña (portal de tutores). La pestaña dice «Familias» (pedido del 2026-11-11).
+  Si no se entró por un dato mal escrito, los dos campos se marcan (aria-invalid, ligados al aviso) y el foco va a la
+  contraseña; el usuario escrito se conserva.
   Las pestañas son enlaces (?acceso=…): funcionan sin JavaScript; acceso.js las cambia sin recargar.
   Recibe: form (sistema), form_estudiantes, form_tutores, acceso (pestaña activa), acceso_elegido (se pidió esa
   pestaña o una página de ese portal), next y sesion_portal.
@@ -14,7 +16,6 @@
 {% block tarjeta %}
   <header class="access__head">
     <h1 class="access__title">Iniciar sesión</h1>
-    <p class="access__lead">Elige cómo quieres entrar.</p>
   </header>
 
   {% for message in messages %}
@@ -50,7 +51,7 @@
     <a class="access-tab" role="tab" id="tab-sistema" href="?acceso=sistema{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-sistema"
        aria-selected="{% if acceso == 'sistema' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'sistema' %}0{% else %}-1{% endif %}" data-access-tab="sistema">
       <span class="access-tab__icon">{% include "partials/icon.html" with name="school" %}</span>
-      <span class="access-tab__label">Escuela</span>
+      <span class="access-tab__label">Personal</span>
     </a>
     <a class="access-tab" role="tab" id="tab-estudiantes" href="?acceso=estudiantes{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-estudiantes"
        aria-selected="{% if acceso == 'estudiantes' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'estudiantes' %}0{% else %}-1{% endif %}" data-access-tab="estudiantes">
@@ -60,21 +61,24 @@
     <a class="access-tab" role="tab" id="tab-tutores" href="?acceso=tutores{% if next %}&amp;next={{ next|urlencode }}{% endif %}" aria-controls="panel-tutores"
        aria-selected="{% if acceso == 'tutores' %}true{% else %}false{% endif %}" tabindex="{% if acceso == 'tutores' %}0{% else %}-1{% endif %}" data-access-tab="tutores">
       <span class="access-tab__icon">{% include "partials/icon.html" with name="users" %}</span>
-      <span class="access-tab__label">Tutores</span>
+      <span class="access-tab__label">Familias</span>
     </a>
   </div>
 
+  {# Lo llena acceso.js al enviar («Entrando…»): el cambio del botón no lo anuncian los lectores de pantalla #}
+  <p class="visually-hidden" role="status" aria-live="polite" data-access-estado></p>
+
   {# --- Sistema --------------------------------------------------------------------------------------------- #}
   <section class="access-panel" role="tabpanel" id="panel-sistema" aria-labelledby="tab-sistema" data-access-panel="sistema"{% if acceso != "sistema" %} hidden{% endif %}>
-    <p class="access-panel__lead">Para el personal del colegio: administración, control escolar y docentes.</p>
+    <p class="access-panel__lead">Administración, control escolar y docentes.</p>
 
     {% if form.non_field_errors %}
-      <div class="alert alert--error" role="alert">
+      <div class="alert alert--error" role="alert" id="error-sistema">
         {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
         <div class="alert__body">
           {% for error in form.non_field_errors.as_data %}
             {% if error.code == 'invalid_login' %}
-              <p>El usuario o la contraseña no son correctos, o la cuenta está desactivada. Revisa que estén bien escritos (importan las mayúsculas).</p>
+              <p>El usuario o la contraseña no son correctos, o la cuenta está desactivada.</p>
             {% else %}
               <p>{{ error.message }}</p>
             {% endif %}
@@ -88,88 +92,88 @@
       <input type="hidden" name="acceso" value="sistema">
       <input type="hidden" name="next" value="{{ next }}">
 
-      <div class="field{% if form.username.errors %} is-invalid{% endif %}">
+      <div class="field{% if form.username.errors or form.non_field_errors %} is-invalid{% endif %}">
         <label class="field__label" for="id_username">Usuario</label>
         <div class="access-input">
           {% include "partials/icon.html" with name="user" icon_class="access-input__icon" %}
           <input class="field__control" type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}"
-                 autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="150" required{% if acceso == "sistema" %} autofocus{% endif %}>
+                 autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="150" required{% if form.non_field_errors %} aria-invalid="true" aria-describedby="error-sistema"{% elif acceso == "sistema" %} autofocus{% endif %}>
         </div>
         {% for error in form.username.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
       </div>
 
-      {% include "registration/_campo_contrasena.html" with campo_id="id_password" nombre="password" errores=form.password.errors %}
+      {% include "registration/_campo_contrasena.html" with campo_id="id_password" nombre="password" errores=form.password.errors invalido=form.non_field_errors describe="error-sistema" enfocar=form.non_field_errors %}
 
       <button type="submit" class="btn btn--primary btn--block access__submit">
-        Entrar al sistema
+        Entrar
         {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
       </button>
     </form>
 
-    <p class="access__help">¿No puedes entrar? Pide a la dirección del colegio que revise tu cuenta.</p>
+    <p class="access__help">¿No puedes entrar? <strong>Pide a la dirección del colegio que revise tu cuenta.</strong></p>
   </section>
 
   {# --- Estudiantes ------------------------------------------------------------------------------------------ #}
   <section class="access-panel" role="tabpanel" id="panel-estudiantes" aria-labelledby="tab-estudiantes" data-access-panel="estudiantes"{% if acceso != "estudiantes" %} hidden{% endif %}>
-    <p class="access-panel__lead">Consulta tu horario, tu asistencia y tus calificaciones. Entra con tu correo electrónico.</p>
-    {% include "registration/_errores_portal.html" with formulario=form_estudiantes %}
+    <p class="access-panel__lead">Entra con tu correo electrónico de estudiante.</p>
+    {% include "registration/_errores_portal.html" with formulario=form_estudiantes id="error-estudiantes" %}
 
     <form class="access__form" method="post" action="{% url 'login' %}" data-access-form>
       {% csrf_token %}
       <input type="hidden" name="acceso" value="estudiantes">
       <input type="hidden" name="next" value="{{ next }}">
 
-      <div class="field{% if form_estudiantes.correo.errors %} is-invalid{% endif %}">
+      <div class="field{% if form_estudiantes.correo.errors or form_estudiantes.credenciales_incorrectas %} is-invalid{% endif %}">
         <label class="field__label" for="{{ form_estudiantes.correo.id_for_label }}">Correo electrónico</label>
         <div class="access-input">
           {% include "partials/icon.html" with name="mail" icon_class="access-input__icon" %}
           <input class="field__control" type="email" name="{{ form_estudiantes.correo.html_name }}" id="{{ form_estudiantes.correo.id_for_label }}"
                  value="{{ form_estudiantes.correo.value|default:'' }}" placeholder="nombre@correo.com" autocomplete="username" autocapitalize="none"
-                 autocorrect="off" spellcheck="false" maxlength="254" required{% if acceso == "estudiantes" %} autofocus{% endif %}>
+                 autocorrect="off" spellcheck="false" maxlength="254" required{% if form_estudiantes.credenciales_incorrectas %} aria-invalid="true" aria-describedby="error-estudiantes"{% elif acceso == "estudiantes" %} autofocus{% endif %}>
         </div>
         {% for error in form_estudiantes.correo.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
       </div>
 
-      {% include "registration/_campo_contrasena.html" with campo_id=form_estudiantes.contrasena.id_for_label nombre=form_estudiantes.contrasena.html_name errores=form_estudiantes.contrasena.errors %}
+      {% include "registration/_campo_contrasena.html" with campo_id=form_estudiantes.contrasena.id_for_label nombre=form_estudiantes.contrasena.html_name errores=form_estudiantes.contrasena.errors invalido=form_estudiantes.credenciales_incorrectas describe="error-estudiantes" enfocar=form_estudiantes.credenciales_incorrectas %}
 
       <button type="submit" class="btn btn--primary btn--block access__submit">
-        Entrar al portal
+        Entrar
         {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
       </button>
     </form>
 
-    <p class="access__help">¿Olvidaste tu contraseña? Acude a control escolar para que la restablezcan.</p>
+    <p class="access__help">¿Olvidaste tu contraseña? <strong>Acude a control escolar para que la restablezcan.</strong></p>
   </section>
 
   {# --- Tutores ---------------------------------------------------------------------------------------------- #}
   <section class="access-panel" role="tabpanel" id="panel-tutores" aria-labelledby="tab-tutores" data-access-panel="tutores"{% if acceso != "tutores" %} hidden{% endif %}>
-    <p class="access-panel__lead">Sigue el horario, la asistencia y las calificaciones de tus hijos. Entra con tu usuario.</p>
-    {% include "registration/_errores_portal.html" with formulario=form_tutores %}
+    <p class="access-panel__lead">Madres, padres y tutores: entra con tu usuario.</p>
+    {% include "registration/_errores_portal.html" with formulario=form_tutores id="error-tutores" %}
 
     <form class="access__form" method="post" action="{% url 'login' %}" data-access-form>
       {% csrf_token %}
       <input type="hidden" name="acceso" value="tutores">
       <input type="hidden" name="next" value="{{ next }}">
 
-      <div class="field{% if form_tutores.usuario.errors %} is-invalid{% endif %}">
+      <div class="field{% if form_tutores.usuario.errors or form_tutores.credenciales_incorrectas %} is-invalid{% endif %}">
         <label class="field__label" for="{{ form_tutores.usuario.id_for_label }}">Usuario</label>
         <div class="access-input">
           {% include "partials/icon.html" with name="user" icon_class="access-input__icon" %}
           <input class="field__control" type="text" name="{{ form_tutores.usuario.html_name }}" id="{{ form_tutores.usuario.id_for_label }}"
                  value="{{ form_tutores.usuario.value|default:'' }}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
-                 maxlength="40" required{% if acceso == "tutores" %} autofocus{% endif %}>
+                 maxlength="40" required{% if form_tutores.credenciales_incorrectas %} aria-invalid="true" aria-describedby="error-tutores"{% elif acceso == "tutores" %} autofocus{% endif %}>
         </div>
         {% for error in form_tutores.usuario.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
       </div>
 
-      {% include "registration/_campo_contrasena.html" with campo_id=form_tutores.contrasena.id_for_label nombre=form_tutores.contrasena.html_name errores=form_tutores.contrasena.errors %}
+      {% include "registration/_campo_contrasena.html" with campo_id=form_tutores.contrasena.id_for_label nombre=form_tutores.contrasena.html_name errores=form_tutores.contrasena.errors invalido=form_tutores.credenciales_incorrectas describe="error-tutores" enfocar=form_tutores.credenciales_incorrectas %}
 
       <button type="submit" class="btn btn--primary btn--block access__submit">
-        Entrar al portal
+        Entrar
         {% include "partials/icon.html" with name="arrow-right" icon_class="icon--sm" %}
       </button>
     </form>
 
-    <p class="access__help">¿Olvidaste tu usuario o tu contraseña? Acude a la dirección del colegio.</p>
+    <p class="access__help">¿Olvidaste tu usuario o tu contraseña? <strong>Acude a la dirección del colegio.</strong></p>
   </section>
 {% endblock %}

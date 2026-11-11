@@ -15,7 +15,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Materias</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Materias</h1>
       <p class="page-header__description">El catálogo de materias del colegio. Cada materia la imparte un solo grado; cada ciclo se agrega a su plan con su profesor, y su horario se arma en <a href="{% if perms.Alumnos.view_horariomateria %}{% url 'horarios:lista' %}{% else %}#{% endif %}">Horarios</a>.</p>
     </div>
     <div class="page-header__actions">

@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Justificaciones</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Justificaciones</h1>
       <p class="page-header__description">Las faltas y retardos justificados de tus estudiantes, con su motivo, su comprobante, quién los justificó y cuándo. Cada registro conserva su estado original y queda vinculado a su justificación; revocar exige un motivo.</p>
     </div>
     {% if puede.justificar %}

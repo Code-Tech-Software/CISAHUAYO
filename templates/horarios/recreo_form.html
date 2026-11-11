@@ -19,7 +19,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar receso{% else %}Agregar receso{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar receso{% else %}Agregar receso{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}{{ grupo }} · Ciclo {{ ciclo }}. Cambia el nombre, el día o la hora de este receso.
         {% else %}Ciclo {{ ciclo }}. Elige los grupos que salen al receso, los días y la hora de cada uno. Ninguna materia de esos grupos podrá ponerse a esa hora.{% endif %}

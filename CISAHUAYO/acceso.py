@@ -13,6 +13,7 @@ Los dos últimos son las cuentas de los portales (CISAHUAYO/portales.py): cada q
 """
 from django import forms
 from django.conf import settings
+from django.core.exceptions import NON_FIELD_ERRORS
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -37,8 +38,14 @@ class _AccesoAlPortalForm(forms.Form):
             try:
                 self.cuenta = portales.autenticar(self.tipo, datos[self.campo], datos['contrasena'])
             except portales.AccesoRechazado as rechazo:
-                raise forms.ValidationError(rechazo.mensaje, code='acceso_rechazado') from None
+                codigo = 'credenciales_incorrectas' if rechazo.credenciales else 'acceso_rechazado'
+                raise forms.ValidationError(rechazo.mensaje, code=codigo) from None
         return datos
+
+    @property
+    def credenciales_incorrectas(self):
+        """Si no se entró por un dato mal escrito: la pantalla marca los dos campos y lleva el foco a la contraseña."""
+        return self.is_bound and self.has_error(NON_FIELD_ERRORS, 'credenciales_incorrectas')
 
 
 class AccesoEstudianteForm(_AccesoAlPortalForm):

@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar inscripción{% else %}Nueva inscripción{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar inscripción{% else %}Nueva inscripción{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Cambia el grado, el grupo o la fecha de inscripción de {{ alumno }}. El estudiante y el ciclo no cambian: eso sería otra inscripción.{% else %}Elige al estudiante, el ciclo, el grado y el grupo en el que se inscribe.{% endif %}
       </p>

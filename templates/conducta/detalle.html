@@ -17,7 +17,7 @@
   <header class="page-header">
     <div>
       <p class="conducta-encabezado__marcas">{% include "conducta/_marca.html" with que='tipo' %} {% include "conducta/_marca.html" with que='gravedad' %} {% include "conducta/_marca.html" with que='estado' %}</p>
-      <h1 class="page-header__title">{{ registro.motivo_nombre }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{{ registro.motivo_nombre }}</h1>
       <p class="page-header__description">{{ registro.alumno }} · {{ registro.fecha|date:"l j \d\e F \d\e Y"|lower|capfirst }}{% if registro.hora %}, {{ registro.hora|time:"H:i" }}{% endif %}{% if registro.lugar %} · {{ registro.lugar }}{% endif %}</p>
     </div>
     {% if not registro.anulado and registro.ciclo.estado != 'CERRADO' %}

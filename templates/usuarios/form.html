@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar usuario{% else %}Nuevo usuario{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar usuario{% else %}Nuevo usuario{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Actualiza los datos y el rol de {{ usuario|nombre_visible }}.{% else %}Escribe una contraseña inicial o deja que se genere una; la verás una sola vez. Puedes pedir que la cambie al entrar o dejar que se quede con ella. Si es docente, aquí mismo se registra su ficha de profesor.{% endif %}
       </p>

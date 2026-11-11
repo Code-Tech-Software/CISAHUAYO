@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if atiende %}Reuniones con familias{% else %}Mis reuniones con familias{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if atiende %}Reuniones con familias{% else %}Mis reuniones con familias{% endif %}</h1>
       <p class="page-header__description">{% if atiende %}Todas las solicitudes y citas que puedes consultar.{% else %}Las reuniones en que participas. Confirma tu disponibilidad desde cada una.{% endif %}</p>
     </div>
   </header>

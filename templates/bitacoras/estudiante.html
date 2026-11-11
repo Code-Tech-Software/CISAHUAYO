@@ -23,7 +23,7 @@
     <div class="bitacora-estudiante-encabezado__persona">
       {% include "partials/avatar.html" with persona=alumno tamano="lg" %}
       <div>
-        <h1 class="page-header__title">{{ alumno }}</h1>
+        <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{{ alumno }}</h1>
         <p class="page-header__description">Número de control {{ alumno.referencia }}{% if inscripcion %} · {{ inscripcion.grupo }} · ciclo {{ inscripcion.ciclo }}{% else %} · sin inscripción en el ciclo actual{% endif %}</p>
       </div>
     </div>

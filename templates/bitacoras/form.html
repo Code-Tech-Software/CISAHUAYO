@@ -22,7 +22,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar entrada{% else %}Nueva entrada{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar entrada{% else %}Nueva entrada{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Cada cambio queda en el historial de la entrada, con quién lo hizo, cuándo y el valor anterior y el nuevo. El grupo no cambia.
         {% else %}Lo ocurrido en una clase{% if ciclo %} del ciclo {{ ciclo }}{% endif %}. Puedes registrar varias entradas de la misma clase; cada una se guarda una sola vez aunque implique a varios estudiantes.{% endif %}

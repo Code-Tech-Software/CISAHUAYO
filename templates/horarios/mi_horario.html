@@ -15,7 +15,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Mi horario</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Mi horario</h1>
       <p class="page-header__description">{% if ciclo %}Ciclo {{ ciclo }}. {% endif %}Tus clases de la semana: solo las materias y los grupos que tienes asignados.</p>
     </div>
     {% if bloques %}

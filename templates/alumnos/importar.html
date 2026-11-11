@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Importar estudiantes</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Importar estudiantes</h1>
       <p class="page-header__description">
         Registra a varios estudiantes a la vez desde un archivo CSV. Puedes incluir a su tutor principal y el grado en el que se inscriben{% if ciclo_actual %} (ciclo {{ ciclo_actual }}){% endif %}.
       </p>

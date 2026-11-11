@@ -2006,6 +2006,11 @@ body {
   font-size: var(--text-xl);
 }
 
+/* Ícono de la sección al principio del título (partials/icono_seccion.html): solo lo muestra el tema Corporate */
+.page-header__icono {
+  display: none;
+}
+
 .page-header__description {
   max-width: 60ch;
   margin: var(--space-1) 0 0;

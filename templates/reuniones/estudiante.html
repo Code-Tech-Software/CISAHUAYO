@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Reuniones con la familia de {{ alumno|persona }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Reuniones con la familia de {{ alumno|persona }}</h1>
       <p class="page-header__description">{{ inscripcion|grupo_corto }} · Los antecedentes y acuerdos que puedes consultar.</p>
     </div>
     {% if perms.Alumnos.view_alumno %}<div class="page-header__actions"><a class="btn btn--ghost btn--sm" href="{% url 'alumnos:detalle' alumno.pk %}">{% include "partials/icon.html" with name="user" icon_class="icon--sm" %} Perfil del estudiante</a></div>{% endif %}

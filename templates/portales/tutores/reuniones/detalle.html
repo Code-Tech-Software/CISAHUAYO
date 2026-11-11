@@ -25,7 +25,7 @@
   <header class="page-header">
     <div>
       <p class="reuniones-folio">Folio {{ reunion.folio }}</p>
-      <h1 class="page-header__title">Reunión con {{ reunion.get_area_display|lower }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Reunión con {{ reunion.get_area_display|lower }}</h1>
       <p class="page-header__description reuniones-etiquetas">{% include "reuniones/_estado.html" %}</p>
     </div>
   </header>

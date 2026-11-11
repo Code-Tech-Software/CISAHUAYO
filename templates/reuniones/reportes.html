@@ -17,7 +17,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Reportes de reuniones</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Reportes de reuniones</h1>
       <p class="page-header__description">Solicitadas del {{ desde|date:"j \d\e F \d\e Y"|lower }} al {{ hasta|date:"j \d\e F \d\e Y"|lower }}{% if nombre_nivel %} · {{ nombre_nivel }}{% endif %}.</p>
     </div>
   </header>

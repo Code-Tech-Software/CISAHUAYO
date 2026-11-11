@@ -13,7 +13,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if instancia %}Editar {{ nombre }} «{{ instancia }}»{% else %}Registrar {{ nombre }}{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if instancia %}Editar {{ nombre }} «{{ instancia }}»{% else %}Registrar {{ nombre }}{% endif %}</h1>
       <p class="page-header__description">Si ya se usó, desactívalo en lugar de borrarlo: deja de ofrecerse y el historial lo conserva.</p>
     </div>
   </header>

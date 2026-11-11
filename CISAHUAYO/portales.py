@@ -55,11 +55,13 @@ def _sin_cuenta():
 
 
 class AccesoRechazado(Exception):
-    """No se entra: `mensaje` es lo que ve la persona."""
+    """No se entra: `mensaje` es lo que ve la persona; `credenciales` dice si fue por un dato mal escrito (la pantalla de
+    acceso marca entonces los dos campos), y no por una cuenta bloqueada o sin acceso."""
 
-    def __init__(self, mensaje):
+    def __init__(self, mensaje, credenciales=False):
         super().__init__(mensaje)
         self.mensaje = mensaje
+        self.credenciales = credenciales
 
 
 def _modelo(tipo):
@@ -99,11 +101,12 @@ def autenticar(tipo, identificador, contrasena, ahora=None):
     """La cuenta si las credenciales son correctas y puede entrar; si no, lanza AccesoRechazado con un mensaje claro."""
     ahora = ahora or timezone.now()
     que = 'El correo o la contraseña' if tipo == ESTUDIANTE else 'El usuario o la contraseña'
-    incorrectas = f'{que} no son correctos. Revisa que estén bien escritos (en la contraseña importan las mayúsculas).'
+    # Corto (2026-11-11): el aviso de mayúsculas ya aparece junto a la contraseña mientras se escribe
+    incorrectas = f'{que} no son correctos.'
     cuenta = buscar_cuenta(tipo, identificador)
     if cuenta is None or not cuenta.contrasena:
         check_password(contrasena or '', _sin_cuenta())
-        raise AccesoRechazado(incorrectas)
+        raise AccesoRechazado(incorrectas, credenciales=True)
     if bloqueada(cuenta, ahora):
         minutos = max(1, round((cuenta.bloqueado_hasta - ahora).total_seconds() / 60))
         raise AccesoRechazado(f'Por seguridad, la cuenta se bloqueó tras varios intentos fallidos. Intenta de nuevo en {minutos} minuto{"s" if minutos != 1 else ""} '
@@ -122,7 +125,7 @@ def autenticar(tipo, identificador, contrasena, ahora=None):
         _guardar(cuenta, 'intentos_fallidos')
         restantes = MAXIMO_DE_INTENTOS - cuenta.intentos_fallidos
         aviso = f' Te queda{"n" if restantes != 1 else ""} {restantes} intento{"s" if restantes != 1 else ""} antes de que se bloquee.' if restantes <= 2 else ''
-        raise AccesoRechazado(incorrectas + aviso)
+        raise AccesoRechazado(incorrectas + aviso, credenciales=True)
     motivo = motivo_sin_acceso(tipo, cuenta)
     if motivo:
         raise AccesoRechazado(motivo)

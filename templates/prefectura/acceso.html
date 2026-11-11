@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{{ movimiento.get_tipo_display }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{{ movimiento.get_tipo_display }}</h1>
       <p class="page-header__description">{{ movimiento.alumno }} · {{ movimiento.fecha|date:"l j \d\e F \d\e Y"|capfirst }}, {{ movimiento.hora|time:"H:i" }}</p>
     </div>
   </header>

@@ -18,7 +18,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Calificaciones</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Calificaciones</h1>
       <p class="page-header__description">{% if ve_todas %}Las calificaciones de todas las materias y grupos del colegio.{% else %}Las calificaciones de tus materias.{% endif %} Elige la materia, el grupo y el periodo.</p>
     </div>
     {% if acta or asignacion and ve_todas %}

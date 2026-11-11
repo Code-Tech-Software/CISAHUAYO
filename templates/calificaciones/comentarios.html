@@ -22,7 +22,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Comentarios por periodo</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Comentarios por periodo</h1>
       <p class="page-header__description">{% if ve_todas %}El comentario de cada estudiante en cada materia del colegio.{% else %}El comentario de cada uno de tus estudiantes en tus materias.{% endif %} Elige la materia y el periodo.</p>
     </div>
     {% if captura %}

@@ -1,9 +1,9 @@
 {% comment %}
   Por qué no se entró a un portal (credenciales incorrectas, cuenta bloqueada, inactiva o sin acceso): los mensajes
-  vienen de CISAHUAYO/portales.py. Parámetro: formulario.
+  vienen de CISAHUAYO/portales.py. Parámetros: formulario e id (lo citan los campos con aria-describedby).
 {% endcomment %}
 {% if formulario.non_field_errors %}
-  <div class="alert alert--error" role="alert">
+  <div class="alert alert--error" role="alert"{% if id %} id="{{ id }}"{% endif %}>
     {% include "partials/icon.html" with name="circle-x" icon_class="alert__icon" %}
     <div class="alert__body">
       {% for error in formulario.non_field_errors %}<p>{{ error }}</p>{% endfor %}

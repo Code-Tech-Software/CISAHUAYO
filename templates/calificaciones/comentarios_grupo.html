@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Boletas de comentarios de {{ grupo }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Boletas de comentarios de {{ grupo }}</h1>
       <p class="page-header__description">{{ periodo.nombre }} · Ciclo {{ periodo.ciclo }}. {{ publicadas }} publicada{{ publicadas|pluralize }}, {{ listas }} lista{{ listas|pluralize }} para publicar de {{ boletas|length }}.</p>
     </div>
     <div class="page-header__actions">

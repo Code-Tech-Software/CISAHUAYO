@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{{ titulo }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{{ titulo }}</h1>
       {% if descripcion %}<p class="page-header__description">{{ descripcion }}</p>{% endif %}
     </div>
   </header>

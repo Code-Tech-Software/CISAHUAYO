@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar estudiante{% else %}Registrar estudiante{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar estudiante{% else %}Registrar estudiante{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Actualiza los datos de {{ alumno }}, incluidos sus tutores.{% else %}Sigue los pasos: al final podrás revisar todo antes de guardar.{% endif %}
       </p>

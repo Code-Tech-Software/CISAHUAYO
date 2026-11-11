@@ -4,7 +4,8 @@
      sin JavaScript; aquí se cambian sin recargar, con flechas, Inicio y Fin, y se actualiza la dirección.
      Sin una pestaña pedida, se elige la última con la que se entró en este dispositivo.
    - En cada formulario: botón para mostrar u ocultar la contraseña, aviso de bloqueo de mayúsculas y botón
-     «Entrando…» al enviar para evitar doble envío (se restablece si el navegador vuelve con «atrás»).
+     «Entrando…» al enviar para evitar doble envío (se restablece si el navegador vuelve con «atrás»). El mismo
+     «Entrando…» se escribe en la región [data-access-estado] para que lo anuncien los lectores de pantalla.
 */
 (() => {
   'use strict';
@@ -69,6 +70,8 @@
   }
 
   /* ---------------------------------------------------------------------- Formularios */
+  const estado = document.querySelector('[data-access-estado]');
+
   document.querySelectorAll('[data-access-form]').forEach((form) => {
     const password = form.querySelector('input[type="password"]');
     const toggle = form.querySelector('[data-password-toggle]');
@@ -100,6 +103,8 @@
       submit.classList.remove('is-loading');
       submit.disabled = false;
       submit.innerHTML = label;
+      form.removeAttribute('aria-busy');
+      if (estado) estado.textContent = '';
     };
 
     form.addEventListener('submit', (event) => {
@@ -111,6 +116,8 @@
         submit.classList.add('is-loading');
         submit.disabled = true;
         submit.firstChild.textContent = 'Entrando… ';
+        form.setAttribute('aria-busy', 'true');
+        if (estado) estado.textContent = 'Entrando…';
       }, 0);
     });
 

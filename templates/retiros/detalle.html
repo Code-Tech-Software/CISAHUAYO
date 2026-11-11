@@ -22,7 +22,7 @@
   <header class="page-header">
     <div>
       <p class="retiros-folio">Folio {{ aviso.folio }}</p>
-      <h1 class="page-header__title">Retiro del {{ aviso.fecha|date:"l j \d\e F" }} a las {{ aviso.hora|time:"H:i" }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Retiro del {{ aviso.fecha|date:"l j \d\e F" }} a las {{ aviso.hora|time:"H:i" }}</h1>
       <p class="page-header__description">{% include "retiros/_estado.html" with estado=estado.0 nombre=estado.1 %} · Avisó {{ aviso.tutor|nombre_completo }} el {{ aviso.creado|date:"d/m/Y \a \l\a\s H:i" }}</p>
     </div>
     {% if puede.corregir and cancelables %}

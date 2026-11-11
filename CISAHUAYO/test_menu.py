@@ -63,6 +63,15 @@ class MenuConRutasRealesTests(SimpleTestCase):
             activos = [el['etiqueta'] for s in contexto['navegacion'] for el in s['elementos'] if el['activo']]
             self.assertEqual(activos, [etiqueta], ruta)
 
+    def test_la_pagina_sabe_de_que_seccion_es(self):
+        """La clave y el ícono de la sección del elemento activo: dan el color del menú y el ícono del título (Corporate)."""
+        for ruta, clave, icono in (('/', 'panel', 'layout-dashboard'), ('/alumnos/4/', 'comunidad', 'graduation-cap'),
+                                   ('/mensajes/', 'comunicacion', 'message-circle'), ('/grados/1/', 'academica', 'layers'),
+                                   ('/asistencias/', 'prefectura', 'user-check'), ('/ajustes/', 'sistema', 'settings')):
+            self.assertEqual(navegacion(RequestFactory().get(ruta))['seccion_actual'], {'clave': clave, 'icono': icono}, ruta)
+        self.assertIsNone(navegacion(RequestFactory().get('/portal/estudiantes/'))['seccion_actual'])
+        self.assertTrue(all(s['clave'] for s in NAVEGACION))
+
     def test_el_menu_declara_las_secciones_esperadas(self):
         rutas = [el['ruta'] for s in NAVEGACION for el in s['elementos']]
         self.assertIn('materias:lista', rutas)

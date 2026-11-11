@@ -12,7 +12,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar el grupo «{{ nombre }}»{% else %}Nuevo nombre de grupo{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar el grupo «{{ nombre }}»{% else %}Nuevo nombre de grupo{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Si lo renombras, cambia en todos los grados que lo usan.{% else %}Agrégalo al catálogo y después elígelo en los grados que lo tengan.{% endif %}
       </p>

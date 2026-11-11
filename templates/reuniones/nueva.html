@@ -18,7 +18,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Solicitud de {{ tutor|persona }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Solicitud de {{ tutor|persona }}</h1>
       <p class="page-header__description">Anota lo que pide el tutor. Queda pendiente de programación: registrar la llamada no confirma una cita.</p>
     </div>
     <div class="page-header__actions"><a class="btn btn--ghost btn--sm" href="{% url 'reuniones:nueva' %}">{% include "partials/icon.html" with name="arrow-left" icon_class="icon--sm" %} Otro tutor</a></div>

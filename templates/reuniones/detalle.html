@@ -19,7 +19,7 @@
   <header class="page-header reuniones-cabeza">
     <div>
       <p class="reuniones-folio">Folio {{ reunion.folio }} · Solicitada el {{ reunion.creada|date:"d/m/Y \a \l\a\s H:i" }} por {{ reunion.registrada_por|cuenta }}</p>
-      <h1 class="page-header__title">Reunión con {{ reunion.tutor|persona }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Reunión con {{ reunion.tutor|persona }}</h1>
       <p class="page-header__description reuniones-etiquetas">{% include "reuniones/_estado.html" %}{% include "reuniones/_prioridad.html" %}<span class="tag">{{ reunion.get_area_display }}</span></p>
     </div>
   </header>

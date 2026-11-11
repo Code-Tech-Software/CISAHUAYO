@@ -17,7 +17,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{{ semestre.nombre }} · bachillerato
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{{ semestre.nombre }} · bachillerato
         <span class="tag tag--{% if semestre.abierto %}success{% elif semestre.cerrado %}neutral{% else %}info{% endif %}">{{ semestre.get_estado_display }}</span>
         {% if semestre.cerrado %}{% if datos.procesos_abiertos %}<span class="tag tag--warning">Con procesos pendientes</span>{% else %}<span class="tag tag--success">Concluido</span>{% endif %}{% endif %}
       </h1>

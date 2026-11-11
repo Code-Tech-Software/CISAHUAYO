@@ -17,7 +17,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
       <p class="page-header__description">
         {{ grupo }} · Ciclo {{ ciclo }}{% if semana and not es_edicion %} · <strong>Semana {{ semana }}</strong>{% endif %}.
         {% if es_edicion %}Cambia la materia, el día o la hora de este bloque.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}

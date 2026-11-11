@@ -777,6 +777,113 @@
 :root[data-tema="corporate"] .panel-kpi--tono-5 { --kpi-tinte: var(--color-tone-5-tint); --kpi-tono: var(--color-tone-5); }
 :root[data-tema="corporate"] .panel-kpi--tono-6 { --kpi-tinte: var(--color-tone-6-tint); --kpi-tono: var(--color-tone-6); }
 
+/* --- Propuesta moderada de color (pedido del 2026-11-11): más color sin cambiar la estructura ---------------------- */
+
+/* Secciones con color: cada sección del menú tiene su tono. La clave la pone CISAHUAYO.context_processors.NAVEGACION en
+   cada sección del menú y en <body> para la página abierta. Panel en azul, Comunicación en turquesa, Comunidad escolar
+   en tinto, Gestión académica en violeta, Prefectura en oro y Sistema en aqua (los tonos ya se leen en claro y en
+   oscuro: Ajustes/tests.py). */
+:root[data-tema="corporate"] [data-seccion] {
+  --seccion-tono: var(--color-tone-1);
+  --seccion-tinte: var(--color-tone-1-tint);
+}
+
+:root[data-tema="corporate"] [data-seccion="comunicacion"] { --seccion-tono: var(--color-tone-3); --seccion-tinte: var(--color-tone-3-tint); }
+:root[data-tema="corporate"] [data-seccion="comunidad"] { --seccion-tono: var(--color-tone-2); --seccion-tinte: var(--color-tone-2-tint); }
+:root[data-tema="corporate"] [data-seccion="academica"] { --seccion-tono: var(--color-tone-5); --seccion-tinte: var(--color-tone-5-tint); }
+:root[data-tema="corporate"] [data-seccion="prefectura"] { --seccion-tono: var(--color-tone-4); --seccion-tinte: var(--color-tone-4-tint); }
+:root[data-tema="corporate"] [data-seccion="sistema"] { --seccion-tono: var(--color-tone-6); --seccion-tinte: var(--color-tone-6-tint); }
+
+/* En el menú (claro u oscuro; el menú de color se queda en blanco): el título de cada sección y sus íconos. La opción
+   actual conserva su letra e ícono blancos sobre el zafiro. */
+:root[data-tema="corporate"]:not([data-menu="color"]) .nav__section[data-seccion] .nav__title {
+  color: var(--seccion-tono);
+}
+
+:root[data-tema="corporate"]:not([data-menu="color"]) .nav__section[data-seccion] .nav__link:not([aria-current="page"]) .nav__chip {
+  color: var(--seccion-tono);
+}
+
+/* El título de cada página: el ícono de su sección en un círculo de su tono (partials/icono_seccion.html) y una raya
+   oro abajo, alineada con el texto */
+:root[data-tema="corporate"] .page-header__icono {
+  position: relative;
+  top: -0.125rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-right: 0.625rem;
+  border-radius: 50%;
+  background: var(--seccion-tinte, var(--color-tone-1-tint));
+  color: var(--seccion-tono, var(--color-tone-1));
+  vertical-align: middle;
+}
+
+:root[data-tema="corporate"] .page-header__icono .icon {
+  --size: 1.125rem;
+}
+
+:root[data-tema="corporate"] .page-header__title::after {
+  content: "";
+  display: block;
+  width: 2.75rem;
+  height: 4px;
+  margin-top: 0.375rem;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+:root[data-tema="corporate"] .page-header__title:has(> .page-header__icono)::after {
+  margin-left: calc(2.25rem + 0.625rem);
+}
+
+/* Los íconos de las tarjetas, en un círculo del tono de la sección (como las cifras del panel) */
+:root[data-tema="corporate"] .card__header--icon > .icon {
+  box-sizing: content-box;
+  padding: 0.375rem;
+  border-radius: 50%;
+  background: var(--seccion-tinte, var(--color-tone-1-tint));
+  color: var(--seccion-tono, var(--color-tone-1));
+}
+
+/* El velo de arriba de las páginas, más presente: zafiro a la derecha y oro hacia la izquierda (solo en claro). El
+   [data-tema] repetido le gana a la regla general de la sección 2, que tiene un selector más largo. */
+:root[data-tema="corporate"][data-tema]:not([data-theme="dark"]) {
+  --aurora:
+    radial-gradient(44rem 22rem at 100% -6%, color-mix(in srgb, var(--t-stripe) 26%, transparent), transparent 70%),
+    radial-gradient(36rem 18rem at 24% -10%, color-mix(in srgb, var(--t-accent) 26%, transparent), transparent 70%);
+}
+
+/* Botones secundarios (los .btn sin variante de color): letra y borde en zafiro, fondo tenue de zafiro bajo el ratón */
+:root[data-tema="corporate"] .btn:not(.btn--primary, .btn--ghost, .btn--danger, .btn--danger-text) {
+  --btn-fg: var(--color-primary-text);
+  --btn-border: var(--color-primary-border);
+  --btn-bg-hover: var(--color-primary-soft);
+}
+
+/* Etiquetas de estado más intensas en claro: 14 % del color de fondo (antes 8 %) y el borde al 40 %. Información va en
+   el zafiro un poco más hondo: con el de siempre, sobre el 14 % daba 4.4:1. */
+:root[data-tema="corporate"]:not([data-theme="dark"]) .tag--success { --tag-bg: color-mix(in srgb, var(--color-success) 14%, #ffffff); }
+:root[data-tema="corporate"]:not([data-theme="dark"]) .tag--warning { --tag-bg: color-mix(in srgb, var(--color-warning) 14%, #ffffff); }
+:root[data-tema="corporate"]:not([data-theme="dark"]) .tag--danger { --tag-bg: color-mix(in srgb, var(--color-danger) 14%, #ffffff); }
+
+:root[data-tema="corporate"]:not([data-theme="dark"]) .tag--info {
+  --tag-fg: var(--t-primary-hover);
+  --tag-bg: color-mix(in srgb, var(--color-info) 14%, #ffffff);
+}
+
+:root[data-tema="corporate"]:not([data-theme="dark"]) .tag:is(.tag--success, .tag--warning, .tag--danger, .tag--info) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tag-fg) 40%, transparent);
+}
+
+/* Gráficas de barras del panel: cada barra en el tono de su nivel, el mismo de sus tarjetas de grado
+   (panel/_barras.html le pone panel-barras__barra--tono-N con el filtro nivel_tono) */
+:root[data-tema="corporate"] .panel-barras__barra--tono-1 { background: var(--color-tone-1-base); }
+:root[data-tema="corporate"] .panel-barras__barra--tono-2 { background: var(--color-tone-2-base); }
+:root[data-tema="corporate"] .panel-barras__barra--tono-3 { background: var(--color-tone-3-base); }
+:root[data-tema="corporate"] .panel-barras__barra--tono-4 { background: var(--color-tone-4-base); }
+
 /* Encabezados de las tablas en zafiro sólido con letra blanca (pedido del 2026-11-11), en claro y en pantalla: en
    oscuro siguen en la superficie del tema y en papel salen como antes. Como en el menú de color, dentro del
    encabezado se redefinen los roles, así lo que lleva adentro (subtítulos, porcentajes, casillas, botones,

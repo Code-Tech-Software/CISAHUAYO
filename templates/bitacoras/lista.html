@@ -25,7 +25,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if grupo %}Bitácora de {{ grupo }}{% else %}Bitácoras por grupo{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if grupo %}Bitácora de {{ grupo }}{% else %}Bitácoras por grupo{% endif %}</h1>
       <p class="page-header__description">Lo ocurrido en cada clase, con los estudiantes implicados o como observación general del grupo. Son observaciones informativas y de seguimiento: no afectan calificaciones académicas ni de conducta.</p>
     </div>
     {% if puede_registrar %}

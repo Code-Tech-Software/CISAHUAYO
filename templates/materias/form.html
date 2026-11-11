@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar materia{% else %}Nueva materia{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar materia{% else %}Nueva materia{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Corrige la clave, el nombre o el grado de {{ materia }}.{% elif form.agrega_al_plan %}Escribe su nombre y elige el grado que la imparte: la clave se propone sola y se agrega al plan del ciclo {{ form.ciclo }}.{% else %}Registra la materia y el grado que la imparte. Después la agregas a su plan en cada ciclo.{% endif %}
       </p>

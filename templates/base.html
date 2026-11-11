@@ -45,7 +45,7 @@
   <script src="{% static 'js/preload.js' %}"></script>
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body{% if seccion_actual.clave %} data-seccion="{{ seccion_actual.clave }}"{% endif %}>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
   <div class="app">

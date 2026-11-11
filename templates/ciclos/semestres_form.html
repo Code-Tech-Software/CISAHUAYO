@@ -17,7 +17,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Semestres de bachillerato</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Semestres de bachillerato</h1>
       <p class="page-header__description">Ciclo {{ ciclo }} ({{ ciclo.fecha_inicio|date:"d/m/Y" }} al {{ ciclo.fecha_fin|date:"d/m/Y" }}). Cada semestre tiene sus fechas, sus periodos de evaluación y su cierre.</p>
     </div>
   </header>

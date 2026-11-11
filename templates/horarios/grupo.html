@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Horario de {{ grupo }}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Horario de {{ grupo }}</h1>
       <p class="page-header__description">
         {% if ciclo %}Ciclo {{ ciclo }} · {{ asignaciones|length }} materia{{ asignaciones|length|pluralize }}{% if horas_semanales %} · {{ horas_semanales }} por semana{% endif %}.{% if resumen_recesos %} Receso: {{ resumen_recesos|join:"; " }}.{% endif %}{% if alternado %} Horario alternado: semana A y semana B.{% endif %}{% else %}Aún no hay ciclos escolares.{% endif %}
       </p>

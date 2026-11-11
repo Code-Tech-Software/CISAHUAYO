@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar rol{% else %}Nuevo rol{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar rol{% else %}Nuevo rol{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Los cambios en los permisos llegan a todos los usuarios que tienen este rol, sin editarlos uno por uno.{% else %}Elige a qué módulos entra este rol y qué puede hacer en cada uno.{% endif %}
       </p>

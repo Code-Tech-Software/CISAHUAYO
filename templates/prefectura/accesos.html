@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Entradas y salidas</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Entradas y salidas</h1>
       <p class="page-header__description">Retardos de ingreso, entradas posteriores y salidas anticipadas, con su hora, motivo y quién los registró. Un retardo de ingreso cuenta como retardo en la entrada y falta en la primera hora; las entradas posteriores y las salidas anticipadas no cambian la asistencia. Lo que el docente ya capturó siempre se respeta.</p>
     </div>
     {% if puede.registrar_acceso %}

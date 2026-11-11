@@ -21,7 +21,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar ciclo escolar{% else %}Nuevo ciclo escolar{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar ciclo escolar{% else %}Nuevo ciclo escolar{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Actualiza el nombre o las fechas del ciclo {{ ciclo }}.{% else %}Ya propusimos el nombre y las fechas del ciclo que sigue; ajústalos si hace falta.{% endif %}
       </p>

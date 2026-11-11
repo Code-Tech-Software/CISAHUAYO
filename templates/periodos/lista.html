@@ -15,7 +15,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">Periodos de evaluación</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}Periodos de evaluación</h1>
       <p class="page-header__description">Los parciales, bimestres o trimestres de cada nivel. Mientras un periodo está abierto, los profesores de ese nivel pueden capturar calificaciones.</p>
     </div>
     {% if perms.Alumnos.add_periodo and editable %}

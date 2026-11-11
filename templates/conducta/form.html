@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Corregir registro de conducta{% else %}Registrar conducta{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Corregir registro de conducta{% else %}Registrar conducta{% endif %}</h1>
       <p class="page-header__description">
         {% if es_edicion %}Cada cambio queda en el historial del registro (quién, cuándo, por qué y qué cambió: el valor anterior y el nuevo). El estudiante y su grupo de entonces no cambian.{% else %}Una incidencia o una conducta positiva de un estudiante{% if solo_prefectura %} de tu alcance{% else %} de cualquier grupo{% endif %}. Su nivel, grado y grupo se toman de su inscripción en el ciclo de la fecha del hecho y se conservan aunque después cambie de grupo.{% endif %}
       </p>

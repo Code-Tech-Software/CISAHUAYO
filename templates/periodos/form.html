@@ -16,7 +16,7 @@
 {% block content %}
   <header class="page-header">
     <div>
-      <h1 class="page-header__title">{% if es_edicion %}Editar periodo{% else %}Nuevo periodo{% endif %}</h1>
+      <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar periodo{% else %}Nuevo periodo{% endif %}</h1>
       <p class="page-header__description">
         Ciclo {{ ciclo }}. {% if es_edicion %}Ahora está {{ periodo.estado_display|lower }}{% if periodo.a_mano %} a mano{% endif %}.{% else %}Elige el nivel, su nombre y las fechas en que se abre y se cierra la captura.{% endif %}
       </p>

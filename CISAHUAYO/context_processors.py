@@ -91,9 +91,12 @@ def _retiros_fuera_de_prefectura(usuario):
 # `permiso`, a todo el que haya iniciado sesión). Si una sección tiene varias pantallas de entrada, `destinos` lista
 # (permiso, ruta) en orden de preferencia: el enlace lleva a la primera a la que la persona tiene acceso, así nadie
 # aterriza en una página que le negaría el paso. El permiso de un destino también puede ser una función del usuario.
+# La `clave` de cada sección le da su color en el tema Corporate (los íconos y el título en el menú, y el ícono junto
+# al título de sus páginas: static/css/temas.css, «Secciones con color»).
 NAVEGACION = (
     {
         'titulo': None,
+        'clave': 'panel',
         'elementos': (
             {'etiqueta': 'Panel de control', 'icono': 'layout-dashboard', 'ruta': 'inicio', 'exacto': True, 'destinos': ((_no_usa_prefectura, 'inicio'),)},
         ),
@@ -101,6 +104,7 @@ NAVEGACION = (
     {
         # Mensajes y comunicados en su propia categoría (pedido del 2026-10-18)
         'titulo': 'Comunicación',
+        'clave': 'comunicacion',
         'elementos': (
             # Mensajería interna (también en los portales), con los mensajes sin leer junto a la etiqueta
             {'etiqueta': 'Mensajes', 'icono': 'message-circle', 'ruta': 'mensajes:inicio', 'destinos': ((_usa_mensajes, 'mensajes:inicio'),), 'contador': 'mensajes'},
@@ -116,6 +120,7 @@ NAVEGACION = (
     {
         # Solo para las cuentas de prefectura (Rol.es_prefectura): todo dentro de su alcance
         'titulo': 'Prefectura',
+        'clave': 'prefectura',
         'elementos': (
             {'etiqueta': 'Inicio', 'icono': 'layout-dashboard', 'ruta': 'prefectura:inicio', 'exacto': True, 'destinos': ((_usa_prefectura, 'prefectura:inicio'),)},
             {'etiqueta': 'Estudiantes', 'icono': 'graduation-cap', 'ruta': 'prefectura:estudiantes', 'destinos': ((_usa_prefectura, 'prefectura:estudiantes'),)},
@@ -132,6 +137,7 @@ NAVEGACION = (
     },
     {
         'titulo': 'Comunidad escolar',
+        'clave': 'comunidad',
         'elementos': (
             {'etiqueta': 'Estudiantes', 'icono': 'graduation-cap', 'ruta': 'alumnos:lista', 'permiso': 'Alumnos.view_alumno'},
             {'etiqueta': 'Tutores', 'icono': 'users', 'ruta': 'tutores:lista', 'permiso': 'Alumnos.view_tutor'},
@@ -140,6 +146,7 @@ NAVEGACION = (
     },
     {
         'titulo': 'Gestión académica',
+        'clave': 'academica',
         'elementos': (
             {'etiqueta': 'Ciclos escolares', 'icono': 'calendar-range', 'ruta': 'ciclos:lista', 'permiso': 'Alumnos.view_cicloescolar'},
             {'etiqueta': 'Grados', 'icono': 'layers', 'ruta': 'grados:lista', 'permiso': 'Alumnos.view_grado'},
@@ -161,6 +168,7 @@ NAVEGACION = (
         # Asistencia y conducta del colegio (pedido del 2026-10-14). Las cuentas de prefectura no la ven: tienen su propia
         # sección «Prefectura» arriba (con su alcance), así que nadie ve las dos.
         'titulo': 'Prefectura',
+        'clave': 'prefectura',
         'elementos': (
             {
                 'etiqueta': 'Asistencias', 'icono': 'user-check', 'ruta': 'asistencias:inicio',
@@ -178,6 +186,7 @@ NAVEGACION = (
     },
     {
         'titulo': 'Sistema',
+        'clave': 'sistema',
         'elementos': (
             {'etiqueta': 'Usuarios', 'icono': 'user', 'ruta': 'usuarios:lista', 'permiso': 'auth.view_user'},
             {'etiqueta': 'Roles y permisos', 'icono': 'shield-check', 'ruta': 'roles:lista', 'permiso': 'Usuarios.view_rol'},
@@ -244,11 +253,13 @@ def navegacion(request):
 
     Solo incluye lo que el usuario puede ver según su rol. Se activa el elemento cuya URL sea la coincidencia más
     específica con la ruta actual, para que /alumnos/ no quede activo dentro de /alumnos/1/inscripciones/.
+    `seccion_actual` (clave e ícono de la sección del elemento activo) da el color y el ícono del título de la página.
     """
     usuario = getattr(request, 'user', None)
     secciones = []
     mejor = None
     mejor_longitud = 0
+    mejor_seccion = None
 
     for seccion in NAVEGACION:
         elementos = []
@@ -270,10 +281,10 @@ def navegacion(request):
                     coincide, base = True, otra_base
             item = {**elemento, 'url': destino or '#', 'disponible': bool(destino), 'activo': False}
             if coincide and len(base) > mejor_longitud:
-                mejor, mejor_longitud = item, len(base)
+                mejor, mejor_longitud, mejor_seccion = item, len(base), seccion.get('clave')
             elementos.append(item)
         if elementos:
-            secciones.append({'titulo': seccion['titulo'], 'elementos': elementos})
+            secciones.append({'titulo': seccion['titulo'], 'clave': seccion.get('clave'), 'elementos': elementos})
 
     if mejor:
         mejor['activo'] = True
@@ -289,6 +300,7 @@ def navegacion(request):
 
     contexto = {
         'navegacion': secciones,
+        'seccion_actual': {'clave': mejor_seccion, 'icono': mejor['icono']} if mejor else None,
         'acciones_rapidas': acciones,
         'busqueda_url': _resolver(RUTA_BUSQUEDA),
     }

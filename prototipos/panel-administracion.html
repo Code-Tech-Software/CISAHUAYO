@@ -1,0 +1,1785 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Propuestas del panel de Administración</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Prototipo del panel de Administración de CISAHUAYO (2026-11-12). Tema Corporate del sistema con el paquete
+   Institucional: zafiro para acciones, tinto/oro/aqua del escudo. Una sola fuente de datos ficticios para las tres
+   propuestas. Las propuestas se maquetan con consultas de contenedor sobre .marco, así la vista «Móvil» del selector es
+   la misma que en un teléfono. */
+:root {
+  --fondo: #f2f4f7; --superficie: #ffffff; --superficie-2: #f7f8fa; --borde: #e2e6ec; --borde-fuerte: #cbd3dd;
+  --tinta: #16202b; --tinta-2: #4a5563; --tinta-3: #66717f;
+  --zafiro: #2c76cd; --zafiro-hover: #2665ae; --zafiro-texto: #2560aa; --zafiro-tinte: #e7f0fb;
+  --tinto: #a22a47; --tinto-texto: #8e2440; --tinto-tinte: #f8e8ed;
+  --oro: #eabf6d; --oro-texto: #7a5600; --oro-tinte: #fbf1dc;
+  --aqua: #a2c6ca; --aqua-texto: #2f6f75; --aqua-tinte: #e6f1f2;
+  --exito: #166534; --exito-tinte: #e2f2e7; --aviso: #92400e; --aviso-tinte: #fdf0dc; --peligro: #b91c1c; --peligro-tinte: #fbe6e6;
+  --n-pre: #2c76cd; --n-pri: #a22a47; --n-sec: #0a9396; --n-bac: #c98b1c;
+  --serie: #2c76cd; --serie-lavado: rgba(44,118,205,.10); --serie-comp: #a3afbe; --rejilla: #e9ecf1; --eje: #c6cdd7;
+  --ord-1: #86b6ef; --ord-2: #5598e7; --ord-3: #2a78d6; --ord-4: #1c5cab; --ord-5: #104281;
+  --calor-0: #eef1f4; --calor-1: #f6dde4; --calor-2: #e8a7b8; --calor-3: #cc6683; --calor-4: #8e2440;
+  --calor-tinta: #ffffff; --vacio-celda: #ffffff;
+  --tip-fondo: #16202b; --tip-tinta: #f4f6f9;
+  --sombra: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.04);
+  --sombra-alta: 0 12px 32px rgba(16,24,40,.16);
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fondo: #0f141a; --superficie: #1a2028; --superficie-2: #212833; --borde: #2c3540; --borde-fuerte: #3b4654;
+    --tinta: #eef1f5; --tinta-2: #c3cad4; --tinta-3: #9aa6b4;
+    --zafiro: #3a82d8; --zafiro-hover: #5596e2; --zafiro-texto: #8dbbf0; --zafiro-tinte: #1c2b3f;
+    --tinto: #cf4f70; --tinto-texto: #eaa3b5; --tinto-tinte: #3a2129;
+    --oro: #eabf6d; --oro-texto: #f0cf8f; --oro-tinte: #3a3020;
+    --aqua: #a2c6ca; --aqua-texto: #a9d3d7; --aqua-tinte: #1f3234;
+    --exito: #4ade80; --exito-tinte: #173323; --aviso: #fbbf6a; --aviso-tinte: #3a2b16; --peligro: #f87171; --peligro-tinte: #3d1d1d;
+    --n-pre: #3a82d8; --n-pri: #cf4f70; --n-sec: #0c958f; --n-bac: #b9861f;
+    --serie: #5b9be6; --serie-lavado: rgba(91,155,230,.14); --serie-comp: #5d6878; --rejilla: #28303a; --eje: #3d4754;
+    --ord-1: #184f95; --ord-2: #256abf; --ord-3: #3987e5; --ord-4: #6da7ec; --ord-5: #9ec5f4;
+    --calor-0: #232a33; --calor-1: #452a35; --calor-2: #77324b; --calor-3: #b04563; --calor-4: #e2798f;
+    --calor-tinta: #10151b; --vacio-celda: #1a2028;
+    --tip-fondo: #eef1f5; --tip-tinta: #16202b;
+    --sombra: 0 1px 2px rgba(0,0,0,.4); --sombra-alta: 0 12px 32px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fondo: #0f141a; --superficie: #1a2028; --superficie-2: #212833; --borde: #2c3540; --borde-fuerte: #3b4654;
+  --tinta: #eef1f5; --tinta-2: #c3cad4; --tinta-3: #9aa6b4;
+  --zafiro: #3a82d8; --zafiro-hover: #5596e2; --zafiro-texto: #8dbbf0; --zafiro-tinte: #1c2b3f;
+  --tinto: #cf4f70; --tinto-texto: #eaa3b5; --tinto-tinte: #3a2129;
+  --oro: #eabf6d; --oro-texto: #f0cf8f; --oro-tinte: #3a3020;
+  --aqua: #a2c6ca; --aqua-texto: #a9d3d7; --aqua-tinte: #1f3234;
+  --exito: #4ade80; --exito-tinte: #173323; --aviso: #fbbf6a; --aviso-tinte: #3a2b16; --peligro: #f87171; --peligro-tinte: #3d1d1d;
+  --n-pre: #3a82d8; --n-pri: #cf4f70; --n-sec: #0c958f; --n-bac: #b9861f;
+  --serie: #5b9be6; --serie-lavado: rgba(91,155,230,.14); --serie-comp: #5d6878; --rejilla: #28303a; --eje: #3d4754;
+  --ord-1: #184f95; --ord-2: #256abf; --ord-3: #3987e5; --ord-4: #6da7ec; --ord-5: #9ec5f4;
+  --calor-0: #232a33; --calor-1: #452a35; --calor-2: #77324b; --calor-3: #b04563; --calor-4: #e2798f;
+  --calor-tinta: #10151b; --vacio-celda: #1a2028;
+  --tip-fondo: #eef1f5; --tip-tinta: #16202b;
+  --sombra: 0 1px 2px rgba(0,0,0,.4); --sombra-alta: 0 12px 32px rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--fondo); color: var(--tinta); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button, select, input { font: inherit; color: inherit; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--zafiro); outline-offset: 2px; }
+.ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ic--xs { width: 13px; height: 13px; }
+.ic--lg { width: 20px; height: 20px; }
+.solo-lectores { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* --- Barra de la herramienta ------------------------------------------------------------------- */
+.franja { height: 4px; background: linear-gradient(90deg, #a22a47 0 33.33%, #eabf6d 33.33% 66.66%, #a2c6ca 66.66%); }
+.herramienta { background: var(--superficie); border-bottom: 1px solid var(--borde); }
+.herramienta__in { max-width: 1480px; margin: 0 auto; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.marca__escudo { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--borde); display: grid; place-items: center; background: var(--superficie); flex: none; }
+.marca__nombre { font-weight: 700; color: var(--tinto-texto); letter-spacing: .04em; font-size: 15px; line-height: 1.2; }
+.marca__sub { font-size: 12px; color: var(--tinta-3); }
+.pestanas { display: flex; gap: 4px; overflow-x: auto; flex: 1 1 520px; min-width: 0; padding-block: 2px; scrollbar-width: thin; }
+.pestana { border: 1px solid transparent; background: none; padding: 7px 12px; border-radius: var(--r-md); cursor: pointer; color: var(--tinta-2); font-weight: 500; white-space: nowrap; display: inline-flex; gap: 8px; align-items: baseline; }
+.pestana small { font-size: 11.5px; color: var(--tinta-3); font-weight: 400; }
+.pestana:hover { background: var(--superficie-2); }
+.pestana[aria-selected="true"] { background: var(--zafiro); color: #fff; }
+.pestana[aria-selected="true"] small { color: rgba(255,255,255,.82); }
+.herramienta__lado { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.chip-ejemplo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--oro-texto); background: var(--oro-tinte); border: 1px solid color-mix(in srgb, var(--oro) 60%, transparent); padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.vista { display: inline-flex; border: 1px solid var(--borde); border-radius: var(--r-md); overflow: hidden; background: var(--superficie); }
+.vista button { border: 0; background: none; padding: 6px 10px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; color: var(--tinta-2); font-size: 13px; }
+.vista button[aria-pressed="true"] { background: var(--zafiro-tinte); color: var(--zafiro-texto); font-weight: 600; }
+@media (max-width: 700px) { .vista { display: none; } .pestana small { display: none; } }
+
+main { max-width: 1480px; margin: 0 auto; padding-block: 18px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.marco { container: marco / inline-size; }
+.marco--movil { max-width: 392px; margin-inline: auto; border: 1px solid var(--borde-fuerte); border-radius: 30px; padding: 18px 12px 24px; background: var(--fondo); box-shadow: var(--sombra-alta); }
+.marco--movil::before { content: ""; display: block; width: 92px; height: 5px; border-radius: 9px; background: var(--borde-fuerte); margin: -6px auto 14px; }
+
+/* --- Piezas comunes -------------------------------------------------------------------------------- */
+.d-cabeza { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-end; justify-content: space-between; }
+.d-cabeza__ojo { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--tinto-texto); }
+.d-cabeza__titulo { font-size: 24px; font-weight: 700; letter-spacing: -.01em; margin-top: 2px; }
+.d-cabeza__alcance { color: var(--tinta-2); margin-top: 2px; }
+.d-cabeza__lado { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.d-cabeza__corte { font-size: 12.5px; color: var(--tinta-3); display: flex; gap: 6px; align-items: center; }
+@container marco (max-width: 999px) { .d-cabeza__lado { align-items: flex-start; text-align: left; flex-direction: row; flex-wrap: wrap; gap: 6px 12px; } }
+@container marco (max-width: 600px) { .d-cabeza__titulo { font-size: 21px; } }
+
+.rej { display: grid; gap: 14px; margin-top: 14px; grid-template-columns: minmax(0, 1fr); }
+.pila { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.rej--kpi6, .rej--kpi5 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rej--kpi5 > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+@container marco (min-width: 720px) { .rej--kpi5 > :last-child:nth-child(odd) { grid-column: auto; } }
+@container marco (min-width: 720px) {
+  .rej--kpi6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rej--kpi5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rej--2, .rej--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rej--d1a { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rej--d1a > :first-child { grid-column: 1 / -1; }
+  .rej--d3 { grid-template-columns: minmax(0, 1fr); }
+}
+@container marco (min-width: 1100px) {
+  .rej--kpi6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .rej--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rej--d1a { grid-template-columns: minmax(0, .95fr) minmax(0, 1.2fr) minmax(0, 1.05fr); }
+  .rej--d1a > :first-child { grid-column: auto; }
+  .rej--d3 { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+}
+@container marco (min-width: 1240px) { .rej--kpi5 { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+.tarjeta { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-lg); box-shadow: var(--sombra); padding: 16px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.tarjeta__cabeza { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.tarjeta__titulo { font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.tarjeta__titulo .ic { color: var(--tinta-3); }
+.tarjeta__pie { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 2px; }
+.etiqueta { font-size: 12px; color: var(--tinta-2); background: var(--superficie-2); border: 1px solid var(--borde); padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.nota { font-size: 12.5px; color: var(--tinta-3); }
+.nota strong { color: var(--tinta-2); font-weight: 600; }
+.subtitulo { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); text-transform: uppercase; letter-spacing: .05em; }
+.vacio { display: flex; gap: 8px; align-items: flex-start; color: var(--tinta-3); font-size: 13px; padding: 10px 12px; background: var(--superficie-2); border-radius: var(--r-md); }
+.boton { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--borde-fuerte); background: var(--superficie); border-radius: var(--r-md); padding: 6px 11px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--tinta); }
+.boton:hover { background: var(--superficie-2); }
+.boton--primario { background: var(--zafiro); border-color: var(--zafiro); color: #fff; }
+.boton--primario:hover { background: var(--zafiro-hover); }
+.boton--texto { border-color: transparent; background: none; color: var(--zafiro-texto); padding-inline: 4px; }
+.boton--texto:hover { background: var(--zafiro-tinte); }
+.enlace { border: 0; background: none; padding: 0; color: var(--zafiro-texto); cursor: pointer; text-align: left; font-weight: 500; }
+.enlace:hover { text-decoration: underline; }
+.seccion-titulo { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--tinta-3); margin-top: 26px; display: flex; align-items: center; gap: 10px; }
+.seccion-titulo::after { content: ""; flex: 1; height: 1px; background: var(--borde); }
+
+/* Estados y prioridades: siempre con icono y palabra, nunca solo color */
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; line-height: 1.5; }
+.chip .ic { width: 12px; height: 12px; }
+.chip--parcial { color: var(--aviso); background: var(--aviso-tinte); }
+.chip--alta { color: var(--peligro); background: var(--peligro-tinte); }
+.chip--media { color: var(--aviso); background: var(--aviso-tinte); }
+.chip--baja { color: var(--tinta-2); background: var(--superficie-2); border: 1px solid var(--borde); }
+.chip--ok { color: var(--exito); background: var(--exito-tinte); }
+.chip--info { color: var(--zafiro-texto); background: var(--zafiro-tinte); }
+.chip--neutro { color: var(--tinta-2); background: var(--superficie-2); border: 1px solid var(--borde); }
+.punto-nivel { width: 9px; height: 9px; border-radius: 3px; flex: none; display: inline-block; }
+
+/* --- Cifras principales ----------------------------------------------------------------------------- */
+.kpi { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-lg); box-shadow: var(--sombra); padding: 13px 14px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi__cabeza { display: flex; align-items: flex-start; gap: 6px; }
+.kpi__titulo { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); display: flex; gap: 7px; align-items: center; margin-right: auto; line-height: 1.3; }
+.kpi__icono { width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; flex: none; background: var(--kpi-tinte, var(--zafiro-tinte)); color: var(--kpi-tono, var(--zafiro-texto)); }
+.kpi__icono .ic { width: 14px; height: 14px; }
+.kpi--tinto { --kpi-tinte: var(--tinto-tinte); --kpi-tono: var(--tinto-texto); }
+.kpi--oro { --kpi-tinte: var(--oro-tinte); --kpi-tono: var(--oro-texto); }
+.kpi--aqua { --kpi-tinte: var(--aqua-tinte); --kpi-tono: var(--aqua-texto); }
+.kpi__info { border: 0; background: none; padding: 3px; margin: -3px -4px 0 0; border-radius: 6px; color: var(--tinta-3); cursor: pointer; display: grid; }
+.kpi__info:hover { background: var(--superficie-2); color: var(--zafiro-texto); }
+.kpi__cifra { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.kpi__valor { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.15; }
+.kpi__valor--vacio { color: var(--tinta-3); }
+.kpi__valor--texto { font-size: 19px; color: var(--tinta-2); }
+.kpi__sub { font-size: 12.5px; color: var(--tinta-2); line-height: 1.4; }
+.kpi__delta { font-size: 12px; display: flex; align-items: center; gap: 3px; font-weight: 500; }
+.kpi__delta--bien { color: var(--exito); }
+.kpi__delta--mal { color: var(--peligro); }
+.kpi__delta--neutro { color: var(--tinta-3); }
+.kpi__spark { height: 30px; margin-top: 2px; }
+.kpi__corte { font-size: 11.5px; color: var(--tinta-3); display: flex; gap: 5px; align-items: flex-start; margin-top: auto; padding-top: 6px; border-top: 1px dashed transparent; line-height: 1.35; }
+.kpi__corte .ic { margin-top: 1px; }
+.kpi__accion { border: 0; background: none; padding: 2px 0 0; color: var(--zafiro-texto); font-size: 12.5px; font-weight: 600; display: inline-flex; gap: 2px; align-items: center; cursor: pointer; align-self: flex-start; }
+.kpi__accion:hover { text-decoration: underline; }
+.kpi__accion .ic { width: 14px; height: 14px; }
+.kpi--compacta .kpi__valor { font-size: 24px; }
+
+/* --- Filtros ----------------------------------------------------------------------------------------- */
+.filtros { display: grid; gap: 10px; }
+.campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.campo__etiqueta { font-size: 12px; font-weight: 600; color: var(--tinta-2); }
+.campo__control { appearance: none; -webkit-appearance: none; width: 100%; border: 1px solid var(--borde-fuerte); border-radius: var(--r-md); background: var(--superficie) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2366717f' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center; padding: 7px 30px 7px 10px; font-size: 13.5px; min-height: 36px; }
+.campo__control:disabled { color: var(--tinta-3); background-color: var(--superficie-2); cursor: not-allowed; }
+.campo--alcance .campo__control { border-color: var(--zafiro); font-weight: 600; }
+.filtros__acciones { display: flex; gap: 8px; align-items: flex-end; }
+.filtros--barra { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 14px; padding: 12px; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-lg); }
+@container marco (min-width: 720px) { .filtros--barra { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container marco (min-width: 1100px) { .filtros--barra { grid-template-columns: 1.15fr 1fr 1fr 1fr 1.25fr 1fr auto; align-items: end; } }
+.filtros__mas-boton { display: none; }
+@container marco (max-width: 719px) {
+  .filtros--barra:not(.filtros--abiertos) .campo--extra { display: none; }
+  .filtros--barra .filtros__mas-boton { display: inline-flex; }
+  .filtros--barra .filtros__acciones { grid-column: 1 / -1; justify-content: space-between; }
+}
+@container marco (max-width: 999px) {
+  .filtros--riel:not(.filtros--abiertos) .filtros__grupo { display: none; }
+  .filtros--riel .filtros__mas-boton { display: inline-flex; }
+  .filtros--riel .filtros__acciones { justify-content: space-between; }
+  .solo-ancho { display: none !important; }
+}
+@container marco (min-width: 1000px) { .solo-angosto { display: none !important; } }
+.filtros--riel { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-lg); padding: 14px; }
+.filtros--riel .filtros__titulo { font-size: 13px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.filtros__grupo { display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--borde); }
+.filtros--compacto { margin-top: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+@container marco (min-width: 720px) { .filtros--compacto { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; } }
+.filtros--compacto details { grid-column: 1 / -1; }
+.filtros--compacto summary { cursor: pointer; color: var(--zafiro-texto); font-weight: 600; font-size: 13px; width: max-content; }
+.filtros__mas { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
+@container marco (min-width: 720px) { .filtros__mas { grid-template-columns: repeat(3, minmax(0, 220px)); } }
+.alcance-linea { margin-top: 10px; font-size: 12.5px; color: var(--tinta-2); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.alcance-linea strong { color: var(--tinta); }
+
+/* --- Barras horizontales ------------------------------------------------------------------------------ */
+.barras { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.barra { display: grid; grid-template-columns: minmax(84px, 38%) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; width: 100%; border: 0; background: none; padding: 3px 4px; margin: -3px -4px; border-radius: 6px; text-align: left; }
+button.barra { cursor: pointer; }
+button.barra:hover, button.barra[aria-expanded="true"] { background: var(--superficie-2); }
+.barra__nombre { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--tinta); }
+.barra__nombre span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barra__pista { position: relative; height: 12px; }
+.barra__relleno { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--serie); min-width: 2px; }
+.barra__marca { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--tinta); border-radius: 1px; box-shadow: 0 0 0 2px var(--superficie); }
+.barra__valor { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; text-align: right; white-space: nowrap; }
+.barra__valor small { font-weight: 400; color: var(--tinta-3); font-size: 12px; }
+.barra--sub { padding-left: 18px; }
+.barra--sub .barra__nombre { color: var(--tinta-2); }
+.desglose { display: grid; gap: 7px; padding: 8px 0 6px; border-left: 2px solid var(--borde); margin-left: 6px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--tinta-2); align-items: center; }
+.leyenda span { display: inline-flex; gap: 6px; align-items: center; }
+.leyenda .muestra { width: 12px; height: 10px; border-radius: 2px; display: inline-block; }
+.leyenda .muestra--linea { width: 3px; height: 13px; border-radius: 1px; background: var(--tinta); }
+.leyenda .muestra--trazo { width: 14px; height: 2px; border-radius: 1px; }
+.leyenda .muestra--hueco { width: 10px; height: 10px; border-radius: 99px; border: 2px solid var(--serie); }
+
+/* --- Gráficas SVG -------------------------------------------------------------------------------------- */
+.grafica { width: 100%; min-height: 40px; }
+.svg { display: block; overflow: visible; }
+.svg text { font-family: var(--font); }
+.rejilla-l { stroke: var(--rejilla); stroke-width: 1; }
+.base-l { stroke: var(--eje); stroke-width: 1; }
+.eje-t { fill: var(--tinta-3); font-size: 11px; }
+.valor-t { fill: var(--tinta); font-size: 12px; font-weight: 600; }
+.linea { fill: none; stroke: var(--serie); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.area { fill: var(--serie-lavado); }
+.punto { fill: var(--serie); stroke: var(--superficie); stroke-width: 2; }
+.punto--parcial { fill: var(--superficie); stroke: var(--serie); stroke-width: 2; }
+.cruz { stroke: var(--tinta-3); stroke-width: 1; opacity: 0; }
+.col:hover .cruz { opacity: 1; }
+.hit { fill: transparent; }
+.colm { cursor: default; }
+.colm:hover .colm__b { filter: brightness(1.08); }
+.tabla-datos { margin-top: 2px; }
+.tabla-datos summary { cursor: pointer; font-size: 12.5px; color: var(--zafiro-texto); font-weight: 500; width: max-content; }
+.tabla-datos__marco { overflow-x: auto; margin-top: 8px; max-height: 280px; }
+table.tabla { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.tabla th, .tabla td { padding: 6px 8px; border-bottom: 1px solid var(--borde); text-align: left; white-space: nowrap; }
+.tabla thead th { background: #2c76cd; color: #fff; font-weight: 600; position: sticky; top: 0; }
+.tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --- Mapa de calor -------------------------------------------------------------------------------------- */
+.calor-marco { overflow-x: auto; }
+.calor { display: grid; gap: 2px; font-size: 11px; width: max-content; }
+.calor__fila { display: contents; }
+.calor__et { display: flex; align-items: center; gap: 6px; padding-right: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--tinta-2); font-size: 12px; }
+.calor__et span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.calor__dia { text-align: center; color: var(--tinta-3); line-height: 1.1; padding-bottom: 3px; font-variant-numeric: tabular-nums; }
+.calor__dia b { display: block; color: var(--tinta-2); font-weight: 600; }
+.calor__dia--hoy b { color: var(--zafiro-texto); }
+.celda { height: var(--celda); border-radius: 3px; display: grid; place-items: center; font-weight: 700; font-size: 10.5px; color: var(--tinta-2); }
+.celda:hover { outline: 2px solid var(--tinta); outline-offset: -1px; }
+.c0 { background: var(--calor-0); } .c1 { background: var(--calor-1); } .c2 { background: var(--calor-2); }
+.c3 { background: var(--calor-3); color: var(--calor-tinta); } .c4 { background: var(--calor-4); color: var(--calor-tinta); }
+.c-sin { background: var(--vacio-celda); border: 1px dashed var(--borde-fuerte); color: var(--tinta-3); }
+.c-par { background: var(--vacio-celda); border: 1px solid var(--borde-fuerte); color: var(--tinta-3); }
+.c-ret { background: var(--oro-tinte); color: var(--oro-texto); }
+.c-fal { background: var(--calor-4); color: var(--calor-tinta); }
+.c-jus { background: var(--calor-1); color: var(--tinto-texto); }
+.c-sus { background: var(--superficie-2); color: var(--tinta-3); border: 1px solid var(--borde-fuerte); }
+
+/* --- Listas ---------------------------------------------------------------------------------------------- */
+.lista { list-style: none; margin: 0; padding: 0; display: grid; }
+.lista > li { border-top: 1px solid var(--borde); }
+.lista > li:first-child { border-top: 0; }
+.fila-alerta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 4px; width: 100%; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 6px; }
+.fila-alerta:hover { background: var(--superficie-2); }
+.fila-alerta__icono { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; }
+.fila-alerta__icono--alta { background: var(--peligro-tinte); color: var(--peligro); }
+.fila-alerta__icono--media { background: var(--aviso-tinte); color: var(--aviso); }
+.fila-alerta__icono--baja { background: var(--superficie-2); color: var(--tinta-2); }
+.fila-alerta__texto { font-size: 13.5px; line-height: 1.35; }
+.fila-alerta__texto small { display: block; color: var(--tinta-3); font-size: 12px; margin-top: 2px; }
+.fila-alerta__lado { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.fila-alerta__n { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; }
+.estudiante { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 9px 2px; }
+.estudiante__nombre { font-weight: 600; font-size: 13.5px; }
+.estudiante__meta { grid-column: 1 / -1; font-size: 12.5px; color: var(--tinta-2); line-height: 1.4; }
+.estudiante__meta b { font-weight: 600; color: var(--tinta); }
+.chips-filtro { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-filtro { border: 1px solid var(--borde-fuerte); background: var(--superficie); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip-filtro[aria-pressed="true"] { background: var(--zafiro-tinte); border-color: var(--zafiro); color: var(--zafiro-texto); font-weight: 600; }
+.chip-filtro b { font-variant-numeric: tabular-nums; }
+.agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.agenda__dia { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--tinta-3); padding: 8px 0 2px; }
+.agenda__item { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-top: 1px solid var(--borde); }
+.agenda__hora { font-size: 12.5px; font-weight: 600; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+.agenda__titulo { font-weight: 600; font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.agenda__detalle { font-size: 12.5px; color: var(--tinta-2); }
+.cifras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+@container marco (min-width: 480px) { .cifras--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.cifra { background: var(--superficie-2); border-radius: var(--r-md); padding: 8px 10px; }
+.cifra dt { font-size: 12px; color: var(--tinta-2); }
+.cifra dd { margin: 0; font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.medidor { display: grid; grid-template-columns: minmax(70px, 30%) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.medidor__pista { height: 8px; border-radius: 99px; background: var(--zafiro-tinte); overflow: hidden; }
+.medidor__relleno { height: 100%; border-radius: 99px; background: var(--zafiro); }
+.medidor__relleno--aviso { background: var(--oro); }
+.medidor__relleno--mal { background: var(--tinto); }
+.medidor__valor { font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; text-align: right; }
+.captura-grupo { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--borde); }
+.captura-grupo:first-child { border-top: 0; padding-top: 2px; }
+.captura-grupo__cabeza { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; flex-wrap: wrap; }
+.retiro { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--borde); }
+.retiro:first-child { border-top: 0; }
+.retiro__hora { font-weight: 650; font-variant-numeric: tabular-nums; }
+.pendiente { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--borde); }
+.pendiente:first-child { border-top: 0; }
+.pendiente__area { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--tinta-3); }
+.pendiente__texto { font-size: 13.5px; font-weight: 500; margin-top: 1px; }
+.pendiente__detalle { font-size: 12.5px; color: var(--tinta-2); margin-top: 2px; }
+.pendiente__grupos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.leyenda-estados { margin-top: 22px; padding: 12px 14px; border: 1px solid var(--borde); border-radius: var(--r-lg); background: var(--superficie); display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 12.5px; color: var(--tinta-2); align-items: center; }
+.leyenda-estados strong { color: var(--tinta); }
+.leyenda-estados .clave { font-weight: 700; color: var(--tinta); min-width: 14px; display: inline-block; text-align: center; }
+.hoy-cabeza { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r-xl); padding: 16px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; box-shadow: var(--sombra); }
+.hoy-cabeza__fecha { font-size: 24px; font-weight: 700; letter-spacing: -.01em; }
+.hoy-cabeza__fecha span { color: var(--tinto-texto); }
+.hoy-progreso { display: flex; flex-direction: column; gap: 6px; min-width: min(100%, 300px); flex: 1 1 300px; max-width: 460px; }
+.hoy-progreso__barra { display: flex; height: 12px; border-radius: 99px; overflow: hidden; gap: 2px; background: var(--superficie); }
+.hoy-progreso__barra span { display: block; height: 100%; }
+
+/* --- Propuesta 2: riel de filtros --------------------------------------------------------------------------- */
+.d2 { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.d2__riel { display: grid; gap: 14px; align-content: start; }
+.d2__riel .leyenda-estados { margin-top: 0; flex-direction: column; align-items: flex-start; gap: 6px; }
+@container marco (min-width: 1000px) {
+  .d2 { grid-template-columns: 268px minmax(0, 1fr); }
+  .d2__riel { position: sticky; top: 12px; align-self: start; max-height: calc(100vh - 24px); overflow: auto; }
+}
+.migas { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; margin-top: 10px; }
+.migas button { border: 0; background: none; color: var(--zafiro-texto); cursor: pointer; padding: 2px 4px; border-radius: 5px; font-weight: 500; }
+.migas button:hover { background: var(--zafiro-tinte); }
+.migas [aria-current] { font-weight: 650; padding: 2px 4px; }
+.migas .ic { color: var(--tinta-3); width: 13px; height: 13px; }
+.comparativa-marco { overflow-x: auto; }
+table.tcomp { border-collapse: collapse; width: 100%; font-size: 13px; }
+.tcomp th { text-align: left; font-size: 12px; font-weight: 600; color: #fff; background: #2c76cd; padding: 8px 10px; white-space: nowrap; }
+.tcomp th:first-child { border-radius: 8px 0 0 0; } .tcomp th:last-child { border-radius: 0 8px 0 0; }
+.tcomp td { padding: 9px 10px; border-bottom: 1px solid var(--borde); vertical-align: middle; }
+.tcomp tbody tr:hover { background: var(--superficie-2); }
+.tcomp .celda-barra { display: grid; grid-template-columns: minmax(70px, 1fr) 56px; gap: 8px; align-items: center; min-width: 150px; }
+.tcomp .unidad { display: flex; align-items: center; gap: 8px; }
+.delta { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.delta--bien { color: var(--exito); } .delta--mal { color: var(--peligro); } .delta--neutro { color: var(--tinta-3); }
+@container marco (max-width: 719px) {
+  table.tcomp, .tcomp tbody, .tcomp tr, .tcomp td { display: block; width: 100%; }
+  .tcomp thead { display: none; }
+  .tcomp tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--borde); }
+  .tcomp td { border: 0; padding: 0; }
+  .tcomp td:first-child { grid-column: 1 / -1; }
+  .tcomp td[data-col]::before { content: attr(data-col); display: block; font-size: 11.5px; color: var(--tinta-3); }
+  .tcomp td.td-ancha { grid-column: 1 / -1; }
+}
+
+/* --- Comparativa ---------------------------------------------------------------------------------------- */
+.doc { max-width: 1120px; margin: 0 auto; display: grid; gap: 18px; }
+.doc h2 { font-size: 22px; letter-spacing: -.01em; }
+.doc h3 { font-size: 16px; }
+.doc p, .doc li { max-width: 78ch; }
+.doc ol, .doc ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.doc .tarjeta { gap: 10px; }
+.doc table.tabla td { white-space: normal; vertical-align: top; line-height: 1.45; }
+.doc table.tabla td:first-child { font-weight: 600; }
+.recomendacion { border: 1px solid color-mix(in srgb, var(--zafiro) 45%, var(--borde)); background: linear-gradient(0deg, var(--superficie), var(--superficie)) padding-box; }
+.recomendacion .d-cabeza__ojo { color: var(--zafiro-texto); }
+
+/* --- Diálogo, globo y aviso ----------------------------------------------------------------------------- */
+dialog { border: 1px solid var(--borde); border-radius: var(--r-xl); padding: 0; width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 32px); background: var(--superficie); color: var(--tinta); box-shadow: var(--sombra-alta); }
+dialog::backdrop { background: rgba(10,16,24,.45); }
+.dlg__cabeza { position: sticky; top: 0; z-index: 1; background: var(--superficie); display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px 12px; border-bottom: 1px solid var(--borde); }
+.dlg__titulo { font-size: 17px; font-weight: 700; margin-right: auto; }
+.dlg__sub { font-size: 12.5px; color: var(--tinta-2); margin-top: 2px; }
+.dlg__cerrar { border: 0; background: var(--superficie-2); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; flex: none; }
+.dlg__cuerpo { padding: 14px 18px 20px; display: grid; gap: 14px; }
+.dlg__cuerpo .tabla td { white-space: normal; }
+#globo { position: fixed; z-index: 50; pointer-events: none; background: var(--tip-fondo); color: var(--tip-tinta); font-size: 12.5px; line-height: 1.45; padding: 7px 10px; border-radius: 8px; max-width: 280px; white-space: pre-line; box-shadow: var(--sombra-alta); }
+#globo b { font-weight: 700; }
+#aviso { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--tip-fondo); color: var(--tip-tinta); padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--sombra-alta); max-width: calc(100vw - 32px); }
+@media (prefers-reduced-motion: no-preference) {
+  .kpi, .tarjeta { animation: entra .28s ease-out both; }
+  @keyframes entra { from { transform: translateY(3px); } to { transform: none; } }
+}
+@media (forced-colors: active) { .barra__relleno, .medidor__relleno, .celda { forced-color-adjust: none; } }
+</style>
+</head>
+<body>
+<header class="herramienta">
+  <div class="franja" aria-hidden="true"></div>
+  <div class="herramienta__in">
+    <div class="marca">
+      <span class="marca__escudo" aria-hidden="true"><svg width="20" height="22" viewBox="0 0 20 22"><path d="M10 1 2 4v6c0 5.2 3.4 9.4 8 11 4.6-1.6 8-5.8 8-11V4z" fill="none" stroke="#a22a47" stroke-width="2"/><path d="M8 7h4M8 15h4M10 7v8" stroke="#a22a47" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <span><span class="marca__nombre">CISAHUAYO</span><br><span class="marca__sub">Panel de Administración · propuestas</span></span>
+    </div>
+    <nav class="pestanas" role="tablist" aria-label="Propuestas">
+      <button class="pestana" role="tab" id="tab-ejecutivo" data-diseno="ejecutivo" aria-controls="marco">1 · Resumen ejecutivo <small>Dirección</small></button>
+      <button class="pestana" role="tab" id="tab-academico" data-diseno="academico" aria-controls="marco">2 · Análisis académico <small>Coordinación</small></button>
+      <button class="pestana" role="tab" id="tab-operacion" data-diseno="operacion" aria-controls="marco">3 · Operación diaria <small>Seguimiento del día</small></button>
+      <button class="pestana" role="tab" id="tab-comparativa" data-diseno="comparativa" aria-controls="marco">Comparativa y criterios</button>
+    </nav>
+    <div class="herramienta__lado">
+      <span class="chip-ejemplo"><svg class="ic ic--xs" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Datos de ejemplo</span>
+      <div class="vista" role="group" aria-label="Ancho de la vista previa">
+        <button type="button" data-vista="escritorio" aria-pressed="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Escritorio</button>
+        <button type="button" data-vista="movil" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Móvil</button>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+  <div class="marco" id="marco" role="tabpanel" aria-live="off"><div id="lienzo"></div></div>
+</main>
+<div id="globo" role="tooltip" hidden></div>
+<div id="aviso" role="status" aria-live="polite" hidden></div>
+<dialog id="dialogo" aria-labelledby="dlg-titulo">
+  <div class="dlg__cabeza"><div><h2 class="dlg__titulo" id="dlg-titulo"></h2><p class="dlg__sub" id="dlg-sub"></p></div>
+    <button class="dlg__cerrar" type="button" data-accion="cerrar-dialogo" aria-label="Cerrar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+  <div class="dlg__cuerpo" id="dlg-cuerpo"></div>
+</dialog>
+
+<script>
+'use strict';
+/* ==========================================================================================================
+   Utilidades
+   ========================================================================================================== */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function normal(r) { let u = 0, v = 0; while (!u) u = r(); while (!v) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function hashNum(...xs) { let h = 2166136261 >>> 0; for (const x of xs) { const s = String(x); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= 124; h = Math.imul(h, 16777619); } return h >>> 0; }
+const hNormal = (...xs) => normal(mulberry(hashNum(...xs)));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const prom = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+const pick = (lista, r) => lista[Math.floor(r() * lista.length)];
+const nf0 = new Intl.NumberFormat('es-MX');
+const nf1 = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = v => v == null ? '—' : nf1.format(v) + ' %';
+const plural = (n, s, p) => n === 1 ? s : (p || s + 's');
+
+const DIA_C = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const DIA_L = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DIA_I = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+const MES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const F = iso => { const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const I = dt => dt.toISOString().slice(0, 10);
+const sumarDias = (iso, n) => { const t = F(iso); t.setUTCDate(t.getUTCDate() + n); return I(t); };
+const fCorta = iso => { const t = F(iso); return t.getUTCDate() + ' ' + MES_C[t.getUTCMonth()]; };
+const fDia = iso => { const t = F(iso); return DIA_C[t.getUTCDay()] + ' ' + t.getUTCDate() + ' ' + MES_C[t.getUTCMonth()]; };
+const fLarga = iso => { const t = F(iso); return DIA_L[t.getUTCDay()] + ' ' + t.getUTCDate() + ' de ' + MES_L[t.getUTCMonth()] + ' de ' + t.getUTCFullYear(); };
+const lunes = iso => { const t = F(iso); const w = (t.getUTCDay() + 6) % 7; return sumarDias(iso, -w); };
+function habiles(desde, hasta, feriados, vacaciones) {
+  const out = [], fer = new Set(feriados); let d = desde;
+  while (d <= hasta) { const w = F(d).getUTCDay(); if (w > 0 && w < 6 && !fer.has(d) && !vacaciones.some(([a, b]) => d >= a && d <= b)) out.push(d); d = sumarDias(d, 1); }
+  return out;
+}
+
+const ICON = {
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  entrada: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>',
+  ausente: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5M22 8l-5 5"/>',
+  award: '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>',
+  alerta: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+  aviso: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  reloj: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  calendario: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  bandera: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+  salida: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+  flecha: '<path d="m9 18 6-6-6-6"/>',
+  lista: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/>',
+  sube: '<path d="M7 17 17 7M7 7h10v10"/>',
+  baja: '<path d="m7 7 10 10M17 7v10H7"/>',
+  igual: '<path d="M5 12h14"/>',
+  birrete: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+  libro: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  filtro: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+  restablecer: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  grafica: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/>',
+  capas: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
+};
+const icon = (n, c = 'ic') => `<svg class="${c}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[n] || ''}</svg>`;
+
+/* ==========================================================================================================
+   Catálogos (estructura del colegio en los datos de ejemplo)
+   ========================================================================================================== */
+const NIVELES = [
+  { id: 'PRE', nombre: 'Preescolar', color: 'var(--n-pre)' },
+  { id: 'PRI', nombre: 'Primaria', color: 'var(--n-pri)' },
+  { id: 'SEC', nombre: 'Secundaria', color: 'var(--n-sec)' },
+  { id: 'BAC', nombre: 'Bachillerato', color: 'var(--n-bac)' },
+];
+const NIVEL = Object.fromEntries(NIVELES.map(n => [n.id, n]));
+const GRADOS = [
+  ['K1', 'PRE', 'K1 · 1.º de preescolar'], ['K2', 'PRE', 'K2 · 2.º de preescolar'], ['K3', 'PRE', 'K3 · 3.º de preescolar'],
+  ['P1', 'PRI', '1.º de primaria'], ['P2', 'PRI', '2.º de primaria'], ['P3', 'PRI', '3.º de primaria'], ['P4', 'PRI', '4.º de primaria'], ['P5', 'PRI', '5.º de primaria'], ['P6', 'PRI', '6.º de primaria'],
+  ['S7', 'SEC', '7.º · 1.º de secundaria'], ['S8', 'SEC', '8.º · 2.º de secundaria'], ['S9', 'SEC', '9.º · 3.º de secundaria'],
+  ['B1', 'BAC', '1.er semestre (10.º)'], ['B3', 'BAC', '3.er semestre (12.º)'], ['B5', 'BAC', '5.º semestre (14.º)'],
+].map(([id, nivel, nombre]) => ({ id, nivel, nombre }));
+const GRADO = Object.fromEntries(GRADOS.map(g => [g.id, g]));
+const GRUPOS_BASE = [
+  ['K1A', 'K1', 'K1 A', 14], ['K2A', 'K2', 'K2 A', 18], ['K3A', 'K3', 'K3 A', 20],
+  ['P1A', 'P1', '1.º A', 24], ['P2A', 'P2', '2.º A', 25], ['P3A', 'P3', '3.º A', 26], ['P4A', 'P4', '4.º A', 22], ['P4B', 'P4', '4.º B', 21], ['P5A', 'P5', '5.º A', 27], ['P6A', 'P6', '6.º A', 26],
+  ['S7A', 'S7', '7.º A', 28], ['S7B', 'S7', '7.º B', 27], ['S8A', 'S8', '8.º A', 30], ['S9A', 'S9', '9.º A', 29],
+  ['B1A', 'B1', '1.er sem. A', 24], ['B3A', 'B3', '3.er sem. A', 22], ['B5A', 'B5', '5.º sem. A', 19],
+];
+const MATERIAS = {
+  PRE: [['Lenguaje y comunicación', .1], ['Pensamiento matemático', -.1], ['Exploración del mundo', .2], ['Artes', .45], ['Educación física', .55]],
+  PRI: [['Español', 0], ['Matemáticas', -.45], ['Ciencias naturales', -.05], ['Historia', .05], ['Inglés', -.25], ['Educación física', .6]],
+  SEC: [['Español', -.05], ['Matemáticas', -.55], ['Ciencias', -.4], ['Historia', 0], ['Geografía', .1], ['Inglés', -.2], ['Tecnología', .3], ['Educación física', .5]],
+  BAC: [['Matemáticas', -.6], ['Química', -.55], ['Literatura', -.1], ['Historia de México', 0], ['Inglés', -.2], ['Informática', .25], ['Orientación', .5]],
+};
+const CRITERIO = { faltas: 5, seguidas: 3, inasistencia: 10, diasMin: 10, aprobatoria: 6, reprobadas: 1, promedio: 7, descenso: 1, altaReprobadas: 3 };
+const CATEGORIAS = [['Disciplina', 30], ['Responsabilidad', 25], ['Convivencia', 20], ['Uso del celular', 12], ['Respeto', 8], ['Cuidado de instalaciones', 5]];
+const NOMBRES = ['Sofía', 'Valentina', 'Regina', 'Ximena', 'Camila', 'María José', 'Renata', 'Natalia', 'Fernanda', 'Victoria', 'Andrea', 'Daniela', 'Isabella', 'Paula', 'Romina', 'Emilia', 'Mariana', 'Valeria', 'Ana Paula', 'Lucía', 'Santiago', 'Mateo', 'Sebastián', 'Leonardo', 'Emiliano', 'Diego', 'Daniel', 'Miguel Ángel', 'Alejandro', 'Iker', 'Gael', 'Rodrigo', 'Nicolás', 'Tomás', 'Emilio', 'Máximo', 'Joaquín', 'Ángel', 'Bruno', 'Andrés'];
+const APELLIDOS = ['García', 'Hernández', 'Martínez', 'López', 'González', 'Pérez', 'Rodríguez', 'Sánchez', 'Ramírez', 'Cruz', 'Flores', 'Gómez', 'Morales', 'Vázquez', 'Reyes', 'Jiménez', 'Torres', 'Díaz', 'Gutiérrez', 'Ruiz', 'Mendoza', 'Aguilar', 'Ortiz', 'Moreno', 'Castillo', 'Romero', 'Álvarez', 'Chávez', 'Ramos', 'Herrera', 'Medina', 'Vargas', 'Castro', 'Guzmán', 'Velázquez', 'Rojas', 'Contreras', 'Salazar', 'Valencia', 'Ochoa', 'Villaseñor', 'Barragán', 'Zepeda', 'Magaña', 'Pulido', 'Novoa'];
+const ADULTOS = ['Laura', 'Patricia', 'Alejandra', 'Verónica', 'Claudia', 'Mónica', 'Gabriela', 'Rosa', 'Jorge', 'Ricardo', 'Fernando', 'Héctor', 'Javier', 'Arturo', 'Roberto', 'Óscar'];
+
+const bim = (rangos, nivel) => rangos.map(([desde, hasta], i) => ({ id: 'b' + (i + 1), nombre: 'Bimestre ' + (i + 1), desde, hasta, orden: i, nivel }));
+const parciales = (rangos) => rangos.map(([desde, hasta, nombre], i) => ({ id: 'p' + (i + 1), nombre, desde, hasta, orden: i, nivel: 'BAC' }));
+const BIM_26 = [['2026-08-24', '2026-10-16'], ['2026-10-19', '2026-12-18'], ['2027-01-07', '2027-02-26'], ['2027-03-01', '2027-04-30'], ['2027-05-03', '2027-07-09']];
+const BIM_25 = [['2025-08-25', '2025-10-17'], ['2025-10-20', '2025-12-19'], ['2026-01-07', '2026-02-27'], ['2026-03-02', '2026-04-30'], ['2026-05-04', '2026-07-10']];
+const CICLOS = [
+  {
+    id: '2026', nombre: '2026-2027', actual: true, inicio: '2026-08-24', fin: '2027-07-09', hoy: '2026-11-12', corte: '08:40', semilla: 2026,
+    feriados: ['2026-09-16', '2026-09-25', '2026-10-30', '2026-11-02', '2026-11-16', '2026-11-27'], vacaciones: [['2026-12-21', '2027-01-06']],
+    sinCaptura: ['BAC|2026-10-22'], sinCerrar: ['2026-11-11'],
+    actasPendientes: { b1: [['P4B', 'Inglés'], ['S9A', 'Ciencias']], p2: [['B1A', 'Química'], ['B1A', 'Matemáticas'], ['B3A', 'Literatura'], ['B5A', 'Matemáticas'], ['B5A', 'Química'], ['B5A', 'Inglés'], ['B5A', 'Informática']] },
+    periodos: {
+      PRE: bim(BIM_26, 'PRE'), PRI: bim(BIM_26, 'PRI'), SEC: bim(BIM_26, 'SEC'),
+      BAC: parciales([['2026-08-24', '2026-09-25', 'Parcial 1 · sem. A'], ['2026-09-28', '2026-11-06', 'Parcial 2 · sem. A'], ['2026-11-09', '2026-12-11', 'Parcial 3 · sem. A'], ['2027-01-25', '2027-03-05', 'Parcial 1 · sem. B'], ['2027-03-08', '2027-04-30', 'Parcial 2 · sem. B'], ['2027-05-03', '2027-06-18', 'Parcial 3 · sem. B']]),
+    },
+  },
+  {
+    id: '2025', nombre: '2025-2026', actual: false, inicio: '2025-08-25', fin: '2026-07-10', hoy: null, semilla: 2025,
+    feriados: ['2025-09-16', '2025-09-26', '2025-10-31', '2025-11-17', '2025-11-28', '2026-02-02', '2026-03-16', '2026-05-01', '2026-05-05', '2026-05-15'], vacaciones: [['2025-12-22', '2026-01-06'], ['2026-03-30', '2026-04-10']],
+    sinCaptura: [], sinCerrar: [], actasPendientes: {},
+    periodos: {
+      PRE: bim(BIM_25, 'PRE'), PRI: bim(BIM_25, 'PRI'), SEC: bim(BIM_25, 'SEC'),
+      BAC: parciales([['2025-08-25', '2025-09-26', 'Parcial 1 · sem. A'], ['2025-09-29', '2025-11-07', 'Parcial 2 · sem. A'], ['2025-11-10', '2025-12-12', 'Parcial 3 · sem. A']]),
+    },
+  },
+];
+const CIC = Object.fromEntries(CICLOS.map(c => [c.id, c]));
+const EST = new Map();
+
+/* ==========================================================================================================
+   Generación de los datos de ejemplo (reproducible: misma semilla, mismos datos en las tres propuestas)
+   Estados de asistencia: 0 presente, 1 retardo, 2 falta sin justificar, 3 falta justificada,
+   7 suspendido (no cuenta), 8 sin registro (día sin cerrar), 9 sin captura.
+   ========================================================================================================== */
+function generar(C) {
+  const r = mulberry(C.semilla * 7919);
+  C.dias = habiles(C.inicio, C.hoy || C.fin, C.feriados, C.vacaciones);
+  C.idx = new Map(C.dias.map((d, i) => [d, i]));
+  C.ultimo = C.dias[C.dias.length - 1];
+  C.abiertos = new Set(C.sinCerrar); if (C.hoy) C.abiertos.add(C.hoy);
+  const sinCaptura = new Set(C.sinCaptura);
+  const usados = new Set();
+  C.grupos = GRUPOS_BASE.map(([id, grado, nombre, n]) => {
+    const g = { id, grado, nombre, nivel: GRADO[grado].nivel, estudiantes: [] };
+    const nivOff = { PRE: .45, PRI: .1, SEC: -.1, BAC: -.2 }[g.nivel];
+    const riesgoBase = { PRE: .03, PRI: .02, SEC: .024, BAC: .028 }[g.nivel];
+    const grupoOff = normal(r) * .25;
+    const nn = n + (C.actual ? 0 : Math.round(normal(r) * 2));
+    for (let i = 0; i < nn; i++) {
+      let nombre; do { nombre = pick(NOMBRES, r) + ' ' + pick(APELLIDOS, r) + ' ' + pick(APELLIDOS, r); } while (usados.has(nombre)); usados.add(nombre);
+      const cronico = r() < .045;
+      const st = {
+        id: C.id + '-' + id + '-' + i, nombre, grupo: g, ciclo: C,
+        hab: 8.1 + nivOff + grupoOff + normal(r) * .85,
+        tend: r() < .07 ? -(.7 + r() * .7) : normal(r) * .08,
+        riesgo: cronico ? .1 + r() * .14 : riesgoBase * (.4 + r() * 1.2),
+        pRet: .02 + r() * (g.nivel === 'BAC' ? .09 : .05),
+        tutor: pick(ADULTOS, r) + ' ' + nombre.split(' ').slice(-2)[0],
+      };
+      g.estudiantes.push(st); EST.set(st.id, st);
+    }
+    g.estudiantes.sort((a, b) => a.nombre.split(' ').slice(-2).join(' ').localeCompare(b.nombre.split(' ').slice(-2).join(' '), 'es'));
+    return g;
+  });
+  C.grupo = Object.fromEntries(C.grupos.map(g => [g.id, g]));
+
+  // Asistencia de entrada
+  for (const g of C.grupos) for (const st of g.estudiantes) {
+    st.asis = new Uint8Array(C.dias.length);
+    let previa = false;
+    C.dias.forEach((d, i) => {
+      if (sinCaptura.has(g.nivel + '|' + d)) { st.asis[i] = 9; previa = false; return; }
+      const pF = Math.min(.85, st.riesgo * (previa ? 3.2 : 1));
+      const x = r();
+      let s = x < pF ? (r() < .35 ? 3 : 2) : x < pF + st.pRet ? 1 : 0;
+      previa = s >= 2;
+      if (C.abiertos.has(d)) {
+        if (s === 2) s = r() < .15 ? 2 : 8;
+        else if (s === 3) s = r() < .5 ? 3 : 8;
+        else if (d === C.hoy && r() < .035) s = 8;
+      }
+      st.asis[i] = s;
+    });
+  }
+  // Una suspensión autorizada que cubre hoy
+  C.suspensiones = [];
+  if (C.hoy) {
+    const st = C.grupo.S8A.estudiantes[3];
+    const desde = '2026-11-11', hasta = '2026-11-13';
+    C.dias.forEach((d, i) => { if (d >= desde && d <= hasta) st.asis[i] = 7; });
+    C.suspensiones.push({ st, desde, hasta });
+  }
+  // Pase de lista por clase (docentes)
+  const CLASES = { PRE: 0, PRI: 2, SEC: 7, BAC: 6 };
+  const CUMPLE = { S9A: .78, B5A: .85, P6A: .9, S7B: .93 };
+  for (const g of C.grupos) {
+    const cum = CUMPLE[g.id] || .975;
+    g.clases = C.dias.map(d => {
+      let prog = CLASES[g.nivel];
+      if (d === C.hoy) prog = { PRE: 0, PRI: 1, SEC: 2, BAC: 2 }[g.nivel];
+      let con = 0; for (let k = 0; k < prog; k++) if (r() < cum) con++;
+      if (d === C.hoy) con = { S9A: 0, B5A: 1, S7B: 1, P5A: 0 }[g.id] ?? prog;
+      if (sinCaptura.has(g.nivel + '|' + d)) con = Math.round(prog * .5);
+      return { prog, con };
+    });
+  }
+  // Conducta
+  C.incidencias = []; C.positivas = [];
+  const tasa = { PRE: .008, PRI: .05, SEC: .11, BAC: .06 };
+  const pesoTotal = CATEGORIAS.reduce((s, c) => s + c[1], 0);
+  C.dias.forEach((d, i) => {
+    for (const g of C.grupos) {
+      if (r() < tasa[g.nivel]) {
+        const st = g.estudiantes[Math.floor(Math.pow(r(), 2) * g.estudiantes.length)];
+        let x = r() * pesoTotal, cat = CATEGORIAS[0][0];
+        for (const [c, p] of CATEGORIAS) { if (x < p) { cat = c; break; } x -= p; }
+        const atras = C.dias.length - 1 - i;
+        const abierto = C.hoy ? (atras <= 12 ? r() < .55 : r() < .05) : false;
+        const revision = sumarDias(d, 7);
+        C.incidencias.push({ fecha: d, g, st, cat, abierto, vencida: abierto && C.hoy && revision < C.hoy, revision });
+      }
+      if (r() < tasa[g.nivel] * .4) C.positivas.push({ fecha: d, g });
+    }
+  });
+}
+CICLOS.forEach(generar);
+
+const AGENDA = [
+  { fecha: '2026-11-12', hora: '13:00', tipo: 'reunion', titulo: 'Reunión con familia', detalle: () => `Tutor de ${CIC['2026'].grupo.S9A.estudiantes[0].nombre} · 9.º A · con coordinación de secundaria`, niveles: ['SEC'] },
+  { fecha: '2026-11-12', hora: 'Abierta', tipo: 'captura', titulo: 'Captura de calificaciones', detalle: () => 'Bimestre 2 de preescolar, primaria y secundaria (cierra el 18 dic) · Parcial 3 de bachillerato (cierra el 11 dic)', niveles: [] },
+  { fecha: '2026-11-13', hora: '14:00', tipo: 'evento', titulo: 'Junta de consejo técnico', detalle: () => 'Personal docente de todos los niveles · hasta las 16:00', niveles: [] },
+  { fecha: '2026-11-16', hora: 'Todo el día', tipo: 'sinclases', titulo: 'Sin clases', detalle: () => 'Aniversario de la Revolución', niveles: [] },
+  { fecha: '2026-11-18', hora: '18:00', tipo: 'reunion', titulo: 'Reunión con familias de 5.º semestre', detalle: () => 'Orientación vocacional · auditorio', niveles: ['BAC'] },
+  { fecha: '2026-11-19', hora: '08:00', tipo: 'evento', titulo: 'Ceremonia cívica', detalle: () => 'Primaria y secundaria · patio central', niveles: ['PRI', 'SEC'] },
+  { fecha: '2026-11-27', hora: 'Todo el día', tipo: 'sinclases', titulo: 'Sin clases para estudiantes', detalle: () => 'Consejo técnico escolar', niveles: [] },
+];
+const TIPO_AGENDA = { reunion: ['Reunión', 'chip--info'], captura: ['Captura', 'chip--parcial'], evento: ['Evento', 'chip--neutro'], sinclases: ['Sin clases', 'chip--alta'] };
+const RETIROS = () => {
+  const C = CIC['2026'];
+  return {
+    hoy: [
+      { hora: '08:15', st: C.grupo.K2A.estudiantes[1], tutor: 'Rosa', estado: 'retirado' },
+      { hora: '08:30', st: C.grupo.P3A.estudiantes[2], tutor: 'Laura', estado: 'avisado' },
+      { hora: '12:15', st: C.grupo.S8A.estudiantes[6], tutor: 'Jorge', estado: 'avisado' },
+    ],
+    atrasados: [{ fecha: '2026-11-10', st: C.grupo.P5A.estudiantes[4] }, { fecha: '2026-11-11', st: C.grupo.B3A.estudiantes[7] }],
+  };
+};
+
+/* ==========================================================================================================
+   Reglas de cálculo (las del sistema: Panel/indicadores.py, academico.py y seguimiento.py)
+   ========================================================================================================== */
+function estadoPeriodo(C, p) {
+  if (!C.hoy) return 'cerrado';
+  if (p.hasta < C.hoy) return 'terminado';
+  if (p.desde <= C.hoy) return 'en curso';
+  return 'próximo';
+}
+function periodoActual(C, ps) {
+  if (!C.hoy) return ps[ps.length - 1];
+  return ps.find(p => p.desde <= C.hoy && C.hoy <= p.hasta) || [...ps].reverse().find(p => p.hasta < C.hoy) || ps[0];
+}
+function estadoActa(C, g, materia, p) {
+  const e = estadoPeriodo(C, p);
+  if (e === 'cerrado') return 'cerrada';
+  if (e === 'terminado') return (C.actasPendientes[p.id] || []).some(([gid, m]) => gid === g.id && m === materia) ? 'captura' : 'cerrada';
+  if (e === 'en curso') return hashNum(C.id, g.id, materia, p.id) % 10 < 6 ? 'captura' : 'sin acta';
+  return 'futuro';
+}
+function nota(st, nivel, p, k) {
+  const off = MATERIAS[nivel][k][1];
+  const v = st.hab + off + st.tend * (p.orden > 0 ? 1 : 0) + hNormal(st.id, p.id, k) * .6;
+  return clamp(Math.round(v * 10) / 10, 5, 10);
+}
+function actasDe(C, gs, nivel, p) {
+  let cerradas = 0, esperadas = 0; const pendientes = [];
+  for (const g of gs) MATERIAS[nivel].forEach(([m]) => { esperadas++; const e = estadoActa(C, g, m, p); if (e === 'cerrada') cerradas++; else pendientes.push({ g, m, p, e }); });
+  return { cerradas, esperadas, pendientes };
+}
+function resultados(C, gs, nivel, p) {
+  const filas = [];
+  for (const g of gs) MATERIAS[nivel].forEach(([m], k) => {
+    if (estadoActa(C, g, m, p) !== 'cerrada') return;
+    for (const st of g.estudiantes) filas.push({ st, g, m, k, v: nota(st, nivel, p, k) });
+  });
+  return resumenDe(filas);
+}
+function resumenDe(filas) {
+  const porEst = new Map();
+  for (const x of filas) { let a = porEst.get(x.st); if (!a) { a = []; porEst.set(x.st, a); } a.push(x); }
+  let aprobados = 0, reprobados = 0; const dist = [0, 0, 0, 0, 0];
+  for (const a of porEst.values()) {
+    if (a.some(x => x.v < CRITERIO.aprobatoria)) reprobados++; else aprobados++;
+    const pr = prom(a.map(x => x.v)); dist[pr < 6 ? 0 : pr < 7 ? 1 : pr < 8 ? 2 : pr < 9 ? 3 : 4]++;
+  }
+  return { filas, porEst, evaluados: porEst.size, aprobados, reprobados, pct: porEst.size ? aprobados * 100 / porEst.size : null, prom: filas.length ? prom(filas.map(x => x.v)) : null, dist, n: filas.length };
+}
+const agregar = lista => { lista = lista.filter(Boolean); return lista.length ? resumenDe(lista.flatMap(r => r.filas)) : null; };
+
+function rangoDe(f, C) {
+  const tope = C.hoy || C.ultimo;
+  let desde, hasta = tope, etiqueta;
+  if (f.rango === '7') { desde = sumarDias(tope, -6); etiqueta = 'Últimos 7 días'; }
+  else if (f.rango === '30') { desde = sumarDias(tope, -29); etiqueta = 'Últimos 30 días'; }
+  else if (f.rango === 'periodo' && f.nivel) { const p = periodoBase(C, f.nivel, f); desde = p.desde; hasta = p.hasta < tope ? p.hasta : tope; etiqueta = p.nombre; }
+  else { desde = C.inicio; etiqueta = 'Todo el ciclo'; }
+  if (desde < C.inicio) desde = C.inicio;
+  const dias = C.dias.filter(d => d >= desde && d <= hasta);
+  return { desde, hasta, etiqueta, dias, texto: fCorta(desde) + ' – ' + fCorta(hasta) };
+}
+function periodoBase(C, nivel, f) {
+  const ps = C.periodos[nivel];
+  return (f.nivel === nivel && f.periodo && ps.find(p => p.id === f.periodo)) || periodoActual(C, ps);
+}
+function asistencia(C, grupos, dias) {
+  const serie = []; const tot = { p: 0, r: 0, f: 0, j: 0, reg: 0 };
+  let diasCerrados = 0, diasParciales = 0, diasSin = 0, celdasSin = 0;
+  for (const d of dias) {
+    const i = C.idx.get(d); let p = 0, r = 0, fa = 0, j = 0, sinReg = 0, sinCap = 0, n = 0;
+    for (const g of grupos) for (const st of g.estudiantes) {
+      const s = st.asis[i]; if (s === 7) continue; n++;
+      if (s === 0) p++; else if (s === 1) r++; else if (s === 2) fa++; else if (s === 3) j++; else if (s === 8) sinReg++; else if (s === 9) sinCap++;
+    }
+    const reg = p + r + fa + j;
+    const estado = n && sinCap === n ? 'sin' : C.abiertos.has(d) ? 'parcial' : 'ok';
+    if (sinCap && estado !== 'sin') celdasSin++;
+    serie.push({ d, estado, p, r, f: fa, j, reg, sinReg, sinCap, n, pct: reg ? (p + r) * 100 / reg : null });
+    if (estado === 'ok') { tot.p += p; tot.r += r; tot.f += fa; tot.j += j; tot.reg += reg; diasCerrados++; }
+    else if (estado === 'parcial') diasParciales++; else diasSin++;
+  }
+  tot.pct = tot.reg ? (tot.p + tot.r) * 100 / tot.reg : null;
+  return { serie, tot, diasClases: dias.length, diasCerrados, diasParciales, diasSin, diasConHueco: celdasSin };
+}
+function semanas(serie) {
+  const m = new Map();
+  for (const p of serie) { if (p.estado !== 'ok') continue; const k = lunes(p.d); const a = m.get(k) || { p: 0, reg: 0 }; a.p += p.p + p.r; a.reg += p.reg; m.set(k, a); }
+  return [...m.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1).map(([k, a]) => ({ semana: k, pct: a.reg ? a.p * 100 / a.reg : null }));
+}
+function hoyDe(C, grupos) {
+  if (!C.hoy) return { aplica: false, motivo: 'El ciclo ' + C.nombre + ' ya terminó: no hay «hoy».' };
+  const i = C.idx.get(C.hoy); let con = 0, ret = 0, fal = 0, sinReg = 0, susp = 0, total = 0;
+  const porGrupo = [];
+  for (const g of grupos) {
+    let gSin = 0;
+    for (const st of g.estudiantes) { total++; const s = st.asis[i]; if (s === 0) con++; else if (s === 1) { con++; ret++; } else if (s === 2 || s === 3) fal++; else if (s === 8) { sinReg++; gSin++; } else if (s === 7) susp++; }
+    porGrupo.push({ g, sinReg: gSin, clases: g.clases[i] });
+  }
+  return { aplica: true, esperados: total - susp, con, ret, fal, sinReg, susp, porGrupo, pct: (total - susp) ? con * 100 / (total - susp) : null };
+}
+function academico(C, f, grupos, niveles) {
+  const porNivel = {};
+  const Cprev = C.id === '2026' ? CIC['2025'] : null;
+  for (const n of niveles) {
+    const ps = C.periodos[n]; const gs = grupos.filter(g => g.nivel === n);
+    const explicito = f.nivel === n && !!f.periodo;
+    const base = periodoBase(C, n, f);
+    let evaluado = null;
+    if (explicito) evaluado = actasDe(C, gs, n, base).cerradas ? base : null;
+    else for (let k = ps.indexOf(base); k >= 0; k--) if (actasDe(C, gs, n, ps[k]).cerradas) { evaluado = ps[k]; break; }
+    const anterior = evaluado ? ps[ps.indexOf(evaluado) - 1] || null : null;
+    const actas = actasDe(C, gs, n, evaluado || base);
+    let ciclo = null;
+    if (evaluado && Cprev) { const pp = Cprev.periodos[n].find(p => p.id === evaluado.id); if (pp) ciclo = resultados(Cprev, gs.map(g => Cprev.grupo[g.id]), n, pp); }
+    porNivel[n] = {
+      nivel: n, base, evaluado, anterior, explicito, actas,
+      res: evaluado ? resultados(C, gs, n, evaluado) : null, ant: anterior ? resultados(C, gs, n, anterior) : null, ciclo,
+      estado: !evaluado ? 'sin' : actas.cerradas < actas.esperadas ? 'parcial' : 'ok',
+      nota: !evaluado ? (explicito ? base.nombre + ' todavía no tiene actas cerradas' : 'Sin actas cerradas en el ciclo') : (evaluado !== base ? base.nombre + ' sigue abierto: se muestra ' + evaluado.nombre : ''),
+    };
+  }
+  const lst = Object.values(porNivel); const evals = lst.filter(x => x.evaluado);
+  const act = agregar(evals.map(x => x.res));
+  const ant = evals.length && evals.every(x => x.ant) ? agregar(evals.map(x => x.ant)) : null;
+  const ciclo = evals.length && evals.every(x => x.ciclo) ? agregar(evals.map(x => x.ciclo)) : null;
+  const actas = lst.reduce((a, x) => ({ cerradas: a.cerradas + (x.evaluado ? x.actas.cerradas : 0), esperadas: a.esperadas + (x.evaluado ? x.actas.esperadas : 0) }), { cerradas: 0, esperadas: 0 });
+  const estado = !evals.length ? 'sin' : evals.some(x => x.estado === 'parcial') ? 'parcial' : 'ok';
+  const texto = lst.length === 1 ? (lst[0].evaluado ? lst[0].evaluado.nombre : lst[0].base.nombre) : 'Periodo evaluado de cada nivel';
+  return { porNivel, act, ant, ciclo, actas, estado, texto };
+}
+function seguimiento(C, grupos, niveles, ac) {
+  const alertas = [];
+  for (const n of niveles) {
+    const ev = ac.porNivel[n]; const base = ev.base; const tope = C.hoy || C.ultimo;
+    const desde = base.desde < C.inicio ? C.inicio : base.desde, hasta = base.hasta < tope ? base.hasta : tope;
+    const idxs = C.dias.map((d, i) => [d, i]).filter(([d]) => d >= desde && d <= hasta && !C.abiertos.has(d)).map(([, i]) => i);
+    const res = ev.res ? ev.res.porEst : new Map(); const ant = ev.ant ? ev.ant.porEst : new Map();
+    for (const g of grupos.filter(x => x.nivel === n)) for (const st of g.estudiantes) {
+      const a = { st, motivos: [], tipos: new Set(), prioridad: 'media', reg: 0, faltas: 0, sj: 0, seguidas: 0, inas: null, prom: null, reprobadas: 0, soloDescenso: false, periodoAsis: base.nombre, periodoCal: ev.evaluado ? ev.evaluado.nombre : '' };
+      let racha = 0, prev = -2;
+      for (const i of idxs) {
+        const s = st.asis[i]; if (s === 9 || s === 7) continue;
+        a.reg++; if (s === 2 || s === 3) a.faltas++;
+        if (s === 2) { a.sj++; racha = prev === i - 1 ? racha + 1 : 1; prev = i; a.seguidas = Math.max(a.seguidas, racha); }
+      }
+      if (a.reg) a.inas = a.faltas * 100 / a.reg;
+      if (a.sj >= CRITERIO.faltas) a.motivos.push(['inasistencia', `Acumula ${a.sj} faltas sin justificar`]);
+      if (a.seguidas >= CRITERIO.seguidas) a.motivos.push(['inasistencia', `${a.seguidas} faltas seguidas sin justificar`]);
+      if (a.reg >= CRITERIO.diasMin && a.inas > CRITERIO.inasistencia) a.motivos.push(['inasistencia', `Inasistencia de ${nf1.format(a.inas)} % (${a.faltas} de ${a.reg} días con registro)`]);
+      const filas = res.get(st);
+      if (filas) {
+        const rep = filas.filter(x => x.v < CRITERIO.aprobatoria);
+        a.reprobadas = rep.length; a.prom = prom(filas.map(x => x.v));
+        if (rep.length >= CRITERIO.reprobadas) a.motivos.push(['rendimiento', `Reprueba ${rep.length} ${plural(rep.length, 'materia')}: ${rep.map(x => x.m).join(', ')}`]);
+        if (a.prom < CRITERIO.promedio) a.motivos.push(['rendimiento', `Promedio de ${nf2.format(a.prom)} (mínimo propuesto: 7.00)`]);
+        const previas = ant.get(st);
+        if (previas) {
+          const mats = new Set(previas.map(x => x.m)); const comunes = filas.filter(x => mats.has(x.m));
+          if (comunes.length) {
+            const antes = prom(previas.filter(x => comunes.some(c => c.m === x.m)).map(x => x.v)), ahora = prom(comunes.map(x => x.v));
+            if (antes - ahora >= CRITERIO.descenso) { a.motivos.push(['rendimiento', `Su promedio bajó de ${nf2.format(antes)} a ${nf2.format(ahora)} desde ${ev.anterior.nombre}`]); a.soloDescenso = a.motivos.length === 1; }
+          }
+        }
+      }
+      if (!a.motivos.length) continue;
+      a.motivos.forEach(([t]) => a.tipos.add(t));
+      a.ambos = a.tipos.size === 2;
+      a.prioridad = a.ambos || a.seguidas >= CRITERIO.seguidas || a.reprobadas >= CRITERIO.altaReprobadas ? 'alta' : a.soloDescenso ? 'baja' : 'media';
+      alertas.push(a);
+    }
+  }
+  const rango = { alta: 0, media: 1, baja: 2 };
+  alertas.sort((x, y) => rango[x.prioridad] - rango[y.prioridad] || y.motivos.length - x.motivos.length || y.reprobadas - x.reprobadas || y.sj - x.sj || (x.prom ?? 99) - (y.prom ?? 99));
+  const cuenta = fn => alertas.filter(fn).length;
+  return {
+    lista: alertas, total: alertas.length,
+    alta: cuenta(a => a.prioridad === 'alta'), media: cuenta(a => a.prioridad === 'media'), baja: cuenta(a => a.prioridad === 'baja'),
+    soloInas: cuenta(a => a.tipos.has('inasistencia') && !a.ambos), soloRend: cuenta(a => a.tipos.has('rendimiento') && !a.ambos), ambos: cuenta(a => a.ambos),
+    inas: cuenta(a => a.tipos.has('inasistencia')), rend: cuenta(a => a.tipos.has('rendimiento')),
+  };
+}
+function conducta(C, grupos, rango) {
+  const ids = new Set(grupos.map(g => g.id));
+  const todas = C.incidencias.filter(x => ids.has(x.g.id));
+  const en = todas.filter(x => x.fecha >= rango.desde && x.fecha <= rango.hasta);
+  const porCat = CATEGORIAS.map(([c]) => ({ nombre: c, n: en.filter(x => x.cat === c).length })).filter(x => x.n).sort((a, b) => b.n - a.n);
+  const sem = [];
+  for (let s = lunes(rango.desde); s <= rango.hasta; s = sumarDias(s, 7)) sem.push({ semana: s, n: en.filter(x => x.fecha >= s && x.fecha <= sumarDias(s, 6)).length });
+  return {
+    n: en.length, estudiantes: new Set(en.map(x => x.st.id)).size, porCat, semanas: sem,
+    abiertos: todas.filter(x => x.abierto).length, vencidos: todas.filter(x => x.vencida), hoy: C.hoy ? todas.filter(x => x.fecha === C.hoy).length : null,
+    positivas: C.positivas.filter(x => ids.has(x.g.id) && x.fecha >= rango.desde && x.fecha <= rango.hasta).length,
+    porNivel: NIVELES.map(n => ({ nivel: n.id, n: en.filter(x => x.g.nivel === n.id).length, est: grupos.filter(g => g.nivel === n.id).reduce((s, g) => s + g.estudiantes.length, 0) })).filter(x => x.est),
+  };
+}
+function captura(C, grupos, rango) {
+  const tope = C.hoy || C.ultimo;
+  return grupos.map(g => {
+    let con = 0, prog = 0, diasCap = 0;
+    for (const d of rango.dias) { const i = C.idx.get(d); con += g.clases[i].con; prog += g.clases[i].prog; if (g.estudiantes.some(st => st.asis[i] !== 9)) diasCap++; }
+    const terminados = C.periodos[g.nivel].filter(p => p.hasta < tope || !C.hoy);
+    const vencidas = []; let cerradas = 0, esperadas = 0;
+    for (const p of terminados) { const a = actasDe(C, [g], g.nivel, p); cerradas += a.cerradas; esperadas += a.esperadas; vencidas.push(...a.pendientes); }
+    const enCurso = C.hoy ? C.periodos[g.nivel].find(p => estadoPeriodo(C, p) === 'en curso') : null;
+    const curso = enCurso ? MATERIAS[g.nivel].map(([m]) => estadoActa(C, g, m, enCurso)) : [];
+    return { g, clases: { con, prog }, entrada: { con: diasCap, total: rango.dias.length }, actas: { cerradas, esperadas, vencidas }, enCurso, curso: { iniciadas: curso.filter(e => e === 'captura').length, esperadas: curso.length } };
+  });
+}
+function pendientes(M) {
+  const { C, cap, seg, cond, hoy } = M; const items = [];
+  const niveles = new Set(M.grupos.map(g => g.nivel));
+  const vencidas = cap.flatMap(x => x.actas.vencidas);
+  if (C.hoy) {
+    const dias = C.sinCerrar.filter(d => d < C.hoy);
+    if (dias.length) items.push({ prioridad: 'alta', area: 'Asistencia', icono: 'calendario', n: dias.length, unidad: plural(dias.length, 'día'), texto: `${dias.length} ${plural(dias.length, 'día')} de asistencia sin cerrar`, detalle: dias.map(fDia).join(', ') + ': sus faltas se generan al cerrarlo', tipo: 'dias' });
+  }
+  if (vencidas.length) {
+    const porPer = {}; vencidas.forEach(v => { porPer[v.p.nombre] = (porPer[v.p.nombre] || 0) + 1; });
+    items.push({ prioridad: 'alta', area: 'Calificaciones', icono: 'award', n: vencidas.length, unidad: plural(vencidas.length, 'acta'), texto: `${vencidas.length} ${plural(vencidas.length, 'acta')} de periodos terminados sin cerrar`, detalle: Object.entries(porPer).map(([p, n]) => `${p}: ${n}`).join(' · '), tipo: 'actas' });
+  }
+  if (seg.alta) items.push({ prioridad: 'alta', area: 'Seguimiento', icono: 'alerta', n: seg.alta, unidad: plural(seg.alta, 'estudiante'), texto: `${seg.alta} ${plural(seg.alta, 'estudiante')} con prioridad alta`, detalle: 'Inasistencia y bajo rendimiento a la vez, faltas seguidas o 3 materias reprobadas o más', tipo: 'alta' });
+  if (cond.vencidos.length) items.push({ prioridad: 'alta', area: 'Conducta', icono: 'bandera', n: cond.vencidos.length, unidad: plural(cond.vencidos.length, 'caso'), texto: `${cond.vencidos.length} ${plural(cond.vencidos.length, 'caso')} de conducta con revisión vencida`, detalle: 'Fecha de revisión anterior a hoy y el caso sigue abierto', tipo: 'conducta' });
+  if (C.hoy && niveles.has('SEC')) items.push({ prioridad: 'media', area: 'Conducta', icono: 'bandera', n: 1, unidad: 'solicitud', texto: '1 suspensión por aprobar', detalle: '8.º A · solicitada por prefectura el 10 nov', tipo: 'sistema', arg: 'Conducta › Solicitudes' });
+  if (hoy.aplica) {
+    const sinLista = hoy.porGrupo.filter(x => x.clases.prog && x.clases.con < x.clases.prog);
+    if (sinLista.length) items.push({ prioridad: 'media', area: 'Asistencia', icono: 'lista', n: sinLista.length, unidad: plural(sinLista.length, 'grupo'), texto: `${sinLista.length} ${plural(sinLista.length, 'grupo')} con clases de hoy sin pase de lista`, detalle: sinLista.map(x => `${x.g.nombre} (${x.clases.prog - x.clases.con} de ${x.clases.prog})`).join(' · '), tipo: 'paselista', grupos: sinLista.map(x => x.g) });
+    const ret = M.retiros;
+    if (ret) {
+      const porConfirmar = ret.hoy.filter(x => x.estado === 'avisado');
+      const pasadas = porConfirmar.filter(x => x.hora < C.corte);
+      if (porConfirmar.length) items.push({ prioridad: pasadas.length ? 'alta' : 'media', area: 'Retiros', icono: 'salida', n: porConfirmar.length, unidad: plural(porConfirmar.length, 'retiro'), texto: `${porConfirmar.length} ${plural(porConfirmar.length, 'retiro')} de hoy por confirmar`, detalle: pasadas.length ? `${pasadas.length} con la hora ya pasada` : 'Ninguno con la hora pasada', tipo: 'retiros' });
+      if (ret.atrasados.length) items.push({ prioridad: 'media', area: 'Retiros', icono: 'salida', n: ret.atrasados.length, unidad: plural(ret.atrasados.length, 'retiro'), texto: `${ret.atrasados.length} ${plural(ret.atrasados.length, 'retiro')} de días anteriores sin confirmar ni cancelar`, detalle: ret.atrasados.map(x => fDia(x.fecha)).join(', '), tipo: 'retiros' });
+    }
+    if (hoy.sinReg) items.push({ prioridad: 'baja', area: 'Asistencia', icono: 'reloj', n: hoy.sinReg, unidad: plural(hoy.sinReg, 'estudiante'), texto: `${hoy.sinReg} ${plural(hoy.sinReg, 'estudiante')} sin registro de entrada a las ${C.corte}`, detalle: 'No son faltas todavía: se vuelven falta al cerrar el día', tipo: 'sinregistro' });
+  }
+  const orden = { alta: 0, media: 1, baja: 2 };
+  return items.sort((a, b) => orden[a.prioridad] - orden[b.prioridad]);
+}
+
+function calcular(f) {
+  const C = CIC[f.ciclo];
+  const grupos = C.grupos.filter(g => (!f.nivel || g.nivel === f.nivel) && (!f.grado || g.grado === f.grado) && (!f.grupo || g.id === f.grupo));
+  const niveles = NIVELES.map(n => n.id).filter(n => grupos.some(g => g.nivel === n));
+  const M = { C, f, grupos, niveles };
+  M.rango = rangoDe(f, C);
+  M.matricula = { total: grupos.reduce((s, g) => s + g.estudiantes.length, 0), porNivel: niveles.map(n => ({ n, total: grupos.filter(g => g.nivel === n).reduce((s, g) => s + g.estudiantes.length, 0) })) };
+  M.asis = asistencia(C, grupos, M.rango.dias);
+  const i0 = C.dias.indexOf(M.rango.dias[0]);
+  const previos = i0 > 0 ? C.dias.slice(Math.max(0, i0 - M.rango.dias.length), i0) : [];
+  M.asisPrev = previos.length >= 3 ? asistencia(C, grupos, previos) : null;
+  M.semanas = semanas(asistencia(C, grupos, C.dias.filter(d => d <= M.rango.hasta).slice(-45)).serie).slice(-8);
+  M.hoy = hoyDe(C, grupos);
+  M.acad = academico(C, f, grupos, niveles);
+  M.comp = f.comparar === 'ciclo'
+    ? { res: M.acad.ciclo, etiqueta: 'mismo periodo del ciclo anterior', corto: 'ciclo anterior', faltaCorta: 'Sin el mismo periodo en el ciclo anterior', falta: C.id === '2026' ? 'Algún nivel no tiene el mismo periodo en 2025-2026' : 'No hay un ciclo anterior en los datos de ejemplo' }
+    : { res: M.acad.ant, etiqueta: 'periodo anterior', corto: 'periodo anterior', faltaCorta: 'Sin periodo anterior en algún nivel', falta: 'Sin periodo anterior comparable: el periodo evaluado es el primero del ciclo en algún nivel' };
+  M.seg = seguimiento(C, grupos, niveles, M.acad);
+  M.cond = conducta(C, grupos, M.rango);
+  M.cap = captura(C, grupos, M.rango);
+  M.retiros = C.hoy ? (() => { const r = RETIROS(); const ids = new Set(grupos.map(g => g.id)); return { hoy: r.hoy.filter(x => ids.has(x.st.grupo.id)), atrasados: r.atrasados.filter(x => ids.has(x.st.grupo.id)) }; })() : null;
+  M.pend = pendientes(M);
+  M.agenda = C.hoy ? AGENDA.filter(a => a.fecha >= C.hoy && (!a.niveles.length || a.niveles.some(n => niveles.includes(n)))) : [];
+  return M;
+}
+
+/* ==========================================================================================================
+   Estado de la página
+   ========================================================================================================== */
+const S = { diseno: 'ejecutivo', vista: 'escritorio', f: { ciclo: '2026', nivel: '', grado: '', grupo: '', periodo: '', rango: '30', comparar: 'ciclo' }, drill: '', segMotivo: '', segPrioridad: '' };
+let M = null;
+let DIBUJOS = new Map(), dibSeq = 0;
+function ph(fn, cls = '') { const k = 'g' + (++dibSeq); DIBUJOS.set(k, fn); return `<div class="grafica ${cls}" data-g="${k}"></div>`; }
+function dibujar(forzar) {
+  document.querySelectorAll('[data-g]').forEach(el => {
+    const fn = DIBUJOS.get(el.dataset.g); if (!fn) return;
+    const w = Math.floor(el.clientWidth);
+    if (w > 0 && (forzar || el._w !== w)) { el._w = w; el.innerHTML = fn(w); }
+  });
+}
+function alcanceTexto(f) {
+  const C = CIC[f.ciclo];
+  if (f.grupo) return 'Grupo ' + C.grupo[f.grupo].nombre + ' · ' + NIVEL[GRADO[C.grupo[f.grupo].grado].nivel].nombre;
+  if (f.grado) return GRADO[f.grado].nombre + (f.nivel === 'BAC' ? '' : '');
+  if (f.nivel) return NIVEL[f.nivel].nombre;
+  return 'Todo el colegio';
+}
+
+/* ==========================================================================================================
+   Piezas de interfaz
+   ========================================================================================================== */
+function sel(id, etiqueta, opciones, valor, extra = {}) {
+  return `<div class="campo ${extra.cls || ''}"><label class="campo__etiqueta" for="${id}">${esc(etiqueta)}</label>
+    <select class="campo__control" id="${id}"${extra.disabled ? ' disabled' : ''}>${opciones.map(o => `<option value="${esc(o.v)}"${o.v === valor ? ' selected' : ''}${o.dis ? ' disabled' : ''}>${esc(o.t)}</option>`).join('')}</select></div>`;
+}
+function opcionesFiltros() {
+  const f = S.f, C = CIC[f.ciclo];
+  return {
+    ciclo: CICLOS.map(c => ({ v: c.id, t: c.nombre + (c.actual ? ' (actual)' : '') })),
+    nivel: [{ v: '', t: 'Todo el colegio' }, ...NIVELES.map(n => ({ v: n.id, t: n.nombre }))],
+    grado: f.nivel ? [{ v: '', t: f.nivel === 'BAC' ? 'Todos los semestres' : 'Todos los grados' }, ...GRADOS.filter(g => g.nivel === f.nivel).map(g => ({ v: g.id, t: g.nombre }))] : [{ v: '', t: 'Elige primero un nivel' }],
+    grupo: f.grado ? [{ v: '', t: 'Todos los grupos' }, ...C.grupos.filter(g => g.grado === f.grado).map(g => ({ v: g.id, t: g.nombre }))] : [{ v: '', t: f.nivel ? 'Elige primero un grado' : 'Elige primero un nivel' }],
+    periodo: f.nivel ? [{ v: '', t: 'Más reciente con actas cerradas' }, ...C.periodos[f.nivel].map(p => { const e = estadoPeriodo(C, p); return { v: p.id, t: `${p.nombre} · ${e}`, dis: e === 'próximo' }; })] : [{ v: '', t: 'El más reciente de cada nivel' }],
+    rango: [{ v: '7', t: 'Últimos 7 días' }, { v: '30', t: 'Últimos 30 días' }, { v: 'periodo', t: f.nivel ? 'Periodo actual del nivel' : 'Periodo actual (elige un nivel)', dis: !f.nivel }, { v: 'ciclo', t: 'Todo el ciclo' }],
+    comparar: [{ v: 'anterior', t: 'Periodo anterior del mismo nivel' }, { v: 'ciclo', t: 'Mismo periodo del ciclo anterior' }],
+  };
+}
+function filtrosHTML(modo) {
+  const f = S.f, o = opcionesFiltros();
+  const etGrado = f.nivel === 'BAC' ? 'Semestre' : 'Grado o semestre';
+  const nivel = sel('f-nivel', 'Alcance', o.nivel, f.nivel, { cls: 'campo--alcance' });
+  const ciclo = sel('f-ciclo', 'Ciclo escolar', o.ciclo, f.ciclo);
+  const grado = sel('f-grado', etGrado, o.grado, f.grado, { disabled: !f.nivel });
+  const grupo = sel('f-grupo', 'Grupo', o.grupo, f.grupo, { disabled: !f.grado });
+  const periodo = sel('f-periodo', 'Periodo de calificaciones', o.periodo, f.periodo, { disabled: !f.nivel });
+  const rango = sel('f-rango', 'Días (asistencia y conducta)', o.rango, f.rango);
+  const reset = `<button type="button" class="boton" data-accion="restablecer"${hayFiltros() ? '' : ' disabled'}>${icon('restablecer')}Restablecer</button>`;
+  const ocultos = modo === 'riel' ? [f.periodo, f.comparar !== 'ciclo', f.rango !== '30', f.ciclo !== '2026'] : [f.grado, f.grupo, f.periodo, f.rango !== '30'];
+  const activos = ocultos.filter(Boolean).length;
+  const mas = `<button type="button" class="boton boton--texto filtros__mas-boton" data-accion="mas-filtros" aria-expanded="${!!S.filtrosAbiertos}">${S.filtrosAbiertos ? 'Menos filtros' : 'Más filtros'}${activos && !S.filtrosAbiertos ? ` (${activos} en uso)` : ''}</button>`;
+  const ab = S.filtrosAbiertos ? ' filtros--abiertos' : '';
+  const extra = h => h.replace('class="campo ', 'class="campo campo--extra ');
+  if (modo === 'riel') return `<form class="filtros filtros--riel${ab}" onsubmit="return false" aria-label="Filtros">
+      <p class="filtros__titulo">${icon('filtro')}Filtros</p>${nivel}${grado}${grupo}
+      <div class="filtros__grupo">${periodo}${sel('f-comparar', 'Comparar con', o.comparar, f.comparar)}</div>
+      <div class="filtros__grupo">${rango}${ciclo}</div><div class="filtros__acciones">${mas}${reset}</div></form>`;
+  if (modo === 'compacto') return `<form class="filtros filtros--compacto" onsubmit="return false" aria-label="Filtros">${nivel}${grado}${grupo}<div class="filtros__acciones">${reset}</div>
+      <details${S.masFiltros ? ' open' : ''} data-mas><summary>Más filtros: ciclo, periodo y días</summary><div class="filtros__mas">${ciclo}${periodo}${rango}</div></details></form>`;
+  return `<form class="filtros filtros--barra${ab}" onsubmit="return false" aria-label="Filtros">${nivel}${ciclo}${extra(grado)}${extra(grupo)}${extra(periodo)}${extra(rango)}<div class="filtros__acciones">${mas}${reset}</div></form>`;
+}
+const hayFiltros = () => { const f = S.f; return !!(f.nivel || f.ciclo !== '2026' || f.periodo || f.rango !== '30' || f.comparar !== 'ciclo'); };
+
+function cabecera(M, n, nombre, para) {
+  const C = M.C;
+  return `<div class="d-cabeza"><div><p class="d-cabeza__ojo">Propuesta ${n} · ${esc(nombre)} · para ${esc(para)}</p>
+      <h2 class="d-cabeza__titulo">Panel de control</h2>
+      <p class="d-cabeza__alcance"><strong>${esc(alcanceTexto(M.f))}</strong> · Ciclo ${esc(C.nombre)}${C.actual ? '' : ' (terminado: lo de «hoy» no aplica)'}</p></div>
+    <div class="d-cabeza__lado"><span class="chip-ejemplo">${icon('info', 'ic ic--xs')}Datos de ejemplo</span>
+      <p class="d-cabeza__corte">${icon('reloj', 'ic ic--xs')}${C.hoy ? 'Corte: ' + esc(fLarga(C.hoy)) + ', ' + C.corte : 'Ciclo cerrado el ' + esc(fLarga(C.ultimo))}</p></div></div>`;
+}
+function leyendaEstados(cls = '') {
+  return `<div class="leyenda-estados ${cls}" role="note"><strong>Cómo leer las cifras</strong>
+    <span><span class="clave">0</span> Cero: hay registros y el resultado es cero</span>
+    <span><span class="clave">—</span> Sin datos: no hay registros para medir</span>
+    <span>${chip('parcial')} Captura incompleta: la cifra puede cambiar</span>
+    <span><strong>No aplica</strong> No corresponde al ciclo o al alcance</span></div>`;
+}
+function chip(tipo, texto) {
+  const d = { parcial: ['reloj', 'Parcial'], alta: ['alerta', 'Alta'], media: ['aviso', 'Media'], baja: ['info', 'Baja'], ok: ['check', 'Completo'] }[tipo] || ['info', ''];
+  return `<span class="chip chip--${tipo}">${icon(d[0])}${esc(texto || d[1])}</span>`;
+}
+function tarjeta(id, titulo, cuerpo, { icono, etiqueta, accion, cls = '' } = {}) {
+  return `<section class="tarjeta ${cls}" id="${id}" aria-labelledby="${id}-t"><header class="tarjeta__cabeza"><h3 class="tarjeta__titulo" id="${id}-t">${icono ? icon(icono) : ''}${titulo}</h3>${etiqueta ? `<span class="etiqueta">${esc(etiqueta)}</span>` : ''}${accion || ''}</header>${cuerpo}</section>`;
+}
+const vacio = t => `<p class="vacio">${icon('info')}<span>${esc(t)}</span></p>`;
+const botonSistema = (texto, destino) => `<button type="button" class="boton boton--texto" data-accion="sistema" data-arg="${esc(destino)}">${esc(texto)}${icon('flecha', 'ic ic--xs')}</button>`;
+function delta(actual, previo, { unidad = 'pts', decimales = 1, mejorSube = true, contra = '' } = {}) {
+  if (actual == null || previo == null) return null;
+  const d = actual - previo; const fmt = decimales === 2 ? nf2 : nf1;
+  const umbral = decimales === 2 ? .005 : .05;
+  const dir = Math.abs(d) < umbral ? 'igual' : d > 0 ? 'sube' : 'baja';
+  const tono = dir === 'igual' ? 'neutro' : (d > 0) === mejorSube ? 'bien' : 'mal';
+  return { texto: `${d > 0 ? '+' : d < 0 ? '−' : '±'}${fmt.format(Math.abs(d))}${unidad ? ' ' + unidad : ''} vs ${contra}`, dir, tono };
+}
+function tablaDatos(titulo, cabezas, filas) {
+  return `<details class="tabla-datos"><summary>Ver como tabla</summary><div class="tabla-datos__marco"><table class="tabla"><caption class="solo-lectores">${esc(titulo)}</caption><thead><tr>${cabezas.map((c, i) => `<th scope="col"${i ? ' class="num"' : ''}>${esc(c)}</th>`).join('')}</tr></thead><tbody>${filas.map(f => `<tr>${f.map((c, i) => `<td${i ? ' class="num"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+}
+
+/* ---- Cifras ---- */
+function kpi(o, compacta) {
+  let valor;
+  if (o.estado === 'sin') valor = '<span class="kpi__valor kpi__valor--vacio" aria-label="Sin datos">—</span>';
+  else if (o.estado === 'na') valor = '<span class="kpi__valor kpi__valor--texto">No aplica</span>';
+  else valor = `<span class="kpi__valor">${esc(o.valor)}</span>`;
+  return `<article class="kpi kpi--${o.tono || 'zafiro'}${compacta ? ' kpi--compacta' : ''}">
+    <header class="kpi__cabeza"><h3 class="kpi__titulo"><span class="kpi__icono">${icon(o.icono)}</span>${esc(o.titulo)}</h3>
+      <button class="kpi__info" type="button" data-accion="ficha" data-arg="${o.ficha}" aria-label="Cómo se calcula: ${esc(o.titulo)}">${icon('info')}</button></header>
+    <div class="kpi__cifra">${valor}${o.estado === 'parcial' ? chip('parcial') : ''}</div>
+    ${o.sub ? `<p class="kpi__sub">${o.sub}</p>` : ''}
+    ${o.delta ? `<p class="kpi__delta kpi__delta--${o.delta.tono}">${icon(o.delta.dir, 'ic ic--xs')}${esc(o.delta.texto)}</p>` : o.sinDelta ? `<p class="kpi__delta kpi__delta--neutro">${esc(o.sinDelta)}</p>` : ''}
+    ${o.spark && !compacta ? ph(w => sparkline(o.spark, w), 'kpi__spark') : ''}
+    <p class="kpi__corte">${icon('reloj', 'ic ic--xs')}<span>${esc(o.corte)}</span></p>
+    ${o.accion ? `<button type="button" class="kpi__accion" data-accion="${o.accion[0]}" data-arg="${esc(o.accion[1] || '')}">${esc(o.accion[2])}${icon('flecha')}</button>` : ''}
+  </article>`;
+}
+function kpiDatos(M) {
+  const { C, asis: a, asisPrev: ap, hoy: h, acad: ac, seg: s, comp } = M;
+  const K = {};
+  K.matricula = { titulo: 'Estudiantes activos', icono: 'users', ficha: 'matricula', tono: 'zafiro', valor: nf0.format(M.matricula.total), estado: M.matricula.total ? 'ok' : 'sin',
+    sub: M.matricula.porNivel.length > 1 ? M.matricula.porNivel.map(x => `${esc(NIVEL[x.n].nombre)} ${x.total}`).join(' · ') : `${M.grupos.length} ${plural(M.grupos.length, 'grupo')}`,
+    corte: 'Inscripciones vigentes al consultar', accion: ['ir', 'tarjeta-matricula', 'Ver desglose'] };
+  K.asistencia = { titulo: 'Asistencia de entrada', icono: 'entrada', ficha: 'asistencia', tono: 'aqua', valor: pct(a.tot.pct), estado: a.tot.reg ? 'ok' : 'sin',
+    sub: a.tot.reg ? `${nf0.format(a.tot.p + a.tot.r)} de ${nf0.format(a.tot.reg)} registros · ${a.diasCerrados} de ${a.diasClases} días cerrados` : 'Sin días cerrados en el rango',
+    delta: ap ? delta(a.tot.pct, ap.tot.pct, { contra: `los ${ap.diasClases} días previos` }) : null, sinDelta: ap ? '' : 'Sin días previos en el ciclo para comparar',
+    spark: M.semanas.map(x => x.pct), corte: `${M.rango.etiqueta}: ${M.rango.texto}${a.diasParciales ? ` · sin contar ${a.diasParciales} ${plural(a.diasParciales, 'día')} sin cerrar` : ''}`, accion: ['ir', 'tarjeta-asistencia', 'Ver tendencia'] };
+  K.hoy = h.aplica
+    ? { titulo: 'Entrada de hoy', icono: 'reloj', ficha: 'hoy', tono: 'oro', valor: nf0.format(h.con), estado: 'parcial', sub: `de ${nf0.format(h.esperados)} esperados · <b>${h.sinReg}</b> sin registro · ${h.fal} ${plural(h.fal, 'falta')} ${plural(h.fal, 'registrada')}${h.susp ? ` · ${h.susp} ${plural(h.susp, 'suspendido')}` : ''}`, corte: `Hoy a las ${C.corte}; el día se cierra al terminar las clases`, accion: ['lista', 'sinregistro', 'Ver sin registro'] }
+    : { titulo: 'Entrada de hoy', icono: 'reloj', ficha: 'hoy', tono: 'oro', estado: 'na', sub: esc(h.motivo), corte: 'Solo en el ciclo actual' };
+  const deltaAp = comp.res && ac.act ? delta(ac.act.pct, comp.res.pct, { contra: comp.corto }) : null;
+  K.aprobacion = { titulo: 'Aprobación del periodo', icono: 'award', ficha: 'aprobacion', tono: 'zafiro', valor: ac.act ? pct(ac.act.pct) : '', estado: ac.estado,
+    sub: ac.act ? `${nf0.format(ac.act.aprobados)} de ${nf0.format(ac.act.evaluados)} estudiantes sin materias reprobadas${ac.estado === 'parcial' ? ` · ${ac.actas.cerradas} de ${ac.actas.esperadas} actas cerradas` : ''}` : 'Sin actas cerradas en el alcance',
+    delta: deltaAp, sinDelta: ac.act && !deltaAp ? comp.faltaCorta : '', corte: ac.texto, accion: ['ir', 'tarjeta-aprobacion', 'Ver por ' + unidadNombre(M)] };
+  K.seguimiento = { titulo: 'Estudiantes en seguimiento', icono: 'alerta', ficha: 'seguimiento', tono: 'tinto', valor: nf0.format(s.total), estado: 'ok',
+    sub: `${M.matricula.total ? nf1.format(s.total * 100 / M.matricula.total) : 0} % de los activos · <b>${s.alta}</b> de prioridad alta`, corte: 'Criterios propuestos, pendientes de validar', accion: ['lista', 'seguimiento', 'Ver estudiantes'] };
+  const ac2 = M.cap.reduce((x, c) => ({ c: x.c + c.actas.cerradas, e: x.e + c.actas.esperadas }), { c: 0, e: 0 });
+  const venc = ac2.e - ac2.c;
+  K.captura = { titulo: 'Actas de periodos terminados', icono: 'lista', ficha: 'captura', tono: 'oro', valor: ac2.e ? pct(ac2.c * 100 / ac2.e) : '', estado: !ac2.e ? 'sin' : venc ? 'parcial' : 'ok',
+    sub: ac2.e ? (venc ? `<b>${venc}</b> ${plural(venc, 'acta')} sin cerrar de ${nf0.format(ac2.e)} esperadas` : `Las ${nf0.format(ac2.e)} actas están cerradas`) : 'Ningún periodo ha terminado', corte: 'Periodos ya terminados, al día de hoy', accion: venc ? ['lista', 'actas', 'Ver pendientes'] : null };
+  K.promedio = { titulo: 'Promedio del periodo', icono: 'grafica', ficha: 'promedio', tono: 'zafiro', valor: ac.act ? nf2.format(ac.act.prom) : '', estado: ac.estado,
+    sub: ac.act ? `${nf0.format(ac.act.n)} calificaciones finales · escala de 10` : 'Sin actas cerradas', corte: ac.texto,
+    delta: comp.res && ac.act ? delta(ac.act.prom, comp.res.prom, { unidad: '', decimales: 2, contra: comp.corto }) : null, sinDelta: ac.act && !comp.res ? comp.faltaCorta : '' };
+  K.aprobacionComp = { ...K.aprobacion, delta: comp.res && ac.act ? delta(ac.act.pct, comp.res.pct, { contra: comp.corto }) : null, sinDelta: ac.act && !comp.res ? comp.faltaCorta : '', accion: null };
+  K.reprobados = { titulo: 'Con materias reprobadas', icono: 'aviso', ficha: 'reprobados', tono: 'tinto', valor: ac.act ? nf0.format(ac.act.reprobados) : '', estado: ac.estado,
+    sub: ac.act ? `${pct(ac.act.reprobados * 100 / ac.act.evaluados)} de ${nf0.format(ac.act.evaluados)} evaluados · aprobatoria 6.0 propuesta` : 'Sin actas cerradas', corte: ac.texto,
+    delta: comp.res && ac.act ? delta(ac.act.reprobados * 100 / ac.act.evaluados, comp.res.reprobados * 100 / comp.res.evaluados, { mejorSube: false, contra: comp.corto }) : null, sinDelta: ac.act && !comp.res ? comp.faltaCorta : '' };
+  return K;
+}
+function unidadNombre(M) { const f = M.f; return f.grupo ? 'materia' : f.grado ? 'grupo' : f.nivel ? (f.nivel === 'BAC' ? 'semestre' : 'grado') : 'nivel'; }
+
+/* ---- Gráficas ---- */
+function sparkline(vals, w) {
+  const v = vals.filter(x => x != null); if (v.length < 2) return '';
+  const h = 30, lo = Math.min(...v) - .5, hi = Math.max(...v) + .5;
+  const X = i => 2 + i * (w - 6) / (vals.length - 1), Y = x => 3 + (hi - x) * (h - 6) / (hi - lo || 1);
+  const d = vals.map((x, i) => x == null ? null : `${X(i).toFixed(1)} ${Y(x).toFixed(1)}`).filter(Boolean);
+  const u = vals.length - 1;
+  return `<svg class="svg" width="${w}" height="${h}" role="img" aria-label="Asistencia semanal de las últimas ${vals.length} semanas"><path d="M${d.join(' L')}" fill="none" stroke="var(--serie-comp)" stroke-width="1.5"/><circle cx="${X(u)}" cy="${Y(vals[u])}" r="3.5" fill="var(--serie)" stroke="var(--superficie)" stroke-width="2"/></svg>`;
+}
+function barraSVG(x, y, w, h) {
+  if (h <= 0) return '';
+  const r = Math.min(4, h, w / 2);
+  return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
+}
+function tipDia(p) {
+  if (p.estado === 'sin') return `${fDia(p.d)}\nSin captura: no hubo registros de entrada`;
+  if (p.estado === 'parcial') return `${fDia(p.d)} · día sin cerrar\nSin porcentaje: sus faltas se generan al cerrarlo\n${p.reg} con registro · ${p.sinReg} sin registro`;
+  return `${fDia(p.d)}\n${nf1.format(p.pct)} % de asistencia\n${p.p + p.r} de ${p.reg} con registro · ${p.f + p.j} faltas · ${p.r} retardos${p.sinCap ? `\n${p.sinCap} sin captura (otro nivel)` : ''}`;
+}
+function svgLinea(serie, w) {
+  const val = serie.filter(p => p.pct != null && p.estado !== 'sin');
+  if (!val.length) return vacio('Sin registros de asistencia en el rango.');
+  const alto = 196, m = { t: 14, r: 56, b: 26, l: 40 }, iw = Math.max(60, w - m.l - m.r), ih = alto - m.t - m.b, n = serie.length;
+  let lo = Math.floor((Math.min(...val.map(p => p.pct)) - 1.5) / 5) * 5; lo = clamp(lo, 0, 90); const hi = 100;
+  const X = i => m.l + (n === 1 ? iw / 2 : i * iw / (n - 1)), Y = v => m.t + (hi - v) * ih / (hi - lo);
+  const ticks = [lo, (lo + hi) / 2, hi];
+  let s = `<svg class="svg" width="${w}" height="${alto}" role="img" aria-label="Asistencia diaria de entrada del ${esc(fCorta(serie[0].d))} al ${esc(fCorta(serie[n - 1].d))}; el detalle está en la tabla">`;
+  ticks.forEach(t => { s += `<line class="${t === lo ? 'base-l' : 'rejilla-l'}" x1="${m.l}" x2="${m.l + iw}" y1="${Y(t)}" y2="${Y(t)}"/><text class="eje-t" x="${m.l - 6}" y="${Y(t) + 4}" text-anchor="end">${nf0.format(t)} %</text>`; });
+  const tramos = []; let tramo = [];
+  serie.forEach((p, i) => { if (p.estado === 'ok' && p.pct != null) tramo.push([i, p.pct]); else { if (tramo.length) tramos.push(tramo); tramo = []; } });
+  if (tramo.length) tramos.push(tramo);
+  tramos.forEach(t => {
+    const d = t.map(([i, v], k) => `${k ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
+    if (t.length > 1) s += `<path class="area" d="${d} L${X(t[t.length - 1][0]).toFixed(1)} ${m.t + ih} L${X(t[0][0]).toFixed(1)} ${m.t + ih} Z"/>`;
+    s += `<path class="linea" d="${d}"/>`;
+  });
+  const ult = [...serie.keys()].reverse().find(i => serie[i].estado === 'ok' && serie[i].pct != null);
+  const paso = n === 1 ? iw : iw / (n - 1);
+  serie.forEach((p, i) => {
+    if (p.estado === 'ok' && p.pct != null && n <= 32 && i !== ult) s += `<circle class="punto" cx="${X(i)}" cy="${Y(p.pct)}" r="3"/>`;
+    // Un día sin cerrar no tiene porcentaje definitivo (sus faltas aún no se generan): banda y marca, sin valor
+    if (p.estado === 'parcial') s += `<rect x="${Math.max(m.l, X(i) - paso / 2)}" y="${m.t}" width="${Math.min(paso, m.l + iw - X(i) + paso / 2)}" height="${ih}" fill="var(--superficie-2)"/><text class="eje-t" x="${X(i)}" y="${m.t + ih - 5}" text-anchor="middle">◐</text>`;
+    if (p.estado === 'sin') s += `<text class="eje-t" x="${X(i)}" y="${m.t + ih - 5}" text-anchor="middle">—</text>`;
+  });
+  if (ult != null) {
+    const despues = ult < n - 1;
+    s += `<circle class="punto" cx="${X(ult)}" cy="${Y(serie[ult].pct)}" r="4.5"/><text class="valor-t" x="${despues ? X(ult) - 8 : X(ult) + 9}" y="${Y(serie[ult].pct) - (despues ? 10 : -4)}" text-anchor="${despues ? 'end' : 'start'}">${nf1.format(serie[ult].pct)} %</text>`;
+  }
+  const marcas = n <= 2 ? [...Array(n).keys()] : [0, Math.floor((n - 1) / 2), n - 1];
+  marcas.forEach(i => { s += `<text class="eje-t" x="${X(i)}" y="${alto - 6}" text-anchor="${i === 0 && n > 1 ? 'start' : i === n - 1 && n > 1 ? 'end' : 'middle'}">${esc(fCorta(serie[i].d))}</text>`; });
+  const media = n === 1 ? iw / 2 : iw / (n - 1) / 2;
+  serie.forEach((p, i) => { s += `<g class="col"><line class="cruz" x1="${X(i)}" x2="${X(i)}" y1="${m.t}" y2="${m.t + ih}"/><rect class="hit" x="${X(i) - media}" y="${m.t}" width="${media * 2}" height="${ih}" data-tip="${esc(tipDia(p))}"/></g>`; });
+  return s + '</svg>';
+}
+function svgColumnas(datos, w, op = {}) {
+  const alto = op.alto || 176, m = { t: 20, r: 6, b: 30, l: 6 }, iw = w - m.l - m.r, ih = alto - m.t - m.b;
+  const comp = !!op.comp; const max = Math.max(1, ...datos.map(d => Math.max(d.v || 0, comp ? (d.c || 0) : 0)));
+  const banda = iw / datos.length, bw = Math.min(24, Math.max(6, banda * (comp ? .3 : .5)));
+  const cada = Math.ceil(datos.length / Math.max(1, Math.floor(iw / 46)));
+  const imax = datos.reduce((k, d, i) => (d.v > datos[k].v ? i : k), 0);
+  let s = `<svg class="svg" width="${w}" height="${alto}" role="img" aria-label="${esc(op.titulo || '')}; el detalle está en la tabla"><line class="base-l" x1="${m.l}" x2="${m.l + iw}" y1="${m.t + ih}" y2="${m.t + ih}"/>`;
+  datos.forEach((d, i) => {
+    const cx = m.l + banda * (i + .5), h = (d.v || 0) * ih / max;
+    const x = comp ? cx - bw - 1 : cx - bw / 2;
+    s += `<g class="colm">`;
+    s += `<path class="colm__b" d="${barraSVG(x, m.t + ih - h, bw, h)}" fill="${d.color || 'var(--serie)'}"/>`;
+    if (comp && d.c != null) { const hc = d.c * ih / max; s += `<path d="${barraSVG(cx + 1, m.t + ih - hc, bw, hc)}" fill="var(--serie-comp)"/>`; }
+    const etiquetar = op.etiquetas === 'todas' || i === imax || i === datos.length - 1;
+    if (etiquetar) s += `<text class="valor-t" x="${comp ? x + bw / 2 : cx}" y="${m.t + ih - h - 6}" text-anchor="middle">${esc(op.fmt ? op.fmt(d.v) : d.v)}</text>`;
+    if (i % cada === 0 || i === datos.length - 1 && cada === 1) s += `<text class="eje-t" x="${cx}" y="${alto - 10}" text-anchor="middle">${esc(d.nombre)}</text>`;
+    s += `<rect class="hit" x="${cx - banda / 2}" y="${m.t - 10}" width="${banda}" height="${ih + 10}" data-tip="${esc(d.tip || d.nombre + ': ' + d.v)}"/></g>`;
+  });
+  return s + '</svg>';
+}
+function barras(filas, op = {}) {
+  const max = op.max || Math.max(1, ...filas.map(f => f.v || 0));
+  return `<ul class="barras" ${op.titulo ? `aria-label="${esc(op.titulo)}"` : ''}>${filas.map(f => {
+    const ancho = f.v == null ? 0 : clamp(f.v * 100 / max, 0, 100);
+    const marca = f.comp != null ? `<span class="barra__marca" style="left:calc(${clamp(f.comp * 100 / max, 0, 100)}% - 1px)"></span>` : '';
+    const nombre = `<span class="barra__nombre">${f.color ? `<span class="punto-nivel" style="background:${f.color}"></span>` : ''}<span>${esc(f.nombre)}</span></span>`;
+    const cuerpo = `${nombre}<span class="barra__pista"><span class="barra__relleno" style="width:${ancho}%;${f.color ? `background:${f.color}` : ''}"></span>${marca}</span><span class="barra__valor">${f.texto}</span>`;
+    const tip = f.tip ? ` data-tip="${esc(f.tip)}"` : '';
+    const inner = f.accion ? `<button type="button" class="barra${f.sub ? ' barra--sub' : ''}" data-accion="${f.accion}" data-arg="${esc(f.arg || '')}"${f.expandido != null ? ` aria-expanded="${f.expandido}"` : ''}${tip}>${cuerpo}</button>` : `<div class="barra${f.sub ? ' barra--sub' : ''}" tabindex="0"${tip}>${cuerpo}</div>`;
+    return `<li>${inner}${f.despues || ''}</li>`;
+  }).join('')}</ul>`;
+}
+function mapaCalor(M, w) {
+  const C = M.C, unGrupo = M.grupos.length === 1;
+  const etW = unGrupo ? (w < 520 ? 116 : 170) : (w < 520 ? 72 : 96), celda = w < 520 ? 20 : 24;
+  const cuantos = clamp(Math.floor((w - etW - 6) / (celda + 2)), 5, 30);
+  const dias = M.rango.dias.slice(-cuantos);
+  if (!dias.length) return vacio('Sin días de clases en el rango.');
+  const filas = unGrupo ? M.grupos[0].estudiantes.map(st => ({ st })) : M.grupos.map(g => ({ g }));
+  let h = `<div class="calor-marco"><div class="calor" role="table" aria-label="${unGrupo ? 'Asistencia de cada estudiante por día' : 'Porcentaje de faltas por grupo y día'}" style="--celda:${celda}px;grid-template-columns:${etW}px repeat(${dias.length}, ${celda}px)">`;
+  h += `<div class="calor__fila" role="row"><div role="columnheader"><span class="solo-lectores">${unGrupo ? 'Estudiante' : 'Grupo'}</span></div>${dias.map(d => { const t = F(d); return `<div class="calor__dia${d === C.hoy ? ' calor__dia--hoy' : ''}" role="columnheader" title="${esc(fDia(d))}">${DIA_I[t.getUTCDay()]}<b>${t.getUTCDate()}</b></div>`; }).join('')}</div>`;
+  for (const fila of filas) {
+    if (unGrupo) {
+      const st = fila.st;
+      h += `<div class="calor__fila" role="row"><div class="calor__et" role="rowheader" title="${esc(st.nombre)}"><span>${esc(st.nombre)}</span></div>`;
+      for (const d of dias) {
+        const s = st.asis[C.idx.get(d)];
+        const [cls, txt, t] = s === 0 ? ['c0', '', 'Presente'] : s === 1 ? ['c-ret', 'R', 'Retardo'] : s === 2 ? ['c-fal', 'F', 'Falta sin justificar'] : s === 3 ? ['c-jus', 'J', 'Falta justificada'] : s === 7 ? ['c-sus', 'S', 'Suspensión autorizada (no cuenta)'] : s === 8 ? ['c-par', '◐', 'Sin registro: día sin cerrar'] : ['c-sin', '—', 'Sin captura'];
+        h += `<div class="celda ${cls}" role="cell" data-tip="${esc(st.nombre + '\n' + fDia(d) + ': ' + t)}"><span aria-hidden="true">${txt}</span><span class="solo-lectores">${esc(t)}</span></div>`;
+      }
+    } else {
+      const g = fila.g;
+      h += `<div class="calor__fila" role="row"><div class="calor__et" role="rowheader"><span class="punto-nivel" style="background:${NIVEL[g.nivel].color}"></span><span>${esc(g.nombre)}</span></div>`;
+      for (const d of dias) {
+        const i = C.idx.get(d); let reg = 0, fa = 0, re = 0, sc = 0, sr = 0, n = 0;
+        for (const st of g.estudiantes) { const s = st.asis[i]; if (s === 7) continue; n++; if (s <= 3) reg++; if (s === 2 || s === 3) fa++; if (s === 1) re++; if (s === 9) sc++; if (s === 8) sr++; }
+        let cls, txt = '', tip;
+        if (sc === n) { cls = 'c-sin'; txt = '—'; tip = `${g.nombre} · ${fDia(d)}\nSin captura: no hubo registros de entrada`; }
+        else if (C.abiertos.has(d)) { cls = 'c-par'; txt = '◐'; tip = `${g.nombre} · ${fDia(d)} · día sin cerrar\n${reg} con registro · ${sr} sin registro (aún no son faltas)`; }
+        else { const p = reg ? fa * 100 / reg : 0; cls = 'c' + (fa === 0 ? 0 : p <= 3 ? 1 : p <= 6 ? 2 : p <= 10 ? 3 : 4); tip = `${g.nombre} · ${fDia(d)}\n${fa} ${plural(fa, 'falta')} de ${reg} registros (${nf1.format(p)} %)\n${re} ${plural(re, 'retardo')}`; }
+        h += `<div class="celda ${cls}" role="cell" data-tip="${esc(tip)}"><span aria-hidden="true">${txt}</span><span class="solo-lectores">${esc(tip)}</span></div>`;
+      }
+    }
+    h += '</div>';
+  }
+  h += '</div></div>';
+  const ley = unGrupo
+    ? `<div class="leyenda"><span><span class="muestra c0"></span>Presente</span><span><span class="muestra c-ret"></span>R retardo</span><span><span class="muestra c-fal"></span>F falta</span><span><span class="muestra c-jus"></span>J justificada</span><span>◐ sin registro (día sin cerrar)</span><span>— sin captura</span><span>S suspensión</span></div>`
+    : `<div class="leyenda" aria-label="Escala de faltas"><span><span class="muestra c0"></span>0 %</span><span><span class="muestra c1"></span>hasta 3 %</span><span><span class="muestra c2"></span>3 a 6 %</span><span><span class="muestra c3"></span>6 a 10 %</span><span><span class="muestra c4"></span>más de 10 %</span><span>◐ día sin cerrar</span><span>— sin captura</span></div>`;
+  return h + `<p class="nota">Se muestran los últimos ${dias.length} días de clases del rango (${esc(fCorta(dias[0]))} – ${esc(fCorta(dias[dias.length - 1]))}).</p>` + ley;
+}
+
+/* ---- Tarjetas ---- */
+function tarjetaAsistencia(M) {
+  const a = M.asis;
+  const tabla = tablaDatos('Asistencia diaria', ['Día', 'Asistencia', 'Asistieron', 'Con registro', 'Faltas', 'Estado'], a.serie.map(p => [fDia(p.d), p.pct == null ? '—' : nf1.format(p.pct) + ' %', p.p + p.r, p.reg, p.f + p.j, p.estado === 'ok' ? 'Cerrado' : p.estado === 'parcial' ? 'Sin cerrar (parcial)' : 'Sin captura']));
+  const cuerpo = `${ph(w => svgLinea(a.serie, w))}
+    <div class="leyenda"><span><span class="muestra muestra--trazo" style="background:var(--serie)"></span>Día cerrado</span><span>◐ Día sin cerrar: sin porcentaje todavía</span><span>— Sin captura</span></div>
+    <p class="nota">Sin meta institucional definida: no se dibuja línea de meta. ${a.diasConHueco ? `${a.diasConHueco} ${plural(a.diasConHueco, 'día')} con un nivel sin captura (Bachillerato, 22 oct): no cuenta como falta.` : ''}</p>${tabla}`;
+  return tarjeta('tarjeta-asistencia', 'Asistencia de entrada por día', cuerpo, { icono: 'entrada', etiqueta: M.rango.etiqueta + ' · ' + M.rango.texto, accion: botonSistema('Reporte', 'Asistencias › Reporte') });
+}
+function filasUnidades(M) {
+  const f = M.f, C = M.C, comp = M.comp.res;
+  const tipo = f.grupo ? 'materia' : f.grado ? 'grupo' : f.nivel ? 'grado' : 'nivel';
+  const clave = { nivel: x => x.g.nivel, grado: x => x.g.grado, grupo: x => x.g.id, materia: x => x.m }[tipo];
+  const agrupar = filas => { const m = new Map(); for (const x of filas) { const k = clave(x); if (!m.has(k)) m.set(k, []); m.get(k).push(x); } return m; };
+  const act = M.acad.act ? agrupar(M.acad.act.filas) : new Map(), cmp = comp ? agrupar(comp.filas) : new Map();
+  let unidades;
+  if (tipo === 'nivel') unidades = M.niveles.map(n => ({ k: n, nombre: NIVEL[n].nombre, color: NIVEL[n].color, grupos: M.grupos.filter(g => g.nivel === n), accion: 'aplicar', arg: 'nivel:' + n }));
+  else if (tipo === 'grado') unidades = GRADOS.filter(g => g.nivel === f.nivel).map(gr => ({ k: gr.id, nombre: gr.nombre, color: NIVEL[f.nivel].color, grupos: M.grupos.filter(g => g.grado === gr.id), accion: 'aplicar', arg: 'grado:' + gr.id })).filter(u => u.grupos.length);
+  else if (tipo === 'grupo') unidades = M.grupos.map(g => ({ k: g.id, nombre: g.nombre, color: NIVEL[g.nivel].color, grupos: [g], accion: 'grupo', arg: g.id }));
+  else unidades = MATERIAS[M.grupos[0].nivel].map(([m]) => ({ k: m, nombre: m, grupos: M.grupos, accion: 'materia', arg: m }));
+  const segPor = g => M.seg.lista.filter(a => g.some(x => x.id === a.st.grupo.id)).length;
+  return { tipo, filas: unidades.map(u => {
+    const r = act.get(u.k) ? resumenDe(act.get(u.k)) : null, c = cmp.get(u.k) ? resumenDe(cmp.get(u.k)) : null;
+    const asis = tipo === 'materia' ? null : asistencia(C, u.grupos, M.rango.dias).tot.pct;
+    return { ...u, r, c, asis, est: u.grupos.reduce((s, g) => s + g.estudiantes.length, 0), seg: tipo === 'materia' ? null : segPor(u.grupos) };
+  }) };
+}
+function tarjetaAprobacion(M) {
+  const { tipo, filas } = filasUnidades(M); const ac = M.acad;
+  const niv = Object.values(ac.porNivel);
+  const porPeriodo = {};
+  niv.filter(x => x.evaluado && x.evaluado !== x.base).forEach(x => { (porPeriodo[x.evaluado.nombre] = porPeriodo[x.evaluado.nombre] || []).push(NIVEL[x.nivel].nombre.toLowerCase()); });
+  const notas = [
+    ...(Object.keys(porPeriodo).length ? [`El periodo actual sigue abierto: se muestra el último con actas cerradas, ${Object.entries(porPeriodo).map(([p, ns]) => `${p} (${ns.join(', ')})`).join(' y ')}.`] : []),
+    ...niv.filter(x => !x.evaluado).map(x => `${NIVEL[x.nivel].nombre}: ${x.nota}.`),
+  ];
+  const parciales = niv.filter(x => x.estado === 'parcial').map(x => `${NIVEL[x.nivel].nombre} ${x.actas.cerradas}/${x.actas.esperadas}`);
+  const cuerpo = ac.act ? `${barras(filas.map(u => ({ nombre: u.nombre, color: u.color, v: u.r ? u.r.pct : null, comp: u.c ? u.c.pct : null, texto: u.r ? pct(u.r.pct) : '—', accion: u.accion, arg: u.arg,
+      tip: u.r ? `${u.nombre}\n${pct(u.r.pct)} aprobados (${u.r.aprobados} de ${u.r.evaluados})${u.c ? `\n${M.comp.etiqueta}: ${pct(u.c.pct)}` : ''}` : `${u.nombre}\nSin actas cerradas` })), { max: 100, titulo: 'Aprobación por ' + unidadNombre(M) })}
+      <div class="leyenda"><span><span class="muestra" style="background:var(--serie)"></span>Periodo evaluado (color por nivel)</span>${M.comp.res ? `<span><span class="muestra muestra--linea"></span>${esc(M.comp.etiqueta)}</span>` : ''}</div>
+      ${parciales.length ? `<p class="nota">${chip('parcial')} Actas cerradas del periodo evaluado: ${esc(parciales.join(' · '))}. Las que faltan no cuentan todavía.</p>` : ''}
+      ${notas.length ? `<p class="nota">${esc(notas.join(' '))}</p>` : ''}
+      <p class="nota">Escala de 0 a 100 %. Aprobado: sin materias con final menor a 6.0 (propuesta).${tipo !== 'materia' ? ' Toca una barra para bajar de nivel.' : ''}</p>`
+    : vacio(notas.join(' ') || 'Sin actas cerradas en el alcance.');
+  return tarjeta('tarjeta-aprobacion', 'Aprobación por ' + unidadNombre(M), cuerpo, { icono: 'award', etiqueta: ac.texto, accion: botonSistema('Calificaciones', 'Calificaciones › Concentrado') });
+}
+function tarjetaMatricula(M) {
+  const C = M.C; let cuerpo;
+  if (M.grupos.length === 1) {
+    const g = M.grupos[0];
+    cuerpo = `<dl class="cifras"><div class="cifra"><dt>Estudiantes</dt><dd>${g.estudiantes.length}</dd></div><div class="cifra"><dt>Grado</dt><dd style="font-size:14px">${esc(GRADO[g.grado].nombre)}</dd></div></dl>` + botonSistema('Lista del grupo', 'Estudiantes › Lista filtrada por ' + g.nombre);
+  } else if (M.f.nivel) {
+    const grados = GRADOS.filter(g => g.nivel === M.f.nivel).map(gr => ({ gr, gs: M.grupos.filter(g => g.grado === gr.id) })).filter(x => x.gs.length);
+    cuerpo = barras(grados.flatMap(x => [{ nombre: x.gr.nombre, v: x.gs.reduce((s, g) => s + g.estudiantes.length, 0), texto: String(x.gs.reduce((s, g) => s + g.estudiantes.length, 0)), color: NIVEL[M.f.nivel].color, tip: `${x.gr.nombre}: ${x.gs.map(g => g.nombre + ' ' + g.estudiantes.length).join(', ')}` }]), { titulo: 'Estudiantes por grado' });
+  } else {
+    const max = Math.max(...M.matricula.porNivel.map(x => x.total));
+    cuerpo = barras(M.matricula.porNivel.map(x => {
+      const abierto = S.drill === x.n;
+      const grados = GRADOS.filter(g => g.nivel === x.n).map(gr => ({ gr, gs: M.grupos.filter(g => g.grado === gr.id) })).filter(y => y.gs.length);
+      const despues = abierto ? `<div class="desglose">${barras(grados.map(y => ({ nombre: y.gr.nombre, v: y.gs.reduce((s, g) => s + g.estudiantes.length, 0), texto: `${y.gs.reduce((s, g) => s + g.estudiantes.length, 0)} <small>${y.gs.length > 1 ? y.gs.length + ' grupos' : esc(y.gs[0].nombre)}</small>`, sub: true, color: NIVEL[x.n].color, tip: y.gs.map(g => `${g.nombre}: ${g.estudiantes.length}`).join('\n') })), { max })}
+          <div><button type="button" class="boton boton--texto" data-accion="aplicar" data-arg="nivel:${x.n}">Ver todo el panel de ${esc(NIVEL[x.n].nombre.toLowerCase())}${icon('flecha', 'ic ic--xs')}</button></div></div>` : '';
+      return { nombre: NIVEL[x.n].nombre, v: x.total, texto: `${x.total} <small>${nf1.format(x.total * 100 / M.matricula.total)} %</small>`, color: NIVEL[x.n].color, accion: 'drill', arg: x.n, expandido: abierto, despues, tip: `${NIVEL[x.n].nombre}: ${x.total} estudiantes\nToca para ver por grado` };
+    }), { max, titulo: 'Estudiantes activos por nivel' }) + `<p class="nota">Toca un nivel para ver sus grados o semestres.</p>`;
+  }
+  return tarjeta('tarjeta-matricula', 'Matrícula', cuerpo, { icono: 'users', etiqueta: `${nf0.format(M.matricula.total)} activos` });
+}
+function filaEstudiante(a) {
+  const st = a.st, mot = a.ambos ? 'Inasistencia y rendimiento' : a.tipos.has('inasistencia') ? 'Inasistencia' : 'Bajo rendimiento';
+  const datos = [];
+  if (a.reg) datos.push(`<b>${a.sj}</b> ${plural(a.sj, 'falta')} s/j${a.seguidas >= 2 ? ` (${a.seguidas} seguidas)` : ''}`);
+  if (a.prom != null) datos.push(`promedio <b>${nf2.format(a.prom)}</b>`);
+  if (a.reprobadas) datos.push(`<b>${a.reprobadas}</b> ${plural(a.reprobadas, 'reprobada')}`);
+  return `<li><div class="estudiante"><button type="button" class="enlace estudiante__nombre" data-accion="estudiante" data-arg="${st.id}">${esc(st.nombre)}</button>${chip(a.prioridad)}
+    <p class="estudiante__meta">${esc(st.grupo.nombre)} · ${esc(NIVEL[st.grupo.nivel].nombre)} · ${esc(mot)} · ${datos.join(' · ')}</p></div></li>`;
+}
+function tarjetaSeguimiento(M, op = {}) {
+  const s = M.seg; let lista = s.lista;
+  if (op.filtros) {
+    if (S.segMotivo === 'ambos') lista = lista.filter(a => a.ambos); else if (S.segMotivo) lista = lista.filter(a => a.tipos.has(S.segMotivo));
+    if (S.segPrioridad) lista = lista.filter(a => a.prioridad === S.segPrioridad);
+  }
+  const max = op.max || 5;
+  const motivos = op.filtros
+    ? `<div class="chips-filtro" role="group" aria-label="Filtrar por motivo">${[['', 'Todos', s.total], ['inasistencia', 'Inasistencia', s.inas], ['rendimiento', 'Rendimiento', s.rend], ['ambos', 'Ambos', s.ambos]].map(([k, t, n]) => `<button type="button" class="chip-filtro" data-accion="seg-motivo" data-arg="${k}" aria-pressed="${S.segMotivo === k}">${t} <b>${n}</b></button>`).join('')}</div>
+       <div class="chips-filtro" role="group" aria-label="Filtrar por prioridad">${[['', 'Toda prioridad'], ['alta', 'Alta'], ['media', 'Media'], ['baja', 'Baja']].map(([k, t]) => `<button type="button" class="chip-filtro" data-accion="seg-prioridad" data-arg="${k}" aria-pressed="${S.segPrioridad === k}">${t}${k ? ` <b>${s[k]}</b>` : ''}</button>`).join('')}</div>`
+    : barras([{ nombre: 'Solo inasistencia', v: s.soloInas, texto: String(s.soloInas) }, { nombre: 'Solo rendimiento', v: s.soloRend, texto: String(s.soloRend) }, { nombre: 'Ambos motivos', v: s.ambos, texto: String(s.ambos) }], { titulo: 'Estudiantes por motivo' }) + `<p class="nota">Cada estudiante cuenta una vez: ${s.total} en total · prioridad alta ${s.alta}, media ${s.media}, baja ${s.baja}.</p>`;
+  const cuerpo = `${motivos}${lista.length ? `<ul class="lista">${lista.slice(0, max).map(filaEstudiante).join('')}</ul>` : vacio(s.total ? 'Ningún estudiante con estos filtros.' : 'Ningún estudiante cumple los criterios en el alcance.')}
+    <div class="tarjeta__pie"><span class="nota">Criterios propuestos por nivel, pendientes de validar.</span>${lista.length > max ? `<button type="button" class="boton" data-accion="lista" data-arg="seguimiento">Ver los ${lista.length}</button>` : ''}</div>`;
+  return tarjeta('tarjeta-seguimiento', 'Estudiantes que requieren atención', cuerpo, { icono: 'alerta', etiqueta: `${s.total} en seguimiento` });
+}
+function tarjetaConducta(M, conColumnas = true) {
+  const c = M.cond;
+  const cifras = `<dl class="cifras cifras--4"><div class="cifra"><dt>Incidencias</dt><dd>${c.n}</dd></div><div class="cifra"><dt>Estudiantes</dt><dd>${c.estudiantes}</dd></div><div class="cifra"><dt>Casos abiertos</dt><dd>${c.abiertos}</dd></div><div class="cifra"><dt>Revisión vencida</dt><dd>${c.vencidos.length}</dd></div></dl>`;
+  const cats = c.n ? barras(c.porCat.map(x => ({ nombre: x.nombre, v: x.n, texto: String(x.n), tip: `${x.nombre}: ${x.n} ${plural(x.n, 'incidencia')} (${nf1.format(x.n * 100 / c.n)} %)` })), { titulo: 'Incidencias por categoría' }) : vacio('0 incidencias en el rango.');
+  const cols = conColumnas && c.n ? `<p class="subtitulo">Por semana</p>${ph(w => svgColumnas(c.semanas.map(x => ({ nombre: fCorta(x.semana), v: x.n, tip: `Semana del ${fCorta(x.semana)}: ${x.n} ${plural(x.n, 'incidencia')}` })), w, { alto: 130, titulo: 'Incidencias por semana' }))}` : '';
+  const cuerpo = `${cifras}<p class="subtitulo">Por categoría</p>${cats}${cols}<p class="nota">${c.positivas} ${plural(c.positivas, 'conducta positiva', 'conductas positivas')} en el rango.</p>`;
+  return tarjeta('tarjeta-conducta', 'Conducta', cuerpo, { icono: 'bandera', etiqueta: M.rango.etiqueta, accion: botonSistema('Registro', 'Conducta › Lista') });
+}
+function tarjetaConductaNiveles(M) {
+  const c = M.cond;
+  const filas = c.porNivel.map(x => ({ nombre: NIVEL[x.nivel].nombre, color: NIVEL[x.nivel].color, v: x.est ? x.n * 100 / x.est : 0, texto: `${nf1.format(x.est ? x.n * 100 / x.est : 0)} <small>${x.n} inc.</small>`, tip: `${NIVEL[x.nivel].nombre}: ${x.n} incidencias entre ${x.est} estudiantes\n${nf1.format(x.est ? x.n * 100 / x.est : 0)} por cada 100 estudiantes` }));
+  const cuerpo = `${c.n ? `${ph(w => svgColumnas(c.semanas.map(x => ({ nombre: fCorta(x.semana), v: x.n, tip: `Semana del ${fCorta(x.semana)}: ${x.n} ${plural(x.n, 'incidencia')}` })), w, { alto: 140, titulo: 'Incidencias por semana' }))}` : vacio('0 incidencias en el rango.')}
+    ${filas.length > 1 ? `<p class="subtitulo">Por cada 100 estudiantes</p>${barras(filas, { titulo: 'Incidencias por cada 100 estudiantes' })}` : ''}
+    ${c.porCat.length ? `<p class="nota">Más frecuente: <strong>${esc(c.porCat[0].nombre)}</strong> (${c.porCat[0].n} de ${c.n}).</p>` : ''}`;
+  return tarjeta('tarjeta-conducta', 'Incidencias de conducta', cuerpo, { icono: 'bandera', etiqueta: M.rango.etiqueta + ' · ' + M.rango.texto });
+}
+function tarjetaAgenda(M) {
+  const C = M.C; let cuerpo;
+  if (!C.hoy) cuerpo = vacio('No aplica: el ciclo elegido ya terminó.');
+  else if (!M.agenda.length) cuerpo = vacio('Sin eventos próximos en el alcance.');
+  else {
+    const manana = sumarDias(C.hoy, 1); let dia = '';
+    cuerpo = `<ul class="agenda">${M.agenda.slice(0, 6).map(a => {
+      const et = a.fecha === C.hoy ? 'Hoy' : a.fecha === manana ? 'Mañana' : fDia(a.fecha);
+      const cab = et !== dia ? `<li class="agenda__dia">${esc(et)}</li>` : ''; dia = et;
+      const [tt, cls] = TIPO_AGENDA[a.tipo];
+      return `${cab}<li class="agenda__item"><span class="agenda__hora">${esc(a.hora)}</span><div><p class="agenda__titulo">${esc(a.titulo)} <span class="chip ${cls}">${esc(tt)}</span></p><p class="agenda__detalle">${esc(a.detalle())}</p></div></li>`;
+    }).join('')}</ul>`;
+  }
+  return tarjeta('tarjeta-agenda', 'Agenda', cuerpo, { icono: 'calendario', etiqueta: 'Próximos 15 días', accion: botonSistema('Agenda', 'Agenda › Calendario') });
+}
+function tarjetaAlertas(M) {
+  const items = M.pend.filter(x => x.prioridad !== 'baja').slice(0, 6);
+  const cuerpo = items.length ? `<ul class="lista">${items.map(x => `<li><button type="button" class="fila-alerta" data-accion="lista" data-arg="${x.tipo}" data-extra="${esc(x.arg || '')}">
+      <span class="fila-alerta__icono fila-alerta__icono--${x.prioridad}">${icon(x.icono)}</span>
+      <span class="fila-alerta__texto">${esc(x.texto)}<small>${esc(x.area)} · ${esc(x.detalle)}</small></span>
+      <span class="fila-alerta__lado">${chip(x.prioridad)}</span></button></li>`).join('')}</ul>`
+    : `<p class="vacio">${icon('check')}<span>Nada pendiente en el alcance.</span></p>`;
+  return tarjeta('tarjeta-alertas', 'Alertas prioritarias', cuerpo + `<p class="nota">Ordenadas por prioridad. Cada renglón dice su unidad: días, actas, estudiantes o casos.</p>`, { icono: 'alerta', etiqueta: M.C.hoy ? 'Al día de hoy' : 'Ciclo cerrado' });
+}
+function tarjetaCapturaResumen(M) {
+  const porNivel = M.niveles.map(n => {
+    const cs = M.cap.filter(x => x.g.nivel === n);
+    const a = cs.reduce((s, x) => ({ c: s.c + x.actas.cerradas, e: s.e + x.actas.esperadas }), { c: 0, e: 0 });
+    const cl = cs.reduce((s, x) => ({ c: s.c + x.clases.con, e: s.e + x.clases.prog }), { c: 0, e: 0 });
+    return { n, a, cl };
+  });
+  const medidor = (nombre, c, e, sufijo) => {
+    if (!e) return `<div class="medidor"><span>${nombre}</span><span class="nota">${sufijo === 'clases' ? 'Solo entrada (sin pase por clase)' : 'Sin periodos terminados'}</span><span></span></div>`;
+    const p = c * 100 / e; const cls = p >= 98 ? '' : p >= 90 ? ' medidor__relleno--aviso' : ' medidor__relleno--mal';
+    return `<div class="medidor" tabindex="0" data-tip="${esc(`${nombre.replace(/<[^>]+>/g, '')}: ${c} de ${e} ${sufijo} (${nf1.format(p)} %)`)}"><span>${nombre}</span><span class="medidor__pista"><span class="medidor__relleno${cls}" style="width:${p}%"></span></span><span class="medidor__valor">${nf0.format(c)} / ${nf0.format(e)}</span></div>`;
+  };
+  const cuerpo = `<p class="subtitulo">Actas cerradas de periodos terminados</p><div class="barras">${porNivel.map(x => medidor(`<span class="barra__nombre"><span class="punto-nivel" style="background:${NIVEL[x.n].color}"></span>${esc(NIVEL[x.n].nombre)}</span>`, x.a.c, x.a.e, 'actas')).join('')}</div>
+    <p class="subtitulo">Pase de lista por clase · ${esc(M.rango.etiqueta.toLowerCase())}</p><div class="barras">${porNivel.map(x => medidor(`<span class="barra__nombre"><span class="punto-nivel" style="background:${NIVEL[x.n].color}"></span>${esc(NIVEL[x.n].nombre)}</span>`, x.cl.c, x.cl.e, 'clases')).join('')}</div>
+    <div class="tarjeta__pie"><span class="nota">Registros capturados / esperados.</span><button type="button" class="boton" data-accion="lista" data-arg="captura">Ver por grupo</button></div>`;
+  return tarjeta('tarjeta-captura', 'Avance de captura', cuerpo, { icono: 'lista' });
+}
+function tarjetaCapturaGrupos(M, soloHoy) {
+  const C = M.C;
+  const filas = M.cap.map(x => {
+    const i = C.hoy ? C.idx.get(C.hoy) : null; const hoy = i != null ? x.g.clases[i] : null;
+    const pc = x.clases.prog ? x.clases.con * 100 / x.clases.prog : null;
+    const venc = x.actas.vencidas.length;
+    const estado = (hoy && hoy.prog && hoy.con < hoy.prog) ? `<span class="chip chip--media">${icon('aviso')}Hoy: ${hoy.prog - hoy.con} sin lista</span>` : hoy && hoy.prog ? `<span class="chip chip--ok">${icon('check')}Hoy al día</span>` : '';
+    return { x, pc, venc, estado, orden: (hoy && hoy.prog ? hoy.prog - hoy.con : 0) * 100 + venc * 10 + (pc != null ? (100 - pc) / 10 : 0) };
+  }).sort((a, b) => b.orden - a.orden);
+  const mostrar = soloHoy ? filas.slice(0, 7) : filas;
+  const cuerpo = `<div>${mostrar.map(({ x, pc, venc, estado }) => `<div class="captura-grupo"><div class="captura-grupo__cabeza"><span class="punto-nivel" style="background:${NIVEL[x.g.nivel].color}"></span>${esc(x.g.nombre)} <span class="nota">${esc(NIVEL[x.g.nivel].nombre)}</span>${estado}</div>
+      ${x.clases.prog ? `<div class="medidor" tabindex="0" data-tip="${esc(`${x.g.nombre}: ${x.clases.con} de ${x.clases.prog} clases con pase de lista (${nf1.format(pc)} %)`)}"><span class="nota">Pase de lista</span><span class="medidor__pista"><span class="medidor__relleno${pc >= 97 ? '' : pc >= 90 ? ' medidor__relleno--aviso' : ' medidor__relleno--mal'}" style="width:${pc}%"></span></span><span class="medidor__valor">${x.clases.con} / ${x.clases.prog}</span></div>` : `<div class="medidor"><span class="nota">Pase de lista</span><span class="nota">No aplica: solo entrada</span><span></span></div>`}
+      <div class="medidor" tabindex="0" data-tip="${esc(`${x.g.nombre}: ${x.actas.cerradas} de ${x.actas.esperadas} actas cerradas de periodos terminados`)}"><span class="nota">Actas cerradas</span><span class="medidor__pista"><span class="medidor__relleno${venc ? ' medidor__relleno--mal' : ''}" style="width:${x.actas.esperadas ? x.actas.cerradas * 100 / x.actas.esperadas : 0}%"></span></span><span class="medidor__valor">${x.actas.cerradas} / ${x.actas.esperadas}</span></div></div>`).join('')}</div>
+    ${soloHoy && filas.length > mostrar.length ? `<div class="tarjeta__pie"><span class="nota">Primero los grupos con pendientes.</span><button type="button" class="boton" data-accion="lista" data-arg="captura">Ver los ${filas.length} grupos</button></div>` : ''}`;
+  return tarjeta('tarjeta-captura-grupos', 'Captura por grupo', cuerpo, { icono: 'lista', etiqueta: 'Pase de lista: ' + M.rango.etiqueta.toLowerCase() });
+}
+function tarjetaMapa(M) {
+  const tabla = M.grupos.length === 1 ? '' : tablaDatos('Faltas por grupo y día', ['Grupo', ...M.rango.dias.slice(-10).map(fCorta)], M.grupos.map(g => [g.nombre, ...M.rango.dias.slice(-10).map(d => { const i = M.C.idx.get(d); let reg = 0, fa = 0; g.estudiantes.forEach(st => { const s = st.asis[i]; if (s <= 3) reg++; if (s === 2 || s === 3) fa++; }); return M.C.abiertos.has(d) ? 'sin cerrar' : reg ? nf1.format(fa * 100 / reg) + ' %' : '—'; })]));
+  return tarjeta('tarjeta-mapa', M.grupos.length === 1 ? 'Asistencia por estudiante y día' : 'Faltas por grupo y día', ph(w => mapaCalor(M, w)) + tabla, { icono: 'calendario', etiqueta: M.grupos.length === 1 ? M.grupos[0].nombre : 'Entrada al colegio' });
+}
+function tarjetaDistribucion(M) {
+  const ac = M.acad, comp = M.comp.res; const NOMB = ['Menos de 6', '6 a 6.9', '7 a 7.9', '8 a 8.9', '9 a 10'];
+  if (!ac.act) return tarjeta('tarjeta-dist', 'Estudiantes por rango de promedio', vacio('Sin actas cerradas en el alcance.'), { icono: 'grafica' });
+  const datos = NOMB.map((n, i) => ({ nombre: n, v: ac.act.dist[i], c: comp ? comp.dist[i] : null, color: `var(--ord-${i + 1})`, tip: `Promedio ${n}: ${ac.act.dist[i]} estudiantes (${nf1.format(ac.act.dist[i] * 100 / ac.act.evaluados)} %)${comp ? `\n${M.comp.etiqueta}: ${comp.dist[i]}` : ''}` }));
+  const cuerpo = `${ph(w => svgColumnas(datos, w, { comp: !!comp, etiquetas: 'todas', titulo: 'Estudiantes por rango de promedio' }))}
+    <div class="leyenda"><span><span class="muestra" style="background:var(--ord-3)"></span>${esc(ac.texto)} (de claro a oscuro: promedio más alto)</span>${comp ? `<span><span class="muestra" style="background:var(--serie-comp)"></span>${esc(M.comp.etiqueta)}</span>` : ''}</div>
+    ${comp ? '' : `<p class="nota">${esc(M.comp.falta)}.</p>`}
+    ${tablaDatos('Estudiantes por rango de promedio', ['Rango', 'Estudiantes', ...(comp ? [M.comp.corto] : [])], datos.map(d => [d.nombre, d.v, ...(comp ? [d.c] : [])]))}`;
+  return tarjeta('tarjeta-dist', 'Estudiantes por rango de promedio', cuerpo, { icono: 'grafica', etiqueta: `${ac.act.evaluados} evaluados` });
+}
+function tarjetaMaterias(M) {
+  const ac = M.acad;
+  if (!ac.act) return tarjeta('tarjeta-materias', 'Materias con más reprobación', vacio('Sin actas cerradas en el alcance.'), { icono: 'libro' });
+  const por = new Map();
+  for (const x of ac.act.filas) { const k = (M.niveles.length > 1 ? NIVEL[x.g.nivel].nombre + ' · ' : '') + x.m; const a = por.get(k) || { e: 0, r: 0, nivel: x.g.nivel }; a.e++; if (x.v < CRITERIO.aprobatoria) a.r++; por.set(k, a); }
+  const filas = [...por.entries()].map(([k, a]) => ({ k, ...a, p: a.r * 100 / a.e })).filter(x => x.r).sort((a, b) => b.p - a.p).slice(0, 6);
+  const cuerpo = filas.length ? barras(filas.map(x => ({ nombre: x.k, color: NIVEL[x.nivel].color, v: x.p, texto: pct(x.p), tip: `${x.k}\n${x.r} de ${x.e} calificaciones reprobadas` })), { titulo: 'Materias con más reprobación' }) + `<p class="nota">Porcentaje de calificaciones finales menores a 6.0 en cada materia.</p>` : `<p class="vacio">${icon('check')}<span>0 calificaciones reprobadas en el periodo evaluado.</span></p>`;
+  return tarjeta('tarjeta-materias', 'Materias con más reprobación', cuerpo, { icono: 'libro', etiqueta: ac.texto });
+}
+function tarjetaComparativa(M) {
+  const { tipo, filas } = filasUnidades(M); const comp = M.comp;
+  const cab = { nivel: 'Nivel', grado: M.f.nivel === 'BAC' ? 'Semestre' : 'Grado', grupo: 'Grupo', materia: 'Materia' }[tipo];
+  const filasHTML = filas.map(u => {
+    const d = u.r && u.c ? delta(u.r.prom, u.c.prom, { unidad: '', decimales: 2, contra: comp.corto }) : null;
+    const aprob = u.r ? `<div class="celda-barra"><span class="barra__pista" style="display:block"><span class="barra__relleno" style="width:${u.r.pct}%;background:${u.color || 'var(--serie)'}"></span>${u.c ? `<span class="barra__marca" style="left:calc(${u.c.pct}% - 1px)"></span>` : ''}</span><span class="barra__valor">${pct(u.r.pct)}</span></div>` : '<span class="nota">— sin actas cerradas</span>';
+    const accion = `<button type="button" class="enlace" data-accion="${u.accion}" data-arg="${esc(u.arg)}">${esc(u.nombre)}</button>`;
+    return `<tr><td><span class="unidad">${u.color ? `<span class="punto-nivel" style="background:${u.color}"></span>` : ''}${accion}</span></td>
+      <td class="num" data-col="Estudiantes">${u.est}</td>
+      <td class="num" data-col="Asistencia">${u.asis == null ? '<span class="nota">No aplica</span>' : pct(u.asis)}</td>
+      <td class="td-ancha" data-col="Aprobación">${aprob}</td>
+      <td class="num" data-col="Promedio">${u.r ? nf2.format(u.r.prom) : '—'} ${d ? `<span class="delta delta--${d.tono}">${d.texto.split(' vs')[0]}</span>` : ''}</td>
+      <td class="num" data-col="En seguimiento">${u.seg == null ? '<span class="nota">—</span>' : u.seg}</td></tr>`;
+  }).join('');
+  const cuerpo = `<div class="comparativa-marco"><table class="tcomp"><caption class="solo-lectores">Comparativa por ${esc(cab)}</caption><thead><tr><th scope="col">${cab}</th><th scope="col">Estudiantes</th><th scope="col">Asistencia</th><th scope="col">Aprobación ${comp.res ? '· marca: ' + esc(comp.corto) : ''}</th><th scope="col">Promedio · Δ</th><th scope="col">En seguimiento</th></tr></thead><tbody>${filasHTML}</tbody></table></div>
+    <p class="nota">${tipo === 'materia' ? 'Toca una materia para ver quién la reprueba.' : tipo === 'grupo' ? 'Toca un grupo para abrir su desglose.' : 'Toca un renglón para bajar un nivel; las migas regresan.'} Asistencia: ${esc(M.rango.etiqueta.toLowerCase())}. Calificaciones: ${esc(M.acad.texto)}. ${comp.res ? 'Δ contra ' + esc(comp.etiqueta) + '.' : esc(comp.falta) + '.'}</p>`;
+  return tarjeta('tarjeta-comparativa', 'Comparativa por ' + cab.toLowerCase(), cuerpo, { icono: 'capas', etiqueta: comp.res ? 'Comparado con ' + comp.etiqueta : 'Sin comparación' });
+}
+function migas(M) {
+  const f = M.f, C = M.C; const partes = [['todo', 'Todo el colegio']];
+  if (f.nivel) partes.push(['nivel:' + f.nivel, NIVEL[f.nivel].nombre]);
+  if (f.grado) partes.push(['grado:' + f.grado, GRADO[f.grado].nombre]);
+  if (f.grupo) partes.push(['grupo:' + f.grupo, C.grupo[f.grupo].nombre]);
+  return `<nav class="migas" aria-label="Ruta del alcance">${partes.map(([k, t], i) => i === partes.length - 1 ? `<span aria-current="page">${esc(t)}</span>` : `<button type="button" data-accion="aplicar" data-arg="${k}">${esc(t)}</button>${icon('flecha')}`).join('')}</nav>`;
+}
+function tarjetaRetiros(M) {
+  const C = M.C;
+  if (!C.hoy) return tarjeta('tarjeta-retiros', 'Retiros anticipados de hoy', vacio('No aplica: el ciclo elegido ya terminó.'), { icono: 'salida' });
+  const r = M.retiros;
+  const cuerpo = r.hoy.length ? `<div>${r.hoy.map(x => { const pasada = x.estado === 'avisado' && x.hora < C.corte; return `<div class="retiro"><span class="retiro__hora">${x.hora}</span><div><button type="button" class="enlace" data-accion="estudiante" data-arg="${x.st.id}">${esc(x.st.nombre)}</button><p class="nota">${esc(x.st.grupo.nombre)} · avisó ${esc(x.tutor)} (tutora o tutor)</p></div>${x.estado === 'retirado' ? `<span class="chip chip--ok">${icon('check')}Salió</span>` : pasada ? `<span class="chip chip--alta">${icon('alerta')}Hora pasada</span>` : `<span class="chip chip--info">${icon('reloj')}Avisado</span>`}</div>`; }).join('')}</div>` : `<p class="vacio">${icon('check')}<span>0 retiros avisados para hoy en el alcance.</span></p>`;
+  return tarjeta('tarjeta-retiros', 'Retiros anticipados de hoy', cuerpo + (r.atrasados.length ? `<p class="nota">${r.atrasados.length} de días anteriores sin confirmar ni cancelar.</p>` : ''), { icono: 'salida', etiqueta: `${r.hoy.filter(x => x.estado === 'avisado').length} por confirmar`, accion: botonSistema('Retiros', 'Retiros › Hoy') });
+}
+function tarjetaPendientes(M) {
+  const items = M.pend;
+  const cuerpo = items.length ? `<div>${items.map(x => `<div class="pendiente"><span class="fila-alerta__icono fila-alerta__icono--${x.prioridad}">${icon(x.icono)}</span>
+      <div><p class="pendiente__area">${esc(x.area)}</p><p class="pendiente__texto">${esc(x.texto)}</p><p class="pendiente__detalle">${esc(x.detalle)}</p>
+      ${x.grupos ? `<div class="pendiente__grupos">${x.grupos.map(g => `<button type="button" class="chip-filtro" data-accion="grupo" data-arg="${g.id}">${esc(g.nombre)}</button>`).join('')}</div>` : ''}</div>
+      <div style="display:grid;gap:6px;justify-items:end">${chip(x.prioridad)}<button type="button" class="boton" data-accion="lista" data-arg="${x.tipo}" data-extra="${esc(x.arg || '')}">Abrir</button></div></div>`).join('')}</div>`
+    : `<p class="vacio">${icon('check')}<span>Nada pendiente en el alcance.</span></p>`;
+  return tarjeta('tarjeta-pendientes', 'Pendientes del día', cuerpo, { icono: 'lista', etiqueta: `${items.length} ${plural(items.length, 'asunto')}` });
+}
+
+/* ==========================================================================================================
+   Las tres propuestas
+   ========================================================================================================== */
+function d1(M) {
+  const K = kpiDatos(M);
+  return `${cabecera(M, 1, 'Resumen ejecutivo', 'dirección')}
+    ${filtrosHTML('barra')}
+    <section class="rej rej--kpi6" aria-label="Indicadores principales">${[K.matricula, K.asistencia, K.aprobacion, K.seguimiento, K.captura, K.hoy].map(k => kpi(k)).join('')}</section>
+    <div class="rej rej--d1a">${tarjetaAlertas(M)}${tarjetaAsistencia(M)}${tarjetaAprobacion(M)}</div>
+    <h3 class="seccion-titulo">Por tema</h3>
+    <div class="rej rej--3">${tarjetaMatricula(M)}${tarjetaSeguimiento(M, { max: 5 })}${tarjetaConducta(M)}</div>
+    <div class="rej rej--2">${tarjetaAgenda(M)}${tarjetaCapturaResumen(M)}</div>
+    ${leyendaEstados()}`;
+}
+function d2(M) {
+  const K = kpiDatos(M);
+  return `<div class="d2"><aside class="d2__riel">${filtrosHTML('riel')}${leyendaEstados('solo-ancho')}</aside>
+    <div class="d2__principal" style="min-width:0">
+      ${cabecera(M, 2, 'Análisis académico', 'coordinación')}
+      ${migas(M)}
+      <section class="rej rej--kpi5" aria-label="Indicadores del alcance">${[K.promedio, K.aprobacionComp, K.reprobados, K.asistencia, K.seguimiento].map(k => kpi(k, true)).join('')}</section>
+      <div class="rej">${tarjetaComparativa(M)}</div>
+      <div class="rej">${tarjetaMapa(M)}</div>
+      <div class="rej rej--2">${tarjetaDistribucion(M)}${tarjetaMaterias(M)}</div>
+      <div class="rej rej--2">${tarjetaAsistencia(M)}${tarjetaConductaNiveles(M)}</div>
+      ${leyendaEstados('solo-angosto')}
+    </div></div>`;
+}
+function d3(M) {
+  const C = M.C, h = M.hoy, K = kpiDatos(M);
+  let cabezaHoy;
+  if (h.aplica) {
+    const tot = h.esperados || 1;
+    cabezaHoy = `<div class="hoy-cabeza"><div><p class="d-cabeza__ojo">Propuesta 3 · Operación diaria · seguimiento del día</p><p class="hoy-cabeza__fecha">${esc(fLarga(C.hoy).replace(/ de \d{4}$/, ''))} <span>· ${C.corte}</span></p>
+        <p class="d-cabeza__alcance"><strong>${esc(alcanceTexto(M.f))}</strong> · Ciclo ${esc(C.nombre)} · <span class="chip-ejemplo">Datos de ejemplo</span></p></div>
+      <div class="hoy-progreso"><p class="nota"><strong>Entrada al colegio:</strong> ${h.con} con registro · ${h.sinReg} sin registro · ${h.fal} ${plural(h.fal, 'falta')} ${plural(h.fal, 'registrada')} · ${h.susp} ${plural(h.susp, 'suspendido')}</p>
+        <div class="hoy-progreso__barra" role="img" aria-label="${h.con} con registro, ${h.sinReg} sin registro y ${h.fal} faltas de ${h.esperados} esperados">
+          <span style="flex:${h.con};background:var(--zafiro)" data-tip="Con registro: ${h.con}"></span><span style="flex:${h.fal};background:var(--tinto)" data-tip="Faltas registradas: ${h.fal}"></span><span style="flex:${h.sinReg};background:var(--borde-fuerte)" data-tip="Sin registro: ${h.sinReg}"></span></div>
+        <div class="leyenda"><span><span class="muestra" style="background:var(--zafiro)"></span>Con registro ${nf1.format(h.con * 100 / tot)} %</span><span><span class="muestra" style="background:var(--tinto)"></span>Falta registrada</span><span><span class="muestra" style="background:var(--borde-fuerte)"></span>Sin registro todavía</span></div></div></div>`;
+  } else cabezaHoy = cabecera(M, 3, 'Operación diaria', 'el seguimiento del día') + `<p class="vacio" style="margin-top:12px">${icon('info')}<span>${esc(h.motivo)} Las cifras de hoy no aplican; abajo quedan las tendencias del ciclo.</span></p>`;
+  const conHoy = h.aplica;
+  const tiles = conHoy ? [
+    { titulo: 'Sin registro de entrada', icono: 'reloj', ficha: 'hoy', tono: 'oro', valor: String(h.sinReg), estado: 'parcial', sub: 'Se vuelven falta al cerrar el día', corte: 'Hoy a las ' + C.corte, accion: ['lista', 'sinregistro', 'Ver quiénes'] },
+    { titulo: 'Faltas registradas hoy', icono: 'ausente', ficha: 'hoy', tono: 'tinto', valor: String(h.fal), estado: 'parcial', sub: 'Capturadas por prefectura o con aviso', corte: 'Hoy a las ' + C.corte },
+    { titulo: 'Clases sin pase de lista', icono: 'lista', ficha: 'captura', tono: 'zafiro', valor: String(h.porGrupo.reduce((s, x) => s + Math.max(0, x.clases.prog - x.clases.con), 0)), estado: 'ok', sub: `de ${h.porGrupo.reduce((s, x) => s + x.clases.prog, 0)} clases dadas hasta las ${C.corte}`, corte: 'Hoy, clases ya iniciadas' },
+    { titulo: 'Retiros por confirmar', icono: 'salida', ficha: 'retiros', tono: 'aqua', valor: String(M.retiros.hoy.filter(x => x.estado === 'avisado').length), estado: 'ok', sub: `${M.retiros.hoy.filter(x => x.estado === 'retirado').length} ya salieron`, corte: 'Hoy', accion: ['ir', 'tarjeta-retiros', 'Ver retiros'] },
+    { titulo: 'Incidencias de hoy', icono: 'bandera', ficha: 'conducta', tono: 'tinto', valor: String(M.cond.hoy), estado: 'ok', sub: M.cond.hoy ? 'Registradas hoy' : 'Sin incidencias registradas hoy', corte: 'Hoy a las ' + C.corte },
+  ] : [K.matricula, K.asistencia, K.aprobacion, K.seguimiento, K.captura];
+  return `${cabezaHoy}${filtrosHTML('compacto')}
+    <section class="rej rej--kpi5" aria-label="Cifras de hoy">${tiles.map(k => kpi(k, true)).join('')}</section>
+    <div class="rej rej--d3"><div class="pila">${tarjetaPendientes(M)}${tarjetaSeguimiento(M, { max: 6, filtros: true })}</div>
+      <div class="pila">${tarjetaAgenda(M)}${tarjetaRetiros(M)}${tarjetaCapturaGrupos(M, true)}</div></div>
+    <h3 class="seccion-titulo">Tendencias · ${esc(M.rango.etiqueta.toLowerCase())}</h3>
+    <div class="rej rej--2">${tarjetaAsistencia(M)}${tarjetaConductaNiveles(M)}</div>
+    <div class="rej">${tarjetaMapa(M)}</div>
+    ${leyendaEstados()}`;
+}
+
+/* ==========================================================================================================
+   Comparativa, fichas y decisiones
+   ========================================================================================================== */
+const FICHAS = {
+  matricula: { titulo: 'Estudiantes activos', fuente: 'Inscripciones del ciclo elegido que siguen activas, de estudiantes con estatus Activo (Filtros.inscripciones()).', formula: 'Estudiantes distintos dentro del alcance.', corte: 'Al momento de consultar.', denominador: 'No aplica: es un conteo.', nota: 'Bachillerato tiene dos inscripciones por ciclo (semestre A y B): cuenta la vigente, no la concluida.' },
+  asistencia: { titulo: 'Asistencia de entrada', fuente: 'Registros de entrada al colegio (AsistenciaGeneral), sin días sin clases del nivel ni días de suspensión autorizada.', formula: '(Presentes + retardos) ÷ registros de entrada de los días cerrados del rango × 100.', corte: 'El rango elegido. Hoy y los días sin cerrar se dibujan aparte como parciales y no entran en el porcentaje.', denominador: 'Registros capturados, no estudiantes esperados: un día sin captura no cuenta como falta.', nota: 'Cambio respecto del panel actual: hoy el porcentaje del rango incluye el día en curso.' },
+  hoy: { titulo: 'Entrada de hoy', fuente: 'Registros de entrada de hoy.', formula: 'Con registro = presentes + retardos. Sin registro = esperados − registros − suspendidos.', corte: 'La hora de la consulta. Las faltas de quien no registró entrada se generan al cerrar el día.', denominador: 'Estudiantes esperados hoy (sin suspendidos).', nota: 'Siempre se marca como parcial: hasta el cierre del día no es definitiva.' },
+  aprobacion: { titulo: 'Aprobación del periodo', fuente: 'Calificaciones finales de las actas cerradas (las mismas del portal y la Vista 360). Las actas en captura no cuentan.', formula: 'Estudiantes sin materias con final menor a la aprobatoria ÷ estudiantes con al menos una calificación cerrada × 100.', corte: 'El periodo evaluado de cada nivel: el elegido o, por omisión, el más reciente con actas cerradas.', denominador: 'Estudiantes evaluados en el periodo.', pendiente: 'Aprobatoria 6.0 propuesta (Ajustes › Seguimiento). Falta decidir si preescolar entra con calificación numérica y si bachillerato se mide por parcial o por semestre.' },
+  promedio: { titulo: 'Promedio del periodo', fuente: 'Calificaciones finales de las actas cerradas, solo escala de 10.', formula: 'Promedio de todas las calificaciones finales (cada materia de cada estudiante cuenta una vez).', corte: 'El periodo evaluado de cada nivel.', denominador: 'Calificaciones finales capturadas y cerradas; las pendientes no cuentan como cero.', nota: 'Mezclar niveles da una cifra poco útil: la comparativa por nivel la separa.' },
+  reprobados: { titulo: 'Estudiantes con materias reprobadas', fuente: 'Calificaciones finales de las actas cerradas.', formula: 'Estudiantes distintos con al menos una final menor a la aprobatoria de su nivel.', corte: 'El periodo evaluado de cada nivel.', denominador: 'Estudiantes evaluados.', pendiente: 'Aprobatoria 6.0 propuesta.' },
+  seguimiento: { titulo: 'Estudiantes en seguimiento', fuente: 'Alertas preventivas de Panel/seguimiento.py con los criterios de cada nivel.', formula: 'Estudiantes únicos con al menos una alerta de inasistencia o de rendimiento.', corte: 'Asistencia: periodo actual del nivel hasta ayer (días cerrados). Calificaciones: periodo evaluado.', denominador: 'Estudiantes activos del alcance, para el porcentaje.', pendiente: 'Umbrales propuestos sin validar: 5 faltas sin justificar, 3 seguidas, 10 % de inasistencia con 10 días mínimos, promedio 7.0, descenso de 1.0, 3 reprobadas para prioridad alta.' },
+  captura: { titulo: 'Avance de captura', fuente: 'Actas de calificaciones (estado) y pase de lista por clase (AsistenciaMateria contra horarios).', formula: 'Actas cerradas ÷ actas esperadas (materias × grupos) de periodos terminados. Pase de lista: clases con lista ÷ clases programadas.', corte: 'Hoy, sobre periodos ya terminados; el periodo en curso se informa aparte.', denominador: 'Actas y clases esperadas según el plan de materias y los horarios.', pendiente: 'Las clases base que un bloque simultáneo sustituye todo el periodo no deben contarse como esperadas (hoy el panel las cuenta).' },
+  conducta: { titulo: 'Incidencias de conducta', fuente: 'Registros de conducta vigentes (sin anulados) de tipo incidencia.', formula: 'Incidencias registradas; para comparar niveles de distinto tamaño, por cada 100 estudiantes activos.', corte: 'El rango elegido; «hoy» solo en el ciclo actual.', denominador: 'Estudiantes activos del nivel (en la tasa por 100).' },
+  retiros: { titulo: 'Retiros anticipados', fuente: 'Avisos de retiro de hoy dentro del alcance del usuario (Retiros.alcance).', formula: 'Retiros avisados sin confirmar; aparte, los ya realizados.', corte: 'Hoy.', denominador: 'No aplica.' },
+};
+function comparativa() {
+  const filasComp = [
+    ['1 · Resumen ejecutivo', 'Dirección', '¿Cómo va el colegio y qué necesita una decisión esta semana? Seis cifras con su corte, las alertas prioritarias y las dos gráficas que las explican (asistencia diaria y aprobación por nivel) en la primera pantalla.', 'Para encontrar el origen de un cambio hay que bajar de nivel varias veces, y no deja elegir contra qué comparar.', 'Bajo a medio. Reutiliza casi todo Panel/indicadores.py y seguimiento.py; falta aprobación por estudiante, la cifra del rango previo, la serie semanal y el desglose de matrícula.'],
+    ['2 · Análisis académico', 'Coordinación', '¿En qué nivel, grado, grupo o materia está el problema? Comparativa con asistencia, aprobación, promedio y seguimiento en una sola tabla, migas para subir y bajar, y comparación con el periodo o el ciclo anterior.', 'Pide más lectura y filtros; lo del día (entradas, retiros, pendientes) queda fuera.', 'Alto. Comparativa por unidad, emparejar periodos entre ciclos, mapa de calor por grupo y día y su página propia (el panel no alcanza).'],
+    ['3 · Operación diaria', 'Seguimiento del día', '¿Qué hay que resolver antes de que termine el día? Entrada de hoy con su corte, pendientes con su acción, estudiantes en seguimiento, agenda y retiros; las tendencias quedan abajo.', 'Cambia mucho durante el día y no sirve para evaluar el periodo; con el ciclo terminado casi todo queda en «No aplica».', 'Medio. Lo de hoy ya existe (entrada_del_dia, retiros, conducta, días sin cerrar); falta el pase de lista de hoy por grupo y la lista de actas vencidas por grupo y materia.'],
+  ];
+  const problemas = [
+    ['La agenda desplaza los indicadores.', '«Próximos eventos» se dibuja antes que los filtros y las cifras (templates/panel/inicio.html, línea 45). En la demo muestra seis eventos, cuatro de ellos el mismo periodo de captura repetido por nivel; en una ventana de 800 px ocupa toda la primera pantalla.'],
+    ['Las cifras principales mezclan cortes y gastan lugares en ceros.', 'La fila de seis tarjetas combina hoy, periodo y ciclo sin un corte uniforme. «Incidencias de hoy 0» y «Retiros de hoy 0» ocupan dos lugares mientras los 27 estudiantes en seguimiento y las actas sin cerrar quedan abajo. «Rendimiento académico 8.11» promedia preescolar con bachillerato.'],
+    ['«Requiere atención» mezcla unidades con el mismo peso.', 'Días, materias, casos y estudiantes aparecen como renglones iguales. «151 estudiantes sin registro de entrada hoy» repite la tarjeta de asistencia y, a media mañana, no es una falta.'],
+    ['Gráficas que no dejan comparar ni localizar.', 'La asistencia por nivel (96 %, 97 %, 97 %, 97 %) se ve igual en todas las barras; la tendencia de conducta solo rotula la última semana o la máxima; el avance de captura es una sola barra de todo el colegio (0 cerradas, 92 en captura, 0 sin abrir) sin decir qué grupos faltan. No hay vista por grupo y fecha.'],
+    ['Filtros difíciles de leer.', 'Siete controles en una fila; bachillerato aparece como «10.º, 12.º, 14.º» (la equivalencia) sin la palabra semestre, y el periodo sin nivel lista «Bimestre 1» tres veces.'],
+  ];
+  const decisiones = [
+    ['Umbrales de seguimiento', 'Siguen los valores propuestos del 18 de octubre (5 faltas, 3 seguidas, 10 %, 10 días, 6.0, 7.0, 1.0 y 3 reprobadas). Las tres propuestas los rotulan como «propuestos». Ojo: a mitad de bimestre, con 15 días con registro, 2 faltas ya rebasan el 10 % de inasistencia; en los datos de ejemplo eso explica casi todas las alertas por inasistencia.'],
+    ['Preescolar en promedio y aprobación', 'El sistema guarda calificación numérica en preescolar. Falta decidir si se promedia junto con los demás niveles o se informa aparte.'],
+    ['Bachillerato', 'Medir la aprobación por parcial (como ahora) o por semestre (final ordinaria, extraordinario y regularización).'],
+    ['Meta de asistencia', 'No hay meta institucional; ninguna gráfica dibuja una línea de meta hasta que se defina.'],
+    ['Periodo elegido sin actas cerradas', 'Hoy el panel retrocede al último periodo con actas. La propuesta: si el periodo se eligió a mano, mostrar «Sin datos» en vez de cambiarlo sin avisar.'],
+    ['Día en curso en la asistencia del rango', 'La propuesta lo deja fuera del porcentaje (es parcial) y lo dibuja aparte.'],
+    ['Avance del periodo en curso', 'Contar calificaciones capturadas dentro de actas en captura requiere revisar cómo se guardan; hoy solo se distingue cerrada, en captura o sin acta.'],
+    ['Finanzas', 'El sistema no tiene módulo de finanzas: no se propone ningún indicador financiero.'],
+  ];
+  return `<div class="doc">
+    <div class="d-cabeza"><div><p class="d-cabeza__ojo">Primera entrega · 12 de noviembre de 2026</p><h2>Comparativa, recomendación y criterios</h2><p class="d-cabeza__alcance">Las tres propuestas usan los mismos datos de ejemplo: 402 estudiantes ficticios en 17 grupos.</p></div><span class="chip-ejemplo">${icon('info', 'ic ic--xs')}Datos de ejemplo</span></div>
+    <section class="tarjeta"><h3>Qué decisión facilita cada diseño</h3><div class="tabla-datos__marco" style="max-height:none"><table class="tabla"><thead><tr><th>Propuesta</th><th>Para</th><th>Decisión que facilita</th><th>Principal desventaja</th><th>Esfuerzo de integración</th></tr></thead><tbody>${filasComp.map(f => `<tr>${f.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>
+    <section class="tarjeta recomendacion"><p class="d-cabeza__ojo">Recomendación</p><h3>Propuesta 1, con la franja de hoy de la 3 y la comparativa de la 2 como desglose</h3>
+      <ul>
+        <li><strong>Responde lo que pides en la primera pantalla.</strong> Cómo va el colegio (seis cifras con su corte), qué requiere atención (alertas prioritarias con su unidad) y el detalle a un toque (Vista 360, desglose de matrícula, aprobación por grado y grupo).</li>
+        <li><strong>Es la de menor riesgo.</strong> Casi todo lo calcula ya Panel/indicadores.py con las reglas de cada módulo; el cambio es sobre todo de jerarquía, cortes y estados.</li>
+        <li><strong>El tamaño del colegio no pide más.</strong> Con unos 400 estudiantes y 17 grupos, una sola página cubre a dirección; coordinación ya tiene los reportes de Calificaciones y Asistencias para el análisis fino.</li>
+        <li><strong>Lo que tomaría de las otras.</strong> De la 3, una franja compacta «Hoy» (entrada con su hora de corte, sin registro, retiros por confirmar) solo en el ciclo actual. De la 2, la tabla comparativa y el mapa de calor como desglose al tocar aprobación o asistencia, para no cargar el panel.</li>
+      </ul></section>
+    <section class="tarjeta"><h3>Problemas del panel actual</h3><p class="nota">Revisados en el código (Panel/views.py, indicadores.py, templates/panel/inicio.html) y en la demo del 12 de noviembre.</p><ol>${problemas.map(([t, d]) => `<li><strong>${esc(t)}</strong> ${esc(d)}</li>`).join('')}</ol></section>
+    <section class="tarjeta"><h3>Fichas de los indicadores principales</h3><div class="tabla-datos__marco" style="max-height:none"><table class="tabla"><thead><tr><th>Indicador</th><th>Fuente</th><th>Fórmula</th><th>Corte</th><th>Denominador</th></tr></thead><tbody>${['matricula', 'asistencia', 'hoy', 'aprobacion', 'seguimiento', 'captura', 'conducta'].map(k => { const x = FICHAS[k]; return `<tr><td>${esc(x.titulo)}</td><td>${esc(x.fuente)}</td><td>${esc(x.formula)}</td><td>${esc(x.corte)}</td><td>${esc(x.denominador)}${x.pendiente ? `<br>${chip('media', 'Pendiente')} ${esc(x.pendiente)}` : ''}</td></tr>`; }).join('')}</tbody></table></div></section>
+    <section class="tarjeta"><h3>Gráficas propuestas</h3><ol>
+      <li><strong>Asistencia de entrada por día</strong> (línea): días cerrados, días sin cerrar como punto hueco y días sin captura como «—». Propuestas 1, 2 y 3.</li>
+      <li><strong>Aprobación por nivel, grado, grupo o materia</strong> (barras de 0 a 100 % con marca del periodo anterior): baja de nivel al tocarla. Propuesta 1.</li>
+      <li><strong>Faltas por grupo y día</strong> (mapa de calor; con un solo grupo, por estudiante con letras P/R/F/J). Propuestas 2 y 3.</li>
+      <li><strong>Estudiantes por rango de promedio</strong> (columnas, con la comparación al lado). Propuesta 2.</li>
+      <li><strong>Materias con más reprobación</strong> (barras). Propuesta 2.</li>
+      <li><strong>Matrícula por nivel</strong> (barras con desglose por grado o semestre). Propuesta 1.</li>
+      <li><strong>Seguimiento por motivo</strong> (barras exclusivas: solo inasistencia, solo rendimiento, ambos) con lista a la Vista 360. Propuestas 1 y 3.</li>
+      <li><strong>Conducta</strong> por categoría y por semana, y por cada 100 estudiantes al comparar niveles. Propuestas 1, 2 y 3.</li>
+      <li><strong>Avance de captura</strong> (medidores capturado / esperado por nivel y por grupo). Propuestas 1 y 3.</li></ol></section>
+    <section class="tarjeta"><h3>Decisiones pendientes de validar</h3><ul>${decisiones.map(([t, d]) => `<li><strong>${esc(t)}.</strong> ${esc(d)}</li>`).join('')}</ul></section>
+  </div>`;
+}
+
+/* ==========================================================================================================
+   Diálogos (desgloses)
+   ========================================================================================================== */
+const dlg = document.getElementById('dialogo');
+function abrirDialogo(titulo, sub, html) {
+  document.getElementById('dlg-titulo').textContent = titulo;
+  document.getElementById('dlg-sub').textContent = sub || '';
+  document.getElementById('dlg-cuerpo').innerHTML = html;
+  if (!dlg.open) dlg.showModal();
+  dlg.querySelector('.dlg__cuerpo').scrollTop = 0;
+}
+function dlgEstudiante(id) {
+  const st = EST.get(id); if (!st) return;
+  const C = st.ciclo, g = st.grupo, n = g.nivel;
+  const ac = academico(C, { ...S.f, nivel: n, grado: '', grupo: '', periodo: '' }, [g], [n]).porNivel[n];
+  const seg = seguimiento(C, [g], [n], academico(C, { ...S.f, nivel: n, grado: '', grupo: '', periodo: '' }, [g], [n])).lista.find(a => a.st === st);
+  const ult = C.dias.slice(-20);
+  const cuenta = { 0: 0, 1: 0, 2: 0, 3: 0 }; ult.forEach(d => { const s = st.asis[C.idx.get(d)]; if (s in cuenta) cuenta[s]++; });
+  const celdas = ult.map(d => { const s = st.asis[C.idx.get(d)]; const [cls, t, txt] = s === 0 ? ['c0', 'Presente', ''] : s === 1 ? ['c-ret', 'Retardo', 'R'] : s === 2 ? ['c-fal', 'Falta', 'F'] : s === 3 ? ['c-jus', 'Justificada', 'J'] : s === 7 ? ['c-sus', 'Suspensión', 'S'] : s === 8 ? ['c-par', 'Sin registro (día sin cerrar)', '◐'] : ['c-sin', 'Sin captura', '—']; return `<div class="celda ${cls}" style="--celda:22px;height:22px" data-tip="${esc(fDia(d) + ': ' + t)}"><span aria-hidden="true">${txt}</span><span class="solo-lectores">${esc(fDia(d) + ': ' + t)}</span></div>`; }).join('');
+  const notas = ac.res ? ac.res.porEst.get(st) || [] : []; const previas = ac.ant ? ac.ant.porEst.get(st) || [] : [];
+  const inc = C.incidencias.filter(x => x.st === st);
+  abrirDialogo(st.nombre, `${g.nombre} · ${NIVEL[n].nombre} · Ciclo ${C.nombre} · Vista 360 resumida (datos de ejemplo)`, `
+    ${seg ? `<div><p class="subtitulo">Por qué requiere atención ${chip(seg.prioridad)}</p><ul style="margin:6px 0 0;padding-left:18px">${seg.motivos.map(([, t]) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : `<p class="vacio">${icon('check')}<span>Sin alertas con los criterios propuestos.</span></p>`}
+    <div><p class="subtitulo">Asistencia de entrada · últimos 20 días de clases</p><div style="display:grid;grid-template-columns:repeat(20,minmax(0,22px));gap:2px;margin-top:8px">${celdas}</div>
+      <p class="nota" style="margin-top:6px">${cuenta[0]} presentes · ${cuenta[1]} retardos · ${cuenta[2]} faltas sin justificar · ${cuenta[3]} justificadas</p></div>
+    <div><p class="subtitulo">Calificaciones · ${esc(ac.evaluado ? ac.evaluado.nombre : 'sin actas cerradas')}</p>${notas.length ? `<div class="tabla-datos__marco" style="max-height:none"><table class="tabla"><thead><tr><th>Materia</th><th class="num">Final</th><th class="num">${esc(ac.anterior ? ac.anterior.nombre : 'Anterior')}</th><th>Estado</th></tr></thead><tbody>${notas.map(x => { const p = previas.find(y => y.m === x.m); return `<tr><td>${esc(x.m)}</td><td class="num">${nf1.format(x.v)}</td><td class="num">${p ? nf1.format(p.v) : '—'}</td><td>${x.v < 6 ? chip('alta', 'Reprobada') : '<span class="nota">Aprobada</span>'}</td></tr>`; }).join('')}</tbody></table></div>${ac.actas.cerradas < ac.actas.esperadas ? `<p class="nota">${chip('parcial')} ${ac.actas.esperadas - ac.actas.cerradas} materias del grupo siguen sin acta cerrada.</p>` : ''}` : vacio('Sin calificaciones cerradas en el periodo.')}</div>
+    <div><p class="subtitulo">Conducta en el ciclo</p>${inc.length ? `<ul style="margin:6px 0 0;padding-left:18px">${inc.slice(-3).reverse().map(x => `<li>${esc(fDia(x.fecha))} · ${esc(x.cat)}${x.abierto ? ' · caso abierto' : ''}</li>`).join('')}</ul>` : '<p class="nota">0 incidencias registradas.</p>'}</div>
+    <div class="tarjeta__pie"><span class="nota">Tutor: ${esc(st.tutor)}</span>${botonSistema('Abrir la Vista 360 completa', 'Estudiantes › Vista 360 de ' + st.nombre)}</div>`);
+}
+function dlgGrupo(id) {
+  const C = CIC[S.f.ciclo], g = C.grupo[id]; if (!g) return;
+  const f = { ...S.f, nivel: g.nivel, grado: g.grado, grupo: g.id, periodo: S.f.nivel === g.nivel ? S.f.periodo : '' };
+  const Mg = calcular(f);
+  const r = Mg.acad.act;
+  const porMat = r ? MATERIAS[g.nivel].map(([m]) => { const fs = r.filas.filter(x => x.m === m); return fs.length ? { m, p: prom(fs.map(x => x.v)), rep: fs.filter(x => x.v < 6).length, n: fs.length } : { m, p: null }; }) : [];
+  abrirDialogo('Grupo ' + g.nombre, `${GRADO[g.grado].nombre} · ${NIVEL[g.nivel].nombre} · Ciclo ${C.nombre} · datos de ejemplo`, `
+    <dl class="cifras cifras--4"><div class="cifra"><dt>Estudiantes</dt><dd>${g.estudiantes.length}</dd></div><div class="cifra"><dt>Asistencia</dt><dd>${pct(Mg.asis.tot.pct)}</dd></div><div class="cifra"><dt>Aprobación</dt><dd>${r ? pct(r.pct) : '—'}</dd></div><div class="cifra"><dt>En seguimiento</dt><dd>${Mg.seg.total}</dd></div></dl>
+    <div><p class="subtitulo">Promedio por materia · ${esc(Mg.acad.texto)}</p>${r ? barras(porMat.map(x => ({ nombre: x.m, v: x.p, texto: x.p == null ? '<small>sin acta cerrada</small>' : `${nf2.format(x.p)}${x.rep ? ` <small>${x.rep} rep.</small>` : ''}`, color: NIVEL[g.nivel].color, tip: x.p == null ? x.m + ': acta sin cerrar' : `${x.m}: promedio ${nf2.format(x.p)}\n${x.rep} de ${x.n} reprobados` })), { max: 10, titulo: 'Promedio por materia' }) + '<p class="nota">Escala de 0 a 10.</p>' : vacio('Sin actas cerradas.')}</div>
+    <div><p class="subtitulo">Estudiantes que requieren atención</p>${Mg.seg.lista.length ? `<ul class="lista">${Mg.seg.lista.map(filaEstudiante).join('')}</ul>` : '<p class="nota">Ninguno con los criterios propuestos.</p>'}</div>
+    <div class="tarjeta__pie"><span class="nota">Asistencia: ${esc(Mg.rango.etiqueta.toLowerCase())}.</span><button type="button" class="boton boton--primario" data-accion="aplicar" data-arg="grupo:${g.id}">Ver el panel de este grupo</button></div>`);
+}
+function dlgMateria(m) {
+  const r = M.acad.act; const fs = r ? r.filas.filter(x => x.m === m) : [];
+  const rep = fs.filter(x => x.v < 6).sort((a, b) => a.v - b.v);
+  abrirDialogo(m, `${alcanceTexto(S.f)} · ${M.acad.texto} · datos de ejemplo`, `
+    <dl class="cifras"><div class="cifra"><dt>Promedio</dt><dd>${fs.length ? nf2.format(prom(fs.map(x => x.v))) : '—'}</dd></div><div class="cifra"><dt>Reprobados</dt><dd>${rep.length} <small style="font-size:12px;font-weight:400">de ${fs.length}</small></dd></div></dl>
+    ${rep.length ? `<ul class="lista">${rep.map(x => `<li><div class="estudiante"><button type="button" class="enlace estudiante__nombre" data-accion="estudiante" data-arg="${x.st.id}">${esc(x.st.nombre)}</button><span class="chip chip--alta">${icon('alerta')}${nf1.format(x.v)}</span></div></li>`).join('')}</ul>` : `<p class="vacio">${icon('check')}<span>0 reprobados en esta materia.</span></p>`}`);
+}
+function dlgLista(tipo, extra) {
+  const C = M.C;
+  if (tipo === 'seguimiento' || tipo === 'alta') {
+    const lista = tipo === 'alta' ? M.seg.lista.filter(a => a.prioridad === 'alta') : M.seg.lista;
+    return abrirDialogo(tipo === 'alta' ? 'Estudiantes con prioridad alta' : 'Estudiantes que requieren atención', `${alcanceTexto(S.f)} · ${lista.length} ${plural(lista.length, 'estudiante')} · criterios propuestos`, lista.length ? `<ul class="lista">${lista.map(filaEstudiante).join('')}</ul>` : vacio('Ninguno con los criterios propuestos.'));
+  }
+  if (tipo === 'actas') {
+    const v = M.cap.flatMap(x => x.actas.vencidas);
+    return abrirDialogo('Actas de periodos terminados sin cerrar', `${alcanceTexto(S.f)} · ${v.length} ${plural(v.length, 'acta')}`, v.length ? `<div class="tabla-datos__marco" style="max-height:none"><table class="tabla"><thead><tr><th>Grupo</th><th>Materia</th><th>Periodo</th><th>Terminó</th><th>Estado</th></tr></thead><tbody>${v.map(x => `<tr><td>${esc(x.g.nombre)}</td><td>${esc(x.m)}</td><td>${esc(x.p.nombre)}</td><td>${esc(fDia(x.p.hasta))}</td><td>${x.e === 'captura' ? chip('parcial', 'En captura') : chip('alta', 'Sin acta')}</td></tr>`).join('')}</tbody></table></div><div>${botonSistema('Ir a Calificaciones', 'Calificaciones › Actas pendientes')}</div>` : vacio('Todas las actas de periodos terminados están cerradas.'));
+  }
+  if (tipo === 'sinregistro') {
+    if (!M.hoy.aplica) return abrirDialogo('Sin registro de entrada', '', vacio(M.hoy.motivo));
+    const i = C.idx.get(C.hoy);
+    const filas = M.hoy.porGrupo.filter(x => x.sinReg).sort((a, b) => b.sinReg - a.sinReg);
+    return abrirDialogo('Sin registro de entrada hoy', `Corte ${C.corte} · ${M.hoy.sinReg} estudiantes · aún no son faltas`, `${barras(filas.map(x => ({ nombre: x.g.nombre, color: NIVEL[x.g.nivel].color, v: x.sinReg, texto: `${x.sinReg} <small>de ${x.g.estudiantes.length}</small>`, tip: x.g.estudiantes.filter(st => st.asis[i] === 8).map(st => st.nombre).join('\n') })), { titulo: 'Sin registro por grupo' })}<p class="nota">Pasa el cursor sobre un grupo para ver los nombres. Al cerrar el día se generan sus faltas.</p>${botonSistema('Abrir Asistencias › Día', 'Asistencias › Día con estado «Sin registro»')}`);
+  }
+  if (tipo === 'captura') {
+    return abrirDialogo('Avance de captura por grupo', `${alcanceTexto(S.f)} · pase de lista: ${M.rango.etiqueta.toLowerCase()}`, tarjetaCapturaGrupos(M, false).replace(/<section[^>]*>|<\/section>/g, ''));
+  }
+  if (tipo === 'conducta') {
+    const v = M.cond.vencidos;
+    return abrirDialogo('Casos con revisión vencida', `${alcanceTexto(S.f)} · ${v.length} ${plural(v.length, 'caso')}`, v.length ? `<ul class="lista">${v.map(x => `<li><div class="estudiante"><button type="button" class="enlace estudiante__nombre" data-accion="estudiante" data-arg="${x.st.id}">${esc(x.st.nombre)}</button>${chip('alta', 'Vencida ' + fCorta(x.revision))}<p class="estudiante__meta">${esc(x.g.nombre)} · ${esc(x.cat)} · registrada el ${esc(fDia(x.fecha))}</p></div></li>`).join('')}</ul>` : vacio('Ningún caso vencido.'));
+  }
+  if (tipo === 'retiros') { cerrarYIr('tarjeta-retiros'); return; }
+  if (tipo === 'paselista') { return dlgLista('captura'); }
+  if (tipo === 'dias') return sistema('Asistencias › Cerrar días pendientes');
+  if (tipo === 'sistema') return sistema(extra);
+}
+function dlgFicha(k) {
+  const x = FICHAS[k]; if (!x) return;
+  abrirDialogo(x.titulo, 'Cómo se calcula', `<dl style="display:grid;gap:10px;margin:0">${[['Fuente', x.fuente], ['Fórmula', x.formula], ['Corte', x.corte], ['Denominador', x.denominador]].map(([t, d]) => `<div><dt class="subtitulo">${t}</dt><dd style="margin:2px 0 0">${esc(d)}</dd></div>`).join('')}</dl>
+    ${x.pendiente ? `<p class="vacio">${icon('aviso')}<span><strong>Pendiente de validar.</strong> ${esc(x.pendiente)}</span></p>` : ''}${x.nota ? `<p class="nota">${esc(x.nota)}</p>` : ''}`);
+}
+
+/* ==========================================================================================================
+   Eventos
+   ========================================================================================================== */
+function render() {
+  const activo = document.activeElement && document.activeElement.id;
+  DIBUJOS = new Map();
+  M = calcular(S.f);
+  const lienzo = document.getElementById('lienzo');
+  lienzo.innerHTML = S.diseno === 'academico' ? d2(M) : S.diseno === 'operacion' ? d3(M) : S.diseno === 'comparativa' ? comparativa() : d1(M);
+  document.querySelectorAll('.pestana').forEach(b => { b.setAttribute('aria-selected', String(b.dataset.diseno === S.diseno)); b.tabIndex = b.dataset.diseno === S.diseno ? 0 : -1; });
+  document.getElementById('marco').setAttribute('aria-labelledby', 'tab-' + S.diseno);
+  document.getElementById('marco').classList.toggle('marco--movil', S.vista === 'movil');
+  document.querySelectorAll('[data-vista]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vista === S.vista)));
+  dibujar(true);
+  if (activo && activo.startsWith('f-')) { const el = document.getElementById(activo); if (el) el.focus({ preventScroll: true }); }
+}
+let avisoT;
+function avisar(t) { const a = document.getElementById('aviso'); a.textContent = t; a.hidden = false; clearTimeout(avisoT); avisoT = setTimeout(() => { a.hidden = true; }, 3200); }
+function sistema(destino) { avisar('En el sistema esto abre: ' + destino + '. En el prototipo no hay más páginas.'); }
+function cerrarYIr(id) { if (dlg.open) dlg.close(); const el = document.getElementById(id); if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } }
+function aplicar(arg) {
+  const [k, v] = arg.split(':'); const f = S.f; const C = CIC[f.ciclo];
+  if (k === 'todo') { f.nivel = ''; f.grado = ''; f.grupo = ''; f.periodo = ''; if (f.rango === 'periodo') f.rango = '30'; }
+  if (k === 'nivel') { if (f.nivel !== v) f.periodo = ''; f.nivel = v; f.grado = ''; f.grupo = ''; }
+  if (k === 'grado') { f.nivel = GRADO[v].nivel; f.grado = v; f.grupo = ''; }
+  if (k === 'grupo') { const g = C.grupo[v]; f.nivel = g.nivel; f.grado = g.grado; f.grupo = v; }
+  S.drill = ''; if (dlg.open) dlg.close(); render();
+  avisar('Alcance: ' + alcanceTexto(f));
+}
+document.addEventListener('click', e => {
+  const tab = e.target.closest('.pestana');
+  if (tab) { S.diseno = tab.dataset.diseno; history.replaceState(null, '', '#' + S.diseno); render(); window.scrollTo({ top: 0 }); return; }
+  const v = e.target.closest('[data-vista]');
+  if (v) { S.vista = v.dataset.vista; render(); return; }
+  const b = e.target.closest('[data-accion]'); if (!b) return;
+  const arg = b.dataset.arg || '';
+  switch (b.dataset.accion) {
+    case 'cerrar-dialogo': dlg.close(); break;
+    case 'mas-filtros': S.filtrosAbiertos = !S.filtrosAbiertos; render(); { const el = document.querySelector('[data-accion="mas-filtros"]'); if (el) el.focus({ preventScroll: true }); } break;
+    case 'restablecer': S.f = { ciclo: '2026', nivel: '', grado: '', grupo: '', periodo: '', rango: '30', comparar: 'ciclo' }; S.drill = ''; render(); avisar('Filtros restablecidos'); break;
+    case 'drill': S.drill = S.drill === arg ? '' : arg; render(); { const el = document.querySelector(`[data-accion="drill"][data-arg="${arg}"]`); if (el) el.focus({ preventScroll: true }); } break;
+    case 'aplicar': aplicar(arg); break;
+    case 'estudiante': dlgEstudiante(arg); break;
+    case 'grupo': dlgGrupo(arg); break;
+    case 'materia': dlgMateria(arg); break;
+    case 'lista': dlgLista(arg, b.dataset.extra); break;
+    case 'ficha': dlgFicha(arg); break;
+    case 'ir': cerrarYIr(arg); break;
+    case 'sistema': sistema(arg); break;
+    case 'seg-motivo': S.segMotivo = arg; render(); { const el = document.querySelector(`[data-accion="seg-motivo"][data-arg="${arg}"]`); if (el) el.focus({ preventScroll: true }); } break;
+    case 'seg-prioridad': S.segPrioridad = arg; render(); { const el = document.querySelector(`[data-accion="seg-prioridad"][data-arg="${arg}"]`); if (el) el.focus({ preventScroll: true }); } break;
+  }
+});
+document.addEventListener('change', e => {
+  const t = e.target; if (!t.id || !t.id.startsWith('f-')) return;
+  const k = t.id.slice(2), f = S.f; f[k] = t.value;
+  if (k === 'ciclo') f.periodo = '';
+  if (k === 'nivel') { f.grado = ''; f.grupo = ''; f.periodo = ''; if (!f.nivel && f.rango === 'periodo') f.rango = '30'; }
+  if (k === 'grado') f.grupo = '';
+  S.drill = ''; render();
+});
+document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('[data-mas]')) S.masFiltros = e.target.open; }, true);
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+// Globo de información (hover y foco)
+const globo = document.getElementById('globo');
+function mostrarGlobo(el, x, y) {
+  const t = el.getAttribute('data-tip'); if (!t) return;
+  globo.textContent = t; globo.hidden = false;
+  const r = globo.getBoundingClientRect();
+  let left = x + 14, top = y + 14;
+  if (left + r.width > innerWidth - 8) left = x - r.width - 14;
+  if (top + r.height > innerHeight - 8) top = y - r.height - 14;
+  globo.style.left = Math.max(8, left) + 'px'; globo.style.top = Math.max(8, top) + 'px';
+}
+document.addEventListener('pointermove', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) mostrarGlobo(el, e.clientX, e.clientY); else globo.hidden = true; });
+document.addEventListener('focusin', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) { const r = el.getBoundingClientRect(); mostrarGlobo(el, r.left + Math.min(r.width, 160), r.top + r.height / 2); } else globo.hidden = true; });
+document.addEventListener('focusout', () => { globo.hidden = true; });
+document.addEventListener('scroll', () => { globo.hidden = true; }, true);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') globo.hidden = true;
+  const tab = e.target.closest && e.target.closest('.pestana');
+  if (tab && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+    const tabs = [...document.querySelectorAll('.pestana')]; const i = tabs.indexOf(tab);
+    const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length]; n.focus(); n.click();
+  }
+});
+let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => dibujar(false), 80); }).observe(document.getElementById('lienzo'));
+const inicial = location.hash.slice(1);
+if (['ejecutivo', 'academico', 'operacion', 'comparativa'].includes(inicial)) S.diseno = inicial;
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (['ejecutivo', 'academico', 'operacion', 'comparativa'].includes(h) && h !== S.diseno) { S.diseno = h; render(); } });
+render();
+</script>
+</body>
+</html>

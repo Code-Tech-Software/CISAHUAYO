@@ -26,7 +26,7 @@ from Alumnos.asistencias import (
 from Alumnos.models import AsistenciaGeneral, AsistenciaMateria, Inscripcion
 
 from . import academico
-from .filtros import NOMBRES_DE_NIVEL
+from .filtros import NOMBRES_DE_NIVEL, etiqueta_de_grado
 
 RANGOS = ((Decimal('0'), Decimal('6'), 'Menos de 6'), (Decimal('6'), Decimal('7'), '6 a 6.9'), (Decimal('7'), Decimal('8'), '7 a 7.9'),
           (Decimal('8'), Decimal('9'), '8 a 8.9'), (Decimal('9'), Decimal('10.01'), '9 a 10'))
@@ -51,16 +51,38 @@ def _rutas_inscripcion(prefijo='inscripcion__'):
 # ---------------------------------------------------------------------------
 # Estudiantes
 # ---------------------------------------------------------------------------
+def _al_panel(filtros, **cambios):
+    """La dirección del panel con el alcance actual y estos cambios (para bajar de nivel desde una gráfica)."""
+    return _url('inicio', consulta=filtros.consulta(**cambios))
+
+
 def estudiantes(filtros):
     inscripciones = filtros.inscripciones()
     total = inscripciones.values('alumno').distinct().count()
     por_nivel = dict(inscripciones.order_by().values_list('grado__nivel').annotate(n=Count('alumno', distinct=True)))
+    por_grado = dict(inscripciones.order_by().values_list('grado').annotate(n=Count('alumno', distinct=True)))
+    por_grupo = dict(inscripciones.order_by().values_list('grupo').annotate(n=Count('alumno', distinct=True)))
     consulta = {'estatus': 'ACTIVO'}
     if filtros.grado is not None:
         consulta['grado'] = filtros.grado.pk
+    # Desglose (rediseño del 2026-11-12): cada nivel con sus grados o semestres y sus grupos
+    maximo = max(por_nivel.values(), default=0)
+    niveles = []
+    for clave, nombre in filtros.niveles:
+        if clave not in por_nivel:
+            continue
+        grados = []
+        for grado in (g for g in filtros.grados if g.nivel == clave and g.pk in por_grado):
+            grupos = [f'{g.corto}: {por_grupo[g.pk]}' for g in filtros.grupos if g.grado_id == grado.pk and g.pk in por_grupo]
+            grados.append({'nombre': etiqueta_de_grado(grado), 'valor': por_grado[grado.pk], 'ancho': _ancho(por_grado[grado.pk], maximo),
+                           'nivel': clave, 'grupos': ' · '.join(grupos), 'url': _al_panel(filtros, nivel=clave, grado=grado.pk)})
+        niveles.append({'clave': clave, 'nombre': nombre, 'valor': por_nivel[clave], 'ancho': _ancho(por_nivel[clave], maximo),
+                        'porcentaje': round(por_nivel[clave] * 100 / total, 1) if total else None, 'grados': grados,
+                        'url': _al_panel(filtros, nivel=clave)})
     return {
         'total': total,
         'por_nivel': [(NOMBRES_DE_NIVEL[n], por_nivel[n]) for n, _ in filtros.niveles if n in por_nivel],
+        'niveles': niveles,
         'url': _url('alumnos:lista', consulta=urlencode(consulta)),
     }
 
@@ -108,27 +130,97 @@ def _registros_del_rango(filtros, desde, hasta):
     return con_justificada_general(sin_dias_suspendidos(consulta))
 
 
+def dias_sin_cerrar(filtros, desde, hasta):
+    """Los días del rango que todavía no se cierran (solo en el ciclo actual): hoy, si aún no se cierra, y los días
+    anteriores con entradas pendientes de cierre. Sus faltas aún no se generan, así que su porcentaje no es definitivo:
+    el panel no los suma a la asistencia del rango y los dibuja aparte (rediseño del 2026-11-12)."""
+    if not filtros.hoy_en_ciclo or desde > hasta:
+        return set()
+    pendientes = getattr(filtros, '_dias_sin_cerrar', None)   # se pregunta varias veces por petición
+    if pendientes is None:
+        from Alumnos.asistencias import dias_pendientes_de_cierre
+        from Alumnos.models import CierreDia
+        pendientes = set(dias_pendientes_de_cierre(filtros.hoy))
+        if not CierreDia.objects.filter(fecha=filtros.hoy).exists():
+            pendientes.add(filtros.hoy)
+        filtros._dias_sin_cerrar = pendientes
+    return {d for d in pendientes if desde <= d <= hasta}
+
+
+def _exacto(totales):
+    """La asistencia con un decimal (el panel compara rangos y unidades: el entero de los reportes no deja verlo)."""
+    if not totales['registros']:
+        return None
+    return (Decimal(100 * (totales['presentes'] + totales['retardos'])) / totales['registros']).quantize(Decimal('0.1'))
+
+
+def _asistencia_cerrada(filtros, desde, hasta):
+    """(totales, queryset) de los días cerrados del rango."""
+    registros = _registros_del_rango(filtros, desde, hasta)
+    abiertos = dias_sin_cerrar(filtros, desde, hasta)
+    if abiertos:
+        registros = registros.exclude(fecha__in=abiertos)
+    totales = conteos(registros)
+    totales['exacto'] = _exacto(totales)
+    return totales, registros
+
+
+def _rango_previo(filtros, desde, hasta):
+    """El rango de la misma duración inmediatamente antes (dentro del ciclo), o None si el rango empieza con el ciclo."""
+    largo = (hasta - desde).days + 1
+    previo_hasta = desde - timedelta(days=1)
+    previo_desde = max(filtros.ciclo.fecha_inicio, previo_hasta - timedelta(days=largo - 1))
+    return (previo_desde, previo_hasta) if previo_desde <= previo_hasta else None
+
+
+def _semanas(filtros, hasta, cuantas=8):
+    """La asistencia de las últimas semanas (días cerrados) para la línea pequeña de la cifra, en un lienzo de 100 × 30."""
+    desde = max(filtros.ciclo.fecha_inicio, hasta - timedelta(days=7 * cuantas - 1))
+    _, registros = _asistencia_cerrada(filtros, desde, hasta)
+    filas = (registros.annotate(semana=TruncWeek('fecha')).order_by().values('semana')
+             .annotate(n=Count('pk'), a=Count('pk', filter=Q(estado__in=('PRESENTE', 'RETARDO')))).order_by('semana'))
+    valores = [float(f['a']) * 100 / f['n'] for f in filas if f['n']]
+    if len(valores) < 2:
+        return None
+    piso, techo = min(valores) - 0.5, max(valores) + 0.5
+    puntos = [(round(i * 100 / (len(valores) - 1), 2), round(2 + (techo - v) * 26 / (techo - piso), 2)) for i, v in enumerate(valores)]
+    return {'trazo': ' '.join(f'{x},{y}' for x, y in puntos), 'ultimo': puntos[-1], 'semanas': len(valores)}
+
+
 def asistencia_del_rango(filtros):
     if filtros.ciclo is None:
         return None
     desde, hasta = filtros.desde, min(filtros.hasta, filtros.hoy)
     if desde > hasta:
         return {'vacio': True, 'motivo': 'El rango todavía no empieza'}
-    registros = _registros_del_rango(filtros, desde, hasta)
+    todos = _registros_del_rango(filtros, desde, hasta)
+    abiertos = dias_sin_cerrar(filtros, desde, hasta)
+    registros = todos.exclude(fecha__in=abiertos) if abiertos else todos
     totales = conteos(registros)
     totales['porcentaje'] = porcentaje(totales['presentes'], totales['retardos'], totales['registros'])
+    totales['exacto'] = _exacto(totales)
     totales['sin_justificar'] = totales['faltas'] - totales['justificadas']
 
-    # Tendencia: un punto por día de clases con registros (los días sin captura quedan sin punto)
-    por_dia = {f['fecha']: f for f in registros.order_by().values('fecha').annotate(
+    # Contra el rango previo de la misma duración (días cerrados)
+    previo = None
+    rango_previo = _rango_previo(filtros, desde, hasta)
+    if rango_previo and totales['exacto'] is not None:
+        antes, _ = _asistencia_cerrada(filtros, *rango_previo)
+        if antes['exacto'] is not None:
+            previo = {'exacto': antes['exacto'], 'desde': rango_previo[0], 'hasta': rango_previo[1], 'dias': (rango_previo[1] - rango_previo[0]).days + 1,
+                      'diferencia': totales['exacto'] - antes['exacto']}
+
+    # Tendencia: un punto por día cerrado con registros; los días sin cerrar, una franja sin valor; sin captura, hueco
+    por_dia = {f['fecha']: f for f in todos.order_by().values('fecha').annotate(
         n=Count('pk'), p=Count('pk', filter=Q(estado='PRESENTE')), r=Count('pk', filter=Q(estado='RETARDO')),
         f=Count('pk', filter=Q(estado='FALTA')))}
     dias = dias_de_clases(desde, hasta, filtros.ciclo, filtros.nivel or None)
     serie = []
     for fecha in dias:
         fila = por_dia.get(fecha)
-        valor = porcentaje(fila['p'], fila['r'], fila['n']) if fila else None
-        serie.append({'fecha': fecha, 'valor': valor, 'registros': fila['n'] if fila else 0,
+        estado = 'parcial' if fecha in abiertos else 'cerrado' if fila else 'sin'
+        valor = porcentaje(fila['p'], fila['r'], fila['n']) if fila and estado == 'cerrado' else None
+        serie.append({'fecha': fecha, 'valor': valor, 'estado': estado, 'registros': fila['n'] if fila else 0,
                       'asistieron': (fila['p'] + fila['r']) if fila else 0, 'faltas': fila['f'] if fila else 0})
     grafica = _grafica_de_linea(serie)
 
@@ -142,7 +234,8 @@ def asistencia_del_rango(filtros):
             n=Count('pk'), p=Count('pk', filter=Q(estado='PRESENTE')), r=Count('pk', filter=Q(estado='RETARDO')))
         nombres = _nombres(unidad, [f[campo] for f in filas], filtros)
         comparacion = sorted(
-            ({'nombre': nombres.get(f[campo], str(f[campo])), 'orden': _orden(unidad, f[campo], filtros), 'valor': porcentaje(f['p'], f['r'], f['n']),
+            ({'nombre': nombres.get(f[campo], str(f[campo])), 'orden': _orden(unidad, f[campo], filtros),
+              'valor': _exacto({'presentes': f['p'], 'retardos': f['r'], 'registros': f['n']}),
               'base': f['n'], 'nivel': _nivel_de_la_fila(unidad, f[campo], filtros)} for f in filas), key=lambda x: x['orden'])
         for fila in comparacion:
             fila['ancho'] = _ancho(fila['valor'], 100)
@@ -173,8 +266,11 @@ def asistencia_del_rango(filtros):
 
     return {
         'vacio': not totales['registros'], 'desde': desde, 'hasta': hasta, 'totales': totales, 'grafica': grafica,
-        'comparacion': comparacion, 'unidad': unidad, 'materias': materias, 'mas_faltas': mas_faltas,
-        'dias_de_clases': len(dias), 'dias_con_registro': len(por_dia),
+        'comparacion': comparacion, 'unidad': _texto_de_unidad(unidad, filtros), 'materias': materias, 'mas_faltas': mas_faltas,
+        'dias_de_clases': len(dias), 'dias_con_registro': sum(1 for p in serie if p['estado'] == 'cerrado'),
+        'dias_sin_cerrar': sum(1 for p in serie if p['estado'] == 'parcial'),
+        'dias_sin_captura': sum(1 for p in serie if p['estado'] == 'sin'),
+        'previo': previo, 'semanas': _semanas(filtros, hasta),
     }
 
 
@@ -182,8 +278,13 @@ def _nombres(unidad, claves, filtros):
     if unidad == 'nivel':
         return {c: NOMBRES_DE_NIVEL.get(c, c) for c in claves}
     if unidad == 'grado':
-        return {g.pk: str(g) for g in filtros.grados if g.pk in set(claves)}
+        return {g.pk: etiqueta_de_grado(g) for g in filtros.grados if g.pk in set(claves)}
     return {g.pk: g.corto for g in filtros.grupos if g.pk in set(claves)}
+
+
+def _texto_de_unidad(unidad, filtros):
+    """Cómo se dice la unidad de comparación en los títulos («Aprobación por semestre» en bachillerato)."""
+    return 'semestre' if unidad == 'grado' and filtros.nivel == 'PREPARATORIA' else unidad
 
 
 def _nivel_de_la_fila(unidad, clave, filtros):
@@ -263,12 +364,51 @@ def academico_del_alcance(filtros, evaluaciones):
     for r in lista:
         grupos[clave(r)].append(r.final)
     nombres = {} if unidad == 'materia' else _nombres(unidad, list(grupos), filtros)
+    def aprobacion(resultados_):
+        """% de estudiantes sin finales reprobadas (en la unidad «materia», sin reprobar esa materia), con un decimal."""
+        por = defaultdict(list)
+        for r in resultados_:
+            por[r.inscripcion].append(r)
+        if not por:
+            return None
+        bien = sum(1 for rs in por.values() if all(r.final >= criterios[r.nivel].calificacion_aprobatoria for r in rs))
+        return (Decimal(bien * 100) / len(por)).quantize(Decimal('0.1'))
+
+    # Comparación con el periodo anterior: solo si todos los niveles del alcance tienen uno con resultados
+    previo = None
+    comparable = bool(anteriores) and all(ev.anterior is not None for ev in evaluaciones.values() if ev.evaluado is not None)
+    if comparable:
+        previo = academico.promedio(r.final for r in anteriores)
+    previos_por = defaultdict(list)
+    if comparable:
+        for r in anteriores:
+            previos_por[clave(r)].append(r)
+
+    def bajar(k):
+        if unidad == 'nivel':
+            return _al_panel(filtros, nivel=k)
+        if unidad == 'grado':
+            return _al_panel(filtros, grado=k)
+        if unidad == 'grupo':
+            return _al_panel(filtros, grupo=k)
+        return ''
+
+    resultados_por = defaultdict(list)
+    for r in lista:
+        resultados_por[clave(r)].append(r)
     comparacion = [{'nombre': nombres.get(k, str(k)), 'valor': academico.promedio(v), 'base': len(v),
                     'orden': (k if unidad == 'materia' else _orden(unidad, k, filtros)),
-                    'nivel': _nivel_de_la_fila(unidad, k, filtros)} for k, v in grupos.items()]
+                    'nivel': _nivel_de_la_fila(unidad, k, filtros),
+                    'aprobacion': aprobacion(resultados_por[k]), 'aprobacion_previa': aprobacion(previos_por.get(k, [])),
+                    'evaluados': len({r.inscripcion for r in resultados_por[k]}), 'url': bajar(k)} for k, v in grupos.items()]
     comparacion.sort(key=lambda x: x['orden'])
     for fila in comparacion:
         fila['ancho'] = _ancho(fila['valor'], academico.ESCALA)
+        fila['ancho_aprobacion'] = _ancho(fila['aprobacion'], 100)
+        fila['marca'] = _ancho(fila['aprobacion_previa'], 100) if fila['aprobacion_previa'] is not None else None
+    # Las filas de «Aprobación por …» (panel/_barras.html): de 0 a 100 %, con la marca del periodo anterior
+    aprobacion_filas = [{'nombre': f['nombre'], 'valor': f['aprobacion'], 'ancho': f['ancho_aprobacion'], 'marca': f['marca'],
+                         'previo': f['aprobacion_previa'], 'base': f['evaluados'], 'nivel': f['nivel'], 'url': f['url']} for f in comparacion]
 
     # Distribución de estudiantes por rango de su promedio
     distribucion = [{'nombre': nombre, 'valor': sum(1 for p in promedios.values() if p is not None and desde <= p < hasta)}
@@ -289,24 +429,44 @@ def academico_del_alcance(filtros, evaluaciones):
     for fila in reprobacion:
         fila['ancho'] = _ancho(fila['valor'], 100)
 
-    # Comparación con el periodo anterior: solo si todos los niveles del alcance tienen uno con resultados
-    previo = None
-    if anteriores and all(ev.anterior is not None for ev in evaluaciones.values() if ev.evaluado is not None):
-        previo = academico.promedio(r.final for r in anteriores)
-
     evaluados = [ev for ev in evaluaciones.values() if ev.evaluado is not None]
     if len(evaluaciones) == 1:
         texto_periodo = evaluados[0].evaluado.nombre if evaluados else 'Sin actas cerradas'
     else:
-        texto_periodo = 'Periodo actual de cada nivel' if evaluados else 'Sin actas cerradas'
+        texto_periodo = 'Periodo evaluado de cada nivel' if evaluados else 'Sin actas cerradas'
+
+    # Actas del periodo evaluado: si faltan, la cifra es parcial (puede cambiar al cerrarlas)
+    actas = []
+    for nivel, ev in evaluaciones.items():
+        if ev.evaluado is not None:
+            cerradas, esperadas = academico.actas_del_periodo(filtros, nivel, ev.evaluado)
+            actas.append({'nivel': nivel, 'nombre': NOMBRES_DE_NIVEL[nivel], 'periodo': ev.evaluado.nombre, 'cerradas': cerradas, 'esperadas': esperadas})
+    parciales = [a for a in actas if a['cerradas'] < a['esperadas']]
+
+    # Una sola nota para los niveles cuyo periodo actual sigue abierto («se muestra Bimestre 1 (preescolar, …)»)
+    mostrados = defaultdict(list)
+    for nivel, ev in evaluaciones.items():
+        if ev.evaluado is not None and ev.base is not None and ev.evaluado.pk != ev.base.pk:
+            mostrados[ev.evaluado.nombre].append(NOMBRES_DE_NIVEL[nivel].lower())
+    nota_periodos = ''
+    if mostrados:
+        partes = [f'{p} ({", ".join(ns)})' for p, ns in mostrados.items()]
+        nota_periodos = 'El periodo actual sigue abierto: se muestra el último con actas cerradas, ' + ' y '.join(partes) + '.'
+    sin_actas = [f'{NOMBRES_DE_NIVEL[n]}: {ev.nota}.' for n, ev in evaluaciones.items() if ev.evaluado is None]
+
+    aprobados = len(por_estudiante) - len(reprobados)
     return {
         'vacio': not lista, 'promedio': academico.promedio(finales), 'calificaciones': len(finales),
-        'estudiantes': len(por_estudiante), 'reprobados': len(reprobados),
+        'estudiantes': len(por_estudiante), 'reprobados': len(reprobados), 'aprobados': aprobados,
         'porcentaje_reprobados': round(len(reprobados) * 100 / len(por_estudiante), 1) if por_estudiante else None,
-        'comparacion': comparacion, 'unidad': unidad, 'distribucion': distribucion, 'reprobacion': reprobacion,
+        'porcentaje_aprobados': aprobacion(lista),
+        'aprobacion_previa': aprobacion(anteriores) if comparable else None,
+        'comparacion': comparacion, 'unidad': _texto_de_unidad(unidad, filtros), 'distribucion': distribucion, 'reprobacion': reprobacion,
         'omitidas': omitidas, 'previo': previo, 'texto_periodo': texto_periodo,
         'periodos': [(NOMBRES_DE_NIVEL[n], ev) for n, ev in evaluaciones.items()],
         'aprobatorias': sorted({(NOMBRES_DE_NIVEL[n], criterios[n].calificacion_aprobatoria, criterios[n].es_propuesto) for n in evaluaciones}),
+        'actas': actas, 'parciales': parciales, 'parcial': bool(parciales), 'nota_periodos': nota_periodos, 'sin_actas': sin_actas,
+        'aprobacion_filas': aprobacion_filas, 'diferencia_aprobacion': (aprobacion(lista) - aprobacion(anteriores)) if comparable and lista else None,
     }
 
 
@@ -385,6 +545,7 @@ def retiros(usuario, filtros):
         'solicitudes': vigentes_hoy.values('aviso').distinct().count(),
         'estudiantes': vigentes_hoy.count(),
         'pendientes': hoy.filter(estado=RetiroEstudiante.AVISADO).count(),
+        'hora_pasada': hoy.filter(estado=RetiroEstudiante.AVISADO, aviso__hora__lt=ahora).count(),
         'realizados': hoy.filter(estado=RetiroEstudiante.RETIRADO).count(),
         'cancelados': hoy.filter(estado=RetiroEstudiante.CANCELADO).count(),
         'atrasados': base.filter(estado=RetiroEstudiante.AVISADO, fecha__lt=filtros.hoy).count(),

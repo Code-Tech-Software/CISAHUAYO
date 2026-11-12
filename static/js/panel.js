@@ -1,7 +1,8 @@
 /* CISAHUAYO · Panel de control (templates/panel/inicio.html y seguimiento.html)
 
    - Filtros: grado y periodo dependen del nivel, y grupo del grado (solo se ofrecen los que corresponden). Se aplican al
-     cambiarlos; mientras se recarga, el panel conserva lo anterior atenuado. Sin JavaScript, con «Aplicar».
+     cambiarlos; mientras se recarga, el panel conserva lo anterior atenuado. Sin JavaScript, con «Aplicar». En el
+     teléfono, los que no son alcance ni ciclo se pliegan tras «Más filtros» (rediseño del 2026-11-12).
    - Motivo y prioridad de las alertas también se aplican al cambiarlos.
    - Buscar estudiante: sugiere mientras se escribe (Alumnos · buscar) y abre su Vista 360. Flechas para moverse, Intro
      para abrir, Escape para cerrar.
@@ -50,8 +51,24 @@
       select.disabled = !valor;
       select.options[0].textContent = valor ? lleno : vacio;
     };
+    // En el teléfono, grado, grupo, periodo y fechas se pliegan tras «Más filtros» (abiertos si alguno está en uso)
+    const mas = filtros.querySelector('[data-panel-mas]');
+    if (mas) {
+      const enUso = (filtros.dataset.extraActivos || '').length;
+      const texto = mas.querySelector('[data-panel-mas-texto]');
+      const pintar = (abierto) => {
+        filtros.classList.toggle('is-abierto', abierto);
+        mas.setAttribute('aria-expanded', String(abierto));
+        texto.textContent = abierto ? 'Menos filtros' : `Más filtros${enUso ? ` (${enUso} en uso)` : ''}`;
+      };
+      filtros.classList.add('is-plegable');
+      mas.hidden = false;
+      pintar(enUso > 0);
+      mas.addEventListener('click', () => pintar(!filtros.classList.contains('is-abierto')));
+    }
+
     const ajustar = () => {
-      limitar(grado, 'nivel', nivel.value, 'Elige un nivel', 'Todos los grados');
+      limitar(grado, 'nivel', nivel.value, 'Elige un nivel', 'Todos');
       limitar(periodo, 'nivel', nivel.value, 'Actual por nivel', 'Periodo actual');
       limitar(grupo, 'grado', grado.value, 'Elige un grado', 'Todos los grupos');
     };

@@ -27,6 +27,16 @@ def niveles_configurados():
     return [(nivel, NOMBRES_DE_NIVEL[nivel]) for nivel in ORDEN_NIVELES if nivel in activos]
 
 
+def etiqueta_de_grado(grado):
+    """El nombre del grado en los filtros y desgloses del panel: en el sitio cada grado se nombra por su equivalencia
+    («10.º», «K2»), que en bachillerato no dice que es un semestre (pedido del rediseño del 2026-11-12)."""
+    if grado.semestre:
+        return f'{grado.numero_ordinal} semestre ({grado})'
+    if str(grado) != grado.numero_ordinal:
+        return f'{grado} · {grado.nombre_de_nivel}'
+    return f'{grado} de {grado.get_nivel_display().lower()}'
+
+
 def _fecha(texto):
     try:
         return date.fromisoformat(str(texto))
@@ -78,7 +88,7 @@ class Filtros:
         if self.grupo is not None:
             return f'Información de {self.grupo}'
         if self.grado is not None:
-            return f'Información de {self.grado}'
+            return f'Información de {etiqueta_de_grado(self.grado)}'
         if self.nivel:
             return f'Información de {self.nombre_del_nivel}'
         return 'Información de todo el colegio'
@@ -107,6 +117,12 @@ class Filtros:
 
     def periodos_de(self, nivel):
         return [p for p in self.periodos if p.nivel == nivel]
+
+    @property
+    def grados_con_etiqueta(self):
+        """[(grado, etiqueta)] para la lista de grados: en bachillerato, el semestre («1.º semestre (10.º)»); en los
+        demás, la equivalencia y, si no coincide con su número, el grado de su nivel («7.º · 1.º Secundaria»)."""
+        return [(grado, etiqueta_de_grado(grado)) for grado in self.grados]
 
     @property
     def texto_del_rango(self):

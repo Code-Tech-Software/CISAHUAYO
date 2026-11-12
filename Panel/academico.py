@@ -146,16 +146,45 @@ def avance_de_captura(filtros, evaluaciones_):
 
 def pendientes_de_periodos_terminados(filtros):
     """Materias de periodos ya terminados (fecha de cierre anterior a hoy) cuya acta no se ha cerrado."""
-    pendientes = 0
+    return actas_de_periodos_terminados(filtros)['pendientes']
+
+
+def actas_del_periodo(filtros, nivel, periodo):
+    """(cerradas, esperadas) de un periodo de un nivel en el alcance: una por materia de cada grupo."""
+    ids = list(asignaciones(filtros, nivel).values_list('pk', flat=True))
+    cerradas = ActaCalificaciones.objects.filter(asignacion__in=ids, periodo=periodo, estado=ActaCalificaciones.CERRADA).count()
+    return cerradas, len(ids)
+
+
+def actas_de_periodos_terminados(filtros, limite=40):
+    """Las actas de los periodos ya terminados (fecha de cierre anterior a hoy) en el alcance: cerradas y esperadas (una
+    por materia de cada grupo y periodo), por nivel, y las que faltan con su grupo, materia y periodo (las primeras
+    `limite`). Rediseño del panel (2026-11-12): «Actas de periodos terminados» y el avance de captura."""
+    from .filtros import NOMBRES_DE_NIVEL
+    por_nivel, faltan, total_pendientes, por_periodo = [], [], 0, {}
     for nivel in filtros.niveles_en_alcance:
         terminados = [p for p in filtros.periodos_de(nivel) if p.fecha_fin < filtros.hoy]
         if not terminados:
             continue
-        ids = list(asignaciones(filtros, nivel).values_list('pk', flat=True))
-        for periodo in terminados:
-            cerradas = ActaCalificaciones.objects.filter(asignacion__in=ids, periodo=periodo, estado=ActaCalificaciones.CERRADA).count()
-            pendientes += len(ids) - cerradas
-    return pendientes
+        materias = list(asignaciones(filtros, nivel).select_related('materia', 'grupo__nombre', 'grupo__grado'))
+        cerradas = set(ActaCalificaciones.objects.filter(asignacion__in=[a.pk for a in materias], periodo__in=terminados,
+                                                         estado=ActaCalificaciones.CERRADA).values_list('asignacion_id', 'periodo_id'))
+        esperadas = len(materias) * len(terminados)
+        pendientes = [(a, p) for p in terminados for a in materias if (a.pk, p.pk) not in cerradas]
+        total_pendientes += len(pendientes)
+        for _, p in pendientes:
+            por_periodo[p.nombre] = por_periodo.get(p.nombre, 0) + 1
+        faltan +=[{'nivel': nivel, 'grupo': a.grupo.corto if a.grupo_id else '', 'materia': a.materia.nombre, 'periodo': p.nombre,
+                    'termino': p.fecha_fin} for a, p in pendientes][:max(limite - len(faltan), 0)]
+        por_nivel.append({'nivel': nivel, 'nombre': NOMBRES_DE_NIVEL[nivel], 'cerradas': esperadas - len(pendientes), 'esperadas': esperadas,
+                          'pendientes': len(pendientes), 'porcentaje': round((esperadas - len(pendientes)) * 100 / esperadas, 1) if esperadas else None,
+                          'periodos': [p.nombre for p in terminados]})
+    esperadas = sum(n['esperadas'] for n in por_nivel)
+    return {
+        'por_nivel': por_nivel, 'esperadas': esperadas, 'pendientes': total_pendientes, 'cerradas': esperadas - total_pendientes,
+        'porcentaje': round((esperadas - total_pendientes) * 100 / esperadas, 1) if esperadas else None,
+        'faltan': faltan, 'mas': total_pendientes - len(faltan), 'por_periodo': sorted(por_periodo.items()),
+    }
 
 
 def por_inscripcion(lista):

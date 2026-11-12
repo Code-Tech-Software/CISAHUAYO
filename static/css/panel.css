@@ -143,14 +143,29 @@
 /* --- Indicadores principales -------------------------------------------------------------------------- */
 .panel-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
   gap: var(--space-3);
 }
 
-/* En anchos medianos, de tres en tres (seis indicadores: dos filas completas, sin huecos) */
-@container panel (min-width: 40rem) and (max-width: 61.99rem) {
-  .panel-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Cinco cifras (rediseño del 2026-11-12): en anchos medianos, tres arriba y dos abajo sin huecos (seis columnas:
+   las primeras tres ocupan dos, las últimas dos ocupan tres); a todo lo ancho, las cinco en una fila */
+@container panel (min-width: 40rem) and (max-width: 71.99rem) {
+  .panel-kpis:has(> :nth-child(5):last-child) {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .panel-kpis:has(> :nth-child(5):last-child) > * {
+    grid-column: span 2;
+  }
+
+  .panel-kpis:has(> :nth-child(5):last-child) > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@container panel (min-width: 72rem) {
+  .panel-kpis:has(> :nth-child(5):last-child) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -251,28 +266,34 @@
   }
 }
 
-@container panel (min-width: 90rem) {
-  .panel-fila--atencion {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
-  }
-}
-
 @container panel (min-width: 80rem) {
   .panel-fila--tres {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* Mientras no quepan lado a lado, el centro de atención va arriba (sus asuntos en dos columnas) y las alertas debajo,
-   a todo lo ancho: su tabla necesita el espacio */
-@container panel (max-width: 89.99rem) {
-  .panel-fila--atencion {
-    grid-template-columns: minmax(0, 1fr);
+/* Fila principal: alertas prioritarias, asistencia por día y aprobación. A todo lo ancho, las tres; en anchos
+   medianos, las alertas arriba (sus asuntos en dos columnas) y las dos gráficas debajo, lado a lado */
+@container panel (min-width: 45rem) and (max-width: 87.99rem) {
+  .panel-fila--principal > :first-child {
+    grid-column: 1 / -1;
   }
 
-  .panel-atencion {
+  .panel-fila--principal .panel-atencion {
     grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr));
     column-gap: var(--space-3);
+  }
+}
+
+@container panel (min-width: 88rem) {
+  .panel-fila--principal {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.2fr) minmax(0, 1.05fr);
+  }
+}
+
+@container panel (min-width: 45rem) and (max-width: 79.99rem) {
+  .panel-fila--tres > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1125,5 +1146,549 @@
 
   .panel-tabla .table__cell:nth-child(n + 3) {
     width: auto;
+  }
+}
+
+/* ==========================================================================
+   Rediseño del 2026-11-12 (propuesta «Resumen ejecutivo» con la franja «Hoy»; prototipos/panel-administracion.html)
+   ========================================================================== */
+
+/* En filas de dos, la tarjeta que queda sola ocupa todo el ancho (sin huecos) */
+@container panel (min-width: 45rem) {
+  .panel-fila:not(.panel-fila--principal, .panel-fila--tres) > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+.panel-seccion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.panel-seccion::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* --- Filtros plegables en el teléfono (panel.js agrega .is-plegable; sin JavaScript se ven todos) --------------- */
+.panel-filtros__mas[hidden] {
+  display: none;
+}
+
+@container panel (max-width: 39.99rem) {
+  .panel-filtros.is-plegable:not(.is-abierto) .panel-filtros__campo--extra {
+    display: none;
+  }
+
+  .panel-filtros.is-plegable .panel-filtros__acciones {
+    justify-content: space-between;
+  }
+}
+
+@container panel (min-width: 40rem) {
+  .panel-filtros__mas {
+    display: none;
+  }
+}
+
+/* --- Franja «Hoy» ------------------------------------------------------------------------------------------------ */
+.panel-hoy {
+  display: grid;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* A todo lo ancho, en una fila: el título con su hora (angosto), la entrada (lo que sobra) y las cifras (a su medida,
+   con tope). Sin topes, el texto largo del título y de las cifras dejaba la barra de entrada en unos pocos píxeles. */
+@container panel (min-width: 64rem) {
+  .panel-hoy {
+    grid-template-columns: minmax(9rem, 13rem) minmax(16rem, 1fr) minmax(0, max-content);
+  }
+}
+
+.panel-hoy__titulo {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+.panel-hoy__hora {
+  color: var(--color-brand);
+}
+
+.panel-hoy__corte {
+  margin: 0.1rem 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.panel-hoy__entrada {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.panel-hoy__resumen {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.panel-hoy__resumen .panel-sub {
+  display: inline;
+}
+
+.panel-hoy__barra {
+  display: flex;
+  gap: 2px;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.panel-hoy__parte {
+  min-width: 4px;
+  height: 100%;
+}
+
+.panel-hoy__parte--con { background: var(--color-primary); }
+.panel-hoy__parte--falta { background: var(--color-danger); }
+.panel-hoy__parte--sin { background: var(--color-surface-2); box-shadow: inset 0 0 0 1px var(--color-border-strong); }
+
+.panel-hoy .panel-leyenda {
+  margin-top: 0.15rem;
+}
+
+.panel-hoy__cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container panel (min-width: 64rem) {
+  .panel-hoy__cifras {
+    grid-auto-columns: minmax(7.5rem, 10rem);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+  }
+}
+
+.panel-hoy__cifra {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.panel-hoy__cifra:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-strong);
+}
+
+.panel-hoy__cifra .panel-sub {
+  font-weight: var(--weight-regular);
+}
+
+.panel-hoy__n {
+  min-width: 1.6rem;
+  color: var(--color-text-strong);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  text-align: center;
+}
+
+/* --- Cifras principales: estado, comparación, línea semanal y corte ------------------------------------------- */
+.panel-kpi__valor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.panel-kpi__valor--vacio {
+  color: var(--color-text-muted);
+}
+
+.panel-parcial {
+  gap: 0.2rem;
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.panel-kpi__valor .panel-parcial {
+  font-weight: var(--weight-semibold);
+}
+
+.panel-kpi__delta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.15rem 0 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.panel-kpi__delta--bien { color: var(--color-success); }
+.panel-kpi__delta--mal { color: var(--color-danger); }
+.panel-kpi__delta--igual { color: var(--color-text-muted); font-weight: var(--weight-regular); }
+
+/* Una sola flecha en el sprite: hacia abajo se voltea */
+.panel-kpi__delta--mal .icon {
+  transform: scaleY(-1);
+}
+
+.panel-kpi__linea {
+  display: block;
+  width: 100%;
+  height: 1.75rem;
+  margin-top: var(--space-1);
+  overflow: visible;
+}
+
+.panel-kpi__linea polyline {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.panel-kpi__linea circle {
+  fill: var(--color-primary);
+  stroke: var(--color-surface);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.panel-kpi__corte {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin: auto 0 0;
+  padding-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.35;
+}
+
+.panel-kpi__corte .icon {
+  flex-shrink: 0;
+  margin-top: 0.05em;
+}
+
+.panel-kpi__corte + .panel-kpi__enlace {
+  margin-top: 0;
+}
+
+/* --- Alertas prioritarias -------------------------------------------------------------------------------------- */
+.panel-atencion__item {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  padding-block: var(--space-2);
+}
+
+.panel-atencion__motivo {
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.panel-atencion__motivo .panel-sub {
+  margin-top: 0.15rem;
+  line-height: 1.4;
+}
+
+.panel-prioridad {
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+/* --- Línea de asistencia: días sin cerrar y sin captura ---------------------------------------------------------- */
+.panel-linea__columna.is-parcial {
+  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-border));
+}
+
+.panel-linea__marca {
+  position: absolute;
+  bottom: 0.1rem;
+  left: 50%;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.panel-leyenda__marca--linea {
+  width: 0.9rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--color-primary);
+}
+
+.panel-leyenda__marca--barra {
+  background: var(--color-primary);
+}
+
+.panel-leyenda__marca--raya {
+  width: 3px;
+  height: 0.85rem;
+  border-radius: 1px;
+  background: var(--color-text-strong);
+}
+
+/* Asistencia por nivel, grado o grupo: valores con un decimal (en barras de 0 a 100 se veían iguales) */
+.panel-comparar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-comparar__item {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-strong);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-comparar__nombre {
+  color: var(--color-text-soft);
+}
+
+.panel-estados {
+  margin-top: var(--space-3);
+}
+
+/* --- Barras: enlace para bajar de nivel y marca del periodo anterior ------------------------------------------- */
+.panel-barras__fila--enlace {
+  color: inherit;
+  text-decoration: none;
+}
+
+.panel-barras__fila--enlace .panel-barras__nombre {
+  color: var(--color-primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.panel-barras__pista {
+  position: relative;
+}
+
+.panel-barras__marca {
+  position: absolute;
+  top: -0.2rem;
+  bottom: -0.2rem;
+  left: calc(var(--marca) - 1px);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--color-text-strong);
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+.panel-barras__barra--motivo {
+  background: var(--color-danger);
+}
+
+/* --- Desgloses plegables (matrícula, detalle académico, bitácoras, actas que faltan) --------------------------- */
+.panel-desglose {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.panel-desglose > summary {
+  color: var(--color-primary-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.panel-matricula {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-matricula__fila {
+  cursor: pointer;
+  list-style: none;
+}
+
+.panel-matricula__fila::-webkit-details-marker {
+  display: none;
+}
+
+.panel-matricula__nivel[open] > .panel-matricula__fila {
+  background: var(--color-hover-tint);
+}
+
+.panel-matricula__grados {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin: var(--space-1) 0 var(--space-2) var(--space-3);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-border);
+}
+
+.panel-matricula__grados .panel-barras {
+  width: 100%;
+}
+
+.panel-sub--en-linea {
+  display: inline;
+  margin-left: 0.2rem;
+}
+
+/* --- Estudiantes que requieren atención (lista breve) ------------------------------------------------------------ */
+.panel-seguimiento {
+  display: grid;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-seguimiento__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-top: var(--border);
+}
+
+.panel-seguimiento__nombre {
+  font-weight: var(--weight-semibold);
+}
+
+.panel-seguimiento__detalle {
+  grid-column: 1 / -1;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+/* --- Avance de captura: capturado / esperado ---------------------------------------------------------------------- */
+.panel-medidores {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.panel-medidor {
+  display: grid;
+  grid-template-columns: minmax(5rem, 8rem) minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0.15rem var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+}
+
+.panel-medidor:hover,
+.panel-medidor:focus-visible {
+  background: var(--color-hover-tint);
+  outline: none;
+}
+
+.panel-medidor__pista {
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+}
+
+.panel-medidor__relleno {
+  display: block;
+  width: var(--ancho);
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+
+.panel-medidor__relleno--falta {
+  background: var(--color-warning);
+}
+
+.panel-medidor__valor {
+  color: var(--color-text-strong);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Cómo leer las cifras ------------------------------------------------------------------------------------------ */
+.panel-leer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+}
+
+.panel-leer strong,
+.panel-leer b {
+  color: var(--color-text-strong);
+}
+
+.panel-leer > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@media (max-width: 39.99rem) {
+  .panel-hoy {
+    padding: var(--space-3);
+  }
+
+  /* Dos columnas de cifras: la que queda sola ocupa la fila */
+  .panel-kpis > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .panel-atencion__item .panel-prioridad {
+    grid-column: 2;
+    justify-self: start;
   }
 }

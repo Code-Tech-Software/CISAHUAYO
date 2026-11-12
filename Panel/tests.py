@@ -191,9 +191,13 @@ class PaginaTests(Colegio, BaseTestCase):
     def test_el_panel_del_administrador(self):
         respuesta = self.client.get(INICIO)
         self.assertTemplateUsed(respuesta, 'panel/inicio.html')
-        for texto in ('Estudiantes activos', 'Asistencia de hoy', 'Rendimiento académico', 'Requiere atención',
-                      'Estudiantes que requieren atención', 'Información de todo el colegio', 'Finanzas no está implementado'):
+        for texto in ('Estudiantes activos', 'Asistencia de entrada', 'Aprobación del periodo', 'Estudiantes en seguimiento',
+                      'Actas de periodos terminados', 'Alertas prioritarias', 'Estudiantes que requieren atención',
+                      'Información de todo el colegio', 'Cómo leer las cifras'):
             self.assertContains(respuesta, texto)
+        # La franja «Hoy» solo en el ciclo actual, con la hora de corte
+        self.assertContains(respuesta, 'Entrada al colegio')
+        self.assertContains(respuesta, 'no son definitivas hasta cerrarlo')
 
     def test_el_alcance_se_conserva_y_se_restablece(self):
         self.client.get(INICIO, {'nivel': 'PRIMARIA'})
@@ -214,8 +218,10 @@ class PaginaTests(Colegio, BaseTestCase):
         respuesta = self.client.get(INICIO)
         self.assertIn('asistencia', respuesta.context)
         self.assertNotIn('academico', respuesta.context)
-        self.assertNotContains(respuesta, 'Rendimiento académico')
+        self.assertNotContains(respuesta, 'Aprobación del periodo')
+        self.assertNotContains(respuesta, 'Actas de periodos terminados')
         self.assertNotIn('conducta', respuesta.context)
+        self.assertNotContains(respuesta, 'Incidencias de hoy')
 
     def test_sin_permisos_de_los_modulos_el_panel_de_siempre(self):
         self.client.force_login(self.sin_permisos)
@@ -226,6 +232,77 @@ class PaginaTests(Colegio, BaseTestCase):
         respuesta = self.client.get(reverse('panel:seguimiento'), {'motivo': 'rendimiento'})
         self.assertEqual(respuesta.context['total_filtradas'], 2)
         self.assertContains(respuesta, 'Reprueba 1 materia')
+
+
+@PRUEBAS
+class RediseñoTests(Colegio, BaseTestCase):
+    """Rediseño del 2026-11-12: días sin cerrar fuera del porcentaje, aprobación por estudiante con el periodo anterior,
+    actas de periodos terminados, alertas con su unidad y los semestres de bachillerato con su nombre."""
+
+    def setUp(self):
+        super().setUp()
+        self.armar()
+
+    def test_los_dias_sin_cerrar_no_entran_en_la_asistencia_del_rango(self):
+        from Alumnos.models import CierreDia
+        cerrado = lunes() - timedelta(days=14)
+        abierto = cerrado + timedelta(days=1)
+        self.entrada(self.ana, cerrado, 'PRESENTE')
+        self.entrada(self.beto, cerrado, 'FALTA')
+        CierreDia.objects.create(fecha=cerrado)
+        self.entrada(self.ana, abierto, 'PRESENTE')            # aún sin cerrar: Beto no tiene falta todavía
+        filtros = filtros_de({'desde': cerrado.isoformat(), 'hasta': abierto.isoformat()})
+        datos = indicadores.asistencia_del_rango(filtros)
+        self.assertEqual((datos['totales']['registros'], datos['totales']['exacto']), (2, Decimal('50.0')))
+        self.assertEqual([p['estado'] for p in datos['grafica']['puntos']], ['cerrado', 'parcial'])
+        self.assertIsNone(datos['grafica']['puntos'][1]['valor'])
+        self.assertEqual((datos['dias_con_registro'], datos['dias_sin_cerrar']), (1, 1))
+
+    def test_la_aprobacion_por_estudiante_y_contra_el_periodo_anterior(self):
+        self.calificaciones()
+        filtros = filtros_de({'nivel': 'PRIMARIA'})
+        datos = indicadores.academico_del_alcance(filtros, academico.evaluaciones(filtros))
+        # P2: Ana reprueba MAT y Caro ESP; solo Beto aprueba todo (1 de 3). En P1 los tres aprobaban todo.
+        self.assertEqual((datos['aprobados'], datos['estudiantes'], datos['porcentaje_aprobados']), (1, 3, Decimal('33.3')))
+        self.assertEqual((datos['aprobacion_previa'], datos['diferencia_aprobacion']), (Decimal('100.0'), Decimal('-66.7')))
+        # Por grado (el único de primaria), con la marca del periodo anterior y el enlace para bajar de nivel
+        fila = datos['aprobacion_filas'][0]
+        self.assertEqual((fila['valor'], fila['previo'], fila['marca']), (Decimal('33.3'), Decimal('100.0'), 100.0))
+        self.assertIn(f'grado={self.primaria.pk}', fila['url'])
+        # P2 tiene 4 materias y 3 actas cerradas (CIE sigue en captura): la cifra es parcial
+        self.assertTrue(datos['parcial'])
+        self.assertEqual((datos['actas'][0]['cerradas'], datos['actas'][0]['esperadas']), (3, 4))
+
+    def test_actas_de_periodos_terminados_y_las_que_faltan(self):
+        self.calificaciones()
+        actas = academico.actas_de_periodos_terminados(filtros_de({}))
+        # Solo P1 terminó: MAT y ESP cerradas; CIE e ING faltan
+        self.assertEqual((actas['cerradas'], actas['esperadas'], actas['pendientes']), (2, 4, 2))
+        self.assertEqual(sorted(f['materia'] for f in actas['faltan']), ['Cie', 'Ing'])
+        self.assertEqual(actas['por_periodo'], [('P1', 2)])
+        self.assertEqual(academico.pendientes_de_periodos_terminados(filtros_de({})), 2)
+
+    def test_las_alertas_dicen_su_unidad(self):
+        self.calificaciones()
+        self.asistencias()
+        respuesta = self.client.get(INICIO)
+        textos = [a['texto'] for a in respuesta.context['atencion']]
+        self.assertIn('2 actas de periodos terminados sin cerrar', textos)
+        self.assertIn('2 estudiantes con prioridad alta', textos)
+        self.assertEqual(respuesta.context['atencion'][0]['prioridad'], 'alta')
+
+    def test_el_ciclo_anterior_no_tiene_franja_de_hoy(self):
+        from CISAHUAYO.pruebas import ciclo_cerrado_de_prueba
+        anterior = ciclo_cerrado_de_prueba()
+        respuesta = self.client.get(INICIO, {'ciclo': anterior.pk})
+        self.assertNotContains(respuesta, 'Entrada al colegio')
+        self.assertContains(respuesta, 'no es el actual')
+
+    def test_los_semestres_de_bachillerato_se_nombran_como_tales(self):
+        from .filtros import etiqueta_de_grado
+        self.assertTrue(etiqueta_de_grado(crear_grado('PREPARATORIA', 1)).startswith('1.º semestre ('))
+        self.assertEqual(etiqueta_de_grado(self.primaria), '2.º de primaria')
+        self.assertEqual(etiqueta_de_grado(self.secundaria), '7.º · 1.º Secundaria')
 
 
 @PRUEBAS

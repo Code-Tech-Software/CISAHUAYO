@@ -14,6 +14,7 @@ from django.db import DatabaseError, transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from CISAHUAYO.paginacion import OPCIONES_POR_PAGINA, paginar
 from CISAHUAYO.permisos import requiere_permisos
@@ -24,7 +25,7 @@ from .forms import CriterioSeguimientoForm
 from .models import PROPUESTOS, CriterioSeguimiento
 
 SESION = 'panel:filtros'
-ALERTAS_EN_EL_PANEL = 6   # las de mayor prioridad; la lista completa está en su propia página
+ALERTAS_EN_EL_PANEL = 5   # las de mayor prioridad; la lista completa está en su propia página
 VER_CRITERIOS, CAMBIAR_CRITERIOS = 'Panel.view_criterioseguimiento', 'Panel.change_criterioseguimiento'
 
 
@@ -67,44 +68,45 @@ def _seguro(funcion, *args):
         return {'error': True}
 
 
-def _atencion(filtros, p, datos):
-    """El centro de atención: asuntos accionables, de mayor a menor prioridad, con su acceso."""
+def _alertas_prioritarias(filtros, p, datos):
+    """Las alertas prioritarias (rediseño del 2026-11-12): asuntos que piden una acción, cada uno con su cantidad y su
+    unidad dicha con palabras (días, actas, estudiantes, casos, retiros), de mayor a menor prioridad y con el acceso a
+    donde se resuelven. Lo de hoy que no es un pendiente (quién aún no registra entrada) va en la franja «Hoy»."""
     items = []
-    consulta = filtros.consulta()
 
-    def agregar(prioridad, icono, motivo, cantidad, url, detalle=''):
+    def agregar(prioridad, icono, area, cantidad, singular, plural, texto, url, detalle=''):
         if cantidad:
-            items.append({'prioridad': prioridad, 'icono': icono, 'motivo': motivo, 'cantidad': cantidad, 'url': url, 'detalle': detalle})
+            items.append({'prioridad': prioridad, 'icono': icono, 'area': area, 'cantidad': cantidad, 'url': url, 'detalle': detalle,
+                          'texto': f'{cantidad} {singular if cantidad == 1 else plural} {texto}'})
 
-    hoy = datos.get('entrada_hoy') or {}
     if p['asistencia'] and filtros.hoy_en_ciclo:
-        if hoy.get('aplica'):
-            grado = f'&grado={filtros.grado.pk}' if filtros.grado else ''
-            agregar('media', 'user-check', 'Estudiantes sin registro de entrada hoy', hoy.get('sin_registro'),
-                    f'{reverse("asistencias:dia")}?estado=SIN_REGISTRO{grado}', 'Todavía sin entrada ni falta: no cuentan como faltas.')
         from Alumnos.asistencias import dias_pendientes_de_cierre
         pendientes = _seguro(dias_pendientes_de_cierre)
-        if isinstance(pendientes, list):
-            agregar('alta', 'calendar', 'Días de asistencia sin cerrar', len(pendientes), reverse('asistencias:inicio'),
-                    'Al cerrarlos se generan las faltas de quien no registró entrada (todo el colegio).')
-    if p['calificaciones'] and filtros.ciclo is not None:
-        n = _seguro(academico.pendientes_de_periodos_terminados, filtros)
-        if isinstance(n, int):
-            agregar('alta', 'award', 'Materias sin cerrar calificaciones de periodos terminados', n, reverse('calificaciones:inicio'))
-    retiros = datos.get('retiros') or {}
-    if retiros and not retiros.get('error'):
-        agregar('alta', 'log-out', 'Retiros de hoy pendientes de confirmar', retiros.get('pendientes'), f'{reverse("retiros:lista")}?vista=hoy')
-        agregar('media', 'log-out', 'Retiros de días anteriores sin confirmar ni cancelar', retiros.get('atrasados'),
-                f'{reverse("retiros:lista")}?vista=todos&estado=AVISADO')
+        if isinstance(pendientes, list) and pendientes:
+            fechas = ', '.join(date_format(d, 'D j M') for d in pendientes[:4]) + ('…' if len(pendientes) > 4 else '')
+            agregar('alta', 'calendar', 'Asistencia', len(pendientes), 'día', 'días', 'de asistencia sin cerrar', reverse('asistencias:inicio'),
+                    f'{fechas}. Al cerrarlos se generan las faltas de quien no registró entrada (todo el colegio).')
+    actas = datos.get('actas') or {}
+    if actas and not actas.get('error'):
+        agregar('alta', 'award', 'Calificaciones', actas['pendientes'], 'acta', 'actas', 'de periodos terminados sin cerrar',
+                reverse('calificaciones:inicio'), ' · '.join(f'{periodo}: {n}' for periodo, n in actas['por_periodo']))
+    resumen = datos.get('resumen_alertas') or {}
+    agregar('alta', 'triangle-alert', 'Seguimiento', resumen.get('alta'), 'estudiante', 'estudiantes', 'con prioridad alta',
+            f'{reverse("panel:seguimiento")}?{filtros.consulta(prioridad="alta")}',
+            'Inasistencia y bajo rendimiento a la vez, faltas seguidas o muchas materias reprobadas.')
     conducta = datos.get('conducta') or {}
     if conducta and not conducta.get('error'):
-        agregar('alta', 'flag', 'Casos de conducta con revisión vencida', conducta.get('vencidos'),
-                f'{reverse("conducta:lista")}?estado=vencidos&ciclo={filtros.ciclo.pk}')
-        agregar('alta', 'flag', 'Suspensiones o medidas por aprobar', conducta.get('solicitudes'), reverse('conducta:solicitudes'))
-    resumen = datos.get('resumen_alertas') or {}
-    url = f'{reverse("panel:seguimiento")}?{consulta}'
-    agregar('alta', 'triangle-alert', 'Estudiantes con alertas de prioridad alta', resumen.get('alta'), f'{url}&prioridad=alta' if consulta else f'{url}prioridad=alta')
-    agregar('media', 'circle-alert', 'Estudiantes con alertas de prioridad media', resumen.get('media'), f'{url}&prioridad=media' if consulta else f'{url}prioridad=media')
+        agregar('alta', 'flag', 'Conducta', conducta.get('vencidos'), 'caso', 'casos', 'de conducta con revisión vencida',
+                f'{reverse("conducta:lista")}?estado=vencidos&ciclo={filtros.ciclo.pk}', 'La fecha de revisión ya pasó y el caso sigue abierto.')
+        agregar('alta', 'flag', 'Conducta', conducta.get('solicitudes'), 'suspensión o medida', 'suspensiones o medidas', 'por aprobar',
+                reverse('conducta:solicitudes'), 'Las resuelve la dirección del nivel del estudiante.')
+    retiros = datos.get('retiros') or {}
+    if retiros and not retiros.get('error'):
+        pasadas = retiros.get('hora_pasada') or 0
+        agregar('alta' if pasadas else 'media', 'log-out', 'Retiros', retiros.get('pendientes'), 'retiro', 'retiros', 'de hoy por confirmar',
+                f'{reverse("retiros:lista")}?vista=hoy', f'{pasadas} con la hora ya pasada.' if pasadas else 'Ninguno con la hora pasada todavía.')
+        agregar('media', 'log-out', 'Retiros', retiros.get('atrasados'), 'retiro', 'retiros', 'de días anteriores sin confirmar ni cancelar',
+                f'{reverse("retiros:lista")}?vista=todos&estado=AVISADO')
     orden = {'alta': 0, 'media': 1, 'baja': 2}
     return sorted(items, key=lambda i: orden[i['prioridad']])
 
@@ -142,6 +144,7 @@ def inicio(request):
         if p['calificaciones']:
             datos['academico'] = _seguro(indicadores.academico_del_alcance, filtros, evaluaciones)
             datos['captura'] = _seguro(academico.avance_de_captura, filtros, evaluaciones)
+            datos['actas'] = _seguro(academico.actas_de_periodos_terminados, filtros)
         if p['conducta']:
             datos['conducta'] = _seguro(indicadores.conducta, filtros)
         if p['bitacoras']:
@@ -153,15 +156,22 @@ def inicio(request):
         if p['estudiantes'] and (p['asistencia'] or p['calificaciones']):
             lista = _seguro(seguimiento.alertas, filtros, p['asistencia'], p['calificaciones'], evaluaciones)
             if isinstance(lista, list):
-                datos['resumen_alertas'] = seguimiento.resumen(lista)
-                motivo, prioridad = request.GET.get('motivo', ''), request.GET.get('prioridad', '')
-                filtradas = seguimiento.filtrar(lista, motivo, prioridad)
-                datos.update(alertas=filtradas[:ALERTAS_EN_EL_PANEL], alertas_filtradas=len(filtradas), motivo=motivo, prioridad=prioridad)
+                resumen = seguimiento.resumen(lista)
+                activos = (datos.get('estudiantes') or {}).get('total')
+                criterios = CriterioSeguimiento.por_nivel()
+                datos.update(porcentaje_seguimiento=round(resumen['total'] * 100 / activos, 1) if activos else None,
+                             criterios_propuestos=any(criterios[n].es_propuesto for n in filtros.niveles_en_alcance))
+                # Por motivo, como en la lista completa (cada barra abre esa lista ya filtrada)
+                maximo = max(resumen['inasistencia'], resumen['rendimiento'], 1)
+                datos.update(resumen_alertas=resumen, alertas=lista[:ALERTAS_EN_EL_PANEL], motivos_alertas=[
+                    {'nombre': nombre, 'valor': resumen[motivo], 'ancho': indicadores._ancho(resumen[motivo], maximo),
+                     'url': f'{reverse("panel:seguimiento")}?{filtros.consulta(motivo=motivo)}'} for nombre, motivo in (
+                        ('Inasistencia', 'inasistencia'), ('Bajo rendimiento', 'rendimiento'), ('Ambos motivos', 'ambos'))])
             else:
                 datos['alertas_error'] = True
             datos['periodos_de_seguimiento'] = [(NOMBRES_DE_NIVEL[n], ev) for n, ev in evaluaciones.items()]
         datos['actividad'] = _seguro(indicadores.actividad, request.user, filtros, p)
-        datos['atencion'] = _atencion(filtros, p, datos)
+        datos['atencion'] = _alertas_prioritarias(filtros, p, datos)
     datos.update(motivos=seguimiento.MOTIVOS, prioridades=seguimiento.PRIORIDADES, **agenda)
     return render(request, 'panel/inicio.html', datos)
 

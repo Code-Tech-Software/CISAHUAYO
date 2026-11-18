@@ -457,7 +457,10 @@ class EditarTests(BaseTestCase):
     def test_formulario_precargado(self):
         respuesta = self.client.get(self.url)
         form = respuesta.context['form']
-        self.assertEqual(list(form.fields), ['materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin', 'vigencia'])   # «Aplica desde»: versiones
+        # «Aplica desde»: versiones; «También se da otros días»: los días y sus horas
+        self.assertEqual(list(form.fields)[:6], ['materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin', 'vigencia', 'dias'])
+        self.assertContains(respuesta, 'También se da otros días')
+        self.assertContains(respuesta, 'Por ahora Matemáticas solo se da en este bloque')
         self.assertEqual(form.initial['dia_semana'], 0)
         self.assertContains(respuesta, 'Quitar del horario')
         self.assertContains(respuesta, 'js/hora.js')                      # también al editar, el selector de hora
@@ -469,6 +472,54 @@ class EditarTests(BaseTestCase):
         self.assertContains(respuesta, 'Se actualizó el horario de Matemáticas (jueves)')
         self.bloque.refresh_from_db()
         self.assertEqual((self.bloque.dia_semana, self.bloque.hora_inicio, self.bloque.hora_fin), (3, time(12, 0), time(13, 0)))
+
+    # «También se da otros días» (reporte del 2026-11-18: al editar para darla otro día, la quitaba del día que tenía)
+    def otros_dias(self, **dias):
+        """{día: (inicio, fin)} → lo que envía «También se da otros días»."""
+        datos = {'dias': [int(d) for d in dias]}
+        for dia, (inicio, fin) in dias.items():
+            datos.update({f'inicio_{dia}': inicio, f'fin_{dia}': fin})
+        return datos
+
+    def test_agrega_otro_dia_sin_quitar_el_que_ya_tenia(self):
+        respuesta = self.client.post(self.url, {**self.datos(), **self.otros_dias(**{'2': ('10:00', '11:00')})}, follow=True)
+        self.assertRedirects(respuesta, self.volver)
+        self.assertContains(respuesta, 'Se actualizó el horario de Matemáticas (lunes) y se agregó también: Mié 10:00–11:00.')
+        self.bloque.refresh_from_db()
+        self.assertEqual((self.bloque.dia_semana, self.bloque.hora_inicio), (0, time(8, 0)))
+        self.assertEqual(sorted(HorarioMateria.objects.filter(materia_grado=self.mat).values_list('dia_semana', 'hora_inicio')),
+                         [(0, time(8, 0)), (2, time(10, 0))])
+        # Al volver a editarlo, dice en qué otros días se da
+        self.assertContains(self.client.get(self.url), 'Matemáticas también se da:')
+
+    def test_varios_dias_cada_uno_con_su_hora(self):
+        self.client.post(self.url, {**self.datos(), **self.otros_dias(**{'1': ('08:00', '09:00'), '4': ('12:00', '12:50')})})
+        self.assertEqual(sorted(HorarioMateria.objects.filter(materia_grado=self.mat).values_list('dia_semana', 'hora_inicio', 'hora_fin')),
+                         [(0, time(8, 0), time(9, 0)), (1, time(8, 0), time(9, 0)), (4, time(12, 0), time(12, 50))])
+
+    def test_otro_dia_que_se_empalma_no_guarda_nada(self):
+        bloque(self.esp, 2, (10, 0), (11, 0))
+        respuesta = self.client.post(self.url, {**self.datos(hora_fin='08:50'), **self.otros_dias(**{'2': ('10:30', '11:30')})})
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertIn('inicio_2', respuesta.context['form'].errors)
+        self.bloque.refresh_from_db()
+        self.assertEqual(self.bloque.hora_fin, time(9, 0))                                   # tampoco cambia este bloque
+        self.assertEqual(HorarioMateria.objects.filter(materia_grado=self.mat).count(), 1)
+
+    def test_el_dia_de_este_bloque_no_se_repite(self):
+        respuesta = self.client.post(self.url, {**self.datos(), **self.otros_dias(**{'0': ('11:00', '12:00')})})
+        self.assertContains(respuesta, 'El lunes ya es el día de este bloque')
+        self.assertEqual(HorarioMateria.objects.filter(materia_grado=self.mat).count(), 1)
+
+    def test_otro_dia_sin_hora(self):
+        respuesta = self.client.post(self.url, {**self.datos(), 'dias': [3]})
+        self.assertContains(respuesta, 'Indica la hora de inicio del jueves.')
+
+    def test_mover_el_bloque_y_conservar_su_dia_anterior(self):
+        # Pasa al jueves y además se queda el lunes a la misma hora: el lunes de antes no cuenta como empalme
+        self.client.post(self.url, {**self.datos(dia_semana=3), **self.otros_dias(**{'0': ('08:00', '09:00')})})
+        self.assertEqual(sorted(HorarioMateria.objects.filter(materia_grado=self.mat).values_list('dia_semana', 'hora_inicio')),
+                         [(0, time(8, 0)), (3, time(8, 0))])
 
     def test_cambia_de_materia_dentro_del_grado(self):
         self.client.post(self.url, self.datos(materia_grado=self.esp.pk, dia_semana=4))

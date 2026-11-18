@@ -1,4 +1,4 @@
-/* CISAHUAYO · agregar horario o receso
+/* CISAHUAYO · agregar horario o receso, y «También se da otros días» al editar un bloque
 
    Cada día marcado muestra su propia hora de inicio y de fin (una fila [data-horario-dia] por día de la semana). Al
    desmarcar un día su fila se quita de la vista y sus campos se desactivan, así que no se envían ni se guardan; si se
@@ -56,6 +56,34 @@
   });
 
   casillas.forEach((casilla) => casilla.addEventListener('change', actualizar));
+
+  /* Editar un bloque: «También se da otros días» no ofrece el día del propio bloque (moverlo es cambiar el día de
+     arriba) y, al marcar otro día, le propone la hora del bloque para no escribirla dos veces. */
+  const diaDelBloque = form.querySelector('select[name="dia_semana"]');
+  if (diaDelBloque) {
+    const [horaInicio, horaFin] = ['hora_inicio', 'hora_fin'].map((nombre) => form.querySelector(`input[name="${nombre}"]`));
+    const bloquearDia = () => {
+      casillas.forEach((casilla) => {
+        const mismo = casilla.value === diaDelBloque.value;
+        if (mismo) casilla.checked = false;
+        casilla.disabled = mismo;
+        casilla.closest('.choice')?.setAttribute('title', mismo ? 'Es el día de este bloque' : '');
+      });
+      actualizar();
+    };
+    casillas.forEach((casilla) => casilla.addEventListener('change', () => {
+      if (!casilla.checked) return;
+      const fila = filas.find((f) => f.dataset.horarioDia === casilla.value);
+      const [inicio, fin] = fila ? horasDe(fila) : [];
+      if (!inicio || inicio.value || fin.value || !horaInicio?.value || !horaFin?.value) return;
+      inicio.value = horaInicio.value;
+      fin.value = horaFin.value;
+      [inicio, fin].forEach((campo) => campo.dispatchEvent(new Event('change', { bubbles: true })));
+    }));
+    diaDelBloque.addEventListener('change', bloquearDia);
+    bloquearDia();
+  }
+
   actualizar();
 
   /* Receso: marcar o desmarcar todos los grupos de una vez */

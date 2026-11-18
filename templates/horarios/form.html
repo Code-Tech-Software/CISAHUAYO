@@ -20,7 +20,7 @@
       <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
       <p class="page-header__description">
         {{ grupo }} · Ciclo {{ ciclo }}{% if semana and not es_edicion %} · <strong>Semana {{ semana }}</strong>{% endif %}.
-        {% if es_edicion %}Cambia la materia, el día o la hora de este bloque.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}
+        {% if es_edicion %}Cambia la materia, el día o la hora de este bloque, o agrega la materia también en otros días.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}
       </p>
     </div>
   </header>
@@ -65,6 +65,15 @@
           {% if es_edicion %}
             {% include "partials/field.html" with campo=form.hora_inicio %}
             {% include "partials/field.html" with campo=form.hora_fin %}
+            {% with otros=form.otros_bloques %}
+              <p class="field__hint form-grid__full horario-otros">
+                {% if otros %}{{ bloque.materia_grado.materia }} también se da:
+                  {% for otro in otros %}{% if not forloop.first %}, {% endif %}{{ otro.get_dia_semana_display|lower }} de {{ otro.hora_inicio|time:"H:i" }} a {{ otro.hora_fin|time:"H:i" }}{% endfor %}.
+                  Esos bloques no cambian aquí.
+                {% else %}Por ahora {{ bloque.materia_grado.materia }} solo se da en este bloque.{% endif %}
+              </p>
+            {% endwith %}
+            {% include "horarios/_horas_por_dia.html" with form=form titulo="También se da otros días" opcional=True ayuda="Cambiar el día de arriba mueve este bloque. Para que la materia se dé además otro día, márcalo aquí con su hora: se agrega sin quitar este." vacio="Marca uno o varios días y escribe su hora; se propone la de este bloque." %}
           {% endif %}
           {% include "partials/field.html" with campo=form.vigencia clase="form-grid__full" %}
         </div>
@@ -109,5 +118,5 @@
 {% endblock %}
 
 {% block extra_js %}
-  {% if not es_edicion %}<script src="{% static 'js/horario-form.js' %}" defer></script>{% endif %}
+  <script src="{% static 'js/horario-form.js' %}" defer></script>
 {% endblock %}

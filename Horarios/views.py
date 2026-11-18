@@ -345,7 +345,10 @@ def horario_editar(request, pk):
         if form.is_valid():
             bloque = form.save()
             desde = f' a partir del {bloque.vigente_desde:%d/%m/%Y}' if bloque.vigente_desde else ''
-            messages.success(request, f'Se actualizó el horario de {bloque.materia_grado.materia} ({DIAS[bloque.dia_semana].lower()}){desde}.')
+            otros = ''
+            if form.agregados:
+                otros = ' y se agregó también: ' + ', '.join(f'{DIAS_CORTOS[b.dia_semana]} {b.hora_inicio:%H:%M}–{b.hora_fin:%H:%M}' for b in form.agregados)
+            messages.success(request, f'Se actualizó el horario de {bloque.materia_grado.materia} ({DIAS[bloque.dia_semana].lower()}){desde}{otros}.')
             return redirect(_url_del_grupo(grupo.pk, ciclo.pk, bloque.semana))
         messages.error(request, 'Revisa los campos marcados: hay datos por corregir.')
 

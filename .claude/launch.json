@@ -12,6 +12,13 @@
       "runtimeExecutable": "C:/Users/maggm/OneDrive/Desktop/CISAHUAYO/.venv/Scripts/python.exe",
       "runtimeArgs": ["manage.py", "runserver", "8000", "--settings=CISAHUAYO.settings_demo"],
       "port": 8000
+    },
+    {
+      "name": "demo-8010",
+      "runtimeExecutable": "C:/Users/maggm/OneDrive/Desktop/CISAHUAYO/.venv/Scripts/python.exe",
+      "runtimeArgs": ["manage.py", "runserver", "8010", "--settings=CISAHUAYO.settings_demo"],
+      "port": 8010,
+      "autoPort": false
     }
   ]
 }

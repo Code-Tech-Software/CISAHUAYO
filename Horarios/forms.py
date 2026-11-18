@@ -1,4 +1,5 @@
 from django import forms
+from django.db import transaction
 
 from Alumnos.clases import bloque_empalmado
 from Alumnos.forms import EstiloCamposMixin
@@ -139,6 +140,27 @@ class HorasPorDiaMixin:
         return correctos
 
 
+def revisar_empalmes_por_dia(form, grupo, ciclo, semana, asignacion, desde, excluir_bloque=None):
+    """Los días pedidos (`form.bloques_pedidos`), uno por uno: que no se empalmen con el grupo (otra materia o un receso
+    suyo), con un bloque simultáneo ni con otra clase del profesor. El error va en la hora de inicio de ese día.
+    `excluir_bloque`: el bloque que se está editando (se guarda en su nueva posición, que ya se revisa aparte)."""
+    profesor = asignacion.profesor if asignacion else None
+    for dia, inicio, fin in form.bloques_pedidos:
+        bloques, recreos = empalmes_del_grupo(grupo, ciclo, dia, inicio, fin, excluir_bloque=excluir_bloque, semana=semana)
+        if bloques or recreos:
+            form.add_error(f'inicio_{dia}', mensaje_de_empalme(bloques, recreos))
+        simultaneo = bloque_empalmado(grupo, ciclo, dia, inicio, fin, semana, asignacion)
+        if simultaneo is not None:
+            form.add_error(f'inicio_{dia}', mensaje_de_bloque(simultaneo))
+        if profesor:
+            del_profesor = list(bloques_del_profesor_empalmados(
+                profesor, ciclo, dia, inicio, fin, excluir_pk=excluir_bloque, excluir_grupo=grupo, semana=semana,
+                nivel=grupo.grado.nivel, desde=desde,
+            ))
+            if del_profesor:
+                form.add_error(f'inicio_{dia}', mensaje_de_empalme_profesor(profesor, del_profesor))
+
+
 # ---------------------------------------------------------------------------
 # Agregar: una materia en uno o varios días, cada día con su propia hora
 # ---------------------------------------------------------------------------
@@ -169,23 +191,7 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
         datos = super().clean()
         self.bloques_pedidos = self.limpiar_horas_por_dia(datos)
         desde = validar_vigencia(self, self.ciclo)
-
-        # Empalmes, día por día: con el grupo (otra materia o un receso suyo) y con otra clase del profesor
-        profesor = datos['materia_grado'].profesor if datos.get('materia_grado') else None
-        for dia, inicio, fin in self.bloques_pedidos:
-            bloques, recreos = empalmes_del_grupo(self.grupo, self.ciclo, dia, inicio, fin, semana=self.semana)
-            if bloques or recreos:
-                self.add_error(f'inicio_{dia}', mensaje_de_empalme(bloques, recreos))
-            simultaneo = bloque_empalmado(self.grupo, self.ciclo, dia, inicio, fin, self.semana, datos.get('materia_grado'))
-            if simultaneo is not None:
-                self.add_error(f'inicio_{dia}', mensaje_de_bloque(simultaneo))
-            if profesor:
-                del_profesor = list(bloques_del_profesor_empalmados(
-                    profesor, self.ciclo, dia, inicio, fin, excluir_grupo=self.grupo,
-                    semana=self.semana, nivel=self.grupo.grado.nivel, desde=desde,
-                ))
-                if del_profesor:
-                    self.add_error(f'inicio_{dia}', mensaje_de_empalme_profesor(profesor, del_profesor))
+        revisar_empalmes_por_dia(self, self.grupo, self.ciclo, self.semana, datos.get('materia_grado'), desde)
         return datos
 
     def guardar(self):
@@ -198,14 +204,20 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
 # ---------------------------------------------------------------------------
 # Editar un bloque
 # ---------------------------------------------------------------------------
-class HorarioEditarForm(EstiloCamposMixin, forms.ModelForm):
-    """Un bloque: su materia, día y horas (y su semana, en un horario alternado), desde la fecha que se indique."""
+class HorarioEditarForm(HorasPorDiaMixin, EstiloCamposMixin, forms.ModelForm):
+    """Un bloque: su materia, día y horas (y su semana, en un horario alternado), desde la fecha que se indique.
+
+    «También se da otros días» (pedido del 2026-11-18): al cambiar el día, el bloque se mueve; para que la materia se dé
+    además otro día se marcan aquí esos días, cada uno con su hora, y se agregan como bloques nuevos sin tocar este. Se
+    revisan los mismos empalmes que al agregar y se guarda todo o nada.
+    """
 
     materia_grado = AsignacionChoiceField(
         MateriaGrado.objects.none(), label='Materia', empty_label=None,
         error_messages={'required': 'Elige la materia.', 'invalid_choice': 'Elige una materia de la lista.'},
     )
     vigencia = campo_de_vigencia()
+    dias = campo_de_dias()
 
     class Meta:
         model = HorarioMateria
@@ -223,13 +235,31 @@ class HorarioEditarForm(EstiloCamposMixin, forms.ModelForm):
             self.fields['semana'].required = True
         else:
             del self.fields['semana']   # horario fijo: todas las semanas
+        self.bloques_pedidos, self.agregados = [], []
+        self.fields['dias'].required = False
+        self.fields['dias'].label = 'También se da otros días'
+        self.agregar_horas_por_dia()
         self.aplicar_estilo()
+        self.fields['dias'].widget.attrs['class'] = 'choice__input'  # el mixin le habría puesto la clase de los campos de texto
+
+    @property
+    def otros_bloques(self):
+        """Los demás bloques vigentes de la misma materia en el grupo (y en la misma semana), para mostrarlos."""
+        return (HorarioMateria.objects.filter(materia_grado=self.instance.materia_grado_id, semana=self.instance.semana)
+                .exclude(pk=self.instance.pk).order_by('dia_semana', 'hora_inicio'))
 
     def clean(self):
         datos = super().clean()
         inicio, fin, dia = datos.get('hora_inicio'), datos.get('hora_fin'), datos.get('dia_semana')
         semana = datos.get('semana', self.instance.semana) or ''
         desde = validar_vigencia(self, self.ciclo)
+
+        # Los otros días: cada uno con su hora, sin repetir el día de este bloque, con los mismos empalmes que al agregar
+        self.bloques_pedidos = self.limpiar_horas_por_dia(datos)
+        if dia is not None and dia in {d for d, _, _ in self.bloques_pedidos}:
+            self.add_error('dias', f'El {DIAS[dia].lower()} ya es el día de este bloque. Para darla otra vez ese día, agrégala desde «Agregar horario».')
+            self.bloques_pedidos = [b for b in self.bloques_pedidos if b[0] != dia]
+        revisar_empalmes_por_dia(self, self.grupo, self.ciclo, semana, datos.get('materia_grado'), desde, excluir_bloque=self.instance.pk)
         # El orden de las horas lo valida el modelo; aquí, que no se empalme con otra materia ni con un receso del grupo.
         if inicio and fin and inicio < fin and dia is not None:
             bloques, recreos = empalmes_del_grupo(self.grupo, self.ciclo, dia, inicio, fin, excluir_bloque=self.instance.pk, semana=semana)
@@ -249,10 +279,16 @@ class HorarioEditarForm(EstiloCamposMixin, forms.ModelForm):
         return datos
 
     def save(self, commit=True):
-        """Con versiones: si aplica desde una fecha, el bloque anterior se conserva para las fechas previas."""
+        """Con versiones: si aplica desde una fecha, el bloque anterior se conserva para las fechas previas. Los otros
+        días marcados se agregan como bloques nuevos de la misma materia y semana, desde la misma fecha."""
         valores = {campo: self.cleaned_data[campo] for campo in ('materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin', 'semana')
                    if campo in self.cleaned_data}
-        return cambios.cambiar(self.instance, desde=self.cleaned_data.get('vigencia'), **valores)
+        desde = self.cleaned_data.get('vigencia')
+        with transaction.atomic():
+            bloque = cambios.cambiar(self.instance, desde=desde, **valores)
+            self.agregados = [cambios.crear(bloque.materia_grado, dia, inicio, fin, semana=bloque.semana, desde=desde)
+                              for dia, inicio, fin in self.bloques_pedidos]
+        return bloque
 
 
 # ---------------------------------------------------------------------------

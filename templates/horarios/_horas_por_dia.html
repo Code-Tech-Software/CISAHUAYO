@@ -1,10 +1,12 @@
 {% comment %}
   Los días con su propia hora cada uno (Horarios.forms.HorasPorDiaMixin): las casillas de los días y, debajo, una fila
   con la hora de inicio y de fin de cada día marcado. static/js/horario-form.js muestra y quita las filas al marcar y
-  desmarcar. Va dentro de un .form-grid. Parámetro: form.
+  desmarcar. Va dentro de un .form-grid. Parámetros: form y, opcionales, titulo, opcional (sin marca de obligatorio),
+  ayuda (debajo del título) y vacio (el texto mientras no hay días marcados).
 {% endcomment %}
 <fieldset class="field form-grid__full{% if form.dias.errors %} is-invalid{% endif %}">
-  <legend class="field__label field__label--required">Días</legend>
+  <legend class="field__label{% if not opcional %} field__label--required{% endif %}">{{ titulo|default:"Días" }}</legend>
+  {% if ayuda %}<p class="field__hint">{{ ayuda }}</p>{% endif %}
   <div class="choice-group">
     {% for opcion in form.dias %}
       <label class="choice choice--check" for="{{ opcion.id_for_label }}">
@@ -17,7 +19,7 @@
 </fieldset>
 
 <div class="form-grid__full horario-dias" data-horario-dias>
-  <p class="field__hint" data-horario-vacio{% if form.dias_marcados %} hidden{% endif %}>Marca uno o varios días: para cada uno indicas a qué hora empieza y termina.</p>
+  <p class="field__hint" data-horario-vacio{% if form.dias_marcados %} hidden{% endif %}>{{ vacio|default:"Marca uno o varios días: para cada uno indicas a qué hora empieza y termina." }}</p>
   {% for fila in form.horas_por_dia %}
     <fieldset class="horario-dia" data-horario-dia="{{ fila.dia }}"{% if not fila.marcado %} hidden{% endif %}>
       <legend class="horario-dia__nombre">{{ fila.nombre }}</legend>

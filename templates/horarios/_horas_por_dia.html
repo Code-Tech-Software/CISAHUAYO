@@ -3,6 +3,8 @@
   con la hora de inicio y de fin de cada día marcado. static/js/horario-form.js muestra y quita las filas al marcar y
   desmarcar. Va dentro de un .form-grid. Parámetros: form y, opcionales, titulo, opcional (sin marca de obligatorio),
   ayuda (debajo del título) y vacio (el texto mientras no hay días marcados).
+  En las materias (TRAMOS_POR_DIA > 1), cada día tiene «Otra hora el lunes» para darla otra vez ese día más tarde; esas
+  horas se muestran y se quitan con horario-form.js y, sin JavaScript, se ven solo si ya traen algo.
 {% endcomment %}
 <fieldset class="field form-grid__full{% if form.dias.errors %} is-invalid{% endif %}">
   <legend class="field__label{% if not opcional %} field__label--required{% endif %}">{{ titulo|default:"Días" }}</legend>
@@ -23,18 +25,32 @@
   {% for fila in form.horas_por_dia %}
     <fieldset class="horario-dia" data-horario-dia="{{ fila.dia }}"{% if not fila.marcado %} hidden{% endif %}>
       <legend class="horario-dia__nombre">{{ fila.nombre }}</legend>
-      <div class="horario-dia__horas">
-        <div class="field{% if fila.inicio.errors %} is-invalid{% endif %}">
-          <label class="field__label field__label--required" for="{{ fila.inicio.id_for_label }}">Hora de inicio <span class="visually-hidden">del {{ fila.nombre|lower }}</span></label>
-          {{ fila.inicio }}
-          {% for error in fila.inicio.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+      {% for tramo in fila.tramos %}
+        {# La primera hora del día siempre; la segunda y la tercera (una materia que se da otra vez más tarde) solo si se piden #}
+        <div class="horario-dia__horas{% if tramo.numero > 1 %} horario-dia__horas--otra{% endif %}" data-horario-tramo="{{ tramo.numero }}"{% if not tramo.visible %} hidden{% endif %}>
+          {% if tramo.numero > 1 %}<p class="horario-dia__otra">{{ tramo.ordinal|capfirst }} clase del {{ fila.nombre|lower }}</p>{% endif %}
+          <div class="field{% if tramo.inicio.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="{{ tramo.inicio.id_for_label }}">Hora de inicio <span class="visually-hidden">{% if tramo.numero > 1 %}de la {{ tramo.ordinal }} clase {% endif %}del {{ fila.nombre|lower }}</span></label>
+            {{ tramo.inicio }}
+            {% for error in tramo.inicio.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="field{% if tramo.fin.errors %} is-invalid{% endif %}">
+            <label class="field__label field__label--required" for="{{ tramo.fin.id_for_label }}">Hora de fin <span class="visually-hidden">{% if tramo.numero > 1 %}de la {{ tramo.ordinal }} clase {% endif %}del {{ fila.nombre|lower }}</span></label>
+            {{ tramo.fin }}
+            {% for error in tramo.fin.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
+          </div>
+          {% if tramo.numero > 1 %}
+            <button type="button" class="btn btn--ghost btn--sm horario-dia__quitar" data-quitar-hora>
+              {% include "partials/icon.html" with name="x" icon_class="icon--sm" %} Quitar <span class="visually-hidden">la {{ tramo.ordinal }} clase del {{ fila.nombre|lower }}</span>
+            </button>
+          {% endif %}
         </div>
-        <div class="field{% if fila.fin.errors %} is-invalid{% endif %}">
-          <label class="field__label field__label--required" for="{{ fila.fin.id_for_label }}">Hora de fin <span class="visually-hidden">del {{ fila.nombre|lower }}</span></label>
-          {{ fila.fin }}
-          {% for error in fila.fin.errors %}<p class="field__error">{{ error }}</p>{% endfor %}
-        </div>
-      </div>
+      {% endfor %}
+      {% if fila.varias %}
+        <button type="button" class="btn btn--ghost btn--sm horario-dia__mas" data-otra-hora{% if fila.todas_visibles %} hidden{% endif %}>
+          {% include "partials/icon.html" with name="plus" icon_class="icon--sm" %} Otra hora el {{ fila.nombre|lower }}
+        </button>
+      {% endif %}
     </fieldset>
   {% endfor %}
   <button type="button" class="btn btn--ghost btn--sm horario-dias__copiar" data-misma-hora hidden>

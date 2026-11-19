@@ -87,19 +87,35 @@ def campo_de_dias():
     )
 
 
+ORDINALES = {2: 'segunda', 3: 'tercera'}
+
+
 class HorasPorDiaMixin:
     """Los días marcados (`dias`) con su propia hora de inicio y de fin cada uno (`inicio_<día>` y `fin_<día>`, con el
     número del día: 0 = lunes). Solo cuentan las de los días marcados: las de los demás se ignoran.
 
+    Con `TRAMOS_POR_DIA` mayor que 1 (las materias), un día también admite otras horas aparte de la primera:
+    `inicio_<día>_2`, `fin_<día>_2`… Así una materia se da a primera hora y otra vez a cuarta o a última el mismo día
+    (pedido del 2026-11-19). Las otras horas que se dejan vacías se ignoran; las de un mismo día no pueden empalmarse.
+
     Se usa con la plantilla `horarios/_horas_por_dia.html` y `static/js/horario-form.js`.
     """
 
+    TRAMOS_POR_DIA = 1
+
+    @staticmethod
+    def campo_de_hora(campo, dia, tramo=1):
+        """El nombre del campo: 'inicio_0' para la primera hora del lunes, 'inicio_0_2' para la segunda."""
+        return f'{campo}_{dia}' if tramo == 1 else f'{campo}_{dia}_{tramo}'
+
     def agregar_horas_por_dia(self):
+        self.tramos_pedidos = []   # (día, inicio, fin, campo de la hora de inicio) de cada hora pedida, ya validada
         for dia in DIAS:
-            for campo, etiqueta in (('inicio', 'Hora de inicio'), ('fin', 'Hora de fin')):
-                self.fields[f'{campo}_{dia}'] = forms.TimeField(
-                    required=False, label=etiqueta, widget=HORA, error_messages={'invalid': 'Escribe una hora válida.'},
-                )
+            for tramo in range(1, self.TRAMOS_POR_DIA + 1):
+                for campo, etiqueta in (('inicio', 'Hora de inicio'), ('fin', 'Hora de fin')):
+                    self.fields[self.campo_de_hora(campo, dia, tramo)] = forms.TimeField(
+                        required=False, label=etiqueta, widget=HORA, error_messages={'invalid': 'Escribe una hora válida.'},
+                    )
 
     @property
     def dias_marcados(self):
@@ -108,57 +124,77 @@ class HorasPorDiaMixin:
 
     @property
     def horas_por_dia(self):
-        """Una fila por día de la semana con sus dos campos; la plantilla muestra solo las de los días marcados."""
+        """Una fila por día de la semana con sus horas (`tramos`: la primera siempre; las otras se muestran si traen algo
+        o un error). La plantilla muestra solo las filas de los días marcados."""
         marcados = self.dias_marcados
-        return [
-            {'dia': dia, 'nombre': nombre, 'marcado': dia in marcados, 'inicio': self[f'inicio_{dia}'], 'fin': self[f'fin_{dia}']}
-            for dia, nombre in DIAS.items()
-        ]
+        filas = []
+        for dia, nombre in DIAS.items():
+            tramos = []
+            for tramo in range(1, self.TRAMOS_POR_DIA + 1):
+                inicio, fin = self[self.campo_de_hora('inicio', dia, tramo)], self[self.campo_de_hora('fin', dia, tramo)]
+                visible = tramo == 1 or bool(inicio.value() or fin.value() or inicio.errors or fin.errors)
+                tramos.append({'numero': tramo, 'ordinal': ORDINALES.get(tramo, ''), 'inicio': inicio, 'fin': fin, 'visible': visible})
+            filas.append({'dia': dia, 'nombre': nombre, 'marcado': dia in marcados, 'inicio': tramos[0]['inicio'], 'fin': tramos[0]['fin'],
+                          'tramos': tramos, 'varias': self.TRAMOS_POR_DIA > 1,
+                          'todas_visibles': all(t['visible'] for t in tramos)})
+        return filas
 
     def limpiar_horas_por_dia(self, datos):
-        """Revisa que cada día marcado tenga sus dos horas y que la de fin sea posterior. Devuelve [(día, inicio, fin)]
-        de los días correctos."""
+        """Revisa que cada hora pedida de cada día marcado tenga inicio y fin, que el fin sea posterior y que las de un
+        mismo día no se empalmen. Deja en `tramos_pedidos` las correctas con su campo y devuelve [(día, inicio, fin)]."""
         dias = sorted(datos.get('dias') or [])
         # Lo escrito en un día sin marcar no se guarda, así que tampoco se le piden correcciones
         for dia in set(DIAS) - set(dias):
-            for campo in (f'inicio_{dia}', f'fin_{dia}'):
-                self._errors.pop(campo, None)
+            for tramo in range(1, self.TRAMOS_POR_DIA + 1):
+                for campo in ('inicio', 'fin'):
+                    self._errors.pop(self.campo_de_hora(campo, dia, tramo), None)
 
-        correctos = []
+        self.tramos_pedidos = []
         for dia in dias:
             nombre = DIAS[dia].lower()
-            inicio, fin = datos.get(f'inicio_{dia}'), datos.get(f'fin_{dia}')
-            if inicio is None and f'inicio_{dia}' not in self.errors:
-                self.add_error(f'inicio_{dia}', f'Indica la hora de inicio del {nombre}.')
-            if fin is None and f'fin_{dia}' not in self.errors:
-                self.add_error(f'fin_{dia}', f'Indica la hora de fin del {nombre}.')
-            if inicio and fin:
-                if fin <= inicio:
-                    self.add_error(f'fin_{dia}', f'La hora de fin del {nombre} debe ser posterior a la de inicio.')
-                else:
-                    correctos.append((dia, inicio, fin))
-        return correctos
+            del_dia = []
+            for tramo in range(1, self.TRAMOS_POR_DIA + 1):
+                c_inicio, c_fin = self.campo_de_hora('inicio', dia, tramo), self.campo_de_hora('fin', dia, tramo)
+                inicio, fin = datos.get(c_inicio), datos.get(c_fin)
+                if tramo > 1 and inicio is None and fin is None and c_inicio not in self.errors and c_fin not in self.errors:
+                    continue   # otra hora que se dejó vacía: no se pide
+                cual = f'del {nombre}' if tramo == 1 else f'de la {ORDINALES.get(tramo, "otra")} clase del {nombre}'
+                if inicio is None and c_inicio not in self.errors:
+                    self.add_error(c_inicio, f'Indica la hora de inicio {cual}.')
+                if fin is None and c_fin not in self.errors:
+                    self.add_error(c_fin, f'Indica la hora de fin {cual}.')
+                if inicio and fin:
+                    if fin <= inicio:
+                        self.add_error(c_fin, f'La hora de fin {cual} debe ser posterior a la de inicio.')
+                        continue
+                    choca = next((t for t in del_dia if inicio < t[2] and t[1] < fin), None)
+                    if choca:
+                        self.add_error(c_inicio, f'Se empalma con la otra hora del {nombre} ({choca[1]:%H:%M}–{choca[2]:%H:%M}).')
+                        continue
+                    del_dia.append((dia, inicio, fin, c_inicio))
+            self.tramos_pedidos += del_dia
+        return [(dia, inicio, fin) for dia, inicio, fin, _ in self.tramos_pedidos]
 
 
 def revisar_empalmes_por_dia(form, grupo, ciclo, semana, asignacion, desde, excluir_bloque=None):
-    """Los días pedidos (`form.bloques_pedidos`), uno por uno: que no se empalmen con el grupo (otra materia o un receso
-    suyo), con un bloque simultáneo ni con otra clase del profesor. El error va en la hora de inicio de ese día.
+    """Las horas pedidas (`form.tramos_pedidos`), una por una: que no se empalmen con el grupo (otra materia o un receso
+    suyo), con un bloque simultáneo ni con otra clase del profesor. El error va en la hora de inicio de esa hora.
     `excluir_bloque`: el bloque que se está editando (se guarda en su nueva posición, que ya se revisa aparte)."""
     profesor = asignacion.profesor if asignacion else None
-    for dia, inicio, fin in form.bloques_pedidos:
+    for dia, inicio, fin, campo in form.tramos_pedidos:
         bloques, recreos = empalmes_del_grupo(grupo, ciclo, dia, inicio, fin, excluir_bloque=excluir_bloque, semana=semana)
         if bloques or recreos:
-            form.add_error(f'inicio_{dia}', mensaje_de_empalme(bloques, recreos))
+            form.add_error(campo, mensaje_de_empalme(bloques, recreos))
         simultaneo = bloque_empalmado(grupo, ciclo, dia, inicio, fin, semana, asignacion)
         if simultaneo is not None:
-            form.add_error(f'inicio_{dia}', mensaje_de_bloque(simultaneo))
+            form.add_error(campo, mensaje_de_bloque(simultaneo))
         if profesor:
             del_profesor = list(bloques_del_profesor_empalmados(
                 profesor, ciclo, dia, inicio, fin, excluir_pk=excluir_bloque, excluir_grupo=grupo, semana=semana,
                 nivel=grupo.grado.nivel, desde=desde,
             ))
             if del_profesor:
-                form.add_error(f'inicio_{dia}', mensaje_de_empalme_profesor(profesor, del_profesor))
+                form.add_error(campo, mensaje_de_empalme_profesor(profesor, del_profesor))
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +213,7 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
     )
     dias = campo_de_dias()
     vigencia = campo_de_vigencia()
+    TRAMOS_POR_DIA = 3   # el mismo día, a primera hora y otra vez más tarde
 
     def __init__(self, *args, grupo, ciclo, semana='', **kwargs):
         super().__init__(*args, **kwargs)
@@ -207,8 +244,9 @@ class HorarioCrearForm(HorasPorDiaMixin, EstiloCamposMixin, forms.Form):
 class HorarioEditarForm(HorasPorDiaMixin, EstiloCamposMixin, forms.ModelForm):
     """Un bloque: su materia, día y horas (y su semana, en un horario alternado), desde la fecha que se indique.
 
-    «También se da otros días» (pedido del 2026-11-18): al cambiar el día, el bloque se mueve; para que la materia se dé
-    además otro día se marcan aquí esos días, cada uno con su hora, y se agregan como bloques nuevos sin tocar este. Se
+    «También se da» (pedido del 2026-11-18): al cambiar el día, el bloque se mueve; para que la materia se dé además otro
+    día se marcan aquí esos días, cada uno con su hora, y se agregan como bloques nuevos sin tocar este. Desde el
+    2026-11-19 también el mismo día a otra hora (primera y cuarta, por ejemplo), sin empalmarse con este bloque. Se
     revisan los mismos empalmes que al agregar y se guarda todo o nada.
     """
 
@@ -218,6 +256,7 @@ class HorarioEditarForm(HorasPorDiaMixin, EstiloCamposMixin, forms.ModelForm):
     )
     vigencia = campo_de_vigencia()
     dias = campo_de_dias()
+    TRAMOS_POR_DIA = 3
 
     class Meta:
         model = HorarioMateria
@@ -237,7 +276,7 @@ class HorarioEditarForm(HorasPorDiaMixin, EstiloCamposMixin, forms.ModelForm):
             del self.fields['semana']   # horario fijo: todas las semanas
         self.bloques_pedidos, self.agregados = [], []
         self.fields['dias'].required = False
-        self.fields['dias'].label = 'También se da otros días'
+        self.fields['dias'].label = 'También se da'
         self.agregar_horas_por_dia()
         self.aplicar_estilo()
         self.fields['dias'].widget.attrs['class'] = 'choice__input'  # el mixin le habría puesto la clase de los campos de texto
@@ -254,11 +293,15 @@ class HorarioEditarForm(HorasPorDiaMixin, EstiloCamposMixin, forms.ModelForm):
         semana = datos.get('semana', self.instance.semana) or ''
         desde = validar_vigencia(self, self.ciclo)
 
-        # Los otros días: cada uno con su hora, sin repetir el día de este bloque, con los mismos empalmes que al agregar
-        self.bloques_pedidos = self.limpiar_horas_por_dia(datos)
-        if dia is not None and dia in {d for d, _, _ in self.bloques_pedidos}:
-            self.add_error('dias', f'El {DIAS[dia].lower()} ya es el día de este bloque. Para darla otra vez ese día, agrégala desde «Agregar horario».')
-            self.bloques_pedidos = [b for b in self.bloques_pedidos if b[0] != dia]
+        # Las otras horas (otro día, o este mismo día a otra hora): con los mismos empalmes que al agregar y, las de este
+        # mismo día, sin encimarse con la nueva hora de este bloque (la guardada se excluye: este bloque se mueve)
+        self.limpiar_horas_por_dia(datos)
+        if dia is not None and inicio and fin and inicio < fin:
+            for otro_dia, otro_inicio, otro_fin, campo in list(self.tramos_pedidos):
+                if otro_dia == dia and otro_inicio < fin and inicio < otro_fin:
+                    self.add_error(campo, f'Se empalma con este bloque ({inicio:%H:%M}–{fin:%H:%M}): elige otra hora del {DIAS[dia].lower()}.')
+                    self.tramos_pedidos.remove((otro_dia, otro_inicio, otro_fin, campo))
+        self.bloques_pedidos = [(d, i, f) for d, i, f, _ in self.tramos_pedidos]
         revisar_empalmes_por_dia(self, self.grupo, self.ciclo, semana, datos.get('materia_grado'), desde, excluir_bloque=self.instance.pk)
         # El orden de las horas lo valida el modelo; aquí, que no se empalme con otra materia ni con un receso del grupo.
         if inicio and fin and inicio < fin and dia is not None:
@@ -279,8 +322,8 @@ class HorarioEditarForm(HorasPorDiaMixin, EstiloCamposMixin, forms.ModelForm):
         return datos
 
     def save(self, commit=True):
-        """Con versiones: si aplica desde una fecha, el bloque anterior se conserva para las fechas previas. Los otros
-        días marcados se agregan como bloques nuevos de la misma materia y semana, desde la misma fecha."""
+        """Con versiones: si aplica desde una fecha, el bloque anterior se conserva para las fechas previas. Las otras
+        horas marcadas se agregan como bloques nuevos de la misma materia y semana, desde la misma fecha."""
         valores = {campo: self.cleaned_data[campo] for campo in ('materia_grado', 'dia_semana', 'hora_inicio', 'hora_fin', 'semana')
                    if campo in self.cleaned_data}
         desde = self.cleaned_data.get('vigencia')

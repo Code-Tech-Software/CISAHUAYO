@@ -850,6 +850,35 @@ a.slot__name:hover {
   justify-self: start;
 }
 
+/* Otra hora el mismo día (una materia a primera hora y otra vez a cuarta, 2026-11-19): debajo de la primera, separada
+   por una línea, con su título y su botón para quitarla */
+.horario-dia__horas--otra {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--border);
+}
+
+.horario-dia__otra {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.horario-dia__quitar,
+.horario-dia__mas {
+  justify-self: start;
+}
+
+.horario-dia__quitar {
+  grid-column: 1 / -1;
+}
+
+.horario-dia__mas {
+  margin-top: var(--space-2);
+}
+
 /* ==========================================================================
    PERIODOS DE EVALUACIÓN
    Tarjetas como las de los grados (el número es el orden del periodo en su nivel); la abierta se resalta y la

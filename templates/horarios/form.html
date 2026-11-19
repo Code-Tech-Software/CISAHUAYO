@@ -20,7 +20,7 @@
       <h1 class="page-header__title">{% include "partials/icono_seccion.html" %}{% if es_edicion %}Editar horario{% else %}Agregar horario{% endif %}</h1>
       <p class="page-header__description">
         {{ grupo }} · Ciclo {{ ciclo }}{% if semana and not es_edicion %} · <strong>Semana {{ semana }}</strong>{% endif %}.
-        {% if es_edicion %}Cambia la materia, el día o la hora de este bloque, o agrega la materia también en otros días.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora.{% endif %}
+        {% if es_edicion %}Cambia la materia, el día o la hora de este bloque, o agrega la materia también en otros días.{% else %}Elige la materia y los días en que se da; cada día puede tener su propia hora, y más de una si se da otra vez ese día.{% endif %}
       </p>
     </div>
   </header>
@@ -73,7 +73,7 @@
                 {% else %}Por ahora {{ bloque.materia_grado.materia }} solo se da en este bloque.{% endif %}
               </p>
             {% endwith %}
-            {% include "horarios/_horas_por_dia.html" with form=form titulo="También se da otros días" opcional=True ayuda="Cambiar el día de arriba mueve este bloque. Para que la materia se dé además otro día, márcalo aquí con su hora: se agrega sin quitar este." vacio="Marca uno o varios días y escribe su hora; se propone la de este bloque." %}
+            {% include "horarios/_horas_por_dia.html" with form=form titulo="También se da" opcional=True ayuda="Cambiar el día de arriba mueve este bloque. Para que la materia se dé además otro día, o este mismo día a otra hora, márcalo aquí con su hora: se agrega sin quitar este." vacio="Marca uno o varios días y escribe su hora; en otro día se propone la de este bloque." %}
           {% endif %}
           {% include "partials/field.html" with campo=form.vigencia clase="form-grid__full" %}
         </div>

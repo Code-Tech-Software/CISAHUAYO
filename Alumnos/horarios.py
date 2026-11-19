@@ -71,23 +71,61 @@ def con_resumen_de_horario(asignaciones):
     return asignaciones
 
 
-def cuadricula(bloques):
-    """Horario semanal como tabla: una fila por cada franja (inicio-fin) y una columna por día.
+class Celda(list):
+    """Los bloques de una celda de la cuadrícula (casi siempre uno). `filas`: cuántas franjas seguidas ocupa (el
+    `rowspan`); `oculta`: la ocupa una celda de una fila anterior, así que no se dibuja; `con_horas`: los bloques dicen
+    su hora porque la celda no coincide con una sola franja."""
 
-    Siempre salen de lunes a viernes; sábado y domingo solo si tienen bloques. Cada celda es una lista
-    (casi siempre de un bloque; si por un error de captura hubiera dos, se muestran ambos).
+    def __init__(self, bloques=(), filas=1, oculta=False):
+        super().__init__(bloques)
+        self.filas, self.oculta = filas, oculta
+        self.con_horas = filas > 1 or len({(b.hora_inicio, b.hora_fin) for b in self}) > 1
+
+
+def _agrupar_traslapes(bloques):
+    """[(inicio, fin, [bloques])] de un día: los bloques que se traslapan (p. ej. de las semanas A y B vistas juntas, o
+    un error de captura) comparten celda; los demás, una cada uno. En orden de hora."""
+    grupos = []
+    for bloque in sorted(bloques, key=lambda b: (b.hora_inicio, b.hora_fin)):
+        if grupos and bloque.hora_inicio < grupos[-1][1]:
+            inicio, fin, juntos = grupos[-1]
+            grupos[-1] = (inicio, max(fin, bloque.hora_fin), juntos + [bloque])
+        else:
+            grupos.append((bloque.hora_inicio, bloque.hora_fin, [bloque]))
+    return grupos
+
+
+def cuadricula(bloques):
+    """Horario semanal como tabla: una fila por franja y una columna por día.
+
+    Las franjas son los tramos entre todas las horas de inicio y de fin del horario (sin los huecos que nadie ocupa), así
+    que un bloque que dura dos o más franjas, como un laboratorio de dos horas, ocupa esas filas seguidas (`rowspan`) en
+    lugar de abrir una fila propia (corrección del 2026-11-19: antes había una fila por cada par inicio-fin distinto y
+    el laboratorio de 08:00 a 09:40 salía en una fila aparte, entre la de 08:00 y la de 08:50).
+
+    Siempre salen de lunes a viernes; sábado y domingo solo si tienen bloques. Cada celda es una `Celda` (una lista de
+    bloques); las que cubre un bloque de una fila anterior vienen vacías y con `oculta`.
     """
-    bloques = list(bloques)
+    bloques = [b for b in bloques if b.hora_inicio < b.hora_fin]
     dias = sorted(set(DIAS_HABILES) | {bloque.dia_semana for bloque in bloques})
-    franjas = sorted({(bloque.hora_inicio, bloque.hora_fin) for bloque in bloques})
-    celdas = {}
-    for bloque in bloques:
-        celdas.setdefault((bloque.hora_inicio, bloque.hora_fin, bloque.dia_semana), []).append(bloque)
+    cortes = sorted({b.hora_inicio for b in bloques} | {b.hora_fin for b in bloques})
+    franjas = [(inicio, fin) for inicio, fin in zip(cortes, cortes[1:])
+               if any(b.hora_inicio <= inicio and fin <= b.hora_fin for b in bloques)]
+    fila_de = {inicio: i for i, (inicio, _) in enumerate(franjas)}
+
+    tabla = [[None] * len(dias) for _ in franjas]
+    for columna, dia in enumerate(dias):
+        for inicio, fin, juntos in _agrupar_traslapes([b for b in bloques if b.dia_semana == dia]):
+            primera = fila_de[inicio]
+            ocupadas = sum(1 for desde, hasta in franjas if inicio <= desde and hasta <= fin)
+            tabla[primera][columna] = Celda(juntos, filas=ocupadas)
+            for siguiente in range(primera + 1, primera + ocupadas):
+                tabla[siguiente][columna] = Celda(oculta=True)
     return {
         'dias': [{'numero': dia, 'nombre': DIAS[dia], 'corto': DIAS_CORTOS[dia]} for dia in dias],
         'filas': [
-            {'inicio': inicio, 'fin': fin, 'celdas': [celdas.get((inicio, fin, dia), []) for dia in dias]}
-            for inicio, fin in franjas
+            {'inicio': inicio, 'fin': fin, 'celdas': [celda if celda is not None else Celda() for celda in tabla[i]]}
+            for i, (inicio, fin) in enumerate(franjas)
         ],
     }
 

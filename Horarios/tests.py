@@ -195,6 +195,15 @@ class GradoTests(BaseTestCase):
         primera = tabla['filas'][0]['celdas']
         self.assertEqual([[b.materia_grado.materia.clave for b in celda] for celda in primera], [['MAT'], [], ['MAT'], [], []])
 
+    def test_un_laboratorio_de_dos_horas_ocupa_dos_filas(self):
+        lab = asignar('LAB', 'Laboratorio', self.grado, self.ciclo)
+        bloque(lab, 1, (8, 0), (10, 0))
+        respuesta = self.pedir()
+        tabla = respuesta.context['cuadricula']
+        self.assertEqual([(f['inicio'], f['fin']) for f in tabla['filas']], [(time(8, 0), time(9, 0)), (time(9, 0), time(10, 0))])
+        self.assertContains(respuesta, 'rowspan="2"', count=1)
+        self.assertContains(respuesta, '<span class="slot__hora">08:00–10:00</span>', html=False)
+
     def test_resumen_y_materias_sin_horario(self):
         respuesta = self.pedir()
         self.assertEqual(respuesta.context['total_bloques'], 3)

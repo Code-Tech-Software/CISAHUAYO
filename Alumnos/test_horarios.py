@@ -81,6 +81,40 @@ class CuadriculaTests(SimpleTestCase):
     def test_sin_bloques_no_hay_filas(self):
         self.assertEqual(cuadricula([])['filas'], [])
 
+    # Un bloque de dos horas (un laboratorio) ocupa dos filas seguidas: no abre una fila propia (2026-11-19)
+    def test_un_bloque_de_dos_franjas_ocupa_las_dos_filas(self):
+        mat, esp, lab = bloque(0, (8, 0), (8, 50)), bloque(0, (8, 50), (9, 40)), bloque(1, (8, 0), (9, 40))
+        primera, segunda = cuadricula([mat, esp, lab])['filas']
+        self.assertEqual([(primera['inicio'], primera['fin']), (segunda['inicio'], segunda['fin'])],
+                         [(time(8, 0), time(8, 50)), (time(8, 50), time(9, 40))])
+        self.assertEqual(primera['celdas'][1], [lab])
+        self.assertEqual((primera['celdas'][1].filas, primera['celdas'][1].con_horas), (2, True))
+        self.assertTrue(segunda['celdas'][1].oculta)                 # el martes de 08:50 ya lo ocupa el laboratorio
+        self.assertEqual((segunda['celdas'][0], segunda['celdas'][0].filas), ([esp], 1))
+        self.assertFalse(primera['celdas'][0].con_horas)
+
+    def test_un_bloque_largo_sin_otras_horas_es_una_sola_fila(self):
+        filas = cuadricula([bloque(1, (8, 0), (9, 40)), bloque(3, (8, 0), (9, 40))])['filas']
+        self.assertEqual([(f['inicio'], f['fin']) for f in filas], [(time(8, 0), time(9, 40))])
+        self.assertEqual(filas[0]['celdas'][1].filas, 1)
+
+    def test_tres_franjas_y_los_huecos_de_todo_el_horario_no_son_filas(self):
+        lab = bloque(2, (10, 0), (12, 30))
+        filas = cuadricula([bloque(0, (8, 0), (9, 0)), bloque(0, (10, 0), (11, 0)), bloque(1, (11, 0), (12, 0)), lab])['filas']
+        self.assertEqual([f['inicio'] for f in filas], [time(8, 0), time(10, 0), time(11, 0), time(12, 0)])
+        self.assertEqual(filas[1]['celdas'][2].filas, 3)
+        self.assertEqual([f['celdas'][2].oculta for f in filas], [False, False, True, True])
+
+    def test_los_que_se_traslapan_comparten_celda(self):
+        # Semanas A y B vistas juntas: en A el laboratorio de dos horas, en B dos clases de una
+        lab, mat, esp = bloque(0, (8, 0), (9, 40)), bloque(0, (8, 0), (8, 50)), bloque(0, (8, 50), (9, 40))
+        primera, segunda = cuadricula([lab, mat, esp])['filas']
+        self.assertEqual(sorted(map(id, primera['celdas'][0])), sorted(map(id, [lab, mat, esp])))
+        self.assertEqual(primera['celdas'][0].filas, 2)
+        self.assertTrue(segunda['celdas'][0].oculta)
+        # Cada bloque se cuenta una sola vez al recorrer la cuadrícula
+        self.assertEqual(sum(len(c) for f in (primera, segunda) for c in f['celdas']), 3)
+
 
 class EmpalmesTests(TestCase):
     def setUp(self):

@@ -1,5 +1,6 @@
 {% comment %}
-  Horario semanal como tabla accesible (una fila por franja, una columna por día).
+  Horario semanal como tabla accesible (una fila por franja, una columna por día). Un bloque que dura varias franjas
+  (un laboratorio de dos horas) ocupa esas filas con rowspan y dice su hora; las celdas que cubre no se dibujan.
   Parámetros: cuadricula (de Alumnos.horarios.cuadricula), etiqueta (texto para lectores de pantalla),
   modo ("grado": cada bloque muestra su clave y profesor, y se puede editar/quitar; "profesor": muestra el grado),
   editable (bool, solo en modo grado), mostrar_semana (bool: la letra A o B en cada bloque, cuando se ven las dos
@@ -23,7 +24,8 @@
         <tr>
           <th class="timetable__time" scope="row">{{ fila.inicio|time:"H:i" }}<span class="timetable__time-end">{{ fila.fin|time:"H:i" }}</span></th>
           {% for celda in fila.celdas %}
-            <td class="timetable__cell">
+            {% if not celda.oculta %}
+            <td class="timetable__cell{% if celda.filas > 1 %} timetable__cell--varias{% endif %}"{% if celda.filas > 1 %} rowspan="{{ celda.filas }}"{% endif %}>
               {% for bloque in celda %}
                 {% if bloque.es_recreo %}
                   <div class="slot slot--recreo">
@@ -34,6 +36,7 @@
                         <span class="slot__name">{{ bloque.nombre }}</span>
                       {% endif %}
                       <span class="slot__code">Todo el grupo</span>
+                      {% if celda.con_horas %}<span class="slot__hora">{{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}</span>{% endif %}
                     </div>
                     {% if editable and perms.Alumnos.delete_horariomateria %}
                       <button type="button" class="slot__remove" data-modal-open="modal-eliminar-recreo" data-eliminar
@@ -50,6 +53,7 @@
                     <div class="slot__text">
                       <span class="slot__name">{{ bloque.bloque.nombre }}</span>
                       <span class="slot__code">Se distribuyen en: {{ bloque.materias_texto }}</span>
+                      {% if celda.con_horas %}<span class="slot__hora">{{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}</span>{% endif %}
                     </div>
                   </div>
                 {% else %}
@@ -73,6 +77,7 @@
                         <span class="slot__code">{{ materia.clave }}{% if asignacion.profesor %} · {{ asignacion.profesor.apellido_paterno }}{% endif %}{% if bloque.semana and mostrar_semana %}<span class="slot__semana" title="Semana {{ bloque.semana }}">· Sem. {{ bloque.semana }}</span>{% endif %}</span>
                         {% if bloque.sustituida_por %}<span class="slot__sustituida">Sustituida por {{ bloque.sustituida_por }} para sus participantes</span>{% endif %}
                       {% endif %}
+                      {% if celda.con_horas %}<span class="slot__hora">{{ bloque.hora_inicio|time:"H:i" }}–{{ bloque.hora_fin|time:"H:i" }}</span>{% endif %}
                     </div>
                     {% if modo != "profesor" and editable and perms.Alumnos.delete_horariomateria %}
                       <button type="button" class="slot__remove" data-modal-open="modal-eliminar" data-eliminar
@@ -87,6 +92,7 @@
                 {% endif %}
               {% endfor %}
             </td>
+            {% endif %}
           {% endfor %}
         </tr>
       {% endfor %}

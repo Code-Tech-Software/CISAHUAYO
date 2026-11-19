@@ -503,6 +503,24 @@
   margin-top: var(--space-1);
 }
 
+/* Un bloque de varias franjas seguidas (un laboratorio de dos horas, 2026-11-19): la celda ocupa esas filas
+   (rowspan) y el bloque la llena de arriba abajo, así se lee como una sola clase larga. La altura de 1px en la celda
+   es lo que deja que el bloque tome el 100 % de las filas que ocupa. */
+.timetable__cell--varias {
+  height: 1px;
+}
+
+.timetable__cell--varias > .slot:only-child {
+  height: 100%;
+}
+
+.slot__hora {
+  margin-top: 0.15rem;
+  color: var(--color-text-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
 .slot--tone-1 {
   --slot-tone: var(--color-tone-1);
   --slot-base: var(--color-tone-1-base);
